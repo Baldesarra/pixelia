@@ -315,8 +315,11 @@ esp_err_t begin(const uint8_t* head, size_t len, size_t total, char* error, size
         set_error(error);
         return ESP_ERR_INVALID_SIZE;
     }
-    // Schrittweise löschen statt vorab die ganze Partition: der Upload beginnt sofort
-    esp_err_t err = esp_ota_begin(s_target, OTA_WITH_SEQUENTIAL_WRITES, &s_handle);
+    // Nur den Bereich der neuen Firmware vorab löschen (in 64-KB-Blöcken, deutlich schneller als 4-KB-Sektoren
+    // während des Schreibens). Das Display läuft dabei weiter, weil Programm und Daten im PSRAM liegen.
+    const int64_t t_erase = esp_timer_get_time();
+    esp_err_t err = esp_ota_begin(s_target, total, &s_handle);
+    ESP_LOGI(TAG, "%u KB gelöscht in %lld ms", static_cast<unsigned>(total / 1024), (esp_timer_get_time() - t_erase) / 1000);
     if (err != ESP_OK) {
         std::snprintf(error, error_len, "Update kann nicht starten: %s", esp_err_to_name(err));
         set_error(error);
