@@ -719,6 +719,7 @@ pixelia/
 ├─ sim/                   PC- und Browser-Simulator (SDL / Emscripten)
 ├─ web/                   Weboberfläche (Svelte + TypeScript)
 ├─ assets/                Quell-PNGs, Paletten, Datendateien, CREDITS.md
+├─ pages/                 GitHub Pages: Web-Flasher, später Browser-Simulator (ab 0.1.0)
 ├─ tools/                 Asset-Pipeline, Changelog-Generator, Hilfsskripte (Python)
 └─ .github/workflows/     Builds, Tests, Releases, GitHub Pages
 ```
@@ -831,3 +832,8 @@ unsere Paletten um. Details: 4.7.
 | 2026-10-18 | Touch per Polling alle 20 ms, ohne INT-Leitung | INT-Pin nicht nötig, GT911 liefert zuverlässig |
 | 2026-10-18 | „Kein Sound“ wird neu bewertet | Platine hat einen Lautsprecher-Anschluss „Speak“ mit Verstärker (Foto), Test steht aus (Backlog) |
 | 2026-10-18 | **Lebendigkeits-Charta** ([LEBENDIGKEIT.md](LEBENDIGKEIT.md)) verbindlich: Systeme statt Schleifen, Ereignis-Regisseur, messbare Mindestziele pro Welt, Langzeit-Test mit Kontaktbogen in jedem Welt-PR, Zahlen in jedem Release-Bericht | ausdrücklicher Wunsch des Users: Tiefe und echtes Leben statt einfacher Szenen in Dauerschleife; „lebendig“ muss überprüfbar sein, nicht nur versprochen |
+| 2026-10-18 | Szenen-Schnittstelle `pixelia::Scene` und **Weltzeit mit Zeitraffer** in `engine/`; Gerät und Simulator nutzen denselben Szenen-Code | eine Codebasis für Gerät, Simulator und Langzeit-Test; feste Uhrzeit und Zeitraffer machen Tageszeit-Verhalten prüfbar (4.4, LEBENDIGKEIT.md) |
+| 2026-10-18 | Simulator mit **SDL3** (3.4.16, per FetchContent, SHA-256 geprüft) statt SDL2; Kopflos-Modus ohne SDL | SDL3 ist die aktuelle Hauptversion; kopflos braucht CI keine Grafikbibliotheken |
+| 2026-10-18 | Eigener kleiner **PNG-Encoder** in `engine/` statt Fremdbibliothek | Screenshots im Simulator und später auf dem Gerät (Live-Vorschau) mit demselben Code, keine Lizenzfragen |
+| 2026-10-18 | Web-Flasher mit **ESP Web Tools** auf GitHub Pages, eigener Ordner `pages/`; Pages-Workflow läuft nach jedem Release vom Hauptzweig | Erstinstallation ohne Werkzeuge; die Pages-Umgebung erlaubt Veröffentlichungen nur vom Hauptzweig, nicht von Tags |
+| 2026-10-18 | Einfacher Release-Weg für 0.1.x: Tag → Workflow baut, erzeugt Factory-Image (`idf.py merge-bin`) und Release-Notes aus `CHANGELOG.json` | reicht bis 0.4.x; Release bricht ab, wenn der Changelog-Eintrag fehlt |
