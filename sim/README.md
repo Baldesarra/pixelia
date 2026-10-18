@@ -20,15 +20,22 @@ Derselbe Engine- und Szenen-Code wie auf dem Gerät (`engine/`, später `worlds/
 
 `--screen NAME` zeichnet eine Systemanzeige mit Beispieldaten (Setup-Modus, Update, Meldung, Kurzmeldung), mit
 demselben Code wie auf dem Gerät: `setup`, `setup-leer`, `setup-fehler`, `update`, `update-fertig`, `failed`,
-`message`, `toast`, `toast-lang`.
+`message`, `toast`, `toast-lang`, `toast-ip` (Kurzmeldung nach dem Verbinden), `info`, `info-setup`, `info-offline`
+(Info-Karte im WLAN, im Setup-Modus und ohne Verbindung), `hold` (Halte-Anzeige während des langen Drucks).
+
+`--test gestures` (bzw. `--test all`) prüft die Gestenerkennung ohne Hardware mit nachgestellten Touch-Abläufen:
+Tippen, langer Druck (auch ohne neue Messwerte), Zittern, Bewegung, zwei Finger, einstellbare Dauer, Zeitüberlauf.
+Exit-Code 1, wenn ein Fall scheitert.
 
 Tasten im Fenster: Leertaste Pause, `+`/`-` Zeitraffer, `T` eine Stunde weiter, `S` Screenshot nach `screenshots/`,
-`Esc` Ende.
+`Esc` Ende. Die Maus ersetzt den Touch, mit derselben Gestenerkennung wie auf dem Gerät: 3 s gedrückt halten zeigt
+die Info-Karte (mit Beispieldaten), ein Klick schließt sie.
 
 ## CI
 
-`.github/workflows/simulator.yml` baut unter Linux und legt Screenshots (Morgen, Mittag, Abend) und einen
-Kontaktbogen sowie alle Systemanzeigen (`system-*.png`) als Artefakt **simulator-screenshots** ab.
+`.github/workflows/simulator.yml` baut unter Linux, führt die Selbsttests aus (`--test all`) und legt Screenshots
+(Morgen, Mittag, Abend) und einen Kontaktbogen sowie alle Systemanzeigen (`system-*.png`) als Artefakt
+**simulator-screenshots** ab.
 
 ## Werkzeuge
 

@@ -59,6 +59,9 @@ esp_err_t remove_network(const char* ssid);
 // Letztes Scan-Ergebnis; fresh = neu scannen (blockiert bis zu timeout_ms)
 int scan(ScanEntry* out, int max, bool fresh, int timeout_ms = 8000);
 
+// Passwort des Setup-WLANs (steht im Setup-Modus ohnehin auf dem Display), leer bis zum ersten Setup-Modus
+const char* ap_password();
+
 // Sofort neu verbinden bzw. den Setup-Modus erzwingen (Konsole, Weboberfläche)
 void reconnect();
 void force_setup();

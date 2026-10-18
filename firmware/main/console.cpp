@@ -8,6 +8,7 @@
 
 #include "app.h"
 #include "board/backlight.h"
+#include "input.h"
 #include "net.h"
 #include "ota.h"
 #include "settings.h"
@@ -29,6 +30,8 @@ void print_help() {
     ESP_LOGI(TAG, "Befehle:");
     ESP_LOGI(TAG, "  info | heap | scan | touch | touchrst | reboot");
     ESP_LOGI(TAG, "  rot <0|180> | set | set bright <1-100>           Bild drehen, Einstellungen (gespeichert)");
+    ESP_LOGI(TAG, "  set lp <1000-10000>                            Dauer des langen Drucks für die Info-Karte (ms)");
+    ESP_LOGI(TAG, "  card | card off                                Info-Karte zeigen bzw. schließen");
     ESP_LOGI(TAG, "  wifi | wifi scan | wifi list | wifi forget <Name> | wifi setup | wifi connect");
     ESP_LOGI(TAG, "  ota | ntp | web | toast <Text>                 Update-Zustand, Uhrzeit, Webserver, Kurzmeldung");
     ESP_LOGI(TAG, "  tour [tap] | flash <Sekunden> | marks <n>      geführter Test (tap: Start per Tippen), Flash-Last");
@@ -98,7 +101,13 @@ void handle(char* line) {
     } else if (is("set")) {
         if (argc >= 3 && std::strcmp(argv[1], "bright") == 0) settings::set_brightness(std::atoi(argv[2]));
         else if (argc >= 3 && std::strcmp(argv[1], "rot") == 0) settings::set_rotation180(std::atoi(argv[2]) == 180);
+        else if (argc >= 3 && std::strcmp(argv[1], "lp") == 0) settings::set_long_press_ms(std::atoi(argv[2]));
         settings::log_all();
+    } else if (is("card")) {
+        const bool off = argc >= 2 && std::strcmp(argv[1], "off") == 0;
+        if (off) infocard::hide();
+        else infocard::show();
+        ESP_LOGI(TAG, "Info-Karte %s", off ? "geschlossen" : "gezeigt");
     } else if (is("wifi")) {
         const char* sub = argc >= 2 ? argv[1] : "";
         if (std::strcmp(sub, "scan") == 0) {

@@ -562,8 +562,11 @@ void on_connected() {
     s_quick_tries = 0;
     s_rssi_at = now_us();
     timesync::on_connected();
-    char body[160];
-    std::snprintf(body, sizeof(body), "WLAN „%s“, Adresse %s\nIm Browser: http://%s.local", st.ssid, st.ip, kMdnsHost);
+    char body[224];
+    std::snprintf(body, sizeof(body),
+                  "WLAN „%s“, Adresse %s\nIm Browser: http://%s/ oder http://%s.local\nLanger Druck aufs Display "
+                  "zeigt diese Daten jederzeit.",
+                  st.ssid, st.ip, st.ip, kMdnsHost);
     if (st.ap_active) {
         // Einrichtung abgeschlossen: Ergebnis zeigen, Access Point noch kurz offen lassen, falls jemand zuschaut
         ui::hide_setup();
@@ -575,9 +578,10 @@ void on_connected() {
             leave_setup();
         }
     } else {
+        // Mit IP: in fremden WLANs (Handy-Hotspot, andere Router) ist sie oft der einzige Weg zur Seite
         char text[96];
-        std::snprintf(text, sizeof(text), "WLAN „%.24s“ · http://%s.local", st.ssid, kMdnsHost);
-        ui::toast(text, pixelia::ui::Tone::Success, s_announced ? 5 : 8);
+        std::snprintf(text, sizeof(text), "Verbunden mit „%.24s“ · %s", st.ssid, st.ip);
+        ui::toast(text, pixelia::ui::Tone::Success, s_announced ? 6 : 10);
     }
     s_announced = true;
 }
@@ -755,6 +759,8 @@ Status status() {
     std::lock_guard<std::mutex> g(s_lock);
     return s_status;
 }
+
+const char* ap_password() { return s_ap_password; }
 
 int saved_networks(char (*ssids)[33], int max) {
     std::lock_guard<std::mutex> g(s_lock);

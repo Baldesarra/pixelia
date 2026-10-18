@@ -104,7 +104,9 @@ bool render_screen(const std::string& name, std::vector<uint8_t>& frame) {
         ui::render_update(canvas, {ui::UpdateInfo::Phase::Failed, "0.2.0", "", 0, 0,
                                    "Das ist keine Pixelia-Firmware (Projekt „blink“)."});
     } else if (name == "message") {
-        ui::render_message(canvas, {"Verbunden", "WLAN „Heimnetz“, Adresse 192.168.178.42\nIm Browser: http://pixelia.local",
+        ui::render_message(canvas, {"Verbunden",
+                                    "WLAN „Heimnetz“, Adresse 192.168.178.42\nIm Browser: http://192.168.178.42/ oder "
+                                    "http://pixelia.local\nLanger Druck aufs Display zeigt diese Daten jederzeit.",
                                     ui::Tone::Success});
     } else if (name == "toast") {
         ui::draw_toast(canvas, "Update auf 0.2.1 wurde zurückgerollt: Absturz im Probelauf", ui::Tone::Warning);
@@ -113,6 +115,15 @@ bool render_screen(const std::string& name, std::vector<uint8_t>& frame) {
                        "Update auf 0.1.0-2-gcc56269-test-selftest zurückgerollt: Selbsttest nicht bestanden: Engine "
                        "liefert keine Bilder",
                        ui::Tone::Warning);
+    } else if (name == "info" || name == "info-setup" || name == "info-offline") {
+        // Info-Karte über der laufenden Szene (langer Druck aufs Display)
+        ui::InfoCard card;
+        card.set(sample_info(name));
+        card.render(canvas);
+    } else if (name == "hold") {
+        ui::draw_hold_indicator(canvas, 0.55f);
+    } else if (name == "toast-ip") {
+        ui::draw_toast(canvas, "Verbunden mit „Heimnetz“ · 192.168.178.42", ui::Tone::Success);
     } else {
         return false;
     }
@@ -201,6 +212,26 @@ int contact_sheet(const Options& opt, pixelia::Scene& scene, pixelia::WorldClock
 
 }  // namespace
 
+pixelia::ui::InfoCardData sample_info(const std::string& variant) {
+    pixelia::ui::InfoCardData d;
+    d.version = "0.2.1";
+    if (variant == "info-setup") {
+        d.mode = pixelia::ui::InfoCardData::Mode::Setup;
+        d.ap_ssid = "Pixelia-Setup";
+        d.ap_password = "kx7m-q4tr";
+        d.ap_ip = "192.168.4.1";
+        d.ap_clients = 1;
+    } else if (variant == "info-offline") {
+        d.mode = pixelia::ui::InfoCardData::Mode::Offline;
+        d.status = "Verbinde mit „Heimnetz“ …\nZuletzt: Passwort falsch?";
+    } else {
+        d.ip = "192.168.178.42";
+        d.ssid = "Heimnetz";
+        d.rssi = -63;
+    }
+    return d;
+}
+
 int run_headless(const Options& opt) {
     auto scene = pixelia::make_scene(opt.scene.c_str());
     scene->init(opt.seed);
@@ -225,7 +256,8 @@ int run_headless(const Options& opt) {
         pixelia::ui::apply_palette(palette);
         if (!opt.screen.empty() && !render_screen(opt.screen, frame)) {
             std::printf("FEHLER: Systemanzeige \"%s\" gibt es nicht (setup, setup-leer, setup-fehler, update, "
-                        "update-fertig, failed, message, toast, toast-lang)\n", opt.screen.c_str());
+                        "update-fertig, failed, message, toast, toast-lang, toast-ip, info, info-setup, "
+                        "info-offline, hold)\n", opt.screen.c_str());
             return 2;
         }
         const int s = std::max(1, opt.scale);

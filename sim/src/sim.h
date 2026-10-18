@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <string>
 
+#include "pixelia/engine/system_ui.h"
+
 namespace sim {
 
 struct Options {
@@ -23,10 +25,14 @@ struct Options {
     int load = -1;                // Lastregler der Szene (z. B. Sprites), -1 = Standard
     bool device_colors = true;    // Farben wie auf dem Display (über RGB565)
     double run_seconds = 0;       // Fenster nach X Sekunden schließen (0 = offen lassen), für Tests
-    std::string screen;           // Systemanzeige statt Szene: setup, update, failed, message, toast
+    std::string screen;           // Systemanzeige statt bzw. über der Szene: setup, update, info, toast …
 };
 
 int run_headless(const Options& opt);
+int run_tests(const std::string& which);  // 0 = alle bestanden
 int run_window(const Options& opt);
+
+// Beispieldaten der Info-Karte: info (im WLAN), info-setup, info-offline
+pixelia::ui::InfoCardData sample_info(const std::string& variant);
 
 }  // namespace sim

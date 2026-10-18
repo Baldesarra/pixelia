@@ -7,6 +7,7 @@
 #include "board/backlight.h"
 #include "board/pins.h"
 #include "board/touch_gt911.h"
+#include "input.h"
 #include "driver/i2c_master.h"
 #include "esp_log.h"
 #include "esp_partition.h"
@@ -73,6 +74,7 @@ void touch_task(void*) {
     TickType_t last_move_log = 0;
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(20));
+        input::tick();
         if (!s_touch_ok || s_touch_pause) continue;
         board::touch::Point pts[5];
         int n = board::touch::read(pts, 5);
@@ -86,11 +88,13 @@ void touch_task(void*) {
                 ESP_LOGI(TAG_TOUCH, "los bei x=%d y=%d", last_x, last_y);
                 down = false;
                 board::display::set_touch_marker(-1, -1);
+                input::on_touch(0, last_x, last_y);
             }
             continue;
         }
         int x, y;
         map_point(pts[0], &x, &y);
+        input::on_touch(n, x, y);
         if (!down) {
             ESP_LOGI(TAG_TOUCH, "berührt x=%d y=%d (roh %u/%u, Größe %u, Finger %d)", x, y, pts[0].x, pts[0].y,
                      pts[0].size, n);

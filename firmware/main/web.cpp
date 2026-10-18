@@ -6,7 +6,7 @@
 //   POST /api/wifi/scan       neu scannen
 //   POST /api/wifi/add        ssid, pass: speichern und verbinden
 //   POST /api/wifi/remove     ssid
-//   POST /api/settings        rot (0|180), bright (1–100)
+//   POST /api/settings        rot (0|180), bright (1–100), lp (langer Druck in ms, 1000–10000)
 //   POST /api/ota             Rohdaten der .bin (application/octet-stream)
 //   POST /api/ota/ack         Hinweis auf zurückgerolltes Update gelesen
 //   POST /api/reboot
@@ -166,7 +166,8 @@ std::string status_json() {
     } else {
         j.null("rollback");
     }
-    j.obj("set").num("rot", set.rotate180 ? 180 : 0).num("bright", set.brightness).end_obj();
+    j.obj("set").num("rot", set.rotate180 ? 180 : 0).num("bright", set.brightness).num("lp", set.long_press_ms);
+    j.end_obj();
     j.end_obj();
     return std::move(j.text());
 }
@@ -350,6 +351,7 @@ esp_err_t settings_post(httpd_req_t* req) {
     if (!read_body(req, &body, 256)) return reply(req, false, "Ungültige Anfrage");
     if (form_value(body, "rot", &v)) settings::set_rotation180(v == "180");
     if (form_value(body, "bright", &v)) settings::set_brightness(std::atoi(v.c_str()));
+    if (form_value(body, "lp", &v)) settings::set_long_press_ms(std::atoi(v.c_str()));
     return reply(req, true, "Gespeichert");
 }
 

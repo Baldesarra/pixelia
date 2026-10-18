@@ -25,6 +25,9 @@ jobs:
             -DSDL_X11=OFF -DSDL_WAYLAND=OFF -DSDL_UNIX_CONSOLE_BUILD=ON > /dev/null
           cmake --build build-sim
 
+      - name: Selbsttests (Gestenerkennung)
+        run: build-sim/pixelia-sim --test all
+
       - name: Screenshots und Kontaktbogen
         run: |
           S=build-sim/pixelia-sim
@@ -34,7 +37,8 @@ jobs:
             $S --headless --time 12:00 --frames 90 --screenshot out/mittag.png
             $S --headless --time 20:00 --frames 90 --screenshot out/abend.png
             $S --headless --time 00:00 --contact-sheet out/kontaktbogen.png --span-days 2
-            for s in setup setup-fehler update update-fertig failed message toast-lang; do
+            for s in setup setup-fehler update update-fertig failed message toast-lang toast-ip info info-setup \
+                     info-offline hold; do
               $S --headless --time 14:00 --screen "$s" --screenshot "out/system-$s.png"
             done
           } | tee out/bericht.txt
