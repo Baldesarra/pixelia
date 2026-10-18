@@ -131,6 +131,69 @@ Weitere Messwerte:
 | Freier RAM ohne Engine | intern 314 KB, PSRAM 7,9 MB |
 | Firmware-Größe | 314 KB (5 % der App-Partition) |
 
+## Netzwerk und Updates (Phase 0.2.x, gemessen 2026-10-18)
+
+Firmware-Stand vor 0.2.0 mit WLAN, mDNS, NTP, Webserver mit WebSocket und OTA, Heim-WLAN an einer FritzBox,
+Signal −63 bis −73 dBm, Kanal 1.
+
+| Messung | Ergebnis |
+|---|---|
+| Freier interner RAM im Betrieb (WLAN verbunden, Seite offen, WebSocket aktiv) | 125–128 KB, Tiefstwert 119–121 KB ✅ (Budget ≥ 60 KB) |
+| Freier interner RAM im Setup-Modus (Access Point + Station) | 117–120 KB, Tiefstwert 115 KB ✅ |
+| Freier interner RAM während eines Updates | ≥ 121 KB ✅ |
+| Freier PSRAM | 6,9 MB ✅ (Budget ≥ 1 MB) |
+| Speicherbedarf beim Start | Display und Engine 62 KB, WLAN 83 KB (Setup-Modus 92 KB), Webserver 16 KB |
+| Bildrate mit WLAN, Webserver, offener Seite | 30 fps, Panel 60 Hz, 0 Aussetzer (desync), Interrupt 20,2 % ✅ |
+| Bildrate während Upload, Flash-Löschen und -Schreiben | 30 fps, 0 Aussetzer; Kern 0 dabei bis 100 % ausgelastet, Kern 1 (Grafik) unberührt ✅ |
+| Zeichenzeit | Testszene 4,0 ms; Systemanzeigen 0,02 ms (unbewegt, nur bei Änderung neu gezeichnet, dann bis 9,5 ms) |
+| Update-Upload 1113 KB | **7,4 s**: 3,2 s Zielbereich löschen (64-KB-Blöcke), 6,3 s Übertragen und Schreiben (176 KB/s) |
+| Übertragungsrate (`/api/speedtest`, 2 MB) | 158–233 KB/s, längste Pause < 0,5 s, keine Zeitüberschreitung |
+| Übertragungsrate vorher (TCP-Fenster 5,7 KB) | ~37 KB/s; bei −71 dBm blieb ein Upload ganz stehen (Wartezeiten verdoppeln sich nach jedem Paketverlust) |
+| Neustart → wieder verbunden | 3,6 s nach dem Start (Software-Neustart); Uhrzeit bleibt über Software-Neustarts erhalten |
+
+**Rückfall-Tests mit echten Updates** (Testvarianten per Browser-Schnittstelle hochgeladen, siehe unten):
+
+| Fall | Ablauf | Ergebnis |
+|---|---|---|
+| Absturz im Probelauf | Testversion stürzt nach 20 s ab (StoreProhibited) | Absturzbericht im Flash, Bootloader startet die alte Version, Meldung „zurückgerollt: Absturz im Probelauf, Task ‚selbsttest‘ bei 0x…“ ✅ |
+| Hänger im Probelauf | Testversion blockiert Kern 0 | Watchdog nach 10 s, Neustart, alte Version meldet „Hänger im Probelauf (Watchdog), Task ‚haenger‘“ ✅ |
+| Selbsttest scheitert | Testversion läuft, liefert aber angeblich keine Bilder | nach 120 s Rückfall durch Pixelia selbst, Meldung „Selbsttest nicht bestanden: Engine liefert keine Bilder“ ✅ |
+| Gute Version | normale Firmware | Selbsttest nach 60 s bestanden, gilt dauerhaft ✅ (auch vom User per Browser getestet) |
+
+**Abgelehnte Dateien** (Gerät läuft ohne Neustart weiter): Factory-Image („für den Web-Flasher“), fremde Datei
+(Kennung ≠ 0xE9), anderes Projekt („keine Pixelia-Firmware“), anderer Chip, ein verfälschtes Byte und abgeschnittene
+Datei („Prüfsumme stimmt nicht“). ✅
+
+**Besonderheiten im WLAN (FritzBox im WPA2/WPA3-Mischmodus):**
+
+- ESP-IDF 6.1 nutzt standardmäßig den WPA3-Kompatibilitätsmodus (RSN Override). An dieser FritzBox scheitert damit der
+  Schlüsselaustausch mit Grund 17 („IE in 4-Way-Handshake weicht ab“). Pixelia probiert dann ohne diesen Modus
+  (verbindet sofort) und merkt sich das pro Netz im NVS.
+- Nach einem harten Reset (z. B. beim Flashen per USB) beantwortet der Router die ersten Anmeldungen manchmal nicht
+  (Grund 2, 4 oder 202). Pixelia versucht es beim Start deshalb 45 s lang, bevor der Setup-Modus kommt.
+- **mDNS funktioniert** (Pixelia antwortet auf `pixelia.local`), aber der DNS der FritzBox beantwortet jede
+  `.local`-Adresse mit 0.0.0.0, und Windows glaubt dieser Antwort. Am PC deshalb `http://pixelia/` oder
+  `http://pixelia.fritz.box` benutzen. Android öffnet `pixelia.local` direkt.
+- Setup-Modus am Android-Handy: Die Einrichtungsseite öffnete sich nach dem Verbinden von selbst (Captive Portal),
+  die Verbindung ins Heimnetz stand wenige Sekunden nach dem Speichern (Test des Users).
+- MAC des Access Points: `1c:db:d4:49:2f:01`.
+
+**Speicher beim Start (Backlog-Punkt geklärt):** Der scheinbare Einbruch von ~31 KB internem RAM ist kein echter
+Verbrauch. ESP-IDF reserviert beim Start einen DMA-Pool (`SPIRAM_MALLOC_RESERVE_INTERNAL`, 32 KB) als eigenen
+Heap-Bereich, und dieser meldet einen Tiefstwert von 0, solange niemand daraus Speicher anfordert (per Heap-Hook und
+`heap_caps_print_heap_info` nachgewiesen). Pixelia startet die Tiefstwert-Messung deshalb zu Beginn von `app_main` neu.
+
+**Testvarianten für den Rückfall-Test** (nur lokal, nie veröffentlichen; Version endet auf `-test-…`):
+
+```
+.\tools\idf.ps1 -C firmware -B firmware/build-test-crash -DPIXELIA_TEST=crash build
+.\tools\idf.ps1 -C firmware -B firmware/build-test-hang -DPIXELIA_TEST=hang build
+.\tools\idf.ps1 -C firmware -B firmware/build-test-selftest -DPIXELIA_TEST=selftest build
+```
+
+Danach die jeweilige `pixelia.bin` über die Einrichtungsseite hochladen oder per
+`curl.exe -X POST -H "Content-Type: application/octet-stream" --data-binary "@datei.bin" http://pixelia/api/ota`.
+
 ## Diagnose-Schnittstelle
 
 Die Firmware nimmt über die serielle Konsole (115200 Baud) Befehle entgegen, `help` listet sie. `tools/monitor.ps1 -Send`
@@ -139,8 +202,18 @@ eine Zeile: Modus, Bildrate des Panels, Pixeltakt, Interrupt-Last, Aussetzer (de
 CPU-Last pro Kern, freier RAM und PSRAM.
 
 Wichtige Befehle: `pat bars|frame|motion|touch|engine|black`, `bl <0-100>|cycle|stop`, `pclk <MHz>`,
-`timing …`, `pol …`, `rot 0|180`, `swap <n>`, `sprites <n>`, `buf int|psram`, `touch`, `touchrst`, `flash <s>`,
-`tour [tap]`, `tour2`, `time <HH:MM>`, `speed <Faktor>`, `perf <s>|off`, `info`, `reboot`.
+`timing …`, `pol …`, `rot 0|180` (wird gespeichert), `set` / `set bright <1-100>`, `swap <n>`, `sprites <n>`,
+`buf int|psram`, `touch`, `touchrst`, `flash <s>`, `tour [tap]`, `tour2`, `time <HH:MM>|real`, `speed <Faktor>`,
+`perf <s>|off`, `info`, `reboot`.
+
+Netzwerk und Updates: `wifi` (Zustand), `wifi scan`, `wifi list`, `wifi forget <Name>`, `wifi setup` (Setup-Modus
+erzwingen), `wifi connect`, `ota` (Partitionen, Probelauf, Rückfall), `ntp` (Uhrzeit), `web`, `toast <Text>`
+(Kurzmeldung zum Prüfen der Anzeige). WLAN-Passwörter lassen sich über die Konsole bewusst nicht eintragen, nur über
+die Einrichtungsseite.
+
+Über das Netz (JSON): `GET /api/status`, `GET /api/wifi`, `POST /api/wifi/scan`, `POST /api/settings`, `POST /api/ota`,
+`POST /api/reboot`, `POST /api/speedtest` (Daten empfangen und verwerfen, misst die Übertragungsrate), WebSocket `/ws`
+mit dem Status jede Sekunde.
 
 Geführte Tests im Tempo des Users (Stufe = Zahl der weißen Quadrate oben links):
 
