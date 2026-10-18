@@ -7,11 +7,11 @@
 
 | | |
 |---|---|
-| **Phase** | 0.2.x Vernetzt: 0.2.0 **veröffentlicht**, 0.2.1 in Arbeit (ausführlicher Changelog ✅, IP-Info per langem Druck) |
+| **Phase** | 0.2.x Vernetzt: 0.2.0 **veröffentlicht**, 0.2.1 „Immer erreichbar“ fertig ([PR #8](https://github.com/Baldesarra/pixelia/pull/8)), Release nach dem Merge |
 | **Letzte Version** | 0.2.0 „Vernetzt“ (2026-10-18), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.2.0) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
-| **Nächster Schritt** | 0.2.1: Info-Karte mit IP per langem Druck, Update per WLAN als Werkzeug; danach 0.3.x Weboberfläche (Svelte, M3 Expressive) |
+| **Nächster Schritt** | Release 0.2.1, dann Gerätetest durch den User (Bildrate mit offener Karte, langer Druck, Tippen, QR-Scan, Kurzmeldung nach Neustart); danach 0.3.x Weboberfläche (Svelte, M3 Expressive) |
 | **Aktualisiert** | 2026-10-18 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
@@ -101,12 +101,18 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 - [x] **Ab hier Updates ohne USB**
 - [x] 0.2.1: Changelog ausführlich im Stil der PR-Beschreibungen: Felder „Geprüft“ (g), „Hinweise“ (h), „Pull Requests“
       (pr), 0.1.0 und 0.2.0 vollständig nachgetragen, Format-Prüfung `tools/release_notes.py --check` in der CI
-- [ ] 0.2.1: **Info-Karte per langem Druck (3 s)** irgendwo aufs Display: IP, Hostname, `pixelia.local`, WLAN-Name,
-      Signal und QR-Code zur Einrichtungsseite; Karte verschwindet nach Tippen oder 20 s. Zusätzlich die IP nach jedem
-      Verbinden kurz als Kurzmeldung (Wunsch des Users)
-- [ ] 0.2.1: Werkzeug `tools/ota.ps1`: Update per WLAN (`POST /api/ota`) mit gefilterter Ausgabe, damit Claude ohne USB
-      flashen kann
+- [x] 0.2.1: **Info-Karte per langem Druck (3 s)** irgendwo aufs Display: IP groß, QR-Code mit `http://<IP>/`,
+      `pixelia.local`, `http://pixelia/`, `pixelia.fritz.box`, WLAN-Name, Signal (Balken und dBm), Hostname, Firmware;
+      im Setup-Modus die Daten des Setup-WLANs. Tippen schließt, sonst nach 20 s. Halte-Anzeige während des Drückens,
+      Dauer im NVS einstellbar (`set lp`, `/api/settings`). Gestenerkennung plattformunabhängig in
+      `engine/gesture.h`, im Simulator per `--test gestures` geprüft (11/11)
+- [x] 0.2.1: Kurzmeldung „Verbunden mit „WLAN“ · IP“ nach jedem Verbinden (Wunsch des Users)
+- [x] 0.2.1: Simulator: Info-Karte per `--screen info|info-setup|info-offline|hold|toast-ip`, Maus-Geste im Fenster
+- [x] 0.2.1: Werkzeug `tools/ota.ps1`: Update per WLAN (`POST /api/ota`) mit Fortschritt, Prüfung von Version und
+      Selbsttest über `/api/status`, Rückfall-Erkennung; gegen einen nachgebauten Server geprüft
 - [ ] **Release 0.2.1**
+- [ ] 0.2.1 am Gerät (durch den User, ausnahmsweise allein): Bildrate mit offener Karte, langer Druck und Tippen,
+      QR-Code mit dem Handy, Kurzmeldung nach Neustart; erstes Update per `tools/ota.ps1` am echten Gerät
 
 ## 0.3.x – Weboberfläche
 
@@ -248,6 +254,6 @@ Neue Wünsche des Users landen hier (mit Datum) und werden einer Version zugeord
 | 2026-10-18 | **Mehrere Darstellungs-Vorschläge** für Dorf und Inselwelt (Perspektive, Ausschnitt, Figurengröße, Kamera), passend zum 5"-Display, mit Simulator-Mockups, bevor gebaut wird | Beginn 0.7.0 bzw. Inselwelt |
 | 2026-10-18 | **Systemschrift** (5×7, `engine/src/font.cpp`, Setup-Bildschirm) gefällt dem User: beibehalten, Grundlage für den Stil-Leitfaden | ✅ im Entscheidungsprotokoll festgehalten; STIL.md in 0.5.x |
 | 2026-10-18 | **Ausführliche Changelogs** im Stil der PR-Beschreibungen: Neu, Geprüft am Gerät (mit Messwerten), gefundene und behobene Probleme, Hinweise. Alle Änderungen inkl. Fixes seit 0.1.0. Format um Felder „Geprüft“ und „Hinweise“ erweitern, 0.1.0/0.2.0 ausführlich nachtragen (aus PR #1, #3, #4, #5), `tools/release_notes.py` anpassen, Regel in CLAUDE.md. Anzeige später unter „Versionsverlauf“ | ✅ 0.2.1 (Format, Nachtrag, CI-Prüfung, Regel); Anzeige 0.4.x |
-| 2026-10-18 | **IP jederzeit sehen:** langer Druck (3 s) aufs Display → Info-Karte mit IP, `pixelia.local`, WLAN-Name, Signal und QR-Code zur Weboberfläche; zusätzlich IP nach jedem Verbinden kurz einblenden; Geste in der Weboberfläche einstellbar | 0.2.1 (Geste), 0.3.x (einstellbar in der Oberfläche) |
+| 2026-10-18 | **IP jederzeit sehen:** langer Druck (3 s) aufs Display → Info-Karte mit IP, `pixelia.local`, WLAN-Name, Signal und QR-Code zur Weboberfläche; zusätzlich IP nach jedem Verbinden kurz einblenden; Geste in der Weboberfläche einstellbar | ✅ 0.2.1 (Geste, Info-Karte, Kurzmeldung, Dauer im NVS); 0.3.x (einstellbar in der Oberfläche) |
 | 2026-10-18 | **Arbeiten von unterwegs:** Cloud-Sitzungen über claude.ai bzw. die Claude-App (GitHub einmal verbinden), Remote Control, um lokale Sitzungen vom Handy aus weiterzuführen, wenn der PC läuft. Rückweg immer über Pull Requests auf GitHub | bei Bedarf einrichten |
-| 2026-10-18 | **USB optional machen:** Updates per WLAN als Werkzeug (`tools/ota.ps1`), Log und Diagnose per WebSocket (`tools/netlog.ps1`) | 0.2.1 / 0.3.x |
+| 2026-10-18 | **USB optional machen:** Updates per WLAN als Werkzeug (`tools/ota.ps1`), Log und Diagnose per WebSocket (`tools/netlog.ps1`) | ✅ 0.2.1 (`tools/ota.ps1`); 0.3.x (`tools/netlog.ps1`) |

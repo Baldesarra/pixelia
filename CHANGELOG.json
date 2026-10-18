@@ -1,26 +1,48 @@
 [
   {
     "v": "0.2.1",
-    "d": "",
-    "t": "",
-    "s": "",
+    "d": "2026-10-18",
+    "t": "Immer erreichbar",
+    "s": "Info-Karte mit IP und QR-Code per langem Druck aufs Display, IP in der Kurzmeldung, Updates per WLAN aus der Kommandozeile",
     "n": [
+      "Display: Info-Karte per langem Druck (3 s irgendwo aufs Display): IP-Adresse groß, QR-Code mit http:// und der IP, z. B. http://192.168.178.42/ (funktioniert in jedem Netz, auch ohne passenden DNS), die Adressen http://pixelia.local (Handy, Mac), http://pixelia/ (Windows) und http://pixelia.fritz.box, WLAN-Name, Signal als 4 Balken und in dBm, Hostname und Firmware-Version. Tippen schließt die Karte, sonst nach 20 s. Die Werte werden alle 2 s aufgefrischt, die Welt läuft abgedunkelt (Pixelraster) dahinter weiter",
+      "Display: Info-Karte im Setup-Modus mit Name und Passwort des Setup-WLANs, QR-Code zum Beitreten, Adresse http://192.168.4.1 und Zahl der verbundenen Geräte; ohne Verbindung mit dem laufenden Verbindungsversuch und dem letzten Fehler",
+      "Touch: Halte-Anzeige „Halten für Info …“ mit Fortschrittsbalken, sobald ein Viertel der Haltezeit erreicht ist, damit klar ist, dass der Druck zählt",
+      "Engine: Gestenerkennung als eigener, plattformunabhängiger Baustein (engine/gesture.h): Tippen (bis 800 ms) und langer Druck. Der lange Druck löst noch während der Finger liegt aus, auch wenn der GT911 bei ruhigem Finger keine neuen Messwerte liefert. Bewegung über 24 Panel-Pixel oder ein zweiter Finger heben beides auf, damit spätere Wischgesten nicht kollidieren. Verteilt wird zentral in firmware/main/input.cpp: heute an die System-Oberfläche, später an die Welten",
+      "System: Dauer des langen Drucks im NVS einstellbar (1–10 s, Standard 3 s): Konsole „set lp 3000“ (Millisekunden), Schnittstelle POST /api/settings mit lp, zu sehen in /api/status unter set.lp. Konsolenbefehl „card“ bzw. „card off“ zeigt oder schließt die Karte",
+      "Update: Werkzeug tools/ota.ps1 spielt eine .bin per WLAN auf (POST /api/ota, Standardziel http://pixelia/, sonst -Target mit der IP, -Build baut vorher). Vorab prüft es den Kopf der Datei (ESP-Image, Projekt „pixelia“, Version) und ob das Gerät antwortet. Es zeigt den Fortschritt in 10-%-Schritten mit KB/s, wartet den Neustart ab und meldet erst Erfolg, wenn /api/status die neue Version mit bestandenem Selbsttest zeigt. Ein Rückfall wird mit Grund gemeldet (Exit 1). USB ist damit nur noch für das serielle Log und die Erstinstallation nötig",
+      "Simulator: Info-Karte, Halte-Anzeige und neue Kurzmeldung per --screen info, info-setup, info-offline, hold und toast-ip. Im Fenster ersetzt die Maus den Touch mit derselben Gestenerkennung: 3 s gedrückt halten zeigt die Info-Karte, ein Klick schließt sie",
+      "Simulator: Selbsttest --test gestures mit 11 nachgestellten Touch-Abläufen (Tippen, langer Druck mit und ohne neue Messwerte, Zittern bis 10 px, Bewegung, zwei Finger, zu langes Tippen, Halte-Fortschritt, einstellbare Dauer, Tippen nach langem Druck, Überlauf der ms-Uhr nach 49 Tagen). Läuft in der CI bei jedem Push",
       "Doku: Rohkonzept der neuen Welt „Inselwelt“ gesichert (docs/welten/inselwelt-konzept.md), als eingeplante Welt in Roadmap und Projektplan aufgenommen",
       "Doku: Lebendigkeits-Charta um die Regel „Zuverlässiges Gedächtnis“ ergänzt: exakte Bestände, angefangene Arbeiten und Besuche bleiben erhalten, belegt durch einen Bilanz-Test",
       "Doku: Pixel-Dorf als Aufbau-Wirtschaft geplant: begrenzte Rohstoffe, Bauprojekte mit exaktem Materialverbrauch, neue Häuser als Voraussetzung für neue Bewohner"
     ],
     "i": [
+      "WLAN: Kurzmeldung nach jedem Verbinden jetzt mit IP-Adresse, z. B. „Verbunden mit „Heimnetz“ · 192.168.178.42“ (10 s nach dem Start, 6 s bei späteren Verbindungen). In fremden Netzen (Handy-Hotspot, anderer Router) ist die IP oft der einzige Weg zur Seite",
+      "WLAN: Die Meldung nach der Einrichtung nennt zusätzlich die Adresse mit IP (z. B. http://192.168.178.42/) und weist auf den langen Druck hin",
+      "Display: Der Merker für unbewegte Systemanzeigen umfasst jetzt Anzeige, Version, Info-Karte und Halte-Fortschritt (64 Bit, Fortschritt in 1-%-Schritten). Unbewegte Anzeigen werden weiterhin nur bei einer Änderung neu gezeichnet",
+      "Doku: HARDWARE.md (Info-Karte, Gestenregeln, Update per WLAN), sim/README.md (neue Anzeigen, Selbsttest, Maus) und CLAUDE.md (Updates bevorzugt per WLAN mit tools/ota.ps1)",
       "Doku: Changelog ausführlicher im Stil der Pull-Request-Beschreibungen. Neue Felder „Geprüft“ (g), „Hinweise“ (h) und „Pull Requests“ (pr); die Einträge 0.1.0 und 0.2.0 sind mit allen Änderungen, Messwerten und Fehlerbehebungen nachgetragen",
       "System: tools/release_notes.py prüft das Format von CHANGELOG.json (--check): Pflichtfelder, Bereich am Anfang jedes Stichpunkts, Reihenfolge der Versionen, Datum. Die CI prüft das bei jedem Push",
       "Update: Release-Notes auf GitHub zeigen zusätzlich „Geprüft“, „Hinweise“ und verlinkte Pull Requests; ein Release ohne Datum, Titel oder Untertitel wird abgelehnt"
     ],
-    "f": [],
+    "f": [
+      "Update: tools/ota.ps1 lehnte in der Entwicklung jede echte Firmware ab, weil PowerShell 5.1 den Hex-Wert 0xABCD5432 (Kennung der App-Beschreibung) als negative Int32 liest. Behoben mit 64-Bit-Literal. Außerdem behandelt PowerShell die deutschen Anführungszeichen „ “ als Zeichenketten-Grenzen; Texte damit stehen jetzt in einfachen Anführungszeichen"
+    ],
     "r": [],
     "g": [
+      "Simulator: Gestentest 11/11 bestanden; Info-Karte in allen drei Zuständen, Halte-Anzeige, Kurzmeldung mit IP und Meldung nach der Einrichtung als Screenshot kontrolliert",
+      "Display: QR-Codes der Info-Karte aus dem Screenshot mit zxing-cpp gelesen: http://192.168.178.42/ (Version 2, 25 × 25 Module, 4 px pro Modul, auf dem Display 8 px) und der WLAN-Code für „Pixelia-Setup“ samt Passwort (Version 3, 3 px pro Modul). Auch die längste mögliche IP passt in Version 2",
+      "Update: tools/ota.ps1 gegen einen nachgebauten Pixelia-Server geprüft: Update mit Neustart und Probelauf (Exit 0), Rückfall mit Grund (Exit 1), vom Gerät abgelehnte Datei mit dessen Meldung, nicht erreichbares Ziel, nicht auflösbarer Name und Datei ohne ESP-Kennung (Exit 2)",
+      "System: Firmware 1134 KB (18,5 % der App-Partition, +21 KB gegenüber 0.2.0), Build ohne Warnungen; Simulator unter Windows (Fenster und kopflos) gebaut",
       "System: Format-Prüfung und Release-Notes für 0.1.0 und 0.2.0 lokal erzeugt und kontrolliert"
     ],
-    "h": [],
-    "pr": [6, 7]
+    "h": [
+      "Display: Am Gerät noch nicht geprüft, das Board war beim Bau nicht angeschlossen: Bildrate mit offener Karte, langer Druck und Tippen am echten Touch, QR-Scan mit dem Handy und die Kurzmeldung nach dem Neustart. Der User prüft das selbst nach dem Update",
+      "System: Die Dauer des langen Drucks lässt sich vorerst über Konsole und Schnittstelle ändern, in der Weboberfläche ab 0.3.x",
+      "Touch: Nur kurzes Tippen (bis 0,8 s) schließt die Karte. Wischen schließt sie nicht, Wischgesten bleiben für die Welten frei"
+    ],
+    "pr": [6, 7, 8]
   },
   {
     "v": "0.2.0",
