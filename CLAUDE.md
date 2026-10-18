@@ -57,14 +57,23 @@ Firmware ≤ 75 % der App-Partition (6 MB).
 - Immer drei Stellen `MAJOR.MINOR.PATCH`. **MINOR = Phase/Welt** (0.6.x = Zug, 0.7.x = Dorf, …),
   **PATCH = jede Iteration** (0.6.0 erste Zug-Version, 0.6.1 zweite …). Vorschau-Versionen: `X.Y.Z-beta.N`.
 - Version kommt ausschließlich aus dem Git-Tag `vX.Y.Z`. Kein manuelles `FW_VERSION`.
-- Jede veröffentlichte Version bekommt einen Eintrag in `CHANGELOG.json` (neuester oben):
-  `{v, d (Datum), t (Titel), s (Untertitel), n: Neu, i: Verbessert, f: Behoben, r: Entfernt}`.
-- Jeder Stichpunkt beginnt mit dem Bereich: `System:`, `Display:`, `WLAN:`, `Web:`, `Update:`, `Engine:`, `Touch:`,
-  `Zug:`, `Dorf:`, `Held:`, `Liga:` …
+- **Der User will ausführliche, technische Changelogs** (Vorbild: die PR-Beschreibungen). Sie erscheinen später im
+  Versionsverlauf der Oberfläche. Deshalb gilt:
+  - `CHANGELOG.json` (neuester oben): `{v, d (Datum), t (Titel), s (Untertitel), n: Neu, i: Verbessert, f: Behoben,
+    r: Entfernt, g: Geprüft (am Gerät/im Simulator, mit Messwerten), h: Hinweise, pr: [PR-Nummern]}`.
+  - **Jeder PR trägt seine Änderungen sofort ein**, auch Fixes, Doku und Werkzeuge, auch Probleme, die während der
+    Entwicklung gefunden und behoben wurden. Ist der oberste Eintrag schon veröffentlicht, legt der PR den Eintrag der
+    nächsten Version an (`d`, `t`, `s` leer bis zum Release). PR-Nummer in `pr` ergänzen.
+  - Stichpunkte technisch und konkret: Messwerte, Ursachen, Grenzwerte, Schnittstellen. Lieber ein Satz mehr.
+  - Jeder Stichpunkt beginnt mit dem Bereich: `System:`, `Display:`, `WLAN:`, `Web:`, `Update:`, `Engine:`, `Touch:`,
+    `Simulator:`, `Doku:`, `Zug:`, `Dorf:`, `Held:`, `Liga:`, `Insel:` …
+  - `python tools/release_notes.py --check` prüft das Format (läuft in der CI). Beim Release `d`, `t`, `s` setzen.
 - Experimentelle Funktionen tragen „(Vorschau)“ und liegen hinter dem Experimentell-Schalter.
 
 ## Git-Arbeitsweise
 
+- **Zu Beginn jeder Sitzung:** `git fetch`, auf `main` den neuesten Stand holen (es kann Arbeit aus Cloud-Sitzungen oder
+  vom Handy dazugekommen sein), dann ROADMAP „Aktueller Stand“ lesen.
 - Änderungen auf eigenem Branch → Pull Request → CI grün → Merge durch/nach Freigabe des Users.
   Ausnahme: Solange es noch keine CI gibt (vor 0.1.0), gehen Doku- und Werkzeug-Änderungen direkt auf `main`.
 - Commit-Nachrichten auf Deutsch, kurz und beschreibend (z. B. „Zug: Regentropfen an der Scheibe“).

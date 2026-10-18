@@ -1,31 +1,77 @@
 [
   {
+    "v": "0.2.1",
+    "d": "",
+    "t": "",
+    "s": "",
+    "n": [
+      "Doku: Rohkonzept der neuen Welt „Inselwelt“ gesichert (docs/welten/inselwelt-konzept.md), als eingeplante Welt in Roadmap und Projektplan aufgenommen",
+      "Doku: Lebendigkeits-Charta um die Regel „Zuverlässiges Gedächtnis“ ergänzt: exakte Bestände, angefangene Arbeiten und Besuche bleiben erhalten, belegt durch einen Bilanz-Test",
+      "Doku: Pixel-Dorf als Aufbau-Wirtschaft geplant: begrenzte Rohstoffe, Bauprojekte mit exaktem Materialverbrauch, neue Häuser als Voraussetzung für neue Bewohner"
+    ],
+    "i": [
+      "Doku: Changelog ausführlicher im Stil der Pull-Request-Beschreibungen. Neue Felder „Geprüft“ (g), „Hinweise“ (h) und „Pull Requests“ (pr); die Einträge 0.1.0 und 0.2.0 sind mit allen Änderungen, Messwerten und Fehlerbehebungen nachgetragen",
+      "System: tools/release_notes.py prüft das Format von CHANGELOG.json (--check): Pflichtfelder, Bereich am Anfang jedes Stichpunkts, Reihenfolge der Versionen, Datum. Die CI prüft das bei jedem Push",
+      "Update: Release-Notes auf GitHub zeigen zusätzlich „Geprüft“, „Hinweise“ und verlinkte Pull Requests; ein Release ohne Datum, Titel oder Untertitel wird abgelehnt"
+    ],
+    "f": [],
+    "r": [],
+    "g": [
+      "System: Format-Prüfung und Release-Notes für 0.1.0 und 0.2.0 lokal erzeugt und kontrolliert"
+    ],
+    "h": [],
+    "pr": [6, 7]
+  },
+  {
     "v": "0.2.0",
     "d": "2026-10-18",
     "t": "Vernetzt",
     "s": "WLAN mit Setup-Modus, Einrichtungsseite im Browser und Updates ohne USB",
     "n": [
-      "WLAN: bis zu 5 Netze speichern, Pixelia verbindet sich mit dem stärksten; Name „Pixelia“ im Router",
-      "WLAN: Setup-Modus mit eigenem WLAN „Pixelia-Setup“, Einrichtungsseite öffnet sich am Handy von selbst",
-      "Display: Anleitung mit zwei QR-Codes im Setup-Modus, das Setup-Passwort steht groß daneben",
-      "WLAN: ohne Verbindung alle 2 Minuten ein neuer Versuch, der Setup-Modus bleibt dabei erreichbar",
-      "Web: einfache Einrichtungsseite unter http://pixelia.local mit WLAN, Update, Anzeige und Live-Systemwerten",
-      "Update: neue Version als .bin im Browser hochladen, Fortschritt im Browser und auf dem Display",
-      "Update: Probelauf mit Selbsttest; bei Absturz, Hänger oder gescheitertem Test startet automatisch wieder die alte Version, mit Hinweis und Grund",
-      "Update: Prüfung vor dem Installieren (Pixelia-Firmware, passender Chip, Prüfsumme)",
-      "System: echte Uhrzeit aus dem Internet (Europa/Berlin), die Welt folgt Tag und Nacht in Echtzeit",
-      "System: Einstellungen bleiben erhalten, darunter Bilddrehung 0°/180° und Helligkeit",
-      "Display: Kurzmeldungen am unteren Rand, z. B. beim Verbinden und nach Updates"
+      "WLAN: Manager für bis zu 5 gespeicherte Netze; nach einem Scan verbindet sich Pixelia mit dem stärksten. Hostname „Pixelia“ im Router",
+      "WLAN: mDNS-Name pixelia.local; Uhrzeit per NTP (Zeitzone Europa/Berlin), die Weltzeit folgt der echten Uhrzeit",
+      "WLAN: Setup-Modus mit eigenem Netz „Pixelia-Setup“ (WPA2, Passwort steht auf dem Display) und Captive Portal: Mini-DNS, Prüfadressen von Android, iOS, Windows und Firefox, DHCP-Option 114. Die Einrichtungsseite öffnet sich am Handy von selbst",
+      "WLAN: ohne Verbindung alle 2 Minuten ein neuer Versuch im Hintergrund; der Setup-Modus bleibt dabei erreichbar (Access Point und Station gleichzeitig)",
+      "Display: Anleitung im Setup-Modus mit zwei QR-Codes (1. WLAN „Pixelia-Setup“ beitreten, 2. Einrichtungsseite öffnen), Setup-Passwort groß daneben",
+      "Web: Webserver mit WebSocket (/ws, Status jede Sekunde) und einfacher Einrichtungsseite: WLAN, Update, Anzeige und Live-Systemwerte. Die richtige Oberfläche folgt in 0.3.x",
+      "Web: JSON-Schnittstelle GET /api/status, GET /api/wifi, POST /api/wifi/scan, /api/wifi/add, /api/wifi/remove, POST /api/settings, POST /api/ota, POST /api/reboot, POST /api/speedtest (misst die Übertragungsrate)",
+      "Update: neue Version als .bin im Browser hochladen, Fortschritt im Browser und als Balken auf dem Display",
+      "Update: Prüfung vor dem Installieren: Pixelia-Firmware (Projektname), passender Chip und Revision, Prüfsumme. Ungeeignete Dateien werden abgelehnt, das Gerät läuft dabei ohne Neustart weiter",
+      "Update: Probelauf mit Selbsttest (60 s). Rückfall auf die alte Version bei Absturz, bei einem Hänger (Watchdog nach 10 s) oder wenn der Selbsttest scheitert (nach 120 s); die alte Version meldet Grund, Task und Absturzstelle",
+      "System: Einstellungen im NVS: Bilddrehung 0°/180° und Helligkeit, bleiben über Neustarts und Updates erhalten",
+      "Engine: Systemschrift 5×7 Pixel, proportional, mit Kleinbuchstaben, Umlauten, ß und deutschen Anführungszeichen",
+      "Engine: eigener QR-Code-Erzeuger und Systemanzeigen für Setup, Update, Meldungen und Kurzmeldungen am unteren Rand. Die Palettenindizes 240–255 gehören der System-Oberfläche",
+      "Simulator: Systemanzeigen auch am PC (--screen)",
+      "System: Diagnose-Befehle für Netzwerk und Updates: wifi, wifi scan/list/forget/setup/connect, ota, ntp, web, toast. WLAN-Passwörter lassen sich bewusst nur über die Einrichtungsseite eintragen"
     ],
     "i": [
-      "WLAN: verbindet sich auch mit Routern im WPA2/WPA3-Mischmodus (z. B. FritzBox)",
-      "Update: Übertragung deutlich schneller und robuster bei schwachem Empfang (Update in etwa 7 Sekunden)",
-      "Display: unbewegte Systemanzeigen kosten praktisch keine Rechenzeit"
+      "Display: unbewegte Systemanzeigen werden nur bei Änderung neu gezeichnet: 0,02 ms statt bis zu 9,5 ms pro Bild",
+      "WLAN: beim Start 45 s Geduld, bevor der Setup-Modus kommt. Router beantworten die ersten Anmeldungen nach einem harten Reset oft nicht (Grund 2, 4 oder 202)",
+      "System: die Firmware-Version im lokalen Build wird nach jedem Commit aktualisiert"
     ],
     "f": [
-      "System: scheinbarer Einbruch des freien Speichers beim Start geklärt und aus der Anzeige entfernt"
+      "WLAN: Eine FritzBox im WPA2/WPA3-Mischmodus lehnte die Anmeldung ab (Grund 17, „IE in 4-Way-Handshake weicht ab“), weil ESP-IDF 6.1 standardmäßig den WPA3-Kompatibilitätsmodus (RSN Override) nutzt. Pixelia versucht es dann ohne diesen Modus und merkt sich das pro Netz im NVS",
+      "Update: Ein Upload blieb bei schwachem Empfang (−71 dBm) ganz stehen. TCP-Fenster von 5,7 auf 32 KB vergrößert und SACK eingeschaltet, hängende Uploads werden sauber abgebrochen (die Seite meldet 30 s ohne Fortschritt). Übertragungsrate 37 → 158–233 KB/s",
+      "Update: Der Zielbereich wird vorab in 64-KB-Blöcken gelöscht statt während der Übertragung: Update in 7 s statt 26 s",
+      "Display: Lange Kurzmeldungen wurden abgeschnitten. Jetzt mit Zeilenumbruch, zu lange Texte enden mit Auslassungszeichen",
+      "System: Der scheinbare Einbruch von ~31 KB internem RAM beim Start war ein Messartefakt: ESP-IDF reserviert einen DMA-Pool (32 KB), der bis zur ersten Anforderung einen Tiefstwert von 0 meldet. Die Tiefstwert-Messung startet jetzt zu Beginn von app_main"
     ],
-    "r": []
+    "r": [],
+    "g": [
+      "Display: 30 fps, Panel 60 Hz, 0 Aussetzer mit WLAN, Webserver, offener Seite und während Updates. Kern 0 ist beim Update bis 100 % ausgelastet, Kern 1 (Grafik) bleibt unberührt; Hochskalier-Interrupt 20,2 %",
+      "System: freier interner RAM im Betrieb 125–128 KB (Tiefstwert 119 KB), im Setup-Modus ≥ 115 KB, während eines Updates ≥ 121 KB (Budget 60 KB); PSRAM frei 6,9 MB. Speicherbedarf: Display und Engine 62 KB, WLAN 83 KB (Setup-Modus 92 KB), Webserver 16 KB",
+      "WLAN: Einrichtung per Android-Handy: Die Seite öffnete sich von selbst, die Verbindung ins Heimnetz stand wenige Sekunden nach dem Speichern (Test des Users)",
+      "WLAN: nach einem Software-Neustart in 3,6 s wieder verbunden, die Uhrzeit bleibt dabei erhalten",
+      "Update: echtes Update auf die veröffentlichte .bin im Browser: 1113 KB in 7,1–7,4 s (3,2 s Löschen, Übertragen und Schreiben mit 176 KB/s), Selbsttest bestanden (Test des Users)",
+      "Update: Rückfall mit drei Testvarianten geprüft: Absturz im Probelauf (StoreProhibited), Hänger (Watchdog) und gescheiterter Selbsttest. Jedes Mal startete die alte Version mit passender Meldung",
+      "Update: abgelehnt werden Factory-Image, fremde Datei (Kennung ≠ 0xE9), anderes Projekt, anderer Chip, ein verfälschtes Byte und eine abgeschnittene Datei",
+      "System: Einstellungen überleben Neustart und Update"
+    ],
+    "h": [
+      "Update: Geräte mit 0.1.0 brauchen einmal den Web-Flasher, weil 0.1.0 noch keine Update-Funktion hat. Ab 0.2.0 laufen Updates ohne USB",
+      "WLAN: Am Windows-PC mit FritzBox funktioniert pixelia.local nicht, weil der FritzBox-DNS .local-Adressen mit 0.0.0.0 beantwortet. Dort http://pixelia/ oder http://pixelia.fritz.box verwenden; Android öffnet pixelia.local direkt"
+    ],
+    "pr": [4, 5]
   },
   {
     "v": "0.1.0",
@@ -33,18 +79,45 @@
     "t": "Fundament",
     "s": "Hardware geprüft, Engine-Prototyp mit 30 fps, Simulator und Web-Flasher",
     "n": [
-      "System: Firmware auf ESP-IDF 6.1 mit A/B-Partitionen, Rückfall auf die alte Version und Absturzberichten im Flash",
-      "Display: RGB-Panel mit 60 Hz ohne Bildspeicher, Bilddrehung um 180° ohne Mehrlast",
-      "Display: Hintergrundbeleuchtung dimmbar (PWM 200 Hz, still und flackerfrei)",
-      "Touch: GT911 per I²C, Eckentest bestanden",
-      "Engine: 400×240 Pixel mit 256-Farben-Palette, 2× hochskaliert, stabil 30 Bilder pro Sekunde",
-      "Engine: Weltzeit mit Zeitraffer; die Testszene zeigt Tag und Nacht mit Sternen und schlafenden Vögeln",
-      "System: Diagnose über USB mit Leistungsmonitor (Bildrate, Last, Speicher) und geführten Hardware-Tests",
-      "Simulator: gleiche Szenen am PC im Fenster oder ohne Fenster mit Screenshot, Zeitraffer und Kontaktbogen",
-      "Update: Web-Flasher für die Erstinstallation per USB direkt aus Chrome oder Edge"
+      "System: Firmware auf ESP-IDF 6.1 (C++20) mit eigener Partitionstabelle: zwei App-Plätze à 6 MB (A/B), Datenspeicher für Spielstände, Absturzberichte im Flash (Core-Dump), Rückfall über den Bootloader",
+      "System: Programmcode und Konstanten laufen aus dem PSRAM (XIP), dadurch stört Flash-Schreiben die Anzeige nicht; der RGB-Interrupt ist IRAM-sicher",
+      "Display: RGB-Panel 800×480 ohne eigenen Bildspeicher, Pixeltakt 24,6 MHz = 60 Hz, Timings 8/4/8, Bounce-Buffer 2 × 8 Zeilen im internen RAM",
+      "Display: Bilddrehung um 180° ohne Mehrlast (Interrupt 20,2 → 20,5 %), Touch-Koordinaten drehen mit",
+      "Display: Hintergrundbeleuchtung an GPIO 2 dimmbar (LEDC-PWM 200 Hz, 12 Bit)",
+      "Touch: GT911 auf I²C-Adresse 0x5D (SDA 19, SCL 20, RST 38), Abfrage alle 20 ms ohne INT-Leitung",
+      "Engine: 400×240 Pixel mit 256-Farben-Palette. Palette und 2× Hochskalieren laufen im Bounce-Buffer-Callback (ca. 1,8 CPU-Takte pro Ausgabepixel), Doppelpuffer im PSRAM mit Tausch am Bildende: stabil 30 fps",
+      "Engine: Logik-Takt aus dem Bildzähler des Panels: ein Schritt pro Engine-Bild, nach einem verpassten Bild zwei, höchstens vier",
+      "Engine: Szenen-Schnittstelle, die Gerät und Simulator gemeinsam nutzen; Zufallsgenerator PCG32; eigener PNG-Encoder (Deflate + LZ77) ohne Fremdbibliothek",
+      "Engine: Weltzeit mit Zeitraffer; die Testszene zeigt Tag und Nacht mit Himmel nach Uhrzeit, Licht, Sternen und nachts schlafenden Vögeln",
+      "System: Hardware-Detektiv mit Prüfbild (Farbbalken, Verläufe, Rand), Touch-Eckentest, Helligkeitsstufen, Pixeltakt- und Flash-Lasttest sowie geführten Tests im Tempo des Users (tour, tour2)",
+      "System: Diagnose über die serielle Konsole mit Leistungsmonitor alle 2 s: Bildrate, Pixeltakt, Interrupt-Last, Aussetzer, Zeichen- und Logikzeit, CPU-Last pro Kern, freier RAM und PSRAM",
+      "System: Weltzeit per Konsolenbefehl einstellbar (time HH:MM, speed X)",
+      "Simulator: gleiche Szenen am PC im SDL3-Fenster (3.4.16) oder kopflos mit fester Uhrzeit, Vorspulen, Zeitraffer, PNG-Screenshot und Kontaktbogen mit 24 zufälligen Momenten",
+      "Update: Web-Flasher auf GitHub Pages (ESP Web Tools 10.4.0) für die Erstinstallation per USB aus Chrome oder Edge",
+      "Update: Release-Weg: Tag vX.Y.Z → Firmware mit dieser Version, Factory-Image und Release-Notes aus CHANGELOG.json",
+      "System: GitHub Actions bauen bei jeder Änderung die Firmware (mit Größenbudget 75 % der App-Partition) und den Simulator (mit Screenshots und Kontaktbogen als Artefakt)",
+      "System: Hilfsskripte zum Bauen, Flashen, Log-Mitlesen ohne Interaktion (mit Backtrace-Dekodierung) und für den Simulator",
+      "Doku: Projektplan, Roadmap, geprüfte Hardware-Doku und verbindliche Lebendigkeits-Charta"
     ],
     "i": [],
-    "f": [],
-    "r": []
+    "f": [
+      "Simulator: Der Linux-Build in der CI scheiterte an einem fehlenden Include (size_t mit GCC) und brauchte die ausdrückliche Erlaubnis, SDL ohne X11/Wayland zu bauen"
+    ],
+    "r": [],
+    "g": [
+      "System: ESP32-S3 Revision v0.2, 16 MB Flash (QIO 80 MHz), 8 MB Octal-PSRAM im Chip (80 MHz), USB-UART CH340 mit Auto-Reset; per esptool und Systeminfo bestätigt",
+      "Display: alle 16 Datenleitungen sowie DE, VSYNC, HSYNC und PCLK per Prüfbild bestätigt (Farbreihenfolge, gleichmäßige Verläufe ohne Sprünge, 1-Pixel-Rand an allen vier Seiten)",
+      "Display: Pixeltakt fehlerfrei bis 40 MHz (ESP ohne Aussetzer, Panel ohne Bildfehler); gewählt 24,6 MHz mit Sicherheitsabstand",
+      "Display: Hintergrundbeleuchtung mit 200 Hz still und flackerfrei; 500 Hz–1 kHz pfeifen hörbar, ab 2 kHz geht das Display unter 100 % aus",
+      "Engine: Zeichenzeit 4,1 ms (48 Sprites), 8,4 ms (500) und 22,6 ms (2000); Interrupt-Last 20 %; interner RAM frei 299 KB, PSRAM frei 7,7 MB",
+      "Engine: 664 KB Flash löschen und schreiben während der Animation: 0 Aussetzer, 30 fps, Zeichenzeit unverändert, im A/B-Sichtvergleich gleich flüssig",
+      "Touch: Eckentest bestanden, Koordinaten passen auch bei 180°-Drehung",
+      "Update: Factory-Image ab Adresse 0x0 startet normal; Web-Flasher am Board des Users getestet (Pixelia 0.1.0 aus dem Release, 60 Hz, 30 fps)"
+    ],
+    "h": [
+      "Update: 0.1.0 hat noch keine Update-Funktion über WLAN, installiert wird per Web-Flasher",
+      "Display: Steht das Gerät mit dem USB-Kabel rechts, braucht es die 180°-Drehung (Konsolenbefehl rot 180)"
+    ],
+    "pr": [1, 2, 3]
   }
 ]

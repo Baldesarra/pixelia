@@ -7,11 +7,11 @@
 
 | | |
 |---|---|
-| **Phase** | 0.2.x Vernetzt: 0.2.0 **veröffentlicht**, als Nächstes 0.3.x Weboberfläche |
+| **Phase** | 0.2.x Vernetzt: 0.2.0 **veröffentlicht**, 0.2.1 in Arbeit (ausführlicher Changelog ✅, IP-Info per langem Druck) |
 | **Letzte Version** | 0.2.0 „Vernetzt“ (2026-10-18), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.2.0) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
-| **Nächster Schritt** | 0.3.x Weboberfläche (Svelte, M3 Expressive); Updates laufen ab jetzt ohne USB |
+| **Nächster Schritt** | 0.2.1: Info-Karte mit IP per langem Druck, Update per WLAN als Werkzeug; danach 0.3.x Weboberfläche (Svelte, M3 Expressive) |
 | **Aktualisiert** | 2026-10-18 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
@@ -40,6 +40,7 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 | 0.7.x | 🏘️ Pixel-Dorf (Schwerpunkt) | |
 | 0.8.x | ⚔️ Dungeon-Held | |
 | 0.9.x | ⚽ Pixel-Liga | |
+| offen | 🏝️ Inselwelt (cozy, eigenständig) | wird umgesetzt; Position nach der Entscheidung über die Hauptwelt (vor 0.6.0) |
 | 1.0.0 | Pixelia 1.0 | Feinschliff, Verbindungen komplett, 72-h-Dauertest |
 
 ---
@@ -98,6 +99,14 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 - [x] **Release 0.2.0** (Tag `v0.2.0`, Web-Flasher aktualisiert); echtes Update auf die veröffentlichte `.bin` per
       Browser durch den User: 1113 KB in 7,1 s, Probelauf mit Selbsttest bestanden
 - [x] **Ab hier Updates ohne USB**
+- [x] 0.2.1: Changelog ausführlich im Stil der PR-Beschreibungen: Felder „Geprüft“ (g), „Hinweise“ (h), „Pull Requests“
+      (pr), 0.1.0 und 0.2.0 vollständig nachgetragen, Format-Prüfung `tools/release_notes.py --check` in der CI
+- [ ] 0.2.1: **Info-Karte per langem Druck (3 s)** irgendwo aufs Display: IP, Hostname, `pixelia.local`, WLAN-Name,
+      Signal und QR-Code zur Einrichtungsseite; Karte verschwindet nach Tippen oder 20 s. Zusätzlich die IP nach jedem
+      Verbinden kurz als Kurzmeldung (Wunsch des Users)
+- [ ] 0.2.1: Werkzeug `tools/ota.ps1`: Update per WLAN (`POST /api/ota`) mit gefilterter Ausgabe, damit Claude ohne USB
+      flashen kann
+- [ ] **Release 0.2.1**
 
 ## 0.3.x – Weboberfläche
 
@@ -108,14 +117,17 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 - [ ] Seiten: Übersicht, Info, Hardware, WLAN (Scan, Signalbalken), Verbundene Geräte, System
 - [ ] Neustart, Werksreset, Einstellungen exportieren/importieren
 - [ ] PIN/Passwort optional (Standard aus)
-- [ ] Live-Log
+- [ ] Live-Log in der Oberfläche
+- [ ] **Diagnose über WLAN:** Log und Diagnose-Befehle per WebSocket, Werkzeug `tools/netlog.ps1` für Claude. Danach ist
+      USB nur noch für Erstinstallation, Notfälle und Abstürze ganz früh beim Start nötig
 
 ## 0.4.x – Updates & Diagnose
 
-- [ ] `CHANGELOG.json` → eingebetteter Block + Release-Notes (Generator)
-- [ ] Release-Workflow: Tag → GitHub-Release mit `.bin` und Factory-Image
+- [ ] `CHANGELOG.json` → eingebetteter Block in der Firmware (Release-Notes-Generator steht seit 0.1.0/0.2.1)
+- [x] Release-Workflow: Tag → GitHub-Release mit `.bin` und Factory-Image (seit 0.1.0)
 - [ ] Update von GitHub: Prüfung, Kanal Stabil/Vorschau, Installation per HTTPS
-- [ ] Versionsverlauf-Timeline, Änderungsvorschau aus gewählter `.bin`
+- [ ] Versionsverlauf-Timeline mit **allen Feldern** (Neu, Verbessert, Behoben, Entfernt, Geprüft, Hinweise, verlinkte
+      Pull Requests), Markierung „Installiert“, Änderungsvorschau aus gewählter `.bin`
 - [ ] Absturzberichte (Core-Dump, Backtrace), Reset-Historie
 - [ ] Experimentell-Seite: Touch-Test, Displaytests, Stromsparmodus, Panel-Timing, Experimentell-Schalter
 - [ ] Live-Vorschau und Screenshot (PNG)
@@ -132,10 +144,12 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 - [ ] Touch-Gesten und Einstellungen
 - [ ] Asset-Pipeline (PNG → Palette), `assets/CREDITS.md`, `docs/STIL.md`
 - [ ] Browser-Simulator auf GitHub Pages, Screenshots im Pull Request
-- [ ] **Langzeit-Test** im Simulator (Zeitraffer, Bericht, Blick-Test, Kontaktbogen) und **Inhaltszähler**, automatisch
-      in jedem Welt-PR ([LEBENDIGKEIT.md](LEBENDIGKEIT.md) Kapitel 3)
+- [ ] **Langzeit-Test** im Simulator (Zeitraffer, Bericht, Blick-Test, Kontaktbogen, **Bilanz-Test**) und
+      **Inhaltszähler**, automatisch in jedem Welt-PR ([LEBENDIGKEIT.md](LEBENDIGKEIT.md) Kapitel 3)
 - [ ] **Ereignis-Regisseur** als Engine-Baustein (Spannungsbogen, Sperrzeiten, Kontext Tageszeit/Wetter/Jahreszeit)
-- [ ] Gedächtnis-/Beziehungs-Bausteine für Figuren (von allen Welten nutzbar)
+- [ ] **Gedächtnis-Bausteine** (LEBENDIGKEIT.md Regel 10), von allen Welten nutzbar: Bestände mit Menge und Standort und
+      exakter Bilanz, unterbrechbare Vorhaben, Besuchs- und Ereignisverlauf, Zustände mit Zeitbezug, atomares Speichern
+      mit begrenztem Nachholen; dazu Beziehungen und Erinnerungen für Figuren
 - [ ] Demo-Szene als Test
 
 ## Abnahme der Welten
@@ -155,7 +169,8 @@ entsteht der Ideenspeicher `docs/welten/<welt>.md`.
 
 ## 0.7.x – 🏘️ Pixel-Dorf (Schwerpunkt)
 
-- [ ] 0.7.0: Perspektive per Mockups entscheiden, Grundgerüst Dorf, erste Bewohner mit Tagesplan
+- [ ] 0.7.0: **mehrere Darstellungs-Vorschläge** als Simulator-Mockups (Perspektive, Ausschnitt, Figurengröße, Kamera,
+      passend zu 5"), gemeinsame Entscheidung; Grundgerüst Dorf, erste Bewohner mit Tagesplan
 - [ ] Figuren-Baukasten, Bewohner mit Charakter, Bedürfnissen, Beziehungen
 - [ ] Berufe und Tagesabläufe, Wochenende
 - [ ] Licht bei Nacht (Fenster, Laternen, Nachtwächter)
@@ -164,7 +179,9 @@ entsteht der Ideenspeicher `docs/welten/<welt>.md`.
 - [ ] Ereignis-Katalog (häufig → legendär), Anlässe und Feiertage
 - [ ] Dorfchronik, Bewohnerliste, Statistiken in der Oberfläche
 - [ ] Kamera-Regie, Info-Karten per Touch
-- [ ] Langzeit: Wachstum, Bauprojekte, Zu- und Wegzüge
+- [ ] **Aufbau-Wirtschaft** (PROJEKTPLAN 6.2): Rohstoffe selbst gewinnen, Lager mit Kapazität, Bauprojekte mit exaktem
+      Materialverbrauch, Wohnraum als Voraussetzung für neue Bewohner, alles dauerhaft gespeichert
+- [ ] Langzeit: Wachstum, Zu- und Wegzüge, Familien
 - [ ] Verbindung zum Zug (Bahnhof, Ankünfte)
 - [ ] Weitere Iterationen nach Wünschen des Users
 
@@ -187,6 +204,15 @@ entsteht der Ideenspeicher `docs/welten/<welt>.md`.
 - [ ] FC Pixelia: Name, Farben, Wappen-Editor, Taktik
 - [ ] Verbindung zum Dorf (Heimspieltag, Feiern)
 - [ ] Weitere Iterationen nach Wünschen des Users
+
+## 🏝️ Inselwelt (Position offen)
+
+Rohkonzept: [welten/inselwelt-konzept.md](welten/inselwelt-konzept.md), Einordnung in [PROJEKTPLAN.md](PROJEKTPLAN.md) 6.5.
+
+- [ ] **Entscheidung über die Hauptwelt** (Inselwelt, Pixel-Dorf oder Dungeon-Held), gemeinsam vor Beginn 0.6.0
+- [ ] Konzept gemeinsam für 5" überarbeiten, neue Ideen sammeln, Mindestziele in LEBENDIGKEIT.md festlegen
+- [ ] Mehrere Darstellungs-Vorschläge als Simulator-Mockups
+- [ ] Umsetzung, Versionsnummer nach der Entscheidung; zuverlässiges Gedächtnis mit Bilanz-Test von Anfang an
 
 ## 1.0.0 – Pixelia 1.0
 
@@ -215,11 +241,13 @@ Neue Wünsche des Users landen hier (mit Datum) und werden einer Version zugeord
 | 2026-10-18 | WLAN gleich im Web-Flasher eintragen (Improv Serial, ESP Web Tools unterstützt das), dann entfällt der Umweg über den Setup-Modus | 0.3.x |
 | 2026-10-18 | Setup-Modus und neues Setup-Passwort auch per Touch-Geste am Gerät (zusammen mit Werksreset per Touch) | 0.3.x |
 | 2026-10-18 | Upload-Hänger bei schwachem WLAN (User-Test): behoben durch 32-KB-TCP-Fenster und SACK; Seite meldet 30 s ohne Fortschritt | ✅ 0.2.0 |
-| 2026-10-18 | **Neue Welt „Inselwelt“** (cozy, eigenständig, ein Bewohner baut Haus, Hof, Boot, später Hofladen). Rohkonzept gesichert in [welten/inselwelt-konzept.md](welten/inselwelt-konzept.md), wird später für 5" überarbeitet und gemeinsam weiter geplant (Wunsch des Users) | Position offen |
-| 2026-10-18 | **Zuverlässiges Gedächtnis** (vor allem Inselwelt, aber für alle Welten): exakte Bestände (welche Waren, wie viele, wo), angefangene und unbeendete Arbeiten, wer schon zu Besuch war; nichts verdoppelt oder verschwindet, auch nicht bei Neustart; Bilanz-Test im Langzeit-Test. In LEBENDIGKEIT.md als Regel ergänzen | Inselwelt, alle Welten |
+| 2026-10-18 | **Neue Welt „Inselwelt“** (cozy, eigenständig, ein Bewohner baut Haus, Hof, Boot, später Hofladen). Rohkonzept gesichert in [welten/inselwelt-konzept.md](welten/inselwelt-konzept.md), wird später für 5" überarbeitet und gemeinsam weiter geplant (Wunsch des Users) | eingeplant (PROJEKTPLAN 6.5, Abschnitt „Inselwelt“ oben), Position nach Hauptwelt-Entscheidung |
+| 2026-10-18 | **Zuverlässiges Gedächtnis** (vor allem Inselwelt, aber für alle Welten): exakte Bestände (welche Waren, wie viele, wo), angefangene und unbeendete Arbeiten, wer schon zu Besuch war; nichts verdoppelt oder verschwindet, auch nicht bei Neustart; Bilanz-Test im Langzeit-Test. In LEBENDIGKEIT.md als Regel ergänzen | ✅ Regel 10 in LEBENDIGKEIT.md; Bausteine 0.5.x; Inselwelt und alle Welten |
 | 2026-10-18 | **Entscheidung Hauptwelt:** Inselwelt, Pixel-Dorf oder Dungeon-Held als Schwerpunkt der Software. Gemeinsam planen und diskutieren | vor Beginn 0.6.0 |
-| 2026-10-18 | **Dorf als Aufbau-Wirtschaft:** begrenzte Rohstoffe, die das Dorf selbst gewinnen muss; Bauprojekte verbrauchen Material exakt; neue Häuser müssen gebaut werden, damit neue Bewohner kommen; alles dauerhaft gespeichert (Ideen aus der Inselwelt übernehmen) | 0.7.x |
+| 2026-10-18 | **Dorf als Aufbau-Wirtschaft:** begrenzte Rohstoffe, die das Dorf selbst gewinnen muss; Bauprojekte verbrauchen Material exakt; neue Häuser müssen gebaut werden, damit neue Bewohner kommen; alles dauerhaft gespeichert (Ideen aus der Inselwelt übernehmen) | 0.7.x (PROJEKTPLAN 6.2, Checkliste oben) |
 | 2026-10-18 | **Mehrere Darstellungs-Vorschläge** für Dorf und Inselwelt (Perspektive, Ausschnitt, Figurengröße, Kamera), passend zum 5"-Display, mit Simulator-Mockups, bevor gebaut wird | Beginn 0.7.0 bzw. Inselwelt |
-| 2026-10-18 | **Systemschrift** (5×7, `engine/src/font.cpp`, Setup-Bildschirm) gefällt dem User: beibehalten, Grundlage für den Stil-Leitfaden | 0.5.x (STIL.md) |
-| 2026-10-18 | **Ausführliche Changelogs** im Stil der PR-Beschreibungen: Neu, Geprüft am Gerät (mit Messwerten), gefundene und behobene Probleme, Hinweise. Alle Änderungen inkl. Fixes seit 0.1.0. Format um Felder „Geprüft“ und „Hinweise“ erweitern, 0.1.0/0.2.0 ausführlich nachtragen (aus PR #1, #3, #4, #5), `tools/release_notes.py` anpassen, Regel in CLAUDE.md. Anzeige später unter „Versionsverlauf“ | sofort (nächste Sitzung), Anzeige 0.4.x |
-| 2026-10-18 | **IP jederzeit sehen:** langer Druck (3 s) aufs Display → Info-Karte mit IP, `pixelia.local`, WLAN-Name, Signal und QR-Code zur Weboberfläche; zusätzlich IP nach jedem Verbinden kurz einblenden; Geste in der Weboberfläche einstellbar | 0.2.1 |
+| 2026-10-18 | **Systemschrift** (5×7, `engine/src/font.cpp`, Setup-Bildschirm) gefällt dem User: beibehalten, Grundlage für den Stil-Leitfaden | ✅ im Entscheidungsprotokoll festgehalten; STIL.md in 0.5.x |
+| 2026-10-18 | **Ausführliche Changelogs** im Stil der PR-Beschreibungen: Neu, Geprüft am Gerät (mit Messwerten), gefundene und behobene Probleme, Hinweise. Alle Änderungen inkl. Fixes seit 0.1.0. Format um Felder „Geprüft“ und „Hinweise“ erweitern, 0.1.0/0.2.0 ausführlich nachtragen (aus PR #1, #3, #4, #5), `tools/release_notes.py` anpassen, Regel in CLAUDE.md. Anzeige später unter „Versionsverlauf“ | ✅ 0.2.1 (Format, Nachtrag, CI-Prüfung, Regel); Anzeige 0.4.x |
+| 2026-10-18 | **IP jederzeit sehen:** langer Druck (3 s) aufs Display → Info-Karte mit IP, `pixelia.local`, WLAN-Name, Signal und QR-Code zur Weboberfläche; zusätzlich IP nach jedem Verbinden kurz einblenden; Geste in der Weboberfläche einstellbar | 0.2.1 (Geste), 0.3.x (einstellbar in der Oberfläche) |
+| 2026-10-18 | **Arbeiten von unterwegs:** Cloud-Sitzungen über claude.ai bzw. die Claude-App (GitHub einmal verbinden), Remote Control, um lokale Sitzungen vom Handy aus weiterzuführen, wenn der PC läuft. Rückweg immer über Pull Requests auf GitHub | bei Bedarf einrichten |
+| 2026-10-18 | **USB optional machen:** Updates per WLAN als Werkzeug (`tools/ota.ps1`), Log und Diagnose per WebSocket (`tools/netlog.ps1`) | 0.2.1 / 0.3.x |
