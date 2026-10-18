@@ -56,3 +56,11 @@ CONFIG_LWIP_SNTP_MAX_SERVERS=2
 # Webserver mit WebSocket (Live-Status); lange Kopfzeilen (Captive-Portal-Abfragen, Browser-Kennungen)
 CONFIG_HTTPD_WS_SUPPORT=y
 CONFIG_HTTPD_MAX_REQ_HDR_LEN=2048
+
+# TCP: größeres Empfangsfenster (32 KB statt 5,7 KB) und SACK. Mit nur 4 Paketen im Fenster endet jeder
+# Paketverlust im WLAN in immer längeren Wartezeiten (gemessen: Update-Upload blieb bei -71 dBm stehen).
+# Die Puffer liegen dank SPIRAM_TRY_ALLOCATE_WIFI_LWIP im PSRAM.
+CONFIG_LWIP_TCP_WND_DEFAULT=32768
+CONFIG_LWIP_TCP_RECVMBOX_SIZE=32
+CONFIG_LWIP_TCP_SND_BUF_DEFAULT=16384
+CONFIG_LWIP_TCP_SACK_OUT=y

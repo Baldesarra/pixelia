@@ -10,6 +10,7 @@
 //   POST /api/ota             Rohdaten der .bin (application/octet-stream)
 //   POST /api/ota/ack         Hinweis auf zurückgerolltes Update gelesen
 //   POST /api/reboot
+//   POST /api/speedtest       Daten empfangen und verwerfen (Messung der Übertragungsrate)
 
 #include "web.h"
 
@@ -376,6 +377,7 @@ esp_err_t ota_post(httpd_req_t* req) {
     int timeouts = 0;
     char error[128] = "";
     bool started = false;
+    bool broken = false;  // Übertragung abgerissen oder hängt
     int64_t t0 = esp_timer_get_time();
     uint32_t last_pct = 0;
     while (got < total) {
@@ -383,6 +385,7 @@ esp_err_t ota_post(httpd_req_t* req) {
         if (r == HTTPD_SOCK_ERR_TIMEOUT && ++timeouts < 5) continue;
         if (r <= 0) {
             std::snprintf(error, sizeof(error), "Verbindung während der Übertragung abgebrochen");
+            broken = true;
             break;
         }
         timeouts = 0;
@@ -412,6 +415,10 @@ esp_err_t ota_post(httpd_req_t* req) {
     if (error[0] || !started) {
         if (started) ota::cancel(error);
         ESP_LOGW(TAG, "Update abgelehnt: %s", error);
+        if (broken) {
+            // Übertragung hängt: Verbindung sofort schließen statt den Rest abzuwarten (blockiert sonst den Server)
+            return ESP_FAIL;
+        }
         return reply(req, false, error[0] ? error : "Firmware unvollständig");
     }
     if (ota::finish(error, sizeof(error)) != ESP_OK) return reply(req, false, error);
@@ -424,6 +431,37 @@ esp_err_t ota_post(httpd_req_t* req) {
     send_json(req, j.text());
     ota::restart_soon(1500);
     return ESP_OK;
+}
+
+// Netzwerk-Messung: nimmt beliebige Daten entgegen und verwirft sie (Diagnose der Übertragungsrate ohne Flashen,
+// z. B. curl --data-binary @datei http://pixelia/api/speedtest)
+esp_err_t speedtest_post(httpd_req_t* req) {
+    constexpr size_t kChunk = 4096;
+    auto* buf = static_cast<char*>(heap_caps_malloc(kChunk, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    if (!buf) return reply(req, false, "Kein Speicher frei", "500 Internal Server Error");
+    const int64_t t0 = esp_timer_get_time();
+    size_t got = 0;
+    int timeouts = 0, max_gap_ms = 0;
+    int64_t last = t0;
+    while (got < req->content_len) {
+        int r = httpd_req_recv(req, buf, std::min(kChunk, req->content_len - got));
+        if (r == HTTPD_SOCK_ERR_TIMEOUT && ++timeouts < 5) continue;
+        if (r <= 0) break;
+        int64_t now = esp_timer_get_time();
+        max_gap_ms = std::max(max_gap_ms, static_cast<int>((now - last) / 1000));
+        last = now;
+        got += r;
+    }
+    heap_caps_free(buf);
+    const double secs = (esp_timer_get_time() - t0) / 1e6;
+    wifi::Status w = wifi::status();
+    ESP_LOGI(TAG, "Messung: %u KB in %.1f s (%.0f KB/s), längste Pause %d ms, %d Zeitüberschreitungen, %d dBm",
+             static_cast<unsigned>(got / 1024), secs, got / 1024.0 / (secs > 0 ? secs : 1), max_gap_ms, timeouts, w.rssi);
+    if (got < req->content_len) return ESP_FAIL;
+    Json j;
+    j.obj().boolean("ok", true).num("bytes", got).num("seconds", secs, 2).num("kbps", got / 1024.0 / (secs > 0 ? secs : 1));
+    j.num("maxGapMs", max_gap_ms).num("timeouts", timeouts).num("rssi", w.rssi).end_obj();
+    return send_json(req, j.text());
 }
 
 // Captive Portal: Prüfadressen von Android, iOS/macOS, Windows und Firefox auf die Einrichtungsseite umleiten
@@ -488,6 +526,7 @@ void start() {
     add("/api/ota", HTTP_POST, ota_post);
     add("/api/ota/ack", HTTP_POST, ota_ack_post);
     add("/api/reboot", HTTP_POST, reboot_post);
+    add("/api/speedtest", HTTP_POST, speedtest_post);
     add("/ws", HTTP_GET, ws_handler, true);
     for (const char* uri : {"/generate_204", "/gen_204", "/hotspot-detect.html", "/library/test/success.html",
                             "/connecttest.txt", "/ncsi.txt", "/redirect", "/canonical.html", "/success.txt"}) {

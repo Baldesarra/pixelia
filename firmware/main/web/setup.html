@@ -262,15 +262,28 @@ $("upBtn").onclick = () => {
   $("prog").hidden = false;
   $("prog").value = 0;
   const x = new XMLHttpRequest();
+  // Hängt die Übertragung 30 s ohne Fortschritt (z. B. schwacher WLAN-Empfang), abbrechen und Bescheid sagen
+  let lastProgress = Date.now(), sent = false;
+  const watchdog = setInterval(() => {
+    if (sent || Date.now() - lastProgress < 30000) return;
+    clearInterval(watchdog);
+    x.abort();
+    $("upMsg").innerHTML = `<span class="err">Die Übertragung hängt seit 30 Sekunden (schwacher WLAN-Empfang?). Es wurde nichts installiert, bitte noch einmal versuchen.</span>`;
+    uploading = false;
+    $("upBtn").disabled = false;
+  }, 2000);
   x.open("POST", "/api/ota");
   x.setRequestHeader("Content-Type", "application/octet-stream");
+  x.upload.onload = () => { sent = true; };
   x.upload.onprogress = (e) => {
+    lastProgress = Date.now();
     if (!e.lengthComputable) return;
     const p = (e.loaded * 100) / e.total;
     $("prog").value = p;
     $("upMsg").textContent = `Übertragen: ${Math.round(p)} % (${Math.round(e.loaded / 1024)} von ${Math.round(e.total / 1024)} KB)`;
   };
   x.onload = () => {
+    clearInterval(watchdog);
     let j = {};
     try { j = JSON.parse(x.responseText); } catch (e) {}
     if (x.status === 200 && j.ok) {
@@ -282,7 +295,12 @@ $("upBtn").onclick = () => {
       $("upBtn").disabled = false;
     }
   };
-  x.onerror = () => { $("upMsg").innerHTML = `<span class="err">Verbindung abgebrochen</span>`; uploading = false; $("upBtn").disabled = false; };
+  x.onerror = () => {
+    clearInterval(watchdog);
+    $("upMsg").innerHTML = `<span class="err">Verbindung abgebrochen, es wurde nichts installiert. Bitte noch einmal versuchen.</span>`;
+    uploading = false;
+    $("upBtn").disabled = false;
+  };
   x.send(f);
 };
 
