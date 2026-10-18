@@ -19,9 +19,10 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build > /dev/null
 
       - name: Bauen
-        # Ohne Bildschirm in der CI: SDL nur mit Offscreen-/Dummy-Treibern (X11/Wayland aus)
+        # Ohne Bildschirm in der CI: SDL nur mit Offscreen-/Dummy-Treibern (X11/Wayland aus, ausdrücklich erlaubt)
         run: |
-          cmake -S sim -B build-sim -G Ninja -DCMAKE_BUILD_TYPE=Release -DSDL_X11=OFF -DSDL_WAYLAND=OFF > /dev/null
+          cmake -S sim -B build-sim -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DSDL_X11=OFF -DSDL_WAYLAND=OFF -DSDL_UNIX_CONSOLE_BUILD=ON > /dev/null
           cmake --build build-sim
 
       - name: Screenshots und Kontaktbogen
