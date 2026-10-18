@@ -1,0 +1,38 @@
+# ESP-IDF
+build/
+sdkconfig
+sdkconfig.old
+managed_components/
+
+# Simulator / CMake
+build-*/
+cmake-build-*/
+CMakeUserPresets.json
+
+# Weboberfläche (Node)
+node_modules/
+web/dist/
+.svelte-kit/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Erzeugte Dateien
+*.bin
+*.elf
+*.map
+!assets/**/*.bin
+
+# Editor / System
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Lokale Claude-Einstellungen
+.claude/settings.local.json
