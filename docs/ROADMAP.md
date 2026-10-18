@@ -7,11 +7,11 @@
 
 | | |
 |---|---|
-| **Phase** | 0.2.x Vernetzt **in Arbeit** |
-| **Letzte Version** | 0.1.0 „Fundament“ (2026-10-18), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.1.0) |
+| **Phase** | 0.2.x Vernetzt: 0.2.0 **veröffentlicht**, als Nächstes 0.3.x Weboberfläche |
+| **Letzte Version** | 0.2.0 „Vernetzt“ (2026-10-18), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.2.0) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
-| **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB) |
-| **Nächster Schritt** | Release 0.2.0 (Pull Request, Tag), danach 0.3.x Weboberfläche |
+| **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
+| **Nächster Schritt** | 0.3.x Weboberfläche (Svelte, M3 Expressive); Updates laufen ab jetzt ohne USB |
 | **Aktualisiert** | 2026-10-18 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
@@ -95,7 +95,8 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
       (auch im Simulator, `--screen`)
 - [x] Messung: 30 fps mit WLAN, Webserver und während Updates; ≥ 115 KB interner RAM frei
 - [x] Backlog-Punkt RAM-Einbruch beim Start geklärt (DMA-Pool von ESP-IDF, kein echter Verbrauch)
-- [ ] **Release 0.2.0**, danach ein echtes Update auf die veröffentlichte `.bin` per Browser
+- [x] **Release 0.2.0** (Tag `v0.2.0`, Web-Flasher aktualisiert); echtes Update auf die veröffentlichte `.bin` per
+      Browser durch den User: 1113 KB in 7,1 s, Probelauf mit Selbsttest bestanden
 - [x] **Ab hier Updates ohne USB**
 
 ## 0.3.x – Weboberfläche
