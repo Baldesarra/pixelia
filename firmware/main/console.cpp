@@ -4,12 +4,14 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
 #include "app.h"
 #include "board/backlight.h"
 #include "net.h"
 #include "ota.h"
 #include "settings.h"
+#include "ui.h"
 #include "web.h"
 #include "driver/uart.h"
 #include "esp_log.h"
@@ -28,7 +30,7 @@ void print_help() {
     ESP_LOGI(TAG, "  info | heap | scan | touch | touchrst | reboot");
     ESP_LOGI(TAG, "  rot <0|180> | set | set bright <1-100>           Bild drehen, Einstellungen (gespeichert)");
     ESP_LOGI(TAG, "  wifi | wifi scan | wifi list | wifi forget <Name> | wifi setup | wifi connect");
-    ESP_LOGI(TAG, "  ota | ntp | web                                Update-Zustand, Uhrzeit, Webserver");
+    ESP_LOGI(TAG, "  ota | ntp | web | toast <Text>                 Update-Zustand, Uhrzeit, Webserver, Kurzmeldung");
     ESP_LOGI(TAG, "  tour [tap] | flash <Sekunden> | marks <n>      geführter Test (tap: Start per Tippen), Flash-Last");
     ESP_LOGI(TAG, "  pat <black|bars|frame|motion|touch|engine>   Testbild/Modus");
     ESP_LOGI(TAG, "  bl <0-100> | bl cycle | bl stop | blf <Hz>      Hintergrundbeleuchtung");
@@ -48,9 +50,9 @@ void log_timing(const board::display::Timing& t) {
 }
 
 void handle(char* line) {
-    char* argv[8] = {};
+    char* argv[24] = {};
     int argc = 0;
-    for (char* tok = std::strtok(line, " \t"); tok && argc < 8; tok = std::strtok(nullptr, " \t")) argv[argc++] = tok;
+    for (char* tok = std::strtok(line, " \t"); tok && argc < 24; tok = std::strtok(nullptr, " \t")) argv[argc++] = tok;
     if (argc == 0) return;
     const char* cmd = argv[0];
     auto is = [&](const char* name) { return std::strcmp(cmd, name) == 0; };
@@ -134,6 +136,11 @@ void handle(char* line) {
         }
     } else if (is("ota")) {
         ota::log_status();
+    } else if (is("toast") && argc >= 2) {
+        // Kurzmeldung zum Prüfen der Anzeige; Wörter wieder zusammensetzen
+        std::string text;
+        for (int i = 1; i < argc; ++i) text += (i > 1 ? " " : "") + std::string(argv[i]);
+        ui::toast(text, pixelia::ui::Tone::Info, 15);
     } else if (is("ntp")) {
         timesync::log_status();
         ESP_LOGI(TAG, "Weltzeit %s", gfx::real_time() ? "folgt der echten Uhrzeit" : "frei gestellt (time real = echte Zeit)");
@@ -216,7 +223,7 @@ void handle(char* line) {
 }
 
 void console_task(void*) {
-    char line[128];
+    char line[256];
     size_t len = 0;
     for (;;) {
         uint8_t ch;

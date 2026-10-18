@@ -6,6 +6,7 @@
 // Zeile 8), 9–10 Unterlängen. Text wird als UTF-8 übergeben; unbekannte Zeichen erscheinen als Kästchen.
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 #include "pixelia/engine/canvas.h"
@@ -20,6 +21,9 @@ inline constexpr int kCapHeight = 7;
 // Breite in Pixeln (inklusive Abstand zwischen den Zeichen, ohne Abstand nach dem letzten)
 int text_width(std::string_view utf8, int scale = 1);
 
+// Text auf max_width kürzen, abgeschnitten wird mit „…“ (zeichenweise, UTF-8-sicher)
+std::string ellipsize(std::string_view utf8, int max_width, int scale = 1);
+
 // Zeichnet ab (x, y) = linke obere Ecke der Zelle, schneidet am Rand ab. Gibt die Breite zurück.
 int draw(Canvas& canvas, int x, int y, std::string_view utf8, uint8_t color, int scale = 1);
 
@@ -28,10 +32,11 @@ void draw_centered(Canvas& canvas, int cx, int y, std::string_view utf8, uint8_t
 
 // Bricht an Leerzeichen um (und hart an '\n'). line_height in Pixeln, 0 = kLineHeight × scale.
 // Gibt die Zahl der Zeilen zurück.
+// max_lines > 0: weitere Zeilen werden weggelassen.
 int draw_wrapped(Canvas& canvas, int x, int y, int max_width, std::string_view utf8, uint8_t color, int scale = 1,
-                 int line_height = 0);
+                 int line_height = 0, int max_lines = 0);
 
-// Zahl der Zeilen, die draw_wrapped bräuchte
-int wrapped_lines(int max_width, std::string_view utf8, int scale = 1);
+// Zahl der Zeilen, die draw_wrapped bräuchte; widest = Breite der breitesten Zeile (optional)
+int wrapped_lines(int max_width, std::string_view utf8, int scale = 1, int* widest = nullptr);
 
 }  // namespace pixelia::font

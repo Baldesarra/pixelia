@@ -37,7 +37,7 @@ void print_help() {
         "  --true-colors           Palettenfarben statt Display-Farben (RGB565)\n"
         "  --run-seconds X         Fenster nach X Sekunden schließen (mit --screenshot: Bild beim Schließen)\n"
         "  --screen NAME           Systemanzeige mit Beispieldaten als Screenshot (kopflos): setup, setup-leer,\n"
-        "                          update, update-fertig, failed, message, toast\n"
+        "                          setup-fehler, update, update-fertig, failed, message, toast, toast-lang\n"
         "\n"
         "Fenster: Leertaste Pause, +/- Zeitraffer, T eine Stunde weiter, S Screenshot, Esc Ende\n",
         pixelia::scene_names());

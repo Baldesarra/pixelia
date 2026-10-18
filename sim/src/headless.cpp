@@ -80,6 +80,16 @@ bool render_screen(const std::string& name, std::vector<uint8_t>& frame) {
         ui::SetupScreen screen;
         screen.set(info);
         screen.render(canvas);
+    } else if (name == "setup-fehler") {
+        ui::SetupInfo info;
+        info.ap_password = "kx7m-q4tr";
+        info.clients = 2;
+        info.saved_networks = 2;
+        info.retry_seconds = 95;
+        info.last_error = "Heimnetz-Obergeschoss-5G: Verschlüsselung des Routers passt nicht";
+        ui::SetupScreen screen;
+        screen.set(info);
+        screen.render(canvas);
     } else if (name == "setup-leer") {
         ui::SetupInfo info;
         info.ap_password = "kx7m-q4tr";
@@ -98,6 +108,11 @@ bool render_screen(const std::string& name, std::vector<uint8_t>& frame) {
                                     ui::Tone::Success});
     } else if (name == "toast") {
         ui::draw_toast(canvas, "Update auf 0.2.1 wurde zurückgerollt: Absturz im Probelauf", ui::Tone::Warning);
+    } else if (name == "toast-lang") {
+        ui::draw_toast(canvas,
+                       "Update auf 0.1.0-2-gcc56269-test-selftest zurückgerollt: Selbsttest nicht bestanden: Engine "
+                       "liefert keine Bilder",
+                       ui::Tone::Warning);
     } else {
         return false;
     }
@@ -209,8 +224,8 @@ int run_headless(const Options& opt) {
         pixelia::Palette palette = scene->palette();
         pixelia::ui::apply_palette(palette);
         if (!opt.screen.empty() && !render_screen(opt.screen, frame)) {
-            std::printf("FEHLER: Systemanzeige \"%s\" gibt es nicht (setup, setup-leer, update, update-fertig, failed, "
-                        "message, toast)\n", opt.screen.c_str());
+            std::printf("FEHLER: Systemanzeige \"%s\" gibt es nicht (setup, setup-leer, setup-fehler, update, "
+                        "update-fertig, failed, message, toast, toast-lang)\n", opt.screen.c_str());
             return 2;
         }
         const int s = std::max(1, opt.scale);

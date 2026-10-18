@@ -1,5 +1,6 @@
 #include "pixelia/engine/font.h"
 
+#include <algorithm>
 #include <cstddef>
 
 namespace pixelia::font {
@@ -276,6 +277,20 @@ int text_width(std::string_view s, int scale) {
     return w;
 }
 
+std::string ellipsize(std::string_view s, int max_width, int scale) {
+    if (text_width(s, scale) <= max_width) return std::string(s);
+    std::string r(s);
+    while (!r.empty()) {
+        // letztes Zeichen (inkl. UTF-8-Folgebytes) entfernen
+        size_t cut = r.size() - 1;
+        while (cut > 0 && (static_cast<unsigned char>(r[cut]) & 0xC0) == 0x80) --cut;
+        r.erase(cut);
+        while (!r.empty() && r.back() == ' ') r.pop_back();
+        if (text_width(r + "…", scale) <= max_width) break;
+    }
+    return r + "…";
+}
+
 int draw(Canvas& canvas, int x, int y, std::string_view s, uint8_t color, int scale) {
     const int x0 = x;
     bool first = true;
@@ -293,14 +308,18 @@ void draw_centered(Canvas& canvas, int cx, int y, std::string_view s, uint8_t co
 }
 
 int draw_wrapped(Canvas& canvas, int x, int y, int max_width, std::string_view s, uint8_t color, int scale,
-                 int line_height) {
+                 int line_height, int max_lines) {
     return wrap(s, max_width, scale, [&](int n, std::string_view line) {
+        if (max_lines > 0 && n >= max_lines) return;
         draw(canvas, x, y + n * (line_height > 0 ? line_height : kLineHeight * scale), line, color, scale);
     });
 }
 
-int wrapped_lines(int max_width, std::string_view s, int scale) {
-    return wrap(s, max_width, scale, [](int, std::string_view) {});
+int wrapped_lines(int max_width, std::string_view s, int scale, int* widest) {
+    int w = 0;
+    int n = wrap(s, max_width, scale, [&](int, std::string_view line) { w = std::max(w, text_width(line, scale)); });
+    if (widest) *widest = w;
+    return n;
 }
 
 }  // namespace pixelia::font

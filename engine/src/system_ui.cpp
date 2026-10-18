@@ -176,16 +176,22 @@ void SetupScreen::render(Canvas& c) const {
             right_color = kWarning;
         }
         if (info_.retry_seconds >= 0) {
+            // Countdown zuerst: Wird gekürzt, trifft es den Fehlertext dahinter
             char buf[40];
             std::snprintf(buf, sizeof(buf), "Neuer Versuch in %d:%02d", info_.retry_seconds / 60,
                           info_.retry_seconds % 60);
-            right = right.empty() ? std::string(buf) : right + " · " + buf;
+            right = right.empty() ? std::string(buf) : std::string(buf) + " · " + right;
         } else if (info_.saved_networks == 0 && right.empty()) {
             right = "Noch kein WLAN gespeichert";
         }
     }
+    // Passt der rechte Text nicht neben den linken, hat er Vorrang (Fehler und Countdown sind wichtiger)
     int left_end = kMargin + 11 + font::text_width(left) + 12;
-    if (kW - kMargin - font::text_width(right) >= left_end) text_right(c, kW - kMargin, kFootY + 2, right, right_color);
+    if (kW - kMargin - font::text_width(right) < left_end) {
+        c.fill_rect(0, kFootY, kW, kH - kFootY, kBg);
+        right = font::ellipsize(right, kW - 2 * kMargin);
+    }
+    text_right(c, kW - kMargin, kFootY + 2, right, right_color);
 }
 
 void render_update(Canvas& c, const UpdateInfo& u) {
@@ -206,8 +212,9 @@ void render_update(Canvas& c, const UpdateInfo& u) {
     }
     font::draw_centered(c, cx, kPy + 12, title, title_color, 2);
 
-    std::string versions = u.from_version.empty() ? u.to_version : u.from_version + "  →  " + u.to_version;
-    if (!versions.empty()) font::draw_centered(c, cx, kPy + 40, versions, kTextDim);
+    std::string versions = u.from_version.empty() || u.to_version.empty() ? u.from_version + u.to_version
+                                                                           : u.from_version + "  →  " + u.to_version;
+    if (!versions.empty()) font::draw_centered(c, cx, kPy + 40, font::ellipsize(versions, kPw - 24), kTextDim);
 
     if (u.phase == Phase::Failed) {
         int lines = font::wrapped_lines(kPw - 40, u.message);
@@ -247,18 +254,23 @@ void render_message(Canvas& c, const MessageInfo& m) {
     int py = (kH - ph) / 2;
     framed(c, kPx, py, kPw, ph, kSurface, kOutline, 4);
     c.fill_rect(kPx + 1, py + 8, 3, ph - 16, tone_color(m.tone));
-    font::draw(c, kPx + 20, py + 12, m.title, m.tone == Tone::Info ? static_cast<uint8_t>(kText) : tone_color(m.tone), 2);
+    const uint8_t title_color = m.tone == Tone::Info ? static_cast<uint8_t>(kText) : tone_color(m.tone);
+    font::draw(c, kPx + 20, py + 12, font::ellipsize(m.title, kPw - 40, 2), title_color, 2);
     font::draw_wrapped(c, kPx + 20, py + 46, kPw - 40, m.body, kText);
 }
 
 void draw_toast(Canvas& c, std::string_view text, Tone tone) {
-    const int tw = font::text_width(text);
-    const int w = std::min(kW - 16, tw + 26), h = 17;
+    // Lange Meldungen umbrechen (höchstens 3 Zeilen), der Kasten wächst nach oben
+    constexpr int kMaxLines = 3, kPadLeft = 18, kPadRight = 8;
+    constexpr int kMaxText = kW - 24 - kPadLeft - kPadRight;
+    int widest = 0;
+    const int lines = std::min(kMaxLines, std::max(1, font::wrapped_lines(kMaxText, text, 1, &widest)));
+    const int w = widest + kPadLeft + kPadRight, h = 17 + (lines - 1) * font::kLineHeight;
     const int x = (kW - w) / 2, y = kH - h - 6;
     round_rect(c, x - 1, y + 1, w + 2, h + 1, kShadow, 4);
     framed(c, x, y, w, h, kSurface, kOutline, 4);
     round_rect(c, x + 8, y + 6, 5, 5, tone_color(tone), 1);
-    font::draw(c, x + 18, y + 5 - font::kCapTop, text, kText);
+    font::draw_wrapped(c, x + kPadLeft, y + 5 - font::kCapTop, kMaxText, text, kText, 1, 0, kMaxLines);
 }
 
 }  // namespace pixelia::ui
