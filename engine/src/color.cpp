@@ -1,5 +1,7 @@
 #include "pixelia/engine/color.h"
 
+#include <cstddef>
+
 namespace pixelia {
 
 void indexed_to_rgb(const uint8_t* pixels, int w, int h, const Palette& palette, int scale, bool device_colors,
@@ -9,7 +11,7 @@ void indexed_to_rgb(const uint8_t* pixels, int w, int h, const Palette& palette,
     if (scale < 1) scale = 1;
     const int out_w = w * scale;
     for (int y = 0; y < h; ++y) {
-        uint8_t* row = rgb + static_cast<size_t>(y) * scale * out_w * 3;
+        uint8_t* row = rgb + static_cast<std::size_t>(y) * scale * out_w * 3;
         uint8_t* p = row;
         for (int x = 0; x < w; ++x) {
             Color c = lut[pixels[y * w + x]];
@@ -21,7 +23,7 @@ void indexed_to_rgb(const uint8_t* pixels, int w, int h, const Palette& palette,
         }
         // weitere Zeilen derselben Quellzeile kopieren
         for (int s = 1; s < scale; ++s) {
-            uint8_t* dst = row + static_cast<size_t>(s) * out_w * 3;
+            uint8_t* dst = row + static_cast<std::size_t>(s) * out_w * 3;
             for (int i = 0; i < out_w * 3; ++i) dst[i] = row[i];
         }
     }
