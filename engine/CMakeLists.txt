@@ -4,6 +4,7 @@ set(PIXELIA_ENGINE_SRCS
     src/canvas.cpp
     src/color.cpp
     src/font.cpp
+    src/gesture.cpp
     src/png.cpp
     src/qr.cpp
     src/scenes.cpp

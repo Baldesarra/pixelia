@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <utility>
 
 #include "pixelia/engine/font.h"
 
@@ -257,6 +258,157 @@ void render_message(Canvas& c, const MessageInfo& m) {
     const uint8_t title_color = m.tone == Tone::Info ? static_cast<uint8_t>(kText) : tone_color(m.tone);
     font::draw(c, kPx + 20, py + 12, font::ellipsize(m.title, kPw - 40, 2), title_color, 2);
     font::draw_wrapped(c, kPx + 20, py + 46, kPw - 40, m.body, kText);
+}
+
+int signal_bars(int rssi) {
+    if (rssi >= 0) return 0;  // unbekannt
+    if (rssi >= -55) return 4;
+    if (rssi >= -65) return 3;
+    if (rssi >= -75) return 2;
+    if (rssi >= -85) return 1;
+    return 0;
+}
+
+void draw_signal_bars(Canvas& c, int x, int baseline, int rssi) {
+    const int bars = signal_bars(rssi);
+    const uint8_t on = bars >= 3 ? kSuccess : bars == 2 ? kWarning : kError;
+    const uint8_t off = kOutline;
+    for (int i = 0; i < 4; ++i) {
+        int h = 3 + 2 * i;
+        c.fill_rect(x + i * 4, baseline - h, 3, h, i < bars ? on : off);
+    }
+}
+
+void InfoCard::set(const InfoCardData& d) {
+    // Im Heimnetz führt der QR-Code zur Seite (IP funktioniert überall, .local nicht an jedem PC),
+    // im Setup-Modus ins Setup-WLAN (die Seite öffnet sich danach meist von selbst)
+    std::string payload;
+    if (d.mode == InfoCardData::Mode::Connected && !d.ip.empty()) payload = "http://" + d.ip + "/";
+    else if (d.mode == InfoCardData::Mode::Setup && !d.ap_ssid.empty()) payload = qr::wifi_payload(d.ap_ssid, d.ap_password);
+    if (payload != qr_key_) {
+        if (payload.empty() || !qr::encode(payload, qr::Ecc::Medium, &qr_)) qr_ = qr::Code{};
+        qr_key_ = std::move(payload);
+    }
+    data_ = d;
+}
+
+void InfoCard::render(Canvas& c) const {
+    using Mode = InfoCardData::Mode;
+    const InfoCardData& d = data_;
+
+    // Karte mit Schatten, der Rest des Bildes wird per Raster abgedunkelt (die Welt bleibt dahinter lebendig)
+    constexpr int kX = 18, kY = 10, kCw = kW - 2 * kX, kCh = kH - 2 * kY;
+    for (int y = 0; y < kH; ++y) {
+        uint8_t* row = c.row(y);
+        for (int x = y & 1; x < kW; x += 2) row[x] = kShadow;
+    }
+    round_rect(c, kX - 1, kY + 2, kCw + 2, kCh, kShadow, 5);
+    framed(c, kX, kY, kCw, kCh, kSurface, kOutline, 5);
+
+    // Kopfzeile: Name und Zustand
+    const int left = kX + 14, right = kX + kCw - 14;
+    font::draw(c, left, kY + 9, "Pixelia", kText, 2);
+    const char* state = "Im WLAN";
+    uint8_t state_color = kSuccess;
+    if (d.mode == Mode::Setup) {
+        state = "Setup-Modus";
+        state_color = kPrimary;
+    } else if (d.mode == Mode::Offline) {
+        state = "Nicht verbunden";
+        state_color = kWarning;
+    }
+    const int state_w = font::text_width(state);
+    text_right(c, right, kY + 14, state, state_color);
+    c.fill_rect(right - state_w - 9, kY + 17, 5, 5, state_color);
+    c.fill_rect(kX + 1, kY + 34, kCw - 2, 1, kOutline);
+
+    // Links: QR-Code (bzw. Platzhalter ohne Adresse), darunter, wozu er gut ist
+    constexpr int kBodyY = kY + 42, kBox = 116;
+    const int qr_cx = left + kBox / 2;
+    if (qr_.size) {
+        const int scale = std::max(1, std::min(4, kBox / (qr_.size + 4)));
+        const int size = (qr_.size + 4) * scale;
+        draw_qr(c, qr_, qr_cx - size / 2, kBodyY + (kBox - size) / 2, scale, 2);
+        font::draw_centered(c, qr_cx, kBodyY + kBox + 4,
+                            d.mode == Mode::Setup ? "Scannen: WLAN beitreten" : "Scannen: Seite öffnen", kTextDim);
+    } else {
+        framed(c, left, kBodyY, kBox, kBox, kSurfaceHigh, kOutline, 3);
+        font::draw_centered(c, qr_cx, kBodyY + kBox / 2 - 12, "Noch keine", kTextDim);
+        font::draw_centered(c, qr_cx, kBodyY + kBox / 2, "Adresse", kTextDim);
+    }
+
+    // Rechts: Adressen und Verbindung
+    const int rx = left + kBox + 16, rw = right - rx;
+    int y = kBodyY;
+    auto label_value = [&](const char* label, std::string_view value, uint8_t color) {
+        font::draw(c, rx, y, label, kTextDim);
+        font::draw(c, rx + 44, y, font::ellipsize(value, rw - 44), color);
+        y += 14;
+    };
+
+    if (d.mode == Mode::Connected) {
+        font::draw(c, rx, y, "IP-Adresse", kTextDim);
+        font::draw(c, rx, y + 12, d.ip, kPrimary, 2);
+        y += 40;
+        font::draw(c, rx, y, "Im Browser", kTextDim);
+        y += 13;
+        const std::string local = "http://" + d.mdns_host + ".local";
+        const std::string plain = "http://" + d.mdns_host + "/";
+        const std::string fritz = "http://" + d.mdns_host + ".fritz.box";
+        const std::pair<const std::string*, const char*> urls[] = {
+            {&local, "Handy, Mac"}, {&plain, "Windows"}, {&fritz, "FritzBox"}};
+        for (const auto& [url, hint] : urls) {
+            font::draw(c, rx, y, *url, kText);
+            text_right(c, right, y, hint, kTextDim);
+            y += 12;
+        }
+        y += 8;
+        // WLAN-Zeile: Name, Balken und dBm
+        char dbm[16];
+        std::snprintf(dbm, sizeof(dbm), "%d dBm", d.rssi);
+        const int dbm_w = font::text_width(dbm);
+        font::draw(c, rx, y, "WLAN", kTextDim);
+        font::draw(c, rx + 44, y, font::ellipsize(d.ssid, rw - 44 - dbm_w - 24), kText);
+        text_right(c, right, y, dbm, kTextDim);
+        draw_signal_bars(c, right - dbm_w - 21, y + 9, d.rssi);
+        y += 14;
+        label_value("Name", d.hostname, kText);
+    } else if (d.mode == Mode::Setup) {
+        font::draw(c, rx, y, "WLAN", kTextDim);
+        font::draw(c, rx, y + 12, font::ellipsize(d.ap_ssid, rw, 2), kText, 2);
+        y += 38;
+        font::draw(c, rx, y, d.ap_password.empty() ? "ohne Passwort" : "Passwort", kTextDim);
+        if (!d.ap_password.empty()) font::draw(c, rx, y + 12, d.ap_password, kPrimary, 2);
+        y += 38;
+        font::draw(c, rx, y, "Danach im Browser", kTextDim);
+        font::draw(c, rx, y + 12, "http://" + d.ap_ip, kText);
+        y += 30;
+        char clients[32];
+        if (d.ap_clients <= 0) std::snprintf(clients, sizeof(clients), "noch keins verbunden");
+        else std::snprintf(clients, sizeof(clients), "%d verbunden", d.ap_clients);
+        label_value("Geräte", clients, d.ap_clients > 0 ? kSuccess : kTextDim);
+    } else {
+        font::draw(c, rx, y, "WLAN", kTextDim);
+        y += 13;
+        y += font::draw_wrapped(c, rx, y, rw, d.status.empty() ? "Kein WLAN verbunden" : d.status, kText, 1, 0, 4) *
+             font::kLineHeight;
+        y += 10;
+        label_value("Name", d.hostname, kText);
+    }
+
+    // Fußzeile
+    const int foot = kY + kCh - 20;
+    font::draw(c, left, foot, "Tippen schließt die Karte", kTextDim);
+    if (!d.version.empty()) text_right(c, right, foot, font::ellipsize("Firmware " + d.version, 170), kTextDim);
+}
+
+void draw_hold_indicator(Canvas& c, float progress) {
+    progress = std::clamp(progress, 0.0f, 1.0f);
+    constexpr int kPw = 150, kPh = 24, kPx = (kW - kPw) / 2, kPy = kH - kPh - 8;
+    round_rect(c, kPx - 1, kPy + 1, kPw + 2, kPh + 1, kShadow, 4);
+    framed(c, kPx, kPy, kPw, kPh, kSurface, kOutline, 4);
+    font::draw_centered(c, kW / 2, kPy + 3, "Halten für Info …", kText);
+    progress_bar(c, kPx + 10, kPy + 16, kPw - 20, 4, static_cast<uint32_t>(progress * 1000), 1000);
 }
 
 void draw_toast(Canvas& c, std::string_view text, Tone tone) {

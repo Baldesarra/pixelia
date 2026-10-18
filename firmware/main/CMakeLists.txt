@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS "main.cpp" "sysinfo.cpp" "hwtest.cpp" "gfx.cpp" "perf.cpp" "console.cpp"
          "settings.cpp" "wifi.cpp" "captive_dns.cpp" "timesync.cpp" "web.cpp" "ota.cpp"
+         "input.cpp"
     INCLUDE_DIRS "."
     EMBED_TXTFILES "web/setup.html"
     REQUIRES board engine

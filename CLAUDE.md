@@ -44,6 +44,9 @@ Material 3 Expressive Design und Updates über GitHub.
   `.logs/idf-last.log` und zeigt nur Fehler, Warnungen und die Zusammenfassung. Beispiel: `.\tools\idf.ps1 -C firmware build`.
   Das Log nur bei Fehlern gezielt lesen.
 - Nach Installationen fehlt der neue PATH evtl. in der laufenden Shell: in PowerShell aus Machine+User-Umgebung nachladen.
+- **Updates aufs Board bevorzugt per WLAN:** `.\tools\ota.ps1` (Standardziel `http://pixelia/`, sonst `-Target <IP>`,
+  `-Build` baut vorher) lädt hoch und prüft danach Version und Selbsttest. USB (`tools/flash.ps1`) nur für die
+  Erstinstallation, wenn das WLAN nicht geht, oder fürs serielle Log (`tools/monitor.ps1`).
 - Simulator-Compiler: LLVM-MinGW (`g++`/`clang++`), CMake, Ninja. Node.js 24 für die Weboberfläche.
 - Grundsatz: lange Ausgaben (Builds, Logs, serielle Ausgabe) immer über Skripte filtern, nicht roh ins Gespräch holen.
 

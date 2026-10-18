@@ -1,6 +1,7 @@
 #pragma once
 // Systemanzeigen auf dem Display (gezeichnet im Grafik-Task, siehe engine/system_ui.h).
-// Vorrang: Update > Meldung > Setup-Modus > Welt. Kurzmeldungen erscheinen über der Welt.
+// Vorrang: Update > Meldung > Setup-Modus > Welt. Kurzmeldungen erscheinen über der Welt,
+// die Info-Karte und die Halte-Anzeige über allem außer dem Update.
 // Alle Funktionen dürfen von jedem Task aus aufgerufen werden.
 
 #include <string_view>
@@ -19,5 +20,15 @@ void show_message(const pixelia::ui::MessageInfo& info, int seconds);
 void hide_message();
 
 void toast(std::string_view text, pixelia::ui::Tone tone, int seconds);
+
+// Info-Karte (langer Druck): show() startet die Anzeigedauer neu, refresh_info() ändert nur die Daten
+void show_info(const pixelia::ui::InfoCardData& data, int seconds);
+void refresh_info(const pixelia::ui::InfoCardData& data);
+void hide_info();
+bool info_visible();
+bool update_visible();
+
+// Halte-Anzeige während eines langen Drucks: 0..1, negativ = ausblenden
+void set_hold_progress(float progress);
 
 }  // namespace app::ui

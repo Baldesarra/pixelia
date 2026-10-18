@@ -1,4 +1,5 @@
 // Fenster-Modus mit SDL3: zeigt die Szene in 800×480 (2×), Logik mit 30 Schritten pro Sekunde wie auf dem Gerät.
+// Die Maus ersetzt den Touch: gleiche Gestenerkennung wie auf dem Gerät (langer Druck = Info-Karte).
 
 #include <SDL3/SDL.h>
 
@@ -10,6 +11,7 @@
 #include <vector>
 
 #include "pixelia/engine/color.h"
+#include "pixelia/engine/gesture.h"
 #include "pixelia/engine/png.h"
 #include "pixelia/engine/scene.h"
 #include "sim.h"
@@ -18,12 +20,12 @@ namespace sim {
 
 namespace {
 
-void save_screenshot(const pixelia::Scene& scene, const std::vector<uint8_t>& frame, const pixelia::WorldClock& clock,
-                     bool device_colors, std::string path) {
+void save_screenshot(const pixelia::Scene& scene, const pixelia::Palette& palette, const std::vector<uint8_t>& frame,
+                     const pixelia::WorldClock& clock, bool device_colors, std::string path) {
     constexpr int s = 2;
     std::vector<uint8_t> rgb(static_cast<size_t>(pixelia::kScreenWidth) * s * pixelia::kScreenHeight * s * 3);
-    pixelia::indexed_to_rgb(frame.data(), pixelia::kScreenWidth, pixelia::kScreenHeight, scene.palette(), s,
-                            device_colors, rgb.data());
+    pixelia::indexed_to_rgb(frame.data(), pixelia::kScreenWidth, pixelia::kScreenHeight, palette, s, device_colors,
+                            rgb.data());
     auto png = pixelia::encode_png_rgb(rgb.data(), pixelia::kScreenWidth * s, pixelia::kScreenHeight * s);
     if (path.empty()) {
         char name[96];
@@ -77,6 +79,20 @@ int run_window(const Options& opt) {
     std::vector<uint8_t> rgb(pixelia::kScreenPixels * 3);
     pixelia::Canvas canvas(frame.data(), pixelia::kScreenWidth, pixelia::kScreenHeight);
 
+    // Maus wie Touch, in Panel-Koordinaten (800×480), damit die Bewegungstoleranz wie auf dem Gerät gilt
+    pixelia::gesture::Recognizer gestures;
+    pixelia::ui::InfoCard card;
+    Uint64 card_until_ms = 0;
+    bool mouse_down = false;
+    auto mouse = [&](SDL_Event& ev, int fingers) {
+        SDL_ConvertEventToRenderCoordinates(renderer, &ev);
+        const float fx = ev.type == SDL_EVENT_MOUSE_MOTION ? ev.motion.x : ev.button.x;
+        const float fy = ev.type == SDL_EVENT_MOUSE_MOTION ? ev.motion.y : ev.button.y;
+        gestures.touch(fingers, static_cast<int>(fx * 2), static_cast<int>(fy * 2),
+                       static_cast<uint32_t>(SDL_GetTicks()));
+    };
+    pixelia::Palette palette{};
+
     bool running = true, paused = false, want_shot = false;
     Uint64 last = SDL_GetTicksNS();
     const Uint64 started = last;
@@ -95,6 +111,26 @@ int run_window(const Options& opt) {
                 else if (k == SDLK_MINUS || k == SDLK_KP_MINUS) clock.set_speed(std::max(1.0, clock.speed() / 2));
                 else if (k == SDLK_T) clock.set_world_us(clock.world_us() + 60 * pixelia::WorldClock::kUsPerMinute);
                 else if (k == SDLK_S) want_shot = true;
+            } else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && e.button.button == SDL_BUTTON_LEFT) {
+                mouse_down = true;
+                mouse(e, 1);
+            } else if (e.type == SDL_EVENT_MOUSE_MOTION && mouse_down) {
+                mouse(e, 1);
+            } else if (e.type == SDL_EVENT_MOUSE_BUTTON_UP && e.button.button == SDL_BUTTON_LEFT) {
+                mouse_down = false;
+                mouse(e, 0);
+            }
+        }
+        const Uint64 now_ms = SDL_GetTicks();
+        gestures.tick(static_cast<uint32_t>(now_ms));
+        for (pixelia::gesture::Event g; gestures.poll(&g);) {
+            if (g.type == pixelia::gesture::Type::LongPress) {
+                card.set(sample_info("info"));
+                card_until_ms = now_ms + 20000;
+                std::printf("sim: langer Druck bei %d/%d → Info-Karte\n", g.x, g.y);
+            } else if (g.type == pixelia::gesture::Type::Tap && now_ms < card_until_ms) {
+                card_until_ms = 0;
+                std::printf("sim: Tippen → Info-Karte geschlossen\n");
             }
         }
 
@@ -114,15 +150,22 @@ int run_window(const Options& opt) {
         if (steps == 8) acc_us = 0;
 
         scene->render(canvas);
+        const bool card_visible = now_ms < card_until_ms;
+        if (card_visible) card.render(canvas);
+        const float hold = gestures.hold_progress(static_cast<uint32_t>(now_ms));
+        if (hold >= 0.25f && !card_visible) pixelia::ui::draw_hold_indicator(canvas, hold);
+        palette = scene->palette();
+        pixelia::ui::apply_palette(palette);
         if (want_shot) {
-            save_screenshot(*scene, frame, clock, opt.device_colors, "");
+            save_screenshot(*scene, palette, frame, clock, opt.device_colors, "");
             want_shot = false;
         }
         if (opt.run_seconds > 0 && (now - started) / 1e9 >= opt.run_seconds) {
-            if (!opt.screenshot.empty()) save_screenshot(*scene, frame, clock, opt.device_colors, opt.screenshot);
+            if (!opt.screenshot.empty())
+                save_screenshot(*scene, palette, frame, clock, opt.device_colors, opt.screenshot);
             running = false;
         }
-        pixelia::indexed_to_rgb(frame.data(), pixelia::kScreenWidth, pixelia::kScreenHeight, scene->palette(), 1,
+        pixelia::indexed_to_rgb(frame.data(), pixelia::kScreenWidth, pixelia::kScreenHeight, palette, 1,
                                 opt.device_colors, rgb.data());
         SDL_UpdateTexture(texture, nullptr, rgb.data(), pixelia::kScreenWidth * 3);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);

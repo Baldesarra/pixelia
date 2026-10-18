@@ -92,6 +92,53 @@ void render_message(Canvas& canvas, const MessageInfo& info);
 // Kurzmeldung unten im Bild, über der laufenden Welt
 void draw_toast(Canvas& canvas, std::string_view text, Tone tone);
 
+// Daten für die Info-Karte (langer Druck aufs Display): wie ist Pixelia gerade erreichbar?
+struct InfoCardData {
+    enum class Mode : uint8_t {
+        Connected,  // im Heimnetz: IP, Namen, WLAN, Signal, QR-Code mit http://<IP>/
+        Setup,      // Setup-Modus: Access Point, Passwort, QR-Code zum Beitreten
+        Offline,    // weder noch (z. B. Verbindungsversuch läuft)
+    };
+    Mode mode = Mode::Connected;
+    std::string version;               // Firmware
+    std::string hostname = "Pixelia";  // Name im Router (DHCP)
+    std::string mdns_host = "pixelia"; // ergibt pixelia.local, http://pixelia/ und pixelia.fritz.box
+    // Heimnetz
+    std::string ip;
+    std::string ssid;
+    int rssi = 0;
+    // Setup-Modus
+    std::string ap_ssid;
+    std::string ap_password;
+    std::string ap_ip;
+    int ap_clients = 0;
+    // Was gerade passiert, z. B. „Verbinde mit „Heimnetz“ …“ oder der letzte Fehler
+    std::string status;
+
+    bool operator==(const InfoCardData&) const = default;
+};
+
+class InfoCard {
+public:
+    // Erzeugt den QR-Code nur neu, wenn sich Adresse bzw. Zugangsdaten ändern
+    void set(const InfoCardData& data);
+    const InfoCardData& data() const { return data_; }
+    // Als Karte über das aktuelle Bild zeichnen, der Rest wird abgedunkelt
+    void render(Canvas& canvas) const;
+
+private:
+    InfoCardData data_;
+    qr::Code qr_;
+    std::string qr_key_;
+};
+
+// Halte-Anzeige während eines langen Drucks (progress 0..1), unten in der Mitte
+void draw_hold_indicator(Canvas& canvas, float progress);
+
+// Signalstärke als 0–4 Balken (−55/−65/−75/−85 dBm)
+int signal_bars(int rssi);
+void draw_signal_bars(Canvas& canvas, int x, int baseline, int rssi);
+
 // Bausteine
 void round_rect(Canvas& canvas, int x, int y, int w, int h, uint8_t color, int radius = 2);
 void draw_qr(Canvas& canvas, const qr::Code& code, int x, int y, int scale, int quiet_modules);

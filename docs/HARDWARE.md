@@ -191,8 +191,14 @@ Heap-Bereich, und dieser meldet einen Tiefstwert von 0, solange niemand daraus S
 .\tools\idf.ps1 -C firmware -B firmware/build-test-selftest -DPIXELIA_TEST=selftest build
 ```
 
-Danach die jeweilige `pixelia.bin` über die Einrichtungsseite hochladen oder per
-`curl.exe -X POST -H "Content-Type: application/octet-stream" --data-binary "@datei.bin" http://pixelia/api/ota`.
+Danach die jeweilige `pixelia.bin` über die Einrichtungsseite hochladen oder per WLAN mit
+`.\tools\ota.ps1 -Bin firmware\build-test-crash\pixelia.bin` (meldet den Rückfall samt Grund und endet mit Exit 1).
+
+**Update per WLAN aus der Kommandozeile (seit 0.2.1):** `.\tools\ota.ps1` prüft den Kopf der `.bin` (ESP-Image, Projekt
+„pixelia“, Version), fragt `/api/status` ab, lädt mit Fortschritt in 10-%-Schritten hoch, wartet den Neustart ab und
+prüft danach, dass die neue Version läuft und den Selbsttest bestanden hat. Standardziel `http://pixelia/`, sonst
+`-Target <IP>`; `-Build` baut vorher, `-NoWait` lädt nur hoch. Exit 0 = läuft und bestanden, 1 = Fehler oder Rückfall,
+2 = falsche Datei. Volles Protokoll in `.logs/ota-last.log`.
 
 ## Diagnose-Schnittstelle
 
@@ -202,7 +208,8 @@ eine Zeile: Modus, Bildrate des Panels, Pixeltakt, Interrupt-Last, Aussetzer (de
 CPU-Last pro Kern, freier RAM und PSRAM.
 
 Wichtige Befehle: `pat bars|frame|motion|touch|engine|black`, `bl <0-100>|cycle|stop`, `pclk <MHz>`,
-`timing …`, `pol …`, `rot 0|180` (wird gespeichert), `set` / `set bright <1-100>`, `swap <n>`, `sprites <n>`,
+`timing …`, `pol …`, `rot 0|180` (wird gespeichert), `set` / `set bright <1-100>` / `set lp <1000-10000>`
+(Dauer des langen Drucks in ms, gespeichert), `card` / `card off` (Info-Karte), `swap <n>`, `sprites <n>`,
 `buf int|psram`, `touch`, `touchrst`, `flash <s>`, `tour [tap]`, `tour2`, `time <HH:MM>|real`, `speed <Faktor>`,
 `perf <s>|off`, `info`, `reboot`.
 
@@ -211,9 +218,18 @@ erzwingen), `wifi connect`, `ota` (Partitionen, Probelauf, Rückfall), `ntp` (Uh
 (Kurzmeldung zum Prüfen der Anzeige). WLAN-Passwörter lassen sich über die Konsole bewusst nicht eintragen, nur über
 die Einrichtungsseite.
 
-Über das Netz (JSON): `GET /api/status`, `GET /api/wifi`, `POST /api/wifi/scan`, `POST /api/settings`, `POST /api/ota`,
+Über das Netz (JSON): `GET /api/status`, `GET /api/wifi`, `POST /api/wifi/scan`, `POST /api/settings` (`rot`, `bright`,
+`lp`), `POST /api/ota`,
 `POST /api/reboot`, `POST /api/speedtest` (Daten empfangen und verwerfen, misst die Übertragungsrate), WebSocket `/ws`
 mit dem Status jede Sekunde.
+
+**Info-Karte und Gesten (seit 0.2.1):** 3 s irgendwo aufs Display drücken zeigt die Info-Karte (IP, Namen, WLAN,
+Signal, Firmware, QR-Code mit `http://<IP>/`; im Setup-Modus Name und Passwort des Setup-WLANs mit QR-Code zum
+Beitreten). Tippen schließt sie, sonst nach 20 s. Die Erkennung steckt plattformunabhängig in
+`engine/include/pixelia/engine/gesture.h` (im Simulator mit `--test gestures` geprüft), verteilt wird in
+`firmware/main/input.cpp`. Regeln: Bewegung über 24 Panel-Pixel oder ein zweiter Finger heben Tippen und langen Druck
+auf (frei für spätere Wischgesten), Tippen = höchstens 800 ms, die Halte-Anzeige erscheint nach einem Viertel der
+Zeit. Das Log zeigt `input: Langer Druck bei x/y (… ms, n Messwerte) → Info-Karte` bzw. `Tippen … → geschlossen`.
 
 Geführte Tests im Tempo des Users (Stufe = Zahl der weißen Quadrate oben links):
 

@@ -37,9 +37,12 @@ void print_help() {
         "  --true-colors           Palettenfarben statt Display-Farben (RGB565)\n"
         "  --run-seconds X         Fenster nach X Sekunden schließen (mit --screenshot: Bild beim Schließen)\n"
         "  --screen NAME           Systemanzeige mit Beispieldaten als Screenshot (kopflos): setup, setup-leer,\n"
-        "                          setup-fehler, update, update-fertig, failed, message, toast, toast-lang\n"
+        "                          setup-fehler, update, update-fertig, failed, message, toast, toast-lang,\n"
+        "                          toast-ip, info, info-setup, info-offline, hold\n"
+        "  --test NAME             Selbsttest ohne Hardware: gestures (Tippen, langer Druck), all\n"
         "\n"
-        "Fenster: Leertaste Pause, +/- Zeitraffer, T eine Stunde weiter, S Screenshot, Esc Ende\n",
+        "Fenster: Leertaste Pause, +/- Zeitraffer, T eine Stunde weiter, S Screenshot, Esc Ende,\n"
+        "         Maus 3 s gedrückt halten = Info-Karte (wie langer Druck aufs Display), Klick schließt sie\n",
         pixelia::scene_names());
 }
 
@@ -101,6 +104,8 @@ int main(int argc, char** argv) {
             opt.screen = next();
         } else if (a == "--run-seconds") {
             opt.run_seconds = std::atof(next());
+        } else if (a == "--test") {
+            return sim::run_tests(next());
         } else {
             std::fprintf(stderr, "FEHLER: unbekannte Option %s (--help zeigt alle)\n", a.c_str());
             return 2;

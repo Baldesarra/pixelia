@@ -1,6 +1,7 @@
 // Grafik-Task auf Kern 1: legt das Panel an (Interrupt landet so auf Kern 1) und lässt im Engine-Modus die Szene
 // laufen (gleicher Szenen-Code wie im Simulator, siehe engine/ und sim/).
 
+#include <atomic>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
@@ -63,12 +64,18 @@ struct UiState {
     std::string toast;
     pixelia::ui::Tone toast_tone = pixelia::ui::Tone::Info;
     int64_t toast_until = 0;
+    bool info = false;
+    pixelia::ui::InfoCardData info_data;
+    int64_t info_until = 0;
 };
 std::mutex s_ui_lock;
 UiState s_ui;
 UiState s_ui_local;
 pixelia::ui::SetupScreen s_setup_screen;
+pixelia::ui::InfoCard s_info_card;
 uint16_t s_ui_pal565[16];
+// Halte-Anzeige in Promille, -1 = aus. Eigener Wert statt UiState: ändert sich bei jedem Touch-Abfrage-Takt
+std::atomic<int> s_hold_permille{-1};
 
 // Echte Uhrzeit in die Weltzeit übernehmen: große Abweichung (erster Abgleich, Sommerzeit) springt,
 // kleine Gangunterschiede werden sanft nachgeführt, damit Bewegungen gleichmäßig bleiben
@@ -106,7 +113,14 @@ void draw_screen(pixelia::Canvas& canvas, int screen) {
 
 // Was zuletzt in welchem Puffer gezeichnet wurde (0 = Welt). Systemanzeigen sind unbewegt: Steht im Hinterpuffer
 // schon dieselbe Anzeige, muss nichts neu gezeichnet werden (spart Rechenzeit und PSRAM-Bandbreite).
-uint32_t s_buf_key[2] = {0, 0};
+uint64_t s_buf_key[2] = {0, 0};
+
+// Info-Karte und Halte-Anzeige über das fertige Bild legen (nicht über das Update)
+void draw_overlays(pixelia::Canvas& canvas, int screen, bool info, int hold) {
+    if (screen == 1) return;
+    if (info) s_info_card.render(canvas);
+    if (hold >= 0) pixelia::ui::draw_hold_indicator(canvas, hold / 1000.0f);
+}
 
 void free_buffers() {
     board::display::detach_buffers();
@@ -234,21 +248,29 @@ void gfx_task(void* arg) {
             }
         }
         if (ui_changed && s_ui_local.setup) s_setup_screen.set(s_ui_local.setup_info);
+        if (ui_changed && s_ui_local.info) s_info_card.set(s_ui_local.info_data);
 
         int64_t t1 = esp_timer_get_time();
         pixelia::Canvas canvas(back, pixelia::kScreenWidth, pixelia::kScreenHeight);
         const int screen = active_screen(t1);
         const int bi = back == s_buf[0] ? 0 : 1;
+        const bool info = s_ui_local.info && t1 < s_ui_local.info_until;
+        const int hold = s_hold_permille.load(std::memory_order_relaxed);
         if (screen == 0) {
             s_scene->render(canvas);
             const UiState& u = s_ui_local;
             if (!u.toast.empty() && t1 < u.toast_until) pixelia::ui::draw_toast(canvas, u.toast, u.toast_tone);
+            draw_overlays(canvas, screen, info, hold);
             s_buf_key[bi] = 0;
         } else {
-            uint32_t key = static_cast<uint32_t>(screen) * 0x01000000u + (s_ui_local.version & 0x000FFFFFu) +
-                           static_cast<uint32_t>(s_marks) * 0x00100000u + 1;
+            // Halte-Anzeige in 1-%-Schritten: so oft muss eine unbewegte Anzeige höchstens neu gezeichnet werden
+            const uint64_t key = static_cast<uint64_t>(screen) << 40 |
+                                 static_cast<uint64_t>(hold < 0 ? 0 : hold / 10 + 1) << 32 |
+                                 static_cast<uint64_t>(info) << 31 | static_cast<uint64_t>(s_marks & 0x7F) << 24 |
+                                 (s_ui_local.version & 0x00FFFFFFu);
             if (s_buf_key[bi] != key) {
                 draw_screen(canvas, screen);
+                draw_overlays(canvas, screen, info, hold);
                 s_buf_key[bi] = key;
             }
         }
@@ -379,6 +401,43 @@ void toast(std::string_view text, pixelia::ui::Tone tone, int seconds) {
     gfx::s_ui.toast_tone = tone;
     gfx::s_ui.toast_until = until(seconds);
     ++gfx::s_ui.version;
+}
+
+void show_info(const pixelia::ui::InfoCardData& data, int seconds) {
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    gfx::s_ui.info = true;
+    gfx::s_ui.info_data = data;
+    gfx::s_ui.info_until = until(seconds);
+    ++gfx::s_ui.version;
+}
+
+void refresh_info(const pixelia::ui::InfoCardData& data) {
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    if (!gfx::s_ui.info || gfx::s_ui.info_data == data) return;
+    gfx::s_ui.info_data = data;
+    ++gfx::s_ui.version;
+}
+
+void hide_info() {
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    if (!gfx::s_ui.info) return;
+    gfx::s_ui.info = false;
+    ++gfx::s_ui.version;
+}
+
+bool info_visible() {
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    return gfx::s_ui.info && esp_timer_get_time() < gfx::s_ui.info_until;
+}
+
+bool update_visible() {
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    const auto& u = gfx::s_ui;
+    return u.update && (u.update_until == 0 || esp_timer_get_time() < u.update_until);
+}
+
+void set_hold_progress(float progress) {
+    gfx::s_hold_permille.store(progress < 0 ? -1 : static_cast<int>(progress * 1000.0f), std::memory_order_relaxed);
 }
 
 }  // namespace app::ui
