@@ -19,6 +19,10 @@ Material 3 Expressive Design und Updates über GitHub.
 - Der User hat keine GitHub-Erfahrung: Git-/GitHub-Schritte erklären und so weit wie möglich automatisieren.
 - Hardware-Tests macht der User. Bei visuellen Änderungen Simulator-Screenshots liefern.
 - **Das Pixel-Dorf ist der Schwerpunkt** und soll besonders detailliert und lebendig werden.
+- **Lebendigkeit ist das oberste Qualitätskriterium:** [docs/LEBENDIGKEIT.md](docs/LEBENDIGKEIT.md) ist verbindlich
+  (Systeme statt Schleifen, Mindestziele pro Welt, Langzeit-Test). Nur berichten, was gebaut und geprüft ist; keine
+  Versprechen ohne Nachweis.
+- Bei GitHub-Aktionen, die der User ausführen muss (z. B. Merge), immer ausdrücklich sagen: was, wo, welcher Knopf.
 
 ## Technik (Kurzfassung, Details im Projektplan)
 
