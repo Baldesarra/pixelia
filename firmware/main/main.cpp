@@ -25,6 +25,8 @@ extern "C" void app_main() {
 
     ESP_ERROR_CHECK(board::backlight::init());
     board::backlight::set_percent(100);
+    ESP_LOGI("bl", "Hintergrundbeleuchtung: PWM %lu Hz, 12 Bit, %d %%",
+             static_cast<unsigned long>(board::backlight::frequency()), board::backlight::percent());
 
     // Geprüfte Werte aus docs/HARDWARE.md: Panel 60 Hz, jedes Engine-Bild zweimal zeigen = 30 fps
     board::display::Timing timing;

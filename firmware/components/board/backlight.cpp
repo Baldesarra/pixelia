@@ -10,8 +10,8 @@ namespace board::backlight {
 namespace {
 constexpr ledc_timer_t kTimer = LEDC_TIMER_0;
 constexpr ledc_channel_t kChannel = LEDC_CHANNEL_0;
-constexpr ledc_timer_bit_t kResolution = LEDC_TIMER_10_BIT;
-constexpr uint32_t kMaxDuty = (1u << 10) - 1;
+constexpr ledc_timer_bit_t kResolution = LEDC_TIMER_12_BIT;
+constexpr uint32_t kMaxDuty = (1u << 12) - 1;
 int s_percent = 0;
 uint32_t s_freq = 0;
 }  // namespace

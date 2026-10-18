@@ -45,7 +45,7 @@ Im Treiber: `data_gpio_nums` D0..D15 = B0..B4, G0..G5, R0..R4 (RGB565, Bit 0 = B
 
 | Funktion | GPIO | Geprüft |
 |---|---|---|
-| Hintergrundbeleuchtung (PWM, LEDC 20 kHz, 10 Bit) | 2 | ⏳ Stufentest läuft |
+| Hintergrundbeleuchtung (PWM, LEDC **200 Hz**, 12 Bit) | 2 | ✅ 2026-10-18 (Sichtprüfung, siehe unten) |
 | Touch SDA | 19 | ✅ 2026-10-18 (I²C-Scan) |
 | Touch SCL | 20 | ✅ 2026-10-18 (I²C-Scan) |
 | Touch RST | 38 | ✅ 2026-10-18 (bei RST = low verschwindet der GT911 vom Bus) |
@@ -65,6 +65,20 @@ Im Treiber: `data_gpio_nums` D0..D15 = B0..B4, G0..G5, R0..R4 (RGB565, Bit 0 = B
 
 GPIO 19/20 liegen also auch auf P3 (gemeinsam mit dem Touch-I²C). Ein nachgerüsteter Lichtsensor (BH1750, I²C) kann
 dort mit an den Bus.
+
+### Hintergrundbeleuchtung: PWM-Frequenz
+
+GPIO 2 schaltet offenbar den LED-Spannungswandler ein und aus. Der braucht nach jedem Einschalten Zeit zum Hochfahren,
+deshalb hängt das Dimmen stark von der PWM-Frequenz ab. Getestet mit 100 % → 50 % → 15 % → 100 % (Sichtprüfung):
+
+| PWM-Frequenz | Ergebnis |
+|---|---|
+| **200 Hz** | dimmt sauber in Stufen, kein Pfeifen, kein Flimmern → **Standard** |
+| 500 Hz, 1 kHz | dimmt, aber hörbares Pfeifen (lauter mit steigender Frequenz) |
+| 2 kHz, 5 kHz, 10 kHz | Display geht unter 100 % ganz aus |
+| 20 kHz (erster Versuch) | Display geht unter 100 % ganz aus |
+
+Die Helligkeitskurve (wahrgenommene Helligkeit, kleinster noch leuchtender Wert) ist noch nicht vermessen.
 
 ### Ausrichtung
 
@@ -89,7 +103,8 @@ Grenze des Pixeltakts:
 
 - **ESP32-Seite:** bis 40 MHz (97 Hz) ohne einen einzigen Aussetzer (desync 0), Interrupt-Last 28 %. Höhere Werte lässt
   der Taktteiler nicht zu (48 MHz angefordert ergab 24 MHz).
-- **Panel-Seite:** 16 und 24,6 MHz einwandfrei (Sichtprüfung). 30 / 36 / 40 MHz: ⏳ Sichtprüfung läuft.
+- **Panel-Seite:** 16, 24,6, 30, 36 und 40 MHz einwandfrei und flüssig (Sichtprüfung). Die Grenze liegt also über
+  40 MHz. Mit 24,6 MHz bleibt reichlich Sicherheitsabstand.
 
 ## Leistungsmessung Engine-Prototyp (2026-10-18)
 
@@ -111,7 +126,8 @@ Weitere Messwerte:
 | Kosten pro Ausgabepixel | ca. 1,8 CPU-Takte |
 | 180°-Drehung | Interrupt 20,2 → 20,5 % (Quelle wird immer vorwärts gelesen, rückwärts geschrieben) |
 | Start mit Engine (Puffer im PSRAM) | interner RAM frei 299 KB, PSRAM frei 7,7 MB |
-| Flash-Schreiben während der Animation | 424 KB in 6 s gelöscht/geschrieben, desync 0, 30 fps, Zeichenzeit unverändert |
+| Flash-Schreiben während der Animation | 664 KB in 10 s gelöscht/geschrieben, desync 0, 30 fps, Zeichenzeit unverändert, jedes Bild genau ein Logik-Schritt; Sichtprüfung im A/B-Vergleich: gleich flüssig |
+| Logik-Takt | aus dem Bildzähler des Panels: ein Schritt pro Engine-Bild (30 Hz), nach verpasstem Bild zwei |
 | Freier RAM ohne Engine | intern 314 KB, PSRAM 7,9 MB |
 | Firmware-Größe | 314 KB (5 % der App-Partition) |
 
@@ -124,12 +140,19 @@ CPU-Last pro Kern, freier RAM und PSRAM.
 
 Wichtige Befehle: `pat bars|frame|motion|touch|engine|black`, `bl <0-100>|cycle|stop`, `pclk <MHz>`,
 `timing …`, `pol …`, `rot 0|180`, `swap <n>`, `sprites <n>`, `buf int|psram`, `touch`, `touchrst`, `flash <s>`,
-`tour [tap]`, `perf <s>|off`, `info`, `reboot`.
+`tour [tap]`, `tour2`, `ticks vsync|time`, `perf <s>|off`, `info`, `reboot`.
+
+Geführte Tests im Tempo des Users (Stufe = Zahl der weißen Quadrate oben links):
+
+- `tour`: vier Ecken antippen → Szene → Helligkeitsstufen → Pixeltakt 30/36/40 MHz → Flash-Schreiben
+  (`tour tap`: ohne Ecken, Start per Tippen)
+- `tour2`: Tippen → PWM-Frequenzen 200 Hz bis 10 kHz → Tippen → A/B-Vergleich normal gegen Flash-Schreiben
 
 ## Prüfplan (Phase 0.1.0) – erledigt
 
 1. Fotos von Vorder- und Rückseite ✅
 2. Anschließen, Chip auslesen mit esptool ✅
 3. Hardware-Detektiv-Firmware: Systeminfo ✅, I²C-Scan ✅, Prüfbild (Farben, Verläufe, Rand) ✅, Bewegung ✅,
-   Touch-Eckentest ✅, RST-Test ✅, Hintergrundbeleuchtung ⏳
-4. Feinabstimmung: Pixeltakt auf 60 Hz festgelegt, ESP-Grenze gemessen ✅, Panel-Grenze ⏳
+   Touch-Eckentest ✅, RST-Test ✅, Hintergrundbeleuchtung ✅ (200 Hz)
+4. Feinabstimmung: Pixeltakt auf 60 Hz festgelegt ✅, ESP-Grenze ≥ 40 MHz ✅, Panel-Grenze > 40 MHz ✅,
+   Flash-Schreiben ohne Störung ✅
