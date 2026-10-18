@@ -7,8 +7,8 @@
 
 | | |
 |---|---|
-| **Phase** | 0.1.x Fundament **abgeschlossen**, als Nächstes 0.2.x Vernetzt |
-| **Letzte Version** | – (0.1.0 „Fundament“ wird mit diesem Stand veröffentlicht: Tag `v0.1.0` → GitHub-Release mit `.bin` und Factory-Image) |
+| **Phase** | 0.2.x Vernetzt **in Arbeit** |
+| **Letzte Version** | 0.1.0 „Fundament“ (2026-10-18), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.1.0) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB) |
 | **Nächster Schritt** | 0.2.0: WLAN-Manager, Setup-Modus mit Captive Portal, Webserver, OTA per Upload mit Rollback |
@@ -76,7 +76,7 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 - [x] Partitionstabelle, Bootloader-Rollback aktiviert, Core-Dump (Rollback-Test mit echtem Update in 0.2.x)
 - [x] Web-Flasher auf GitHub Pages (ESP Web Tools), Erstinstallation per USB; Factory-Image am Gerät geprüft
 - [x] Einfacher Release-Weg: Tag `vX.Y.Z` → GitHub-Release mit `.bin`, Factory-Image und Notes aus `CHANGELOG.json`
-- [ ] **Release 0.1.0** (Tag nach dem Merge dieses Stands auf `main`)
+- [x] **Release 0.1.0** (Tag `v0.1.0`, per Web-Flasher am Gerät installiert und geprüft)
 
 ## 0.2.x – Vernetzt
 

@@ -23,6 +23,11 @@ else()
     set(PROJECT_VER "0.0.0-dev+${PIXELIA_GIT_HASH}")
 endif()
 
+# Testvarianten (Rollback-Test) tragen das im Namen, damit sie nie mit echten Versionen verwechselt werden
+if(PIXELIA_TEST)
+    set(PROJECT_VER "${PROJECT_VER}-test-${PIXELIA_TEST}")
+endif()
+
 # Plattformunabhängige Engine liegt außerhalb von firmware/ (auch für den Simulator)
 set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../engine")
 

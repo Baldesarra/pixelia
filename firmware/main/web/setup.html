@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pixelia</title>
+<!-- Einfache Einrichtungsseite (0.2.x). Die richtige Oberfläche mit M3 Expressive folgt in 0.3.x. -->
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f3fb; --surface: #ffffff; --text: #1c1a22; --muted: #5d586a; --primary: #6b4fd8; --on-primary: #ffffff;
+    --outline: #ddd6ee; --ok: #1d7a45; --err: #b3261e; --warn-bg: #fff3d6; --warn-text: #5c4300; --ok-bg: #dff5e6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141218; --surface: #1f1c26; --text: #ece7f5; --muted: #b0a9bf; --primary: #c4b5ff; --on-primary: #2a1a6e;
+      --outline: #3a3546; --ok: #7ddc96; --err: #ffb4ab; --warn-bg: #3b2f10; --warn-text: #ffe2a3; --ok-bg: #18301f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 1.9rem; margin: 6px 0 0; letter-spacing: -0.01em; }
+  h2 { font-size: 1.15rem; margin: 0 0 10px; }
+  .sub { color: var(--muted); margin: 0 0 18px; }
+  .card { background: var(--surface); border: 1px solid var(--outline); border-radius: 24px; padding: 18px 20px; margin: 0 0 16px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 0.88rem; }
+  .ok { color: var(--ok); }
+  .err { color: var(--err); }
+  .banner { border-radius: 16px; padding: 12px 16px; margin: 0 0 14px; background: var(--warn-bg); color: var(--warn-text); }
+  .banner.good { background: var(--ok-bg); color: var(--ok); }
+  .banner button { margin-left: 8px; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--outline); }
+  .row:last-child { border-bottom: 0; }
+  .net { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 4px; border: 0; border-bottom: 1px solid var(--outline); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 0; }
+  .net:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+  .net .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bars { display: inline-flex; gap: 2px; align-items: flex-end; height: 14px; }
+  .bars i { width: 4px; background: var(--outline); border-radius: 1px; }
+  .bars i.on { background: var(--primary); }
+  button { font: inherit; font-weight: 600; background: var(--primary); color: var(--on-primary); border: 0; border-radius: 999px; padding: 10px 20px; cursor: pointer; }
+  button.tonal { background: transparent; color: var(--primary); border: 1px solid var(--outline); font-weight: 500; padding: 7px 14px; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  label { display: block; margin: 12px 0 4px; color: var(--muted); font-size: 0.9rem; }
+  label.check { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  input[type=text], input[type=password], select { font: inherit; width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--outline); background: var(--bg); color: var(--text); }
+  input[type=range] { width: 100%; accent-color: var(--primary); }
+  input[type=file] { margin: 6px 0 10px; max-width: 100%; }
+  progress { width: 100%; height: 12px; accent-color: var(--primary); margin-top: 12px; }
+  .actions { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  footer { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 24px; }
+  a { color: var(--primary); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Pixelia</h1>
+  <p class="sub" id="sub">Einrichtung und Updates</p>
+  <div id="banners"></div>
+
+  <section class="card">
+    <h2>WLAN</h2>
+    <div id="wifiState" class="muted">Lade …</div>
+    <div id="saved"></div>
+  </section>
+
+  <section class="card">
+    <h2>WLAN hinzufügen</h2>
+    <div class="actions" style="margin-top:0"><button class="tonal" id="scanBtn" type="button">Netzwerke suchen</button><span id="scanMsg" class="muted small"></span></div>
+    <div id="scanList"></div>
+    <form id="addForm" method="post" action="/api/wifi/add" autocomplete="off">
+      <label for="ssid">WLAN-Name</label>
+      <input id="ssid" name="ssid" type="text" maxlength="32" required autocapitalize="none" spellcheck="false">
+      <label for="pass">Passwort</label>
+      <input id="pass" name="pass" type="password" maxlength="64" autocapitalize="none" spellcheck="false">
+      <label class="check"><input type="checkbox" id="showPass"> Passwort anzeigen</label>
+      <div class="actions"><button type="submit" id="addBtn">Speichern und verbinden</button></div>
+    </form>
+    <p id="addMsg"></p>
+    <p class="muted small">Bis zu 5 Netze, Pixelia nimmt immer das stärkste. Das Passwort bleibt auf dem Gerät und wird nirgends angezeigt.</p>
+  </section>
+
+  <section class="card">
+    <h2>Update</h2>
+    <p class="muted" style="margin-top:0">Installiert: <b id="ver">…</b>. Neue Version als <b>.bin</b> auswählen, z.&nbsp;B. <i>pixelia-v0.2.1.bin</i> von GitHub (nicht das Factory-Image).</p>
+    <input type="file" id="file" accept=".bin,application/octet-stream">
+    <div id="fileInfo" class="small"></div>
+    <div class="actions"><button id="upBtn" type="button" disabled>Update installieren</button></div>
+    <progress id="prog" max="100" value="0" hidden></progress>
+    <p id="upMsg"></p>
+  </section>
+
+  <section class="card">
+    <h2>Anzeige</h2>
+    <label for="rot">Bilddrehung</label>
+    <select id="rot"><option value="0">0° (normal)</option><option value="180">180° (auf dem Kopf)</option></select>
+    <label for="bright">Helligkeit <span id="brightVal"></span></label>
+    <input type="range" id="bright" min="1" max="100" step="1">
+  </section>
+
+  <section class="card">
+    <h2>System</h2>
+    <div id="sys"></div>
+    <div class="actions"><button class="tonal" id="rebootBtn" type="button">Neustart</button></div>
+  </section>
+
+  <footer>Pixelia · Die volle Oberfläche folgt mit Version 0.3</footer>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+let lastSeen = 0, uploading = false, waitingFor = null, ws = null;
+
+async function api(path, data) {
+  const opt = data ? { method: "POST", body: new URLSearchParams(data) } : { cache: "no-store" };
+  const r = await fetch(path, opt);
+  return r.json();
+}
+
+function bars(rssi) {
+  const n = rssi >= -55 ? 4 : rssi >= -67 ? 3 : rssi >= -78 ? 2 : 1;
+  return `<span class="bars" title="${rssi} dBm">` + [1, 2, 3, 4].map((i) => `<i class="${i <= n ? "on" : ""}" style="height:${2 + i * 3}px"></i>`).join("") + "</span>";
+}
+
+function dur(s) {
+  const d = Math.floor(s / 86400), h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60;
+  return (d ? d + " d " : "") + (d || h ? h + " h " : "") + m + " min";
+}
+
+function render(s) {
+  lastSeen = Date.now();
+  $("ver").textContent = s.v;
+  const w = s.wifi;
+  $("sub").textContent = w.ap ? "Setup-Modus: WLAN einrichten" : "Einrichtung und Updates";
+
+  let b = "";
+  if (s.rollback) b += `<div class="banner">Das Update auf <b>${esc(s.rollback.v)}</b> wurde zurückgerollt: ${esc(s.rollback.why)}. Es läuft wieder ${esc(s.v)}.<button class="tonal" type="button" id="ackBtn">OK</button></div>`;
+  if (s.ota.trial) b += `<div class="banner">Probelauf von ${esc(s.v)}: Selbsttest läuft (${s.ota.trialS} von ${s.ota.trialNeed} s, ${esc(s.ota.trialNote)}).</div>`;
+  else if (s.ota.passed) b += `<div class="banner good">Update auf ${esc(s.v)} erfolgreich, Selbsttest bestanden.</div>`;
+  $("banners").innerHTML = b;
+  if ($("ackBtn")) $("ackBtn").onclick = () => api("/api/ota/ack", {}).then(refresh);
+
+  let t;
+  if (w.state === "verbunden") {
+    t = `<span class="ok">● Verbunden</span> mit <b>${esc(w.ssid)}</b> ${bars(w.rssi)}<br><span class="muted small">${esc(w.ip)} · Kanal ${w.ch} · ${w.rssi} dBm · <a href="http://${esc(s.host)}.local/">http://${esc(s.host)}.local</a></span>`;
+  } else if (w.state === "verbinde") {
+    t = `Verbinde mit <b>${esc(w.ssid)}</b> …`;
+  } else {
+    t = `<span class="err">● Nicht verbunden</span>` + (w.retry >= 0 ? `<span class="muted"> · neuer Versuch in ${w.retry} s</span>` : "");
+  }
+  if (w.err && w.state !== "verbunden") t += `<br><span class="err small">${esc(w.err)}</span>`;
+  if (w.ap) t += `<br><span class="muted small">Setup-WLAN „Pixelia-Setup“ aktiv, ${w.apClients} Gerät(e) angemeldet</span>`;
+  $("wifiState").innerHTML = t;
+
+  const p = s.perf;
+  const rows = [
+    ["Version", `${esc(s.v)} (${esc(s.part)})`],
+    ["Gebaut", `${esc(s.built)} · ESP-IDF ${esc(s.idf)}`],
+    ["Laufzeit", dur(s.uptime)],
+    ["Uhrzeit", s.time.valid ? esc(s.time.local) : "noch nicht gestellt"],
+    ["Bildrate", `${p.fps} fps · Zeichnen ${p.render} ms · Panel ${p.lcd} Hz`],
+    ["CPU", `Kern 0: ${p.cpu0} % · Kern 1: ${p.cpu1} %`],
+    ["RAM intern", `${p.ram} KB frei (min. ${p.ramMin} KB)`],
+    ["PSRAM", `${(p.psram / 1024).toFixed(1)} MB frei`],
+  ];
+  $("sys").innerHTML = rows.map(([k, v]) => `<div class="row"><span class="muted">${k}</span><span>${v}</span></div>`).join("");
+
+  if (document.activeElement !== $("rot")) $("rot").value = String(s.set.rot);
+  if (document.activeElement !== $("bright")) { $("bright").value = s.set.bright; $("brightVal").textContent = s.set.bright + " %"; }
+
+  if (!uploading && s.ota.busy && s.ota.total) {
+    $("prog").hidden = false;
+    $("prog").value = (s.ota.bytes * 100) / s.ota.total;
+    $("upMsg").textContent = `Update auf ${s.ota.newV} läuft …`;
+  }
+  if (waitingFor) {
+    if (s.v === waitingFor) {
+      if (s.ota.trial) $("upMsg").innerHTML = `Neue Version ${esc(s.v)} läuft. Selbsttest: ${s.ota.trialS} von ${s.ota.trialNeed} s …`;
+      else { $("upMsg").innerHTML = `<span class="ok">Update auf ${esc(s.v)} erfolgreich ✓</span>`; waitingFor = null; uploading = false; $("prog").hidden = true; }
+    } else if (s.rollback && s.rollback.v === waitingFor) {
+      $("upMsg").innerHTML = `<span class="err">Update auf ${esc(waitingFor)} wurde zurückgerollt: ${esc(s.rollback.why)}</span>`;
+      waitingFor = null; uploading = false; $("prog").hidden = true;
+    }
+  }
+}
+
+async function refresh() {
+  try { render(await api("/api/status")); } catch (e) { if (waitingFor) $("upMsg").textContent = "Pixelia startet neu …"; }
+}
+
+function renderWifi(j) {
+  $("saved").innerHTML = j.saved.length
+    ? j.saved.map((n) => `<div class="row"><span>${esc(n)} <span class="ok small">gespeichert ✓</span></span><button class="tonal" type="button" data-del="${esc(n)}">Entfernen</button></div>`).join("")
+    : `<p class="muted small">Noch kein WLAN gespeichert.</p>`;
+  $("scanList").innerHTML = j.scan.map((n) => `<button class="net" type="button" data-ssid="${esc(n.ssid)}">${bars(n.rssi)}<span class="name">${esc(n.ssid)}</span><span class="muted small">${n.secure ? "🔒" : "offen"}${n.saved ? " · ✓" : ""}</span></button>`).join("");
+}
+
+async function loadWifi(fresh) {
+  if (fresh) { $("scanBtn").disabled = true; $("scanMsg").textContent = "Suche …"; }
+  try { renderWifi(await api(fresh ? "/api/wifi/scan" : "/api/wifi", fresh ? {} : undefined)); $("scanMsg").textContent = ""; }
+  catch (e) { $("scanMsg").textContent = "Suche fehlgeschlagen"; }
+  $("scanBtn").disabled = false;
+}
+
+$("scanBtn").onclick = () => loadWifi(true);
+$("scanList").onclick = (e) => {
+  const el = e.target.closest("[data-ssid]");
+  if (!el) return;
+  $("ssid").value = el.dataset.ssid;
+  $("pass").focus();
+};
+$("saved").onclick = async (e) => {
+  const el = e.target.closest("[data-del]");
+  if (!el || !confirm(`WLAN „${el.dataset.del}“ entfernen?`)) return;
+  await api("/api/wifi/remove", { ssid: el.dataset.del });
+  loadWifi(false);
+};
+$("showPass").onchange = () => { $("pass").type = $("showPass").checked ? "text" : "password"; };
+$("addForm").onsubmit = async (e) => {
+  e.preventDefault();
+  $("addBtn").disabled = true;
+  try {
+    const j = await api("/api/wifi/add", { ssid: $("ssid").value, pass: $("pass").value });
+    $("addMsg").innerHTML = `<span class="${j.ok ? "ok" : "err"}">${esc(j.msg)}</span>`;
+    if (j.ok) { $("pass").value = ""; loadWifi(false); }
+  } catch (err) {
+    $("addMsg").innerHTML = `<span class="muted">Verbindung zum Gerät unterbrochen. Läuft die Einrichtung über das Setup-WLAN, verbindet sich Pixelia gerade mit deinem Netz. Danach: <a href="http://pixelia.local/">http://pixelia.local</a></span>`;
+  }
+  $("addBtn").disabled = false;
+};
+
+// Update: Kopf der .bin schon im Browser lesen (Projekt, Version, Chip), dann hochladen
+function parseHeader(buf) {
+  const u8 = new Uint8Array(buf), d = new DataView(buf);
+  if (u8.length < 288 || u8[0] !== 0xe9) return { err: "Keine ESP32-Firmware (.bin)" };
+  if (d.getUint16(12, true) !== 9) return { err: "Firmware für einen anderen Chip (kein ESP32-S3)" };
+  if (d.getUint32(32, true) !== 0xabcd5432) return { err: u8[32] === 0x50 ? "Das ist ein Factory-Image für den Web-Flasher. Für Updates die .bin ohne „factory“ nehmen." : "Keine App-Beschreibung im Image" };
+  const str = (o, n) => new TextDecoder().decode(u8.slice(o, o + n)).replace(/\0[\s\S]*$/, "");
+  const project = str(80, 32);
+  if (project !== "pixelia") return { err: `Das ist keine Pixelia-Firmware (Projekt „${project}“)` };
+  return { v: str(48, 32), time: str(112, 16), date: str(128, 16), idf: str(144, 32) };
+}
+
+$("file").onchange = async () => {
+  const f = $("file").files[0];
+  $("upBtn").disabled = true;
+  $("upMsg").textContent = "";
+  if (!f) { $("fileInfo").textContent = ""; return; }
+  const h = parseHeader(await f.slice(0, 288).arrayBuffer());
+  if (h.err) { $("fileInfo").innerHTML = `<span class="err">${esc(h.err)}</span>`; return; }
+  $("fileInfo").innerHTML = `Pixelia <b>${esc(h.v)}</b> · gebaut ${esc(h.date)} ${esc(h.time)} · ${Math.round(f.size / 1024)} KB`;
+  $("upBtn").disabled = false;
+};
+
+$("upBtn").onclick = () => {
+  const f = $("file").files[0];
+  if (!f) return;
+  uploading = true;
+  $("upBtn").disabled = true;
+  $("prog").hidden = false;
+  $("prog").value = 0;
+  const x = new XMLHttpRequest();
+  x.open("POST", "/api/ota");
+  x.setRequestHeader("Content-Type", "application/octet-stream");
+  x.upload.onprogress = (e) => {
+    if (!e.lengthComputable) return;
+    const p = (e.loaded * 100) / e.total;
+    $("prog").value = p;
+    $("upMsg").textContent = `Übertragen: ${Math.round(p)} % (${Math.round(e.loaded / 1024)} von ${Math.round(e.total / 1024)} KB)`;
+  };
+  x.onload = () => {
+    let j = {};
+    try { j = JSON.parse(x.responseText); } catch (e) {}
+    if (x.status === 200 && j.ok) {
+      waitingFor = j.v;
+      $("upMsg").innerHTML = `<span class="ok">Installiert und geprüft.</span> Pixelia startet neu, danach folgt der Probelauf mit Selbsttest (etwa eine Minute) …`;
+    } else {
+      $("upMsg").innerHTML = `<span class="err">${esc(j.msg || "Fehler " + x.status)}</span>`;
+      uploading = false;
+      $("upBtn").disabled = false;
+    }
+  };
+  x.onerror = () => { $("upMsg").innerHTML = `<span class="err">Verbindung abgebrochen</span>`; uploading = false; $("upBtn").disabled = false; };
+  x.send(f);
+};
+
+$("rot").onchange = () => api("/api/settings", { rot: $("rot").value });
+let brightTimer = 0;
+$("bright").oninput = () => {
+  $("brightVal").textContent = $("bright").value + " %";
+  clearTimeout(brightTimer);
+  brightTimer = setTimeout(() => api("/api/settings", { bright: $("bright").value }), 150);
+};
+$("rebootBtn").onclick = () => { if (confirm("Pixelia neu starten?")) api("/api/reboot", {}).catch(() => {}); };
+
+// Live-Status per WebSocket, sonst (z. B. im Captive-Portal-Fenster) per Abfrage
+function connectWs() {
+  try { ws = new WebSocket(`ws://${location.host}/ws`); } catch (e) { return; }
+  ws.onmessage = (e) => { try { render(JSON.parse(e.data)); } catch (err) {} };
+  ws.onclose = () => { ws = null; setTimeout(connectWs, 3000); };
+}
+setInterval(() => { if (Date.now() - lastSeen > 3500) refresh(); }, 2000);
+refresh();
+loadWifi(false);
+connectWs();
+</script>
+</body>
+</html>
