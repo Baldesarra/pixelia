@@ -174,7 +174,8 @@ IRAM_ATTR void line_touch(uint16_t* d, int y) {
 }
 
 // Engine: Palette nachschlagen und 2× hochskalieren (jede Quellzeile ergibt zwei Bildzeilen).
-// Bei 180°-Drehung werden Quellzeilen von unten und Pixel von rechts gelesen, gleicher Aufwand.
+// Bei 180°-Drehung kommen die Quellzeilen von unten. Gelesen wird immer aufsteigend (PSRAM-Cache mag das),
+// geschrieben wird von rechts nach links in den internen Bounce-Buffer.
 IRAM_ATTR void fill_engine(uint16_t* dst, int y0, int lines, bool rot) {
     const uint8_t* fb = s_front;
     if (fb == nullptr) {
@@ -188,22 +189,24 @@ IRAM_ATTR void fill_engine(uint16_t* dst, int y0, int lines, bool rot) {
         auto* a = reinterpret_cast<uint32_t*>(dst);
         uint32_t* b = a + kW / 2;
         if (rot) {
-            for (int i = kSrcW / 4 - 1; i >= 0; --i) {
+            uint32_t* ea = a + kSrcW - 4;  // letzte 4 Ausgabeworte der Zeile
+            uint32_t* eb = b + kSrcW - 4;
+            for (int i = 0; i < kSrcW / 4; ++i) {
                 uint32_t s = src[i];
-                uint32_t p0 = lut[s >> 24];
-                uint32_t p1 = lut[(s >> 16) & 0xff];
-                uint32_t p2 = lut[(s >> 8) & 0xff];
-                uint32_t p3 = lut[s & 0xff];
-                a[0] = p0;
-                a[1] = p1;
-                a[2] = p2;
-                a[3] = p3;
-                b[0] = p0;
-                b[1] = p1;
-                b[2] = p2;
-                b[3] = p3;
-                a += 4;
-                b += 4;
+                uint32_t p0 = lut[s & 0xff];
+                uint32_t p1 = lut[(s >> 8) & 0xff];
+                uint32_t p2 = lut[(s >> 16) & 0xff];
+                uint32_t p3 = lut[s >> 24];
+                ea[3] = p0;
+                ea[2] = p1;
+                ea[1] = p2;
+                ea[0] = p3;
+                eb[3] = p0;
+                eb[2] = p1;
+                eb[1] = p2;
+                eb[0] = p3;
+                ea -= 4;
+                eb -= 4;
             }
         } else {
             for (int i = 0; i < kSrcW / 4; ++i) {

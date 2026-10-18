@@ -127,7 +127,8 @@ Was davon wie übernommen, verbessert oder gestrichen wird, steht in Kapitel 4, 
 | Touch | **GT911**, kapazitiv, I²C | beim Schwestermodell SDA 19 / SCL 20; braucht keine Kalibrierung |
 | Speicherkarte | microSD (SPI) | optional, aktuell nicht eingeplant |
 | Erweiterung | Steckverbinder für GPIO/I²C | z. B. für einen nachrüstbaren Lichtsensor |
-| **Nicht vorhanden** | Lichtsensor (LDR), RGB-LED, Lautsprecher | anders als beim CYD |
+| **Nicht vorhanden** | Lichtsensor (LDR), RGB-LED | anders als beim CYD |
+| Ton | Lautsprecher-Anschluss „Speak“ (P6) mit Verstärker U4 | beim Prüfen in 0.1.0 auf der Platine gefunden, noch ungetestet |
 
 **Die genaue Pinbelegung wird in Phase 0.1 gegen Schaltplan und echtes Gerät geprüft** und in `docs/HARDWARE.md`
 dokumentiert. Online ist das 5"-Modell kaum dokumentiert, gut beschrieben ist nur das 4,3"-Schwestermodell
@@ -679,7 +680,7 @@ WLAN-Durchsatz.
 |---|---|
 | Bildrate | **30 fps stabil**, nie unter 25 fps |
 | Frame-Budget | 33,3 ms. Logik + Rendern ≤ 20 ms auf Kern 1 |
-| Hochskalier-Interrupt | ≤ 15 % eines Kerns |
+| Hochskalier-Interrupt | ≤ 20 % eines Kerns (anfangs 15 %, nach Messung angepasst, siehe Kapitel 14) |
 | Freier interner RAM | jederzeit ≥ 60 KB |
 | Freier PSRAM | jederzeit ≥ 1 MB |
 | Firmware-Größe | ≤ 75 % der App-Partition (Warnung im Build bei Überschreitung) |
@@ -758,7 +759,7 @@ LLVM-MinGW. ESP-IDF baut auch im Projektpfad mit Leerzeichen (`D:\VS Code\ESP32-
 **Offen (wird im Verlauf entschieden):**
 
 - Perspektive des Dorfs (Draufsicht vs. Puppenhaus-Querschnitt), zu Beginn von 0.7.0 mit Mockups
-- Genaue Panel-Timings und Pixeltakt (0.1.x)
+- ~~Genaue Panel-Timings und Pixeltakt (0.1.x)~~ erledigt: 24,6 MHz, 60 Hz, siehe `docs/HARDWARE.md`
 - Liga-Größe und Spielrhythmus (0.9.0)
 - Rhythmus des Helden (wie oft zu Hause, 0.8.0)
 
@@ -817,3 +818,11 @@ unsere Paletten um. Details: 4.7.
 | 2026-10-18 | **ESP-IDF v6.1** (neueste stabile Version, August 2026) | längste Unterstützungsdauer, keine Altlasten im neuen Projekt; Wechsel auf v6.0.x/v5.5.x möglich, falls Komponenten fehlen |
 | 2026-10-18 | Simulator-Compiler auf Windows: LLVM-MinGW, SDL per CMake FetchContent | keine schwere Visual-Studio-Installation, gleicher Build-Weg wie in CI |
 | 2026-10-18 | Reihenfolge Zug → Dorf → Held → Liga, Dorf als Schwerpunkt | Zug = härtester Leistungstest bei einfacher Logik; Wunsch des Users |
+| 2026-10-18 | **Plan A bestätigt:** RGB-Panel ohne Bildspeicher, Palette + 2× Hochskalieren im Bounce-Buffer-Callback, Doppelpuffer mit Tausch am Bildende. Plan B (Bildspeicher im PSRAM) entfällt | Messung am Gerät: 30 fps stabil, Zeichnen 4,1 ms, Interrupt 20 %, 0 Aussetzer, auch während Flash-Schreiben; ESP-Seite schafft bis 40 MHz Pixeltakt (HARDWARE.md) |
+| 2026-10-18 | Panel mit **60 Hz** (24,6 MHz Pixeltakt), jedes Engine-Bild wird zweimal gezeigt = 30 fps. Logik-Schritt = Bilddauer × 2 (≈ 30 Hz), bei Überlast werden bis zu 4 Schritte nachgeholt | gleichmäßige Bewegung; bei 39 Hz käme es zu ungleichmäßigen Bildfolgen, 30 Hz am Panel riskiert Flimmern (4.2) |
+| 2026-10-18 | Engine-Puffer (2 × 96 KB) im **PSRAM** statt im internen RAM, umschaltbar | 303 statt 115 KB interner RAM frei, Reserve für WLAN/TLS/Webserver; Kosten: Zeichnen 4,1 statt 2,1 ms, Interrupt 20 statt 17 %; flackerfrei beim Flash-Schreiben, weil XIP aus PSRAM den Cache aktiv lässt (4.2, 4.3) |
+| 2026-10-18 | Budget Hochskalier-Interrupt **≤ 20 %** eines Kerns statt ≤ 15 % (Kapitel 9) | gemessen 20 % bei 60 Hz; Kern 1 ist mit Zeichnen insgesamt nur ~33 % ausgelastet |
+| 2026-10-18 | Diagnose-Schnittstelle (serielle Befehle) und Leistungsmonitor fest in der Firmware | messen und testen ohne Neu-Flashen; Idee des Users (Leistungs-Log), später in der Weboberfläche |
+| 2026-10-18 | Bilddrehung 0°/180° als Einstellung, Standard 0° | Aufstellort steht noch nicht fest (User); kostet keine Rechenzeit |
+| 2026-10-18 | Touch per Polling alle 20 ms, ohne INT-Leitung | INT-Pin nicht nötig, GT911 liefert zuverlässig |
+| 2026-10-18 | „Kein Sound“ wird neu bewertet | Platine hat einen Lautsprecher-Anschluss „Speak“ mit Verstärker (Foto), Test steht aus (Backlog) |

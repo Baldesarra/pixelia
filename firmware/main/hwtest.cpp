@@ -181,17 +181,28 @@ void tour_stage(int marks, uint32_t pclk_hz, const char* text) {
     ESP_LOGI("tour", "Stufe %d: %s (Pixeltakt %.1f MHz)", marks, text, pclk_hz / 1e6);
 }
 
-void tour_task(void*) {
+void tour_task(void* arg) {
     constexpr uint32_t kBase = 24600000;
-    ESP_LOGI("tour", "Start: vier Ecken antippen");
-    reset_corner_hits();
-    board::display::set_mode(board::display::Mode::Touch);
-    while (s_corners != 0x0F) vTaskDelay(pdMS_TO_TICKS(100));
-    vTaskDelay(pdMS_TO_TICKS(1500));
+    bool with_corners = arg == nullptr;
     board::display::set_swap_interval(2);
-    tour_stage(1, kBase, "Engine-Szene");
-    board::display::set_mode(board::display::Mode::Engine);
-    vTaskDelay(pdMS_TO_TICKS(12000));
+    if (with_corners) {
+        ESP_LOGI("tour", "Start: vier Ecken antippen");
+        reset_corner_hits();
+        board::display::set_mode(board::display::Mode::Touch);
+        while (s_corners != 0x0F) vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(1500));
+        tour_stage(1, kBase, "Engine-Szene");
+        board::display::set_mode(board::display::Mode::Engine);
+        vTaskDelay(pdMS_TO_TICKS(12000));
+    } else {
+        // Ohne Ecken: Szene läuft, der Ablauf startet erst, wenn der User aufs Display tippt
+        tour_stage(0, kBase, "warte auf Tippen");
+        board::display::set_mode(board::display::Mode::Engine);
+        uint32_t touches = s_rec.touches;
+        while (s_rec.touches == touches) vTaskDelay(pdMS_TO_TICKS(100));
+        tour_stage(1, kBase, "Engine-Szene");
+        vTaskDelay(pdMS_TO_TICKS(4000));
+    }
     ESP_LOGI("tour", "Helligkeitsstufen");
     backlight_steps_once();
     board::backlight::set_percent(100);
@@ -275,7 +286,11 @@ void touch_reset_test() {
 
 void flash_stress(int seconds) { flash_stress_impl(seconds); }
 
-void start_tour() { xTaskCreatePinnedToCore(tour_task, "tour", 3072, nullptr, 3, nullptr, kSystemCore); }
+void start_tour(bool with_corners) {
+    // Argument nullptr = mit Ecken, sonst Start per Tippen
+    static int no_corners_tag;
+    xTaskCreatePinnedToCore(tour_task, "tour", 3072, with_corners ? nullptr : &no_corners_tag, 3, nullptr, kSystemCore);
+}
 
 void start_touch_task() { xTaskCreatePinnedToCore(touch_task, "touch", 4096, nullptr, 5, nullptr, kSystemCore); }
 

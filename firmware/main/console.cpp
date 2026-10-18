@@ -23,7 +23,7 @@ void print_help() {
     ESP_LOGI(TAG, "Befehle:");
     ESP_LOGI(TAG, "  info | heap | scan | touch | touchrst | reboot");
     ESP_LOGI(TAG, "  rot <0|180>                                   Bild drehen");
-    ESP_LOGI(TAG, "  tour | flash <Sekunden> | marks <n>            geführter Test, Flash-Last, Stufenanzeige");
+    ESP_LOGI(TAG, "  tour [tap] | flash <Sekunden> | marks <n>      geführter Test (tap: Start per Tippen), Flash-Last");
     ESP_LOGI(TAG, "  pat <black|bars|frame|motion|touch|engine>   Testbild/Modus");
     ESP_LOGI(TAG, "  bl <0-100> | bl cycle | bl stop | blf <Hz>      Hintergrundbeleuchtung");
     ESP_LOGI(TAG, "  pclk <MHz>                                    Pixeltakt zur Laufzeit");
@@ -63,7 +63,7 @@ void handle(char* line) {
     } else if (is("touch")) {
         hwtest::log_touch_status();
     } else if (is("tour")) {
-        hwtest::start_tour();
+        hwtest::start_tour(!(argc >= 2 && std::strcmp(argv[1], "tap") == 0));
     } else if (is("flash") && argc >= 2) {
         hwtest::flash_stress(std::atoi(argv[1]));
     } else if (is("marks") && argc >= 2) {

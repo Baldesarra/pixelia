@@ -24,7 +24,8 @@ void touch_reset_test();
 void start_touch_task();
 void reset_corner_hits();
 void log_touch_status();
-void start_tour();
+// Geführter Test; ohne Ecken startet er erst nach einem Tippen aufs Display
+void start_tour(bool with_corners);
 // Flash-Sektoren in der Partition „storage“ löschen/beschreiben (Test: Bild bleibt ruhig?)
 void flash_stress(int seconds);
 void backlight_cycle(bool on);

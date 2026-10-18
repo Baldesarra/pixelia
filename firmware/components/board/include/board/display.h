@@ -13,8 +13,9 @@ namespace board::display {
 
 enum class Mode : uint8_t { Black, Bars, Frame, Motion, Touch, Engine };
 
+// Geprüfte Werte siehe docs/HARDWARE.md: 24,6 MHz ergeben mit 820×500 Takten genau 60 Hz
 struct Timing {
-    uint32_t pclk_hz = 16000000;
+    uint32_t pclk_hz = 24600000;
     uint16_t hsync_pulse = 4, hsync_back = 8, hsync_front = 8;
     uint16_t vsync_pulse = 4, vsync_back = 8, vsync_front = 8;
     bool hsync_idle_low = true;

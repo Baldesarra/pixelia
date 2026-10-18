@@ -3,7 +3,7 @@
 // Ablauf beim Start:
 //  1. Systeminfo ins Log (Chip, Flash, PSRAM, Heap, Resetgrund)
 //  2. I²C-Scan und GT911-Erkennung, Touch-Abfrage im Hintergrund
-//  3. Hintergrundbeleuchtung (PWM) und RGB-Panel auf Kern 1, Testbild „bars“
+//  3. Hintergrundbeleuchtung (PWM) und RGB-Panel auf Kern 1, Engine-Prototyp (Scrolling-Test, 30 fps)
 //  4. Diagnose-Schnittstelle über die serielle Konsole (Befehl „help“), Leistungsmonitor alle 2 s
 
 #include "app.h"
@@ -26,7 +26,10 @@ extern "C" void app_main() {
     ESP_ERROR_CHECK(board::backlight::init());
     board::backlight::set_percent(100);
 
-    board::display::Timing timing;  // Startwerte aus docs/HARDWARE.md
+    // Geprüfte Werte aus docs/HARDWARE.md: Panel 60 Hz, jedes Engine-Bild zweimal zeigen = 30 fps
+    board::display::Timing timing;
+    board::display::set_swap_interval(2);
+    board::display::set_mode(board::display::Mode::Engine);
     app::gfx::start(timing);
 
     app::console::start();
