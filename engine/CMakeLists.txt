@@ -2,7 +2,11 @@
 # Unter ESP-IDF als Komponente eingebunden, sonst als normale Bibliothek (Simulator).
 set(PIXELIA_ENGINE_SRCS
     src/canvas.cpp
-    src/scroll_test.cpp)
+    src/color.cpp
+    src/png.cpp
+    src/scenes.cpp
+    src/scroll_test.cpp
+    src/tiny_font.cpp)
 
 if(ESP_PLATFORM)
     idf_component_register(SRCS ${PIXELIA_ENGINE_SRCS}

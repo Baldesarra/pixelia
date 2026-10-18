@@ -2,25 +2,28 @@
 // Vollbild-Scrolling-Test für den Engine-Prototyp (Phase 0.1):
 // Jedes Bild wird komplett neu gezeichnet: Himmel mit Dithering, Wolken, zwei Parallax-Ebenen,
 // Kachel-Boden, Wasser mit Farbrotation und beliebig viele Vögel als Sprites (Lasttest).
+// Tag und Nacht folgen der Weltzeit: Himmelsfarben, Licht auf der Landschaft, Sterne, nachts schlafen die Vögel.
 
 #include <cstdint>
 #include <vector>
 
 #include "pixelia/engine/canvas.h"
 #include "pixelia/engine/rng.h"
+#include "pixelia/engine/scene.h"
 
 namespace pixelia {
 
-class ScrollTest {
+class ScrollTest : public Scene {
 public:
     static constexpr int kMaxSprites = 2048;
 
-    void init(uint64_t seed);
-    // Ein Logik-Schritt (feste Rate, ca. 30 Hz)
-    void tick();
-    void render(Canvas& canvas) const;
+    const char* name() const override { return "scrolltest"; }
+    void init(uint64_t seed) override;
+    void tick(const WorldClock& clock) override;
+    void render(Canvas& canvas) const override;
+    const Palette& palette() const override { return palette_; }
+    void set_load(int sprites) override { set_sprite_count(sprites); }
 
-    const Palette& palette() const { return palette_; }
     void set_sprite_count(int n);
     int sprite_count() const { return sprite_count_; }
     uint32_t ticks() const { return ticks_; }
@@ -33,11 +36,18 @@ private:
         uint8_t phase;
         uint8_t frame;
     };
+    struct Star {
+        int16_t x, y;
+        uint8_t phase;
+    };
+    static constexpr int kClouds = 6;
+    static constexpr int kStars = 70;
 
     void build_palette();
     void build_terrain();
     void build_tiles();
     void build_sprites();
+    void apply_daylight(double hours);
 
     Rng rng_;
     Palette base_palette_{};
@@ -50,8 +60,13 @@ private:
     uint8_t water_[32][128]{};
     uint8_t bird_px_[2][12 * 8]{};
     uint8_t cloud_px_[48 * 16]{};
+    int8_t bob_[32]{};
+    int16_t clouds_[kClouds][2]{};
+    Star stars_[kStars]{};
     std::vector<Bird> birds_;
     int sprite_count_ = 48;
+    int visible_birds_ = 48;
+    uint8_t night_ = 0;  // 0 = Tag, 255 = tiefe Nacht
     uint32_t ticks_ = 0;
     int32_t cloud_x_ = 0, far_x_ = 0, near_x_ = 0, ground_x_ = 0, water_x_ = 0;  // 8.8 Festkomma
 };

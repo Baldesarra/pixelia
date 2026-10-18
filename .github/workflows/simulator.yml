@@ -1,0 +1,53 @@
+# Simulator unter Linux bauen (inkl. SDL3-Fenstercode) und kopflos Screenshots und einen Kontaktbogen erzeugen.
+name: Simulator
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  sim:
+    name: Simulator bauen und Screenshots
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v7
+
+      - name: Werkzeuge
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build > /dev/null
+
+      - name: Bauen
+        # Ohne Bildschirm in der CI: SDL nur mit Offscreen-/Dummy-Treibern (X11/Wayland aus, ausdrücklich erlaubt)
+        run: |
+          cmake -S sim -B build-sim -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DSDL_X11=OFF -DSDL_WAYLAND=OFF -DSDL_UNIX_CONSOLE_BUILD=ON > /dev/null
+          cmake --build build-sim
+
+      - name: Screenshots und Kontaktbogen
+        run: |
+          S=build-sim/pixelia-sim
+          mkdir -p out
+          {
+            $S --headless --time 06:40 --frames 90 --screenshot out/morgen.png
+            $S --headless --time 12:00 --frames 90 --screenshot out/mittag.png
+            $S --headless --time 20:00 --frames 90 --screenshot out/abend.png
+            $S --headless --time 00:00 --contact-sheet out/kontaktbogen.png --span-days 2
+          } | tee out/bericht.txt
+          {
+            echo "## Simulator"
+            echo ""
+            echo "Screenshots und Kontaktbogen (24 zufällige Momente über 2 Welttage) liegen im Artefakt **simulator-screenshots**."
+            echo ""
+            echo '```'
+            cat out/bericht.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Artefakt ablegen
+        uses: actions/upload-artifact@v7
+        with:
+          name: simulator-screenshots
+          path: out/
+          retention-days: 30

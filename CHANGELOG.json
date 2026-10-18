@@ -1,1 +1,22 @@
-[]
+[
+  {
+    "v": "0.1.0",
+    "d": "2026-10-18",
+    "t": "Fundament",
+    "s": "Hardware geprüft, Engine-Prototyp mit 30 fps, Simulator und Web-Flasher",
+    "n": [
+      "System: Firmware auf ESP-IDF 6.1 mit A/B-Partitionen, Rückfall auf die alte Version und Absturzberichten im Flash",
+      "Display: RGB-Panel mit 60 Hz ohne Bildspeicher, Bilddrehung um 180° ohne Mehrlast",
+      "Display: Hintergrundbeleuchtung dimmbar (PWM 200 Hz, still und flackerfrei)",
+      "Touch: GT911 per I²C, Eckentest bestanden",
+      "Engine: 400×240 Pixel mit 256-Farben-Palette, 2× hochskaliert, stabil 30 Bilder pro Sekunde",
+      "Engine: Weltzeit mit Zeitraffer; die Testszene zeigt Tag und Nacht mit Sternen und schlafenden Vögeln",
+      "System: Diagnose über USB mit Leistungsmonitor (Bildrate, Last, Speicher) und geführten Hardware-Tests",
+      "Simulator: gleiche Szenen am PC im Fenster oder ohne Fenster mit Screenshot, Zeitraffer und Kontaktbogen",
+      "Update: Web-Flasher für die Erstinstallation per USB direkt aus Chrome oder Edge"
+    ],
+    "i": [],
+    "f": [],
+    "r": []
+  }
+]

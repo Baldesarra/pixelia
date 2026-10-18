@@ -140,7 +140,7 @@ CPU-Last pro Kern, freier RAM und PSRAM.
 
 Wichtige Befehle: `pat bars|frame|motion|touch|engine|black`, `bl <0-100>|cycle|stop`, `pclk <MHz>`,
 `timing …`, `pol …`, `rot 0|180`, `swap <n>`, `sprites <n>`, `buf int|psram`, `touch`, `touchrst`, `flash <s>`,
-`tour [tap]`, `tour2`, `ticks vsync|time`, `perf <s>|off`, `info`, `reboot`.
+`tour [tap]`, `tour2`, `time <HH:MM>`, `speed <Faktor>`, `perf <s>|off`, `info`, `reboot`.
 
 Geführte Tests im Tempo des Users (Stufe = Zahl der weißen Quadrate oben links):
 

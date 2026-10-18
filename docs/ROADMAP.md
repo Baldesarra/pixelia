@@ -7,14 +7,16 @@
 
 | | |
 |---|---|
-| **Phase** | 0.1.x Fundament: Hardware geprüft, Engine-Prototyp gemessen, **Plan A bestätigt** |
-| **Letzte Version** | – (noch kein Release; [PR #1](https://github.com/Baldesarra/pixelia/pull/1) mit Hardware-Prüfung und Engine-Prototyp ist in `main`) |
+| **Phase** | 0.1.x Fundament **abgeschlossen**, als Nächstes 0.2.x Vernetzt |
+| **Letzte Version** | – (0.1.0 „Fundament“ wird mit diesem Stand veröffentlicht: Tag `v0.1.0` → GitHub-Release mit `.bin` und Factory-Image) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
-| **Nächster Schritt** | Simulator-Grundgerüst (kopflos, Zeitraffer), Repo-Grundgerüst vervollständigen, Web-Flasher → Release 0.1.0 |
+| **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB) |
+| **Nächster Schritt** | 0.2.0: WLAN-Manager, Setup-Modus mit Captive Portal, Webserver, OTA per Upload mit Rollback |
 | **Aktualisiert** | 2026-10-18 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
 4,1 ms pro Bild, Hochskalier-Interrupt 20 %, keine Aussetzer (auch nicht beim Flash-Schreiben), 299 KB interner RAM frei.
+Simulator: `tools/sim.ps1` (Fenster) bzw. kopflos mit Screenshot, Zeitraffer und Kontaktbogen, siehe [sim/README.md](../sim/README.md).
 
 ## Versionsschema
 
@@ -54,8 +56,8 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 
 ## 0.1.x – Fundament
 
-- [ ] Repo-Grundgerüst (`firmware/`, `engine/`, `worlds/`, `sim/`, `web/`, `tools/`, `assets/`)
-      – `firmware/`, `engine/`, `tools/` stehen
+- [x] Repo-Grundgerüst (`firmware/`, `engine/`, `worlds/`, `sim/`, `web/`, `tools/`, `assets/` mit `CREDITS.md`,
+      dazu `pages/` für GitHub Pages), jeweils mit README
 - [x] GitHub Actions: Firmware-Build, Größenbericht, Artefakte (Budget 75 % wird geprüft)
 - [x] Pinbelegung und Panel-Timings verifizieren → `docs/HARDWARE.md` (Status GEPRÜFT)
 - [x] Display-Bring-up: RGB-Panel (24,6 MHz, 60 Hz), Hintergrundbeleuchtung (PWM 200 Hz, GPIO 2)
@@ -66,9 +68,15 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 - [x] Diagnose-Schnittstelle (serielle Befehle) und Leistungsmonitor (Zeile alle 2 s)
 - [x] Hilfsskripte `tools/monitor.ps1` und `tools/flash.ps1` (Log mitlesen ohne Interaktion, Backtrace-Dekodierung)
 - [x] 180°-Drehung des Bildes (ohne Mehrlast), Touch passend gedreht
-- [ ] Simulator-Grundgerüst (SDL, Kopflos-Screenshot, Zeitraffer als Grundlage für den Langzeit-Test)
+- [x] Szenen-Schnittstelle in `engine/`: Gerät und Simulator nutzen denselben Szenen-Code
+- [x] Weltzeit mit Zeitraffer (Befehle `time`, `speed`); Testszene mit Tag und Nacht
+- [x] Simulator-Grundgerüst: SDL3-Fenster, Kopflos-Modus mit fester Uhrzeit, Vorspulen, Zeitraffer, PNG-Screenshot und
+      **Kontaktbogen** (24 zufällige Momente) als Grundlage für den Langzeit-Test; `tools/sim.ps1`; CI-Job mit
+      Screenshots als Artefakt
 - [x] Partitionstabelle, Bootloader-Rollback aktiviert, Core-Dump (Rollback-Test mit echtem Update in 0.2.x)
-- [ ] Web-Flasher auf GitHub Pages, Erstinstallation per USB
+- [x] Web-Flasher auf GitHub Pages (ESP Web Tools), Erstinstallation per USB; Factory-Image am Gerät geprüft
+- [x] Einfacher Release-Weg: Tag `vX.Y.Z` → GitHub-Release mit `.bin`, Factory-Image und Notes aus `CHANGELOG.json`
+- [ ] **Release 0.1.0** (Tag nach dem Merge dieses Stands auf `main`)
 
 ## 0.2.x – Vernetzt
 

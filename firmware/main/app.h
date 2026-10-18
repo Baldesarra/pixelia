@@ -41,6 +41,8 @@ struct EngineStats {
     uint64_t logic_us_sum;    // Summe Logikzeit
     uint32_t logic_ticks;     // Logik-Schritte
     uint32_t tick_hist[3];    // Bilder mit 0, 1, 2+ Logik-Schritten (gleichmäßig = nur 1)
+    int world_day;            // Weltzeit beim letzten Bild
+    int world_minute;
     bool buffers_in_psram;
     bool buffers_ready;
     int sprites;
@@ -51,8 +53,10 @@ void request_buffers(bool psram);
 void set_sprites(int n);
 // n weiße Quadrate oben links ins Bild zeichnen (Stufenanzeige für Tests)
 void set_marks(int n);
-// Logik-Takt aus dem Bildzähler (true, Standard) oder aus der Echtzeit-Uhr (false, alte Variante zum Vergleich)
-void set_tick_by_vsync(bool on);
+// Weltzeit: Uhrzeit stellen und Zeitraffer (1 = Echtzeit). Ohne WLAN startet die Welt um 12:00.
+void set_time_of_day(int hour, int minute);
+void set_speed(float factor);
+float speed();
 EngineStats engine_stats(bool reset_max);
 }  // namespace gfx
 

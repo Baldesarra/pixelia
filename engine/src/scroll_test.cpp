@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <iterator>
 
 namespace pixelia {
 
@@ -20,13 +21,14 @@ constexpr uint8_t kFlower = 53;    // 53..56
 constexpr uint8_t kWater = 57;     // 57..72, Farbrotation
 constexpr uint8_t kBird = 73;      // 73 Körper, 74 Flügel, 75 Schnabel
 constexpr uint8_t kCloud = 77;     // 77 hell, 78 Schatten
+constexpr uint8_t kStar = 79;
+constexpr uint8_t kLitEnd = 80;    // 33..79 werden vom Tageslicht eingefärbt
 
 constexpr int kSkyRows = 160;
 constexpr int kFarBase = 150;
 constexpr int kNearBase = 176;
 constexpr int kGroundTop = 176;
 constexpr int kWaterTop = 208;
-constexpr int kClouds = 6;
 
 constexpr uint8_t kBayer4[4][4] = {{0, 8, 2, 10}, {12, 4, 14, 6}, {3, 11, 1, 9}, {15, 7, 13, 5}};
 
@@ -37,12 +39,33 @@ constexpr const char* kBirdArt[2][8] = {
      "..2.......2.", "............"},
 };
 
-int8_t g_bob[32];
-int16_t g_clouds[kClouds][2];
+// Tageslicht über 24 Stunden: Himmel oben, Himmel am Horizont, Licht auf der Landschaft (Faktor pro Kanal)
+struct LightKey {
+    float hour;
+    Color top, horizon;
+    float lr, lg, lb;
+};
+constexpr LightKey kDay[] = {
+    {0.0f, {6, 8, 26}, {24, 30, 66}, 0.28f, 0.32f, 0.50f},
+    {5.0f, {10, 14, 40}, {40, 40, 85}, 0.32f, 0.34f, 0.52f},
+    {6.0f, {40, 55, 120}, {230, 140, 100}, 0.75f, 0.60f, 0.60f},
+    {7.5f, {30, 70, 150}, {200, 200, 220}, 0.95f, 0.92f, 0.90f},
+    {9.0f, {22, 52, 128}, {178, 214, 242}, 1.00f, 1.00f, 1.00f},
+    {17.0f, {22, 52, 128}, {178, 214, 242}, 1.00f, 1.00f, 1.00f},
+    {18.5f, {40, 60, 140}, {245, 160, 90}, 1.00f, 0.80f, 0.65f},
+    {19.5f, {30, 30, 80}, {160, 80, 90}, 0.60f, 0.45f, 0.50f},
+    {21.0f, {8, 10, 30}, {30, 32, 70}, 0.30f, 0.33f, 0.50f},
+    {24.0f, {6, 8, 26}, {24, 30, 66}, 0.28f, 0.32f, 0.50f},
+};
 
 Color lerp(Color a, Color b, float t) {
     return {static_cast<uint8_t>(a.r + (b.r - a.r) * t), static_cast<uint8_t>(a.g + (b.g - a.g) * t),
             static_cast<uint8_t>(a.b + (b.b - a.b) * t)};
+}
+
+Color scale(Color c, float r, float g, float b) {
+    return {static_cast<uint8_t>(std::min(255.0f, c.r * r)), static_cast<uint8_t>(std::min(255.0f, c.g * g)),
+            static_cast<uint8_t>(std::min(255.0f, c.b * b))};
 }
 
 }  // namespace
@@ -53,9 +76,15 @@ void ScrollTest::init(uint64_t seed) {
     build_terrain();
     build_tiles();
     build_sprites();
-    for (int i = 0; i < 32; ++i) g_bob[i] = static_cast<int8_t>(std::lround(3.0 * std::sin(i * 6.2831853 / 32)));
+    for (int i = 0; i < 32; ++i) bob_[i] = static_cast<int8_t>(std::lround(3.0 * std::sin(i * 6.2831853 / 32)));
+    for (auto& s : stars_) {
+        s.x = static_cast<int16_t>(rng_.below(kScreenWidth));
+        s.y = static_cast<int16_t>(rng_.below(110));
+        s.phase = static_cast<uint8_t>(rng_.below(256));
+    }
     ticks_ = 0;
     cloud_x_ = far_x_ = near_x_ = ground_x_ = water_x_ = 0;
+    apply_daylight(12.0);
 }
 
 void ScrollTest::build_palette() {
@@ -95,6 +124,7 @@ void ScrollTest::build_palette() {
     p[kBird + 2] = {240, 176, 40};
     p[kCloud + 0] = {250, 250, 255};
     p[kCloud + 1] = {214, 224, 240};
+    p[kStar] = {255, 252, 230};
     p[255] = {255, 255, 255};
     palette_ = p;
 }
@@ -130,8 +160,8 @@ void ScrollTest::build_terrain() {
             water_[y][x] = kWater + ((static_cast<int>(w + 8) + y / 2) & 15);
         }
     for (int i = 0; i < kClouds; ++i) {
-        g_clouds[i][0] = static_cast<int16_t>(i * 800 / kClouds + rng_.range(-40, 40));
-        g_clouds[i][1] = static_cast<int16_t>(rng_.range(8, 70));
+        clouds_[i][0] = static_cast<int16_t>(i * 800 / kClouds + rng_.range(-40, 40));
+        clouds_[i][1] = static_cast<int16_t>(rng_.range(8, 70));
     }
 }
 
@@ -190,7 +220,33 @@ void ScrollTest::build_sprites() {
 
 void ScrollTest::set_sprite_count(int n) { sprite_count_ = std::clamp(n, 0, kMaxSprites); }
 
-void ScrollTest::tick() {
+void ScrollTest::apply_daylight(double hours) {
+    // Stützstellen der Tageskurve finden und linear überblenden
+    int k = 0;
+    while (k + 1 < static_cast<int>(std::size(kDay)) - 1 && kDay[k + 1].hour <= hours) ++k;
+    const LightKey& a = kDay[k];
+    const LightKey& b = kDay[k + 1];
+    float t = static_cast<float>((hours - a.hour) / (b.hour - a.hour));
+    t = std::clamp(t, 0.0f, 1.0f);
+    Color top = lerp(a.top, b.top, t), horizon = lerp(a.horizon, b.horizon, t);
+    float lr = a.lr + (b.lr - a.lr) * t, lg = a.lg + (b.lg - a.lg) * t, lb = a.lb + (b.lb - a.lb) * t;
+
+    for (int i = 0; i < 32; ++i) palette_[kSky + i] = lerp(top, horizon, i / 31.0f);
+    int rot = static_cast<int>((ticks_ / 3) & 15);  // Farbrotation des Wassers
+    for (int i = kFar; i < kLitEnd; ++i) {
+        Color base = base_palette_[i];
+        if (i >= kWater && i < kWater + 16) base = base_palette_[kWater + ((i - kWater + rot) & 15)];
+        palette_[i] = scale(base, lr, lg, lb);
+    }
+    // Nacht: 0 bei vollem Tageslicht, 255 bei tiefer Nacht
+    float night = std::clamp((0.85f - lg) / 0.5f, 0.0f, 1.0f);
+    night_ = static_cast<uint8_t>(night * 255);
+    palette_[kStar] = lerp(top, base_palette_[kStar], night);
+    // Vögel schlafen nachts, bis auf ein paar
+    visible_birds_ = static_cast<int>(sprite_count_ * (1.0f - 0.9f * night) + 0.5f);
+}
+
+void ScrollTest::tick(const WorldClock& clock) {
     ++ticks_;
     cloud_x_ += 32;    // 0,125 px pro Schritt
     far_x_ += 64;      // 0,25 px
@@ -207,21 +263,27 @@ void ScrollTest::tick() {
         ++b.phase;
         b.frame = static_cast<uint8_t>(((ticks_ >> 2) + i) & 1);
     }
-    // Farbrotation des Wassers alle 3 Schritte
-    int rot = static_cast<int>((ticks_ / 3) & 15);
-    for (int i = 0; i < 16; ++i) palette_[kWater + i] = base_palette_[kWater + ((i + rot) & 15)];
+    apply_daylight(clock.hours());
 }
 
 void ScrollTest::render(Canvas& c) const {
     // Himmel
     for (int y = 0; y < kSkyRows; ++y) c.fill_row_pattern(y, sky_rows_[y]);
 
+    // Sterne, leicht funkelnd
+    if (night_ > 20) {
+        for (const Star& s : stars_) {
+            if (((ticks_ >> 3) + s.phase) % 13 == 0) continue;
+            c.row(s.y)[s.x] = kStar;
+        }
+    }
+
     // Wolken (Welt 800 px breit, wiederholt)
     const Sprite cloud{cloud_px_, 48, 16};
     int coff = cloud_x_ >> 8;
     for (int i = 0; i < kClouds; ++i) {
-        int x = ((g_clouds[i][0] - coff) % 800 + 800) % 800 - 48;
-        c.blit(cloud, x, g_clouds[i][1]);
+        int x = ((clouds_[i][0] - coff) % 800 + 800) % 800 - 48;
+        c.blit(cloud, x, clouds_[i][1]);
     }
 
     // Ferne Berge mit Schneekappen, Licht von links
@@ -276,11 +338,11 @@ void ScrollTest::render(Canvas& c) const {
         }
     }
 
-    // Vögel
-    for (int i = 0; i < sprite_count_; ++i) {
+    // Vögel (nachts nur wenige)
+    for (int i = 0; i < visible_birds_; ++i) {
         const Bird& b = birds_[i];
         const Sprite s{bird_px_[b.frame], 12, 8};
-        c.blit(s, b.x >> 8, b.y + g_bob[b.phase & 31]);
+        c.blit(s, b.x >> 8, b.y + bob_[b.phase & 31]);
     }
 }
 
