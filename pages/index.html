@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pixelia installieren</title>
+  <meta name="description" content="Pixelia per USB direkt aus dem Browser auf das ESP32-8048S050C installieren.">
+  <!-- ESP Web Tools (Apache 2.0), feste Version -->
+  <script type="module" src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
+  <style>
+    :root {
+      --bg: #f6f3fb; --surface: #ffffff; --text: #1c1a22; --muted: #5d586a;
+      --primary: #6b4fd8; --on-primary: #ffffff; --outline: #ddd6ee; --warn-bg: #fff3d6; --warn-text: #5c4300;
+      color-scheme: light dark;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141218; --surface: #1f1c26; --text: #ece7f5; --muted: #b0a9bf;
+        --primary: #c4b5ff; --on-primary: #2a1a6e; --outline: #3a3546; --warn-bg: #3b2f10; --warn-text: #ffe2a3;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    main { max-width: 860px; margin: 0 auto; padding: 32px 16px 48px; }
+    h1 { font-size: 2.2rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+    .sub { color: var(--muted); margin: 0 0 28px; }
+    .card { background: var(--surface); border: 1px solid var(--outline); border-radius: 28px; padding: 24px; margin: 0 0 20px; }
+    h2 { font-size: 1.25rem; margin: 0 0 12px; }
+    ol { padding-left: 1.3em; margin: 0 0 20px; }
+    li { margin: 6px 0; }
+    .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .shots figure { margin: 0; }
+    .shots img { width: 100%; height: auto; display: block; border-radius: 16px; image-rendering: pixelated; }
+    figcaption { color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
+    .version { color: var(--muted); font-size: 0.95rem; margin: 12px 0 0; }
+    .warn { background: var(--warn-bg); color: var(--warn-text); border-radius: 16px; padding: 12px 16px; margin: 0; }
+    a { color: var(--primary); }
+    esp-web-install-button button[slot="activate"] {
+      background: var(--primary); color: var(--on-primary); border: 0; border-radius: 999px;
+      padding: 14px 28px; font: 600 1.05rem system-ui, sans-serif; cursor: pointer;
+    }
+    footer { color: var(--muted); font-size: 0.9rem; text-align: center; margin-top: 32px; }
+    @media (max-width: 600px) { .shots { grid-template-columns: 1fr; } h1 { font-size: 1.8rem; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Pixelia</h1>
+  <p class="sub">Lebendige Pixel-Welten für das ESP32-8048S050C (5"-Display, 800×480)</p>
+
+  <section class="card">
+    <h2>Installieren per USB</h2>
+    <ol>
+      <li>Diese Seite in <strong>Chrome oder Edge am Computer</strong> öffnen. Firefox und Safari können kein USB.</li>
+      <li>Das Board mit einem <strong>USB-C-Datenkabel</strong> anschließen. Reine Ladekabel funktionieren nicht.</li>
+      <li>Auf <strong>„Pixelia installieren“</strong> klicken und den Anschluss <strong>„USB-SERIAL CH340“</strong> wählen.</li>
+      <li>Bei der ersten Installation <strong>„Gerät löschen“</strong> bestätigen. Das dauert etwa eine Minute.</li>
+    </ol>
+    <div id="install">
+      <esp-web-install-button manifest="manifest.json">
+        <button slot="activate">Pixelia installieren</button>
+        <p slot="unsupported" class="warn">Dieser Browser kann nicht per USB installieren. Bitte Chrome oder Edge am Computer verwenden.</p>
+        <p slot="not-allowed" class="warn">USB ist nur über eine sichere Verbindung (https) erlaubt.</p>
+      </esp-web-install-button>
+    </div>
+    <p class="version" id="version">Version wird geladen …</p>
+  </section>
+
+  <section class="card">
+    <h2>So sieht es gerade aus</h2>
+    <div class="shots">
+      <figure><img src="mittag.png" alt="Pixelia-Testszene am Mittag" width="800" height="480"><figcaption>Mittag (Simulator)</figcaption></figure>
+      <figure><img src="abend.png" alt="Pixelia-Testszene am Abend" width="800" height="480"><figcaption>Abend (Simulator)</figcaption></figure>
+    </div>
+    <p class="version">Noch läuft eine Testszene. Die Welten (Zugfenster, Pixel-Dorf, Dungeon-Held, Pixel-Liga) folgen ab Version 0.6.</p>
+  </section>
+
+  <section class="card">
+    <h2>Kein Anschluss in der Liste?</h2>
+    <p>Dann fehlt meist der Treiber für den USB-Chip CH340. Er steht beim Hersteller WCH zum
+      <a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html">Herunterladen</a> bereit. Danach das Board neu
+      anschließen. Hilft das nicht, ein anderes USB-Kabel probieren.</p>
+  </section>
+
+  <footer>
+    <a href="https://github.com/Baldesarra/pixelia">Pixelia auf GitHub</a> ·
+    <a href="https://github.com/Baldesarra/pixelia/releases">Alle Versionen</a>
+  </footer>
+</main>
+<script>
+  // Version der eingebauten Firmware anzeigen; ohne Release den Knopf ausblenden
+  fetch('version.txt', { cache: 'no-store' })
+    .then(r => r.ok ? r.text() : '')
+    .catch(() => '')
+    .then(t => {
+      const v = (t || '').trim();
+      const el = document.getElementById('version');
+      if (v) {
+        el.innerHTML = 'Version ' + v + ' · <a href="https://github.com/Baldesarra/pixelia/releases/tag/v' + v + '">Was ist neu?</a>';
+      } else {
+        document.getElementById('install').hidden = true;
+        el.textContent = 'Noch keine Version veröffentlicht.';
+      }
+    });
+</script>
+</body>
+</html>

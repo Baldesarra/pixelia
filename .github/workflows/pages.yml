@@ -1,0 +1,85 @@
+# GitHub Pages: Web-Flasher mit der neuesten Firmware-Version und aktuellen Simulator-Bildern.
+# Läuft nach jedem erfolgreichen Release (vom Hauptzweig aus, das verlangt die Pages-Umgebung),
+# bei Änderungen an pages/ und auf Knopfdruck.
+name: Pages
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  push:
+    branches: [main]
+    paths: ['pages/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Seite bauen
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v7
+
+      - name: Simulator-Bilder
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build > /dev/null
+          cmake -S sim -B build-sim -G Ninja -DCMAKE_BUILD_TYPE=Release -DPIXELIA_SIM_WINDOW=OFF > /dev/null
+          cmake --build build-sim
+          mkdir -p site
+          build-sim/pixelia-sim --headless --time 12:00 --frames 90 --screenshot site/mittag.png
+          build-sim/pixelia-sim --headless --time 19:20 --frames 90 --screenshot site/abend.png
+
+      - name: Neueste Firmware holen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp pages/index.html site/
+          TAG=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)
+          if [ -z "$TAG" ]; then
+            echo "Noch kein Release vorhanden, Seite ohne Firmware"
+            echo "" > site/version.txt
+            exit 0
+          fi
+          V="${TAG#v}"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "pixelia-v$V-factory.bin" --dir site
+          mv "site/pixelia-v$V-factory.bin" site/pixelia-factory.bin
+          echo "$V" > site/version.txt
+          cat > site/manifest.json <<EOF
+          {
+            "name": "Pixelia",
+            "version": "$V",
+            "new_install_prompt_erase": true,
+            "new_install_improv_wait_time": 0,
+            "builds": [
+              { "chipFamily": "ESP32-S3", "parts": [ { "path": "pixelia-factory.bin", "offset": 0 } ] }
+            ]
+          }
+          EOF
+          ls -l site
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    name: Veröffentlichen
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
