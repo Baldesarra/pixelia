@@ -7,11 +7,14 @@
 
 | | |
 |---|---|
-| **Phase** | Vorbereitung abgeschlossen, bereit für 0.1.0 |
-| **Letzte Version** | – (noch keine Firmware) |
+| **Phase** | 0.1.x Fundament: Hardware geprüft, Engine-Prototyp gemessen, **Plan A bestätigt** |
+| **Letzte Version** | – (noch kein Release; Entwicklungsstand auf Branch `fundament-0.1.0`, [PR #1](https://github.com/Baldesarra/pixelia/pull/1)) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
-| **Nächster Schritt** | Fotos der Platine, Board per USB anschließen, Hardware-Prüfplan aus [HARDWARE.md](HARDWARE.md) |
+| **Nächster Schritt** | PR #1 mergen, dann Simulator-Grundgerüst, Repo-Grundgerüst vervollständigen, Web-Flasher → Release 0.1.0 |
 | **Aktualisiert** | 2026-10-18 |
+
+Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
+4,1 ms pro Bild, Hochskalier-Interrupt 20 %, keine Aussetzer (auch nicht beim Flash-Schreiben), 299 KB interner RAM frei.
 
 ## Versionsschema
 
@@ -52,14 +55,19 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 ## 0.1.x – Fundament
 
 - [ ] Repo-Grundgerüst (`firmware/`, `engine/`, `worlds/`, `sim/`, `web/`, `tools/`, `assets/`)
-- [ ] GitHub Actions: Firmware-Build, Größenbericht, Artefakte
-- [ ] Pinbelegung und Panel-Timings verifizieren → `docs/HARDWARE.md`
-- [ ] Display-Bring-up: RGB-Panel, Hintergrundbeleuchtung (PWM)
-- [ ] Touch-Bring-up: GT911
-- [ ] **Engine-Prototyp:** 400×240, 8 Bit Palette, Hochskalieren im Bounce-Buffer, Doppelpuffer mit VSync-Tausch
-- [ ] **Messung:** FPS, Interrupt-Last, RAM-Belegung, Vollbild-Scrolling-Test (Entscheidung Plan A/B)
+      – `firmware/`, `engine/`, `tools/` stehen
+- [x] GitHub Actions: Firmware-Build, Größenbericht, Artefakte (Budget 75 % wird geprüft)
+- [x] Pinbelegung und Panel-Timings verifizieren → `docs/HARDWARE.md` (Status GEPRÜFT)
+- [x] Display-Bring-up: RGB-Panel (24,6 MHz, 60 Hz), Hintergrundbeleuchtung (PWM 200 Hz, GPIO 2)
+- [x] Touch-Bring-up: GT911 (0x5D, Polling, Eckentest bestanden)
+- [x] **Engine-Prototyp:** 400×240, 8 Bit Palette, Hochskalieren im Bounce-Buffer, Doppelpuffer mit Tausch am Bildende
+- [x] **Messung:** FPS, Interrupt-Last, RAM-Belegung, Vollbild-Scrolling-Test → **Plan A bestätigt**
+- [x] Hardware-Detektiv: Prüfbild, Touch-Test, Helligkeitsstufen, Pixeltakt-Test, Flash-Lasttest, geführter Test (`tour`)
+- [x] Diagnose-Schnittstelle (serielle Befehle) und Leistungsmonitor (Zeile alle 2 s)
+- [x] Hilfsskripte `tools/monitor.ps1` und `tools/flash.ps1` (Log mitlesen ohne Interaktion, Backtrace-Dekodierung)
+- [x] 180°-Drehung des Bildes (ohne Mehrlast), Touch passend gedreht
 - [ ] Simulator-Grundgerüst (SDL, Kopflos-Screenshot)
-- [ ] Partitionstabelle, Bootloader-Rollback aktiviert, Core-Dump
+- [x] Partitionstabelle, Bootloader-Rollback aktiviert, Core-Dump (Rollback-Test mit echtem Update in 0.2.x)
 - [ ] Web-Flasher auf GitHub Pages, Erstinstallation per USB
 
 ## 0.2.x – Vernetzt
@@ -169,4 +177,9 @@ Neue Wünsche des Users landen hier (mit Datum) und werden einer Version zugeord
 |---|---|---|
 | 2026-10-18 | Weitere Welten später: Aquarium, Raumstation, Ameisenfarm, Leuchtturm, Bauernhof | nach 1.0.0 |
 | 2026-10-18 | Optional Lichtsensor BH1750 nachrüsten (lernende Auto-Helligkeit) | offen |
-| 2026-10-18 | Optional Ton über I²S-Verstärker nachrüsten | offen |
+| 2026-10-18 | Optional Ton über I²S-Verstärker nachrüsten. **Neu:** Board hat Lautsprecher-Anschluss „Speak“ (P6) mit Verstärker U4, prüfen | offen |
+| 2026-10-18 | Leistungsmonitor (FPS, Last, Speicher) in der Weboberfläche, Log per Schalter unter „Experimentell“ ein/aus (Idee des Users) | 0.4.x |
+| 2026-10-18 | Display-Drehung 0°/180° als Systemeinstellung, Aufstellort steht noch nicht fest (Wunsch des Users) | 0.2.x (NVS), 0.3.x (Oberfläche) |
+| 2026-10-18 | Engine: Bounce-Callback mit SIMD (PIE) beschleunigen oder intern rendern und ins PSRAM kopieren, falls Welten mehr Zeit brauchen | 0.5.x bei Bedarf |
+| 2026-10-18 | RAM: kurzer Einbruch von ~30 KB internem RAM beim Start und beim Anlegen der Engine untersuchen | 0.2.x |
+| 2026-10-18 | Helligkeitskurve vermessen (gleichmäßig wahrgenommene Stufen, kleinster noch leuchtender Wert) | 0.5.x (Nachtmodus) |
