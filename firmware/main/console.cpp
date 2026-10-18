@@ -62,12 +62,18 @@ void handle(char* line) {
         hwtest::touch_reset_test();
     } else if (is("touch")) {
         hwtest::log_touch_status();
+    } else if (is("tour2")) {
+        hwtest::start_tour2();
     } else if (is("tour")) {
         hwtest::start_tour(!(argc >= 2 && std::strcmp(argv[1], "tap") == 0));
     } else if (is("flash") && argc >= 2) {
         hwtest::flash_stress(std::atoi(argv[1]));
     } else if (is("marks") && argc >= 2) {
         gfx::set_marks(std::atoi(argv[1]));
+    } else if (is("ticks") && argc >= 2) {
+        bool vsync = std::strcmp(argv[1], "time") != 0;
+        gfx::set_tick_by_vsync(vsync);
+        ESP_LOGI(TAG, "Logik-Takt: %s", vsync ? "Bildzähler" : "Echtzeit-Uhr");
     } else if (is("rot") && argc >= 2) {
         board::display::set_rotation180(std::atoi(argv[1]) == 180);
         ESP_LOGI(TAG, "Drehung %d°", board::display::rotation180() ? 180 : 0);

@@ -221,7 +221,57 @@ void tour_task(void* arg) {
     ESP_LOGI("tour", "Fertig");
     vTaskDelete(nullptr);
 }
+
+void wait_for_tap() {
+    uint32_t touches = s_rec.touches;
+    while (s_rec.touches == touches) vTaskDelay(pdMS_TO_TICKS(100));
+}
+
+// Zweiter geführter Test, zwei Teile, jeweils Start per Tippen:
+//  Teil 1, Quadrate 1..6: PWM-Frequenz 200 Hz, 500 Hz, 1 kHz, 2 kHz, 5 kHz, 10 kHz,
+//          je 100 % → 50 % → 15 % → 100 % (Welche Frequenz dimmt, statt auszugehen?)
+//  Teil 2: 1 Quadrat normal, 2 Quadrate Flash-Schreiben, 1 Quadrat normal (A/B-Vergleich bei gleichem Takt)
+void tour2_task(void*) {
+    constexpr uint32_t kFreqs[] = {200, 500, 1000, 2000, 5000, 10000};
+    uint32_t old_freq = board::backlight::frequency();
+    board::display::set_swap_interval(2);
+    tour_stage(0, 24600000, "Test 2, warte auf Tippen (Helligkeit)");
+    board::display::set_mode(board::display::Mode::Engine);
+    wait_for_tap();
+    for (int i = 0; i < 6; ++i) {
+        gfx::set_marks(i + 1);
+        esp_err_t err = board::backlight::set_frequency(kFreqs[i]);
+        ESP_LOGI("tour", "Stufe %d: PWM %lu Hz (%s)", i + 1, static_cast<unsigned long>(kFreqs[i]), esp_err_to_name(err));
+        board::backlight::set_percent(100);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        board::backlight::set_percent(50);
+        vTaskDelay(pdMS_TO_TICKS(2000));
+        board::backlight::set_percent(15);
+        vTaskDelay(pdMS_TO_TICKS(2000));
+        board::backlight::set_percent(100);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+    board::backlight::set_frequency(old_freq);
+    board::backlight::set_percent(100);
+    gfx::set_marks(0);
+    ESP_LOGI("tour", "Teil 1 fertig, warte auf Tippen (Flüssigkeit)");
+    wait_for_tap();
+    gfx::set_marks(1);
+    ESP_LOGI("tour", "A: normal");
+    vTaskDelay(pdMS_TO_TICKS(10000));
+    gfx::set_marks(2);
+    ESP_LOGI("tour", "B: Flash-Schreiben");
+    flash_stress(10);
+    gfx::set_marks(1);
+    ESP_LOGI("tour", "A: normal");
+    vTaskDelay(pdMS_TO_TICKS(10000));
+    gfx::set_marks(0);
+    ESP_LOGI("tour", "Fertig");
+    vTaskDelete(nullptr);
+}
 }  // namespace
+
+void start_tour2() { xTaskCreatePinnedToCore(tour2_task, "tour2", 3072, nullptr, 3, nullptr, kSystemCore); }
 
 void init_i2c_and_scan() {
     i2c_master_bus_config_t cfg = {};

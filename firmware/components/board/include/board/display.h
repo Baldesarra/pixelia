@@ -42,6 +42,8 @@ esp_err_t set_pclk(uint32_t hz);
 // Bilddauer laut Timing in µs (tatsächlicher Takt kann durch Teiler leicht abweichen)
 uint32_t frame_period_us();
 int fills_per_frame();
+// Zahl der seit dem Start vollständig ausgegebenen Panel-Bilder (Taktgeber für die Logik)
+uint32_t frame_count();
 
 void set_mode(Mode mode);
 Mode mode();

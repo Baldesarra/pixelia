@@ -396,6 +396,7 @@ uint32_t frame_period_us() {
 }
 
 int fills_per_frame() { return s_expected_fills; }
+uint32_t frame_count() { return s_frames; }
 
 void set_mode(Mode mode) { s_mode = mode; }
 Mode mode() { return s_mode; }

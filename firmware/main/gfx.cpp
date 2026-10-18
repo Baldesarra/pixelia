@@ -25,6 +25,7 @@ board::display::Timing s_req_timing;
 volatile bool s_req_psram = true;
 volatile int s_sprites = 48;
 volatile int s_marks = 0;
+volatile bool s_tick_by_vsync = true;
 
 uint8_t* s_buf[2] = {nullptr, nullptr};
 bool s_buf_psram = false;
@@ -92,6 +93,8 @@ void gfx_task(void* arg) {
 
     int64_t last = esp_timer_get_time();
     int64_t acc = 0;
+    uint32_t last_frames = board::display::frame_count();
+    uint32_t frame_rem = 0;
     for (;;) {
         Request req = s_request;
         if (req == Request::Reconfigure) {
@@ -113,6 +116,8 @@ void gfx_task(void* arg) {
             vTaskDelay(pdMS_TO_TICKS(20));
             last = esp_timer_get_time();
             acc = 0;
+            last_frames = board::display::frame_count();
+            frame_rem = 0;
             continue;
         }
         if (!s_buf[0] && !ensure_engine_ready(s_req_psram)) {
@@ -123,19 +128,29 @@ void gfx_task(void* arg) {
         uint8_t* back = board::display::acquire_back_buffer(200);
         if (!back) continue;
 
-        // Logik mit fester Schrittweite = Bilddauer × Tauschintervall (ein Schritt pro angezeigtem Bild)
         int64_t t0 = esp_timer_get_time();
-        int64_t step = static_cast<int64_t>(board::display::frame_period_us()) * board::display::swap_interval();
-        acc += t0 - last;
-        last = t0;
-        int ticks = 0;
-        s_scene->set_sprite_count(s_sprites);
-        while (acc >= step && ticks < 4) {
-            s_scene->tick();
-            acc -= step;
-            ++ticks;
+        int swap = board::display::swap_interval();
+        int want = 0;
+        if (s_tick_by_vsync) {
+            // Logik-Schritte aus der Zahl der angezeigten Panel-Bilder: im Normalfall genau ein Schritt pro
+            // Engine-Bild, nach einem verpassten Bild zwei. Kein Verhaken mit einer zweiten Uhr möglich.
+            uint32_t frames = board::display::frame_count();
+            uint32_t elapsed = frames - last_frames + frame_rem;
+            last_frames = frames;
+            want = static_cast<int>(elapsed / swap);
+            frame_rem = elapsed % swap;
+        } else {
+            // Alte Variante zum Vergleich: Echtzeit-Akkumulator mit Schrittweite = Bilddauer × Tauschintervall
+            int64_t step = static_cast<int64_t>(board::display::frame_period_us()) * swap;
+            acc += t0 - last;
+            want = static_cast<int>(acc / step);
+            acc -= want * step;
         }
-        if (ticks == 4) acc = 0;  // Überlast: nicht endlos nachholen
+        last = t0;
+        if (want > 4) want = 4;  // Überlast: nicht endlos nachholen
+        s_scene->set_sprite_count(s_sprites);
+        for (int i = 0; i < want; ++i) s_scene->tick();
+        int ticks = want;
 
         int64_t t1 = esp_timer_get_time();
         pixelia::Canvas canvas(back, pixelia::kScreenWidth, pixelia::kScreenHeight);
@@ -153,6 +168,7 @@ void gfx_task(void* arg) {
         if (render_us > s_stats.render_us_max) s_stats.render_us_max = render_us;
         s_stats.logic_us_sum += static_cast<uint64_t>(t1 - t0);
         s_stats.logic_ticks += ticks;
+        s_stats.tick_hist[ticks < 2 ? ticks : 2]++;
         portEXIT_CRITICAL(&s_stats_lock);
     }
 }
@@ -175,6 +191,7 @@ void request_buffers(bool psram) {
 
 void set_sprites(int n) { s_sprites = n; }
 void set_marks(int n) { s_marks = n; }
+void set_tick_by_vsync(bool on) { s_tick_by_vsync = on; }
 
 EngineStats engine_stats(bool reset_max) {
     portENTER_CRITICAL(&s_stats_lock);

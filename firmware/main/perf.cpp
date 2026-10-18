@@ -47,14 +47,18 @@ void perf_task(void*) {
             unsigned ram_blk = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL) >> 10;
             unsigned psram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM) >> 10;
 
-            char engine[96] = "";
+            char engine[160] = "";
             if (board::display::mode() == board::display::Mode::Engine) {
                 uint32_t frames = e.frames - e_prev.frames;
                 double fps = (d.swaps - d_prev.swaps) * 1e6 / dt_us;
                 double render_ms = frames ? (e.render_us_sum - e_prev.render_us_sum) / 1000.0 / frames : 0;
                 double logic_ms = frames ? (e.logic_us_sum - e_prev.logic_us_sum) / 1000.0 / frames : 0;
-                snprintf(engine, sizeof(engine), " | fps %.1f render %.2f/%.2fms logic %.2fms sprites %d buf %s", fps,
-                         render_ms, e.render_us_max / 1000.0, logic_ms, e.sprites, e.buffers_in_psram ? "psram" : "int");
+                snprintf(engine, sizeof(engine),
+                         " | fps %.1f render %.2f/%.2fms logic %.2fms ticks %" PRIu32 "/%" PRIu32 "/%" PRIu32
+                         " sprites %d buf %s",
+                         fps, render_ms, e.render_us_max / 1000.0, logic_ms, e.tick_hist[0] - e_prev.tick_hist[0],
+                         e.tick_hist[1] - e_prev.tick_hist[1], e.tick_hist[2] - e_prev.tick_hist[2], e.sprites,
+                         e.buffers_in_psram ? "psram" : "int");
             }
             ESP_LOGI(TAG, "%s | lcd %.2fHz pclk %.2fMHz isr %.1f%% (max %.0fus) desync %" PRIu32 "%s | cpu0 %.0f%% cpu1 %.0f%% | ram %uk (min %uk, blk %uk) psram %uk",
                      board::display::mode_name(board::display::mode()), hz, board::display::timing().pclk_hz / 1e6,
