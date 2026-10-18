@@ -34,5 +34,8 @@ Thumbs.db
 desktop.ini
 .DS_Store
 
+# Logs der Hilfsskripte
+.logs/
+
 # Lokale Claude-Einstellungen
 .claude/settings.local.json

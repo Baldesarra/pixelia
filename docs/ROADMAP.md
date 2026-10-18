@@ -7,10 +7,10 @@
 
 | | |
 |---|---|
-| **Phase** | Vorbereitung: GitHub eingerichtet, Werkzeuge für Phase 0 fehlen noch |
+| **Phase** | Vorbereitung abgeschlossen, bereit für 0.1.0 |
 | **Letzte Version** | – (noch keine Firmware) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
-| **Nächster Schritt** | ESP-IDF, Node.js, CMake installieren; Board per USB anschließen; Start 0.1.0 |
+| **Nächster Schritt** | Fotos der Platine, Board per USB anschließen, Hardware-Prüfplan aus [HARDWARE.md](HARDWARE.md) |
 | **Aktualisiert** | 2026-10-18 |
 
 ## Versionsschema
@@ -44,7 +44,10 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 - [x] Repo `pixelia` auf GitHub anlegen (öffentlich, keine Lizenz, vom User bestätigt)
 - [x] Projektordner als Git-Repo, `docs/PROJEKTPLAN.md`, `docs/ROADMAP.md`, `CLAUDE.md` einchecken
 - [ ] Optional: GitHub mit claude.ai verbinden (für Arbeit in der Cloud)
-- [ ] ESP-IDF, Node.js, CMake installieren
+- [x] Werkzeuge installiert: ESP-IDF v6.1 (`D:\Espressif`, Werkzeuge in `C:\Espressif\tools`), Node.js 24 LTS,
+      CMake 4.4, Ninja, Python 3.13, LLVM-MinGW (Simulator-Compiler)
+- [x] Hilfsskript `tools/idf.ps1` (ESP-IDF aktivieren, Ausgabe kürzen), Test-Build erfolgreich
+- [x] `docs/HARDWARE.md` mit erwarteter Pinbelegung und Prüfplan
 
 ## 0.1.x – Fundament
 

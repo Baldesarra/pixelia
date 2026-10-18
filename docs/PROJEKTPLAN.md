@@ -728,7 +728,8 @@ pixelia/
 - Node.js (Weboberfläche lokal bauen)
 - Compiler für den Simulator (optional, Builds laufen auch auf GitHub)
 
-Stand 18.10.2026: VS Code und winget vorhanden. Git, GitHub CLI, Node.js, CMake und ESP-IDF fehlen noch.
+Stand 18.10.2026: alles installiert. Git, GitHub CLI, ESP-IDF v6.1, Node.js 24 LTS, CMake, Ninja, Python 3.13,
+LLVM-MinGW. ESP-IDF baut auch im Projektpfad mit Leerzeichen (`D:\VS Code\ESP32-S3`).
 
 **Entwicklungsschleife:**
 
@@ -813,4 +814,6 @@ unsere Paletten um. Details: 4.7.
 | 2026-10-18 | Kein Secure Boot, kein HTTPS auf dem Gerät | Risiko/Nutzen im Heimnetz (4.12) |
 | 2026-10-18 | Öffentliches GitHub-Repo `Baldesarra/pixelia`, vom User bestätigt; vorerst keine Lizenz (alle Rechte beim User) | Updates ohne Token, kostenlose GitHub Pages (4.13) |
 | 2026-10-18 | Kein Sound | kein Lautsprecher vorhanden |
+| 2026-10-18 | **ESP-IDF v6.1** (neueste stabile Version, August 2026) | längste Unterstützungsdauer, keine Altlasten im neuen Projekt; Wechsel auf v6.0.x/v5.5.x möglich, falls Komponenten fehlen |
+| 2026-10-18 | Simulator-Compiler auf Windows: LLVM-MinGW, SDL per CMake FetchContent | keine schwere Visual-Studio-Installation, gleicher Build-Weg wie in CI |
 | 2026-10-18 | Reihenfolge Zug → Dorf → Held → Liga, Dorf als Schwerpunkt | Zug = härtester Leistungstest bei einfacher Logik; Wunsch des Users |

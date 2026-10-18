@@ -33,6 +33,16 @@ Material 3 Expressive Design und Updates über GitHub.
 - Zufall deterministisch mit Startwert.
 - Code-Bezeichner Englisch, Kommentare Deutsch.
 
+## Werkzeuge (lokal, Windows)
+
+- ESP-IDF **v6.1** über EIM: IDF in `D:\Espressif\v6.1\esp-idf`, Werkzeuge in `C:\Espressif\tools`.
+- **Immer `tools/idf.ps1` statt idf.py direkt** benutzen: aktiviert die Umgebung, schreibt das volle Log nach
+  `.logs/idf-last.log` und zeigt nur Fehler, Warnungen und die Zusammenfassung. Beispiel: `.\tools\idf.ps1 -C firmware build`.
+  Das Log nur bei Fehlern gezielt lesen.
+- Nach Installationen fehlt der neue PATH evtl. in der laufenden Shell: in PowerShell aus Machine+User-Umgebung nachladen.
+- Simulator-Compiler: LLVM-MinGW (`g++`/`clang++`), CMake, Ninja. Node.js 24 für die Weboberfläche.
+- Grundsatz: lange Ausgaben (Builds, Logs, serielle Ausgabe) immer über Skripte filtern, nicht roh ins Gespräch holen.
+
 ## Leistungsbudget
 
 30 fps stabil (nie unter 25). Logik + Rendern ≤ 20 ms pro Bild. Freier interner RAM ≥ 60 KB, freier PSRAM ≥ 1 MB.
@@ -52,6 +62,7 @@ Firmware ≤ 75 % der App-Partition (6 MB).
 ## Git-Arbeitsweise
 
 - Änderungen auf eigenem Branch → Pull Request → CI grün → Merge durch/nach Freigabe des Users.
+  Ausnahme: Solange es noch keine CI gibt (vor 0.1.0), gehen Doku- und Werkzeug-Änderungen direkt auf `main`.
 - Commit-Nachrichten auf Deutsch, kurz und beschreibend (z. B. „Zug: Regentropfen an der Scheibe“).
 - Release: Tag `vX.Y.Z` auf `main` → GitHub Actions erstellt das Release mit `.bin`, Factory-Image und Release-Notes.
 - Keine Geheimnisse ins Repo (WLAN-Daten, Tokens). Fremde Grafiken nur mit CC0/CC-BY-Lizenz, Eintrag in
