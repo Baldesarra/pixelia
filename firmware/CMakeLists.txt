@@ -23,6 +23,18 @@ else()
     set(PROJECT_VER "0.0.0-dev+${PIXELIA_GIT_HASH}")
 endif()
 
+# Nach jedem Commit oder Branchwechsel neu konfigurieren, damit die Version im Image stimmt
+set(_pixelia_git "${CMAKE_CURRENT_LIST_DIR}/../.git")
+if(EXISTS "${_pixelia_git}/HEAD")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_pixelia_git}/HEAD")
+    file(READ "${_pixelia_git}/HEAD" _pixelia_head)
+    if(_pixelia_head MATCHES "^ref: ([^\n]+)")
+        if(EXISTS "${_pixelia_git}/${CMAKE_MATCH_1}")
+            set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_pixelia_git}/${CMAKE_MATCH_1}")
+        endif()
+    endif()
+endif()
+
 # Testvarianten (Rollback-Test) tragen das im Namen, damit sie nie mit echten Versionen verwechselt werden
 if(PIXELIA_TEST)
     set(PROJECT_VER "${PROJECT_VER}-test-${PIXELIA_TEST}")
