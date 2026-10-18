@@ -34,6 +34,19 @@ Nicht ein paar gezeichnete Häuser und Menschen, sondern Welten mit Systemen, Ge
    Neues sieht.
 9. **Datengetriebene Inhalte.** Ereignisse, Aktivitäten, Gedanken, Gegenstände, Gegner usw. liegen als Daten vor. So kann
    der Inhalt in jeder Patch-Version um eine neue „Inhaltswelle“ wachsen.
+10. **Zuverlässiges Gedächtnis** (ergänzt am 18.10.2026, Wunsch des Users). Die Welt weiß jederzeit genau, was es gibt
+    und was passiert ist, und das bleibt auch über Neustarts erhalten:
+    - **Bestände:** Jede Ware und jedes Material hat eine genaue Menge und einen Standort (Korb, Lager, Laden,
+      Baustelle). Nichts entsteht aus dem Nichts, nichts verschwindet ohne Grund. Herstellen, Bauen und Kochen
+      verbrauchen die Zutaten genau einmal. Ein Ortswechsel erzeugt keine Kopie.
+    - **Angefangene Arbeiten:** Ein unterbrochenes Vorhaben (halber Stuhl, Baustelle, Teig) bleibt im selben Zustand
+      liegen und geht dort weiter, ohne Material doppelt zu verbrauchen.
+    - **Begegnungen und Erinnerungen:** wer zu Besuch war, wann, was gebracht oder getauscht wurde, welche Beziehung
+      daraus entstand.
+    - **Zustände mit Zeitbezug:** Glut kühlt ab, Kleidung trocknet, Pflanzen wachsen, auch während man woanders
+      hinschaut.
+    - **Speichern ist sicher:** atomar, ohne Verdoppeln oder Verlieren, auch wenn der Strom mitten in einer Übergabe
+      ausfällt. Nach dem Ausschalten wird nur begrenzt und plausibel nachgeholt.
 
 ## 2. Mindestziele pro Welt
 
@@ -92,6 +105,14 @@ in der Roadmap sowie im Release-Bericht offen ausgewiesen (Ist → Ziel).
 | Saison-Geschichten (Serien, Rekorde, Derbys, Abstiegskampf, Comeback …) | ≥ 15 Erzählmuster |
 | Wettbewerbe | ≥ 2 (Liga, Pokal) |
 
+### 🏝️ Inselwelt (Position offen)
+
+Die Mindestziele werden bei der gemeinsamen Überarbeitung des Konzepts festgelegt
+([welten/inselwelt-konzept.md](welten/inselwelt-konzept.md)). Schon fest steht: Der Bilanz-Test (Kapitel 3) muss
+ohne einen einzigen Fehler bestehen, über Herstellung, Transport, Verarbeitung, Eigenverbrauch, Geschenk, Verkauf und
+Neustart hinweg. Außerdem muss jede Tätigkeit ohne Beschriftung verständlich sein, und der Bewohner muss regelmäßig
+freie Zeit haben (gemütlich statt Produktionskette).
+
 ### Weltübergreifend (1.0.0)
 
 | Kriterium | Mindestziel |
@@ -105,6 +126,10 @@ in der Roadmap sowie im Release-Bericht offen ausgewiesen (Ist → Ziel).
   - Wiederholungsquote,
   - Blick-Test: Wie viele verschiedene Dinge sind zu zufälligen Zeitpunkten gleichzeitig sichtbar?
   - **Kontaktbogen:** 24 zufällige Momente in einem Bild, damit man die Vielfalt auf einen Blick sieht.
+- **Bilanz-Test (Gedächtnis):** Läuft im Langzeit-Test mit. Jede Ware wird von der Entstehung bis zum Verbrauch,
+  Verkauf oder Geschenk verfolgt. Mittendrin wird gespeichert und neu gestartet, auch während laufender Arbeiten und
+  Übergaben. Ergebnis: Die Bilanz geht exakt auf, angefangene Arbeiten laufen am selben Stand weiter, und der
+  Besuchsverlauf ist vollständig.
 - **Inhaltszähler:** Der Build zählt Ereignisse, Aktivitäten, Gedanken, Gegenstände usw. aus den Datendateien.
 - **In jedem Pull Request**, der eine Welt verändert: Langzeit-Bericht und Kontaktbogen (automatisch per GitHub Actions).
 - **In jedem Release-Bericht:** Zahlen vorher → nachher, und offen, was noch fehlt.

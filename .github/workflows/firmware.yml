@@ -19,6 +19,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Changelog prüfen (Format, Bereiche, Reihenfolge)
+        shell: bash
+        run: python3 tools/release_notes.py --check
+
       - name: Bauen
         shell: bash
         run: |
