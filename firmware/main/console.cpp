@@ -4,9 +4,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
 #include "app.h"
 #include "board/backlight.h"
+#include "net.h"
+#include "ota.h"
+#include "settings.h"
+#include "ui.h"
+#include "web.h"
 #include "driver/uart.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -22,7 +28,9 @@ constexpr uart_port_t kUart = UART_NUM_0;
 void print_help() {
     ESP_LOGI(TAG, "Befehle:");
     ESP_LOGI(TAG, "  info | heap | scan | touch | touchrst | reboot");
-    ESP_LOGI(TAG, "  rot <0|180>                                   Bild drehen");
+    ESP_LOGI(TAG, "  rot <0|180> | set | set bright <1-100>           Bild drehen, Einstellungen (gespeichert)");
+    ESP_LOGI(TAG, "  wifi | wifi scan | wifi list | wifi forget <Name> | wifi setup | wifi connect");
+    ESP_LOGI(TAG, "  ota | ntp | web | toast <Text>                 Update-Zustand, Uhrzeit, Webserver, Kurzmeldung");
     ESP_LOGI(TAG, "  tour [tap] | flash <Sekunden> | marks <n>      geführter Test (tap: Start per Tippen), Flash-Last");
     ESP_LOGI(TAG, "  pat <black|bars|frame|motion|touch|engine>   Testbild/Modus");
     ESP_LOGI(TAG, "  bl <0-100> | bl cycle | bl stop | blf <Hz>      Hintergrundbeleuchtung");
@@ -31,7 +39,7 @@ void print_help() {
     ESP_LOGI(TAG, "  pol <hsync_idle_low> <vsync_idle_low> <pclk_neg>  Polaritäten 0/1");
     ESP_LOGI(TAG, "  bounce <Zeilen> | clk <160|240>                Bounce-Buffer, Taktquelle");
     ESP_LOGI(TAG, "  swap <n> | sprites <n> | buf <int|psram>       Engine-Prototyp");
-    ESP_LOGI(TAG, "  time <HH:MM> | speed <Faktor>                Weltzeit stellen, Zeitraffer");
+    ESP_LOGI(TAG, "  time <HH:MM|real> | speed <Faktor>             Weltzeit stellen (real = echte Uhrzeit), Zeitraffer");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
 }
 
@@ -42,9 +50,9 @@ void log_timing(const board::display::Timing& t) {
 }
 
 void handle(char* line) {
-    char* argv[8] = {};
+    char* argv[24] = {};
     int argc = 0;
-    for (char* tok = std::strtok(line, " \t"); tok && argc < 8; tok = std::strtok(nullptr, " \t")) argv[argc++] = tok;
+    for (char* tok = std::strtok(line, " \t"); tok && argc < 24; tok = std::strtok(nullptr, " \t")) argv[argc++] = tok;
     if (argc == 0) return;
     const char* cmd = argv[0];
     auto is = [&](const char* name) { return std::strcmp(cmd, name) == 0; };
@@ -71,6 +79,9 @@ void handle(char* line) {
         hwtest::flash_stress(std::atoi(argv[1]));
     } else if (is("marks") && argc >= 2) {
         gfx::set_marks(std::atoi(argv[1]));
+    } else if (is("time") && argc >= 2 && std::strcmp(argv[1], "real") == 0) {
+        gfx::set_real_time(true);
+        ESP_LOGI(TAG, "Weltzeit folgt der echten Uhrzeit%s", timesync::valid() ? "" : " (sobald sie bekannt ist)");
     } else if (is("time") && argc >= 2) {
         int h = 0, m = 0;
         if (std::sscanf(argv[1], "%d:%d", &h, &m) >= 1 && h >= 0 && h < 24 && m >= 0 && m < 60) {
@@ -83,8 +94,58 @@ void handle(char* line) {
         gfx::set_speed(static_cast<float>(std::atof(argv[1])));
         ESP_LOGI(TAG, "Zeitraffer %.1fx", gfx::speed());
     } else if (is("rot") && argc >= 2) {
-        board::display::set_rotation180(std::atoi(argv[1]) == 180);
-        ESP_LOGI(TAG, "Drehung %d°", board::display::rotation180() ? 180 : 0);
+        settings::set_rotation180(std::atoi(argv[1]) == 180);
+    } else if (is("set")) {
+        if (argc >= 3 && std::strcmp(argv[1], "bright") == 0) settings::set_brightness(std::atoi(argv[2]));
+        else if (argc >= 3 && std::strcmp(argv[1], "rot") == 0) settings::set_rotation180(std::atoi(argv[2]) == 180);
+        settings::log_all();
+    } else if (is("wifi")) {
+        const char* sub = argc >= 2 ? argv[1] : "";
+        if (std::strcmp(sub, "scan") == 0) {
+            static wifi::ScanEntry list[24];
+            int n = wifi::scan(list, 24, true);
+            for (int i = 0; i < n; ++i)
+                ESP_LOGI(TAG, "  %4d dBm  Kanal %2u  %s%s%s", list[i].rssi, list[i].channel, list[i].ssid,
+                         list[i].secure ? "" : " (offen)", list[i].saved ? "  [gespeichert]" : "");
+        } else if (std::strcmp(sub, "list") == 0) {
+            char names[wifi::kMaxSaved][33];
+            int n = wifi::saved_networks(names, wifi::kMaxSaved);
+            ESP_LOGI(TAG, "%d gespeicherte(s) WLAN (zuletzt benutztes zuerst):", n);
+            for (int i = 0; i < n; ++i) ESP_LOGI(TAG, "  %d: %s", i + 1, names[i]);
+        } else if (std::strcmp(sub, "forget") == 0 && argc >= 3) {
+            // Namen mit Leerzeichen wieder zusammensetzen
+            char name[33] = "";
+            for (int i = 2; i < argc; ++i) {
+                if (i > 2) std::strncat(name, " ", sizeof(name) - std::strlen(name) - 1);
+                std::strncat(name, argv[i], sizeof(name) - std::strlen(name) - 1);
+            }
+            esp_err_t err = wifi::remove_network(name);
+            ESP_LOGI(TAG, "WLAN „%s“: %s", name, err == ESP_OK ? "entfernt" : "nicht gespeichert");
+        } else if (std::strcmp(sub, "setup") == 0) {
+            wifi::force_setup();
+        } else if (std::strcmp(sub, "connect") == 0) {
+            wifi::reconnect();
+        } else {
+            wifi::Status s = wifi::status();
+            ESP_LOGI(TAG, "WLAN %s, Netz „%s“, IP %s, %d dBm, Kanal %u, %d gespeichert", wifi::state_name(s.state), s.ssid,
+                     s.ip[0] ? s.ip : "–", s.rssi, s.channel, s.saved);
+            if (s.ap_active)
+                ESP_LOGI(TAG, "Setup-WLAN „%s“ aktiv, %d Gerät(e), nächster Versuch in %d s", wifi::kApSsid, s.ap_clients,
+                         s.retry_in_s);
+            if (s.last_error[0]) ESP_LOGI(TAG, "Letzter Fehler: %s", s.last_error);
+        }
+    } else if (is("ota")) {
+        ota::log_status();
+    } else if (is("toast") && argc >= 2) {
+        // Kurzmeldung zum Prüfen der Anzeige; Wörter wieder zusammensetzen
+        std::string text;
+        for (int i = 1; i < argc; ++i) text += (i > 1 ? " " : "") + std::string(argv[i]);
+        ui::toast(text, pixelia::ui::Tone::Info, 15);
+    } else if (is("ntp")) {
+        timesync::log_status();
+        ESP_LOGI(TAG, "Weltzeit %s", gfx::real_time() ? "folgt der echten Uhrzeit" : "frei gestellt (time real = echte Zeit)");
+    } else if (is("web")) {
+        ESP_LOGI(TAG, "Webserver: http://%s.local, %d WebSocket-Verbindung(en)", wifi::kMdnsHost, web::ws_clients());
     } else if (is("reboot")) {
         ESP_LOGI(TAG, "Neustart");
         vTaskDelay(pdMS_TO_TICKS(100));
@@ -162,7 +223,7 @@ void handle(char* line) {
 }
 
 void console_task(void*) {
-    char line[128];
+    char line[256];
     size_t len = 0;
     for (;;) {
         uint8_t ch;

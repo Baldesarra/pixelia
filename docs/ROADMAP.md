@@ -7,15 +7,17 @@
 
 | | |
 |---|---|
-| **Phase** | 0.1.x Fundament **abgeschlossen**, als Nächstes 0.2.x Vernetzt |
-| **Letzte Version** | – (0.1.0 „Fundament“ wird mit diesem Stand veröffentlicht: Tag `v0.1.0` → GitHub-Release mit `.bin` und Factory-Image) |
+| **Phase** | 0.2.x Vernetzt **in Arbeit** |
+| **Letzte Version** | 0.1.0 „Fundament“ (2026-10-18), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.1.0) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB) |
-| **Nächster Schritt** | 0.2.0: WLAN-Manager, Setup-Modus mit Captive Portal, Webserver, OTA per Upload mit Rollback |
+| **Nächster Schritt** | Release 0.2.0 (Pull Request, Tag), danach 0.3.x Weboberfläche |
 | **Aktualisiert** | 2026-10-18 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
-4,1 ms pro Bild, Hochskalier-Interrupt 20 %, keine Aussetzer (auch nicht beim Flash-Schreiben), 299 KB interner RAM frei.
+4,0 ms pro Bild, Hochskalier-Interrupt 20 %, keine Aussetzer, auch mit WLAN, Webserver und während Updates. Interner RAM
+im Betrieb 125 KB frei (Tiefstwert ≥ 115 KB). Update per Browser in 7 s, Rückfall bei Absturz, Hänger oder
+gescheitertem Selbsttest am Gerät geprüft.
 Simulator: `tools/sim.ps1` (Fenster) bzw. kopflos mit Screenshot, Zeitraffer und Kontaktbogen, siehe [sim/README.md](../sim/README.md).
 
 ## Versionsschema
@@ -76,18 +78,25 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 - [x] Partitionstabelle, Bootloader-Rollback aktiviert, Core-Dump (Rollback-Test mit echtem Update in 0.2.x)
 - [x] Web-Flasher auf GitHub Pages (ESP Web Tools), Erstinstallation per USB; Factory-Image am Gerät geprüft
 - [x] Einfacher Release-Weg: Tag `vX.Y.Z` → GitHub-Release mit `.bin`, Factory-Image und Notes aus `CHANGELOG.json`
-- [ ] **Release 0.1.0** (Tag nach dem Merge dieses Stands auf `main`)
+- [x] **Release 0.1.0** (Tag `v0.1.0`, per Web-Flasher am Gerät installiert und geprüft)
 
 ## 0.2.x – Vernetzt
 
-- [ ] WLAN-Manager: bis zu 5 Netze, stärkstes zuerst, Hostname „Pixelia“
-- [ ] Setup-Modus: AP „Pixelia-Setup“, Captive Portal, Neuversuch alle 2 min, Anleitung + QR-Code auf dem Display
-- [ ] mDNS `pixelia.local`, NTP-Zeit
-- [ ] HTTP-Server + WebSocket, einfache Setup-Seite
-- [ ] OTA per `.bin`-Upload mit Fortschritt (Browser + Display)
-- [ ] A/B-Rollback mit Selbsttest
-- [ ] Einstellungen in NVS
-- [ ] **Ab hier Updates ohne USB**
+- [x] WLAN-Manager: bis zu 5 Netze, stärkstes zuerst, Hostname „Pixelia“; Ausweichmodus für Router im
+      WPA2/WPA3-Mischmodus (Grund 17), beim Start 45 s Geduld, danach Setup-Modus
+- [x] Setup-Modus: AP „Pixelia-Setup“ (WPA2, Passwort auf dem Display), Captive Portal (DNS + Prüfadressen von Android,
+      iOS, Windows, Firefox + DHCP-Option 114), Neuversuch alle 2 min, Anleitung + zwei QR-Codes auf dem Display
+- [x] mDNS `pixelia.local`, NTP-Zeit (Europa/Berlin), Weltzeit folgt der echten Uhrzeit
+- [x] HTTP-Server + WebSocket, einfache Setup-Seite (WLAN, Update, Anzeige, System)
+- [x] OTA per `.bin`-Upload mit Fortschritt (Browser + Display), Prüfung von Projekt, Chip, Revision, Prüfsumme
+- [x] A/B-Rollback mit Selbsttest: Absturz, Hänger und gescheiterter Selbsttest am Gerät getestet
+- [x] Einstellungen in NVS (Bilddrehung 0/180°, Helligkeit)
+- [x] Systemanzeigen in der Engine: Schrift mit Umlauten, QR-Code-Erzeuger, Setup/Update/Meldung/Kurzmeldung
+      (auch im Simulator, `--screen`)
+- [x] Messung: 30 fps mit WLAN, Webserver und während Updates; ≥ 115 KB interner RAM frei
+- [x] Backlog-Punkt RAM-Einbruch beim Start geklärt (DMA-Pool von ESP-IDF, kein echter Verbrauch)
+- [ ] **Release 0.2.0**, danach ein echtes Update auf die veröffentlichte `.bin` per Browser
+- [x] **Ab hier Updates ohne USB**
 
 ## 0.3.x – Weboberfläche
 
@@ -197,8 +206,11 @@ Neue Wünsche des Users landen hier (mit Datum) und werden einer Version zugeord
 | 2026-10-18 | Optional Lichtsensor BH1750 nachrüsten (lernende Auto-Helligkeit) | offen |
 | 2026-10-18 | Optional Ton über I²S-Verstärker nachrüsten. **Neu:** Board hat Lautsprecher-Anschluss „Speak“ (P6) mit Verstärker U4, prüfen | offen |
 | 2026-10-18 | Leistungsmonitor (FPS, Last, Speicher) in der Weboberfläche, Log per Schalter unter „Experimentell“ ein/aus (Idee des Users) | 0.4.x |
-| 2026-10-18 | Display-Drehung 0°/180° als Systemeinstellung, Aufstellort steht noch nicht fest (Wunsch des Users) | 0.2.x (NVS), 0.3.x (Oberfläche) |
+| 2026-10-18 | Display-Drehung 0°/180° als Systemeinstellung, Aufstellort steht noch nicht fest (Wunsch des Users) | ✅ 0.2.0 (NVS, Einrichtungsseite, `rot`), 0.3.x (richtige Oberfläche) |
 | 2026-10-18 | Engine: Bounce-Callback mit SIMD (PIE) beschleunigen oder intern rendern und ins PSRAM kopieren, falls Welten mehr Zeit brauchen | 0.5.x bei Bedarf |
-| 2026-10-18 | RAM: kurzer Einbruch von ~30 KB internem RAM beim Start und beim Anlegen der Engine untersuchen | 0.2.x |
+| 2026-10-18 | RAM: kurzer Einbruch von ~30 KB internem RAM beim Start und beim Anlegen der Engine untersuchen | ✅ 0.2.0 geklärt: DMA-Pool von ESP-IDF meldet Tiefstwert 0, kein echter Verbrauch ([HARDWARE.md](HARDWARE.md)) |
 | 2026-10-18 | Helligkeitskurve vermessen (gleichmäßig wahrgenommene Stufen, kleinster noch leuchtender Wert) | 0.5.x (Nachtmodus) |
 | 2026-10-18 | **Tiefe statt Kulisse:** Welten sollen wirklich leben, mit Features und Ereignissen statt Dauerschleife. Umgesetzt als verbindliche [Lebendigkeits-Charta](LEBENDIGKEIT.md) mit messbaren Zielen (Wunsch des Users) | alle Welten, Abnahmekriterium |
+| 2026-10-18 | WLAN gleich im Web-Flasher eintragen (Improv Serial, ESP Web Tools unterstützt das), dann entfällt der Umweg über den Setup-Modus | 0.3.x |
+| 2026-10-18 | Setup-Modus und neues Setup-Passwort auch per Touch-Geste am Gerät (zusammen mit Werksreset per Touch) | 0.3.x |
+| 2026-10-18 | Upload-Hänger bei schwachem WLAN (User-Test): behoben durch 32-KB-TCP-Fenster und SACK; Seite meldet 30 s ohne Fortschritt | ✅ 0.2.0 |

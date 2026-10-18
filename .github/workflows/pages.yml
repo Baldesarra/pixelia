@@ -38,6 +38,7 @@ jobs:
           mkdir -p site
           build-sim/pixelia-sim --headless --time 12:00 --frames 90 --screenshot site/mittag.png
           build-sim/pixelia-sim --headless --time 19:20 --frames 90 --screenshot site/abend.png
+          build-sim/pixelia-sim --headless --screen setup-leer --screenshot site/setup.png
 
       - name: Neueste Firmware holen
         env:

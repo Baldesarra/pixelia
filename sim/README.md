@@ -13,9 +13,14 @@ Derselbe Engine- und Szenen-Code wie auf dem Gerät (`engine/`, später `worlds/
 .\tools\sim.ps1 --time 20:30          # Fenster öffnen, Welt startet um 20:30
 .\tools\sim.ps1 -Headless --headless --time 06:30 --screenshot build-sim-headless/out/morgen.png
 .\tools\sim.ps1 -Headless --headless --contact-sheet build-sim-headless/out/kontaktbogen.png --span-days 2
+.\tools\sim.ps1 -Headless --headless --screen setup --screenshot build-sim-headless/out/setup.png
 ```
 
 `-Headless` baut ohne SDL nach `build-sim-headless\` (schneller). Alle Optionen: `--help`.
+
+`--screen NAME` zeichnet eine Systemanzeige mit Beispieldaten (Setup-Modus, Update, Meldung, Kurzmeldung), mit
+demselben Code wie auf dem Gerät: `setup`, `setup-leer`, `setup-fehler`, `update`, `update-fertig`, `failed`,
+`message`, `toast`, `toast-lang`.
 
 Tasten im Fenster: Leertaste Pause, `+`/`-` Zeitraffer, `T` eine Stunde weiter, `S` Screenshot nach `screenshots/`,
 `Esc` Ende.
@@ -23,7 +28,7 @@ Tasten im Fenster: Leertaste Pause, `+`/`-` Zeitraffer, `T` eine Stunde weiter, 
 ## CI
 
 `.github/workflows/simulator.yml` baut unter Linux und legt Screenshots (Morgen, Mittag, Abend) und einen
-Kontaktbogen als Artefakt **simulator-screenshots** ab.
+Kontaktbogen sowie alle Systemanzeigen (`system-*.png`) als Artefakt **simulator-screenshots** ab.
 
 ## Werkzeuge
 

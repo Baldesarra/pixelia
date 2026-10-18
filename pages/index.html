@@ -33,6 +33,7 @@
     li { margin: 6px 0; }
     .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .shots figure { margin: 0; }
+    .shots.one { grid-template-columns: 1fr; margin: 12px 0; }
     .shots img { width: 100%; height: auto; display: block; border-radius: 16px; image-rendering: pixelated; }
     figcaption { color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
     .version { color: var(--muted); font-size: 0.95rem; margin: 12px 0 0; }
@@ -67,6 +68,24 @@
       </esp-web-install-button>
     </div>
     <p class="version" id="version">Version wird geladen …</p>
+  </section>
+
+  <section class="card">
+    <h2>Danach: WLAN einrichten</h2>
+    <p>Beim ersten Start zeigt Pixelia den <strong>Setup-Modus</strong>:</p>
+    <ol>
+      <li>Mit dem Handy den linken QR-Code scannen. Das Handy verbindet sich mit dem WLAN „Pixelia-Setup“
+        (das Passwort steht auch auf dem Display).</li>
+      <li>Die Einrichtungsseite öffnet sich meist von selbst, sonst den mittleren QR-Code scannen.</li>
+      <li>Das eigene WLAN auswählen, Passwort eingeben, „Speichern und verbinden“. Das Passwort bleibt auf dem Gerät.</li>
+    </ol>
+    <div class="shots one"><figure><img src="setup.png" alt="Pixelia im Setup-Modus mit QR-Codes" width="800" height="480"><figcaption>Setup-Modus (Simulator, Beispiel-Passwort)</figcaption></figure></div>
+    <p>Danach ist Pixelia im Heimnetz unter <strong>http://pixelia.local</strong> erreichbar. Klappt das nicht (manche
+      Router wie die FritzBox lösen <code>.local</code> am PC nicht auf), hilft <strong>http://pixelia/</strong>, bei
+      der FritzBox auch <strong>http://pixelia.fritz.box</strong>, oder die IP-Adresse, die Pixelia nach dem Verbinden
+      kurz anzeigt. Ab jetzt gibt es <strong>Updates ohne USB</strong>:
+      Auf der Seite unter „Update“ die Datei <code>pixelia-vX.Y.Z.bin</code> aus den
+      <a href="https://github.com/Baldesarra/pixelia/releases">Versionen</a> hochladen.</p>
   </section>
 
   <section class="card">

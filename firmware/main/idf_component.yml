@@ -1,0 +1,5 @@
+﻿## Fremdkomponenten aus der ESP Component Registry (feste Versionen in firmware/dependencies.lock)
+dependencies:
+  idf: ">=6.1"
+  # mDNS (pixelia.local), seit ESP-IDF 5 nicht mehr im Kern enthalten
+  espressif/mdns: "^1.14.0"

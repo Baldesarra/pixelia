@@ -34,6 +34,9 @@ jobs:
             $S --headless --time 12:00 --frames 90 --screenshot out/mittag.png
             $S --headless --time 20:00 --frames 90 --screenshot out/abend.png
             $S --headless --time 00:00 --contact-sheet out/kontaktbogen.png --span-days 2
+            for s in setup setup-fehler update update-fertig failed message toast-lang; do
+              $S --headless --time 14:00 --screen "$s" --screenshot "out/system-$s.png"
+            done
           } | tee out/bericht.txt
           {
             echo "## Simulator"

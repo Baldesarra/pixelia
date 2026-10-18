@@ -13,6 +13,7 @@
 #include "pixelia/engine/png.h"
 #include "pixelia/engine/rng.h"
 #include "pixelia/engine/scene.h"
+#include "pixelia/engine/system_ui.h"
 #include "pixelia/engine/tiny_font.h"
 #include "sim.h"
 
@@ -63,6 +64,59 @@ void render(const pixelia::Scene& scene, std::vector<uint8_t>& frame, Stats& st)
     scene.render(canvas);
     st.renders++;
     st.render_seconds += seconds_since(t0);
+}
+
+// Systemanzeige mit Beispieldaten über bzw. statt der Szene zeichnen (gleicher Code wie auf dem Gerät)
+bool render_screen(const std::string& name, std::vector<uint8_t>& frame) {
+    namespace ui = pixelia::ui;
+    pixelia::Canvas canvas(frame.data(), kScreenWidth, kScreenHeight);
+    if (name == "setup") {
+        ui::SetupInfo info;
+        info.ap_password = "kx7m-q4tr";
+        info.clients = 1;
+        info.saved_networks = 1;
+        info.retry_seconds = 102;
+        info.last_error = "Heimnetz: Passwort falsch?";
+        ui::SetupScreen screen;
+        screen.set(info);
+        screen.render(canvas);
+    } else if (name == "setup-fehler") {
+        ui::SetupInfo info;
+        info.ap_password = "kx7m-q4tr";
+        info.clients = 2;
+        info.saved_networks = 2;
+        info.retry_seconds = 95;
+        info.last_error = "Heimnetz-Obergeschoss-5G: Verschlüsselung des Routers passt nicht";
+        ui::SetupScreen screen;
+        screen.set(info);
+        screen.render(canvas);
+    } else if (name == "setup-leer") {
+        ui::SetupInfo info;
+        info.ap_password = "kx7m-q4tr";
+        ui::SetupScreen screen;
+        screen.set(info);
+        screen.render(canvas);
+    } else if (name == "update") {
+        ui::render_update(canvas, {ui::UpdateInfo::Phase::Receiving, "0.2.0", "0.2.1", 312 * 1024, 664 * 1024, ""});
+    } else if (name == "update-fertig") {
+        ui::render_update(canvas, {ui::UpdateInfo::Phase::Done, "0.2.0", "0.2.1", 664 * 1024, 664 * 1024, ""});
+    } else if (name == "failed") {
+        ui::render_update(canvas, {ui::UpdateInfo::Phase::Failed, "0.2.0", "", 0, 0,
+                                   "Das ist keine Pixelia-Firmware (Projekt „blink“)."});
+    } else if (name == "message") {
+        ui::render_message(canvas, {"Verbunden", "WLAN „Heimnetz“, Adresse 192.168.178.42\nIm Browser: http://pixelia.local",
+                                    ui::Tone::Success});
+    } else if (name == "toast") {
+        ui::draw_toast(canvas, "Update auf 0.2.1 wurde zurückgerollt: Absturz im Probelauf", ui::Tone::Warning);
+    } else if (name == "toast-lang") {
+        ui::draw_toast(canvas,
+                       "Update auf 0.1.0-2-gcc56269-test-selftest zurückgerollt: Selbsttest nicht bestanden: Engine "
+                       "liefert keine Bilder",
+                       ui::Tone::Warning);
+    } else {
+        return false;
+    }
+    return true;
 }
 
 // RGB-Bild mit Hilfsfunktionen zum Beschriften
@@ -167,9 +221,16 @@ int run_headless(const Options& opt) {
     int rc = 0;
     if (!opt.screenshot.empty()) {
         render(*scene, frame, st);
+        pixelia::Palette palette = scene->palette();
+        pixelia::ui::apply_palette(palette);
+        if (!opt.screen.empty() && !render_screen(opt.screen, frame)) {
+            std::printf("FEHLER: Systemanzeige \"%s\" gibt es nicht (setup, setup-leer, setup-fehler, update, "
+                        "update-fertig, failed, message, toast, toast-lang)\n", opt.screen.c_str());
+            return 2;
+        }
         const int s = std::max(1, opt.scale);
         std::vector<uint8_t> rgb(static_cast<size_t>(kScreenWidth) * s * kScreenHeight * s * 3);
-        pixelia::indexed_to_rgb(frame.data(), kScreenWidth, kScreenHeight, scene->palette(), s, opt.device_colors,
+        pixelia::indexed_to_rgb(frame.data(), kScreenWidth, kScreenHeight, palette, s, opt.device_colors,
                                 rgb.data());
         if (write_file(opt.screenshot, pixelia::encode_png_rgb(rgb.data(), kScreenWidth * s, kScreenHeight * s))) {
             std::printf("sim: Screenshot %s (%dx%d, %s)\n", opt.screenshot.c_str(), kScreenWidth * s,

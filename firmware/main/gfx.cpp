@@ -1,7 +1,10 @@
 // Grafik-Task auf Kern 1: legt das Panel an (Interrupt landet so auf Kern 1) und lässt im Engine-Modus die Szene
 // laufen (gleicher Szenen-Code wie im Simulator, siehe engine/ und sim/).
 
+#include <cstdlib>
 #include <cstring>
+#include <mutex>
+#include <string>
 
 #include "app.h"
 #include "esp_heap_caps.h"
@@ -11,6 +14,9 @@
 #include "freertos/task.h"
 #include "pixelia/engine/color.h"
 #include "pixelia/engine/scene.h"
+#include "pixelia/engine/system_ui.h"
+#include "net.h"
+#include "ui.h"
 
 namespace app::gfx {
 
@@ -39,6 +45,69 @@ uint16_t s_pal565[256];
 portMUX_TYPE s_stats_lock = portMUX_INITIALIZER_UNLOCKED;
 EngineStats s_stats{};
 
+// Weltzeit folgt der echten Uhrzeit (NTP), bis jemand per Befehl Uhrzeit oder Zeitraffer verstellt
+volatile bool s_follow_real = true;
+int64_t s_next_real_sync = 0;
+
+// Systemanzeigen: von allen Tasks geschrieben (s_ui), im Grafik-Task als Kopie benutzt (s_ui_local)
+struct UiState {
+    uint32_t version = 0;
+    bool setup = false;
+    pixelia::ui::SetupInfo setup_info;
+    bool update = false;
+    pixelia::ui::UpdateInfo update_info;
+    int64_t update_until = 0;  // 0 = bis auf Weiteres
+    bool message = false;
+    pixelia::ui::MessageInfo message_info;
+    int64_t message_until = 0;
+    std::string toast;
+    pixelia::ui::Tone toast_tone = pixelia::ui::Tone::Info;
+    int64_t toast_until = 0;
+};
+std::mutex s_ui_lock;
+UiState s_ui;
+UiState s_ui_local;
+pixelia::ui::SetupScreen s_setup_screen;
+uint16_t s_ui_pal565[16];
+
+// Echte Uhrzeit in die Weltzeit übernehmen: große Abweichung (erster Abgleich, Sommerzeit) springt,
+// kleine Gangunterschiede werden sanft nachgeführt, damit Bewegungen gleichmäßig bleiben
+void follow_real_time(int64_t now) {
+    if (!s_follow_real || now < s_next_real_sync) return;
+    s_next_real_sync = now + 1000000;
+    int64_t local;
+    if (!timesync::local_us(&local)) return;
+    int64_t diff = local - s_clock.world_us();
+    if (std::llabs(diff) > 2000000) {
+        bool first = s_clock.world_us() < 365LL * pixelia::WorldClock::kUsPerDay;
+        s_clock.set_world_us(local);
+        ESP_LOGI(TAG, "Weltzeit %s echte Uhrzeit: %02d:%02d", first ? "übernimmt die" : "springt auf die",
+                 s_clock.hour(), s_clock.minute());
+    } else {
+        s_clock.set_world_us(s_clock.world_us() + diff / 8);
+    }
+}
+
+// Ganzseitige Systemanzeige, die gerade gilt: 0 = keine (Welt läuft), 1 = Update, 2 = Meldung, 3 = Setup
+int active_screen(int64_t now) {
+    const UiState& u = s_ui_local;
+    if (u.update && (u.update_until == 0 || now < u.update_until)) return 1;
+    if (u.message && now < u.message_until) return 2;
+    if (u.setup) return 3;
+    return 0;
+}
+
+void draw_screen(pixelia::Canvas& canvas, int screen) {
+    const UiState& u = s_ui_local;
+    if (screen == 1) pixelia::ui::render_update(canvas, u.update_info);
+    else if (screen == 2) pixelia::ui::render_message(canvas, u.message_info);
+    else s_setup_screen.render(canvas);
+}
+
+// Was zuletzt in welchem Puffer gezeichnet wurde (0 = Welt). Systemanzeigen sind unbewegt: Steht im Hinterpuffer
+// schon dieselbe Anzeige, muss nichts neu gezeichnet werden (spart Rechenzeit und PSRAM-Bandbreite).
+uint32_t s_buf_key[2] = {0, 0};
+
 void free_buffers() {
     board::display::detach_buffers();
     // Zwei Bilder warten, damit der Interrupt die alten Puffer sicher nicht mehr liest
@@ -60,6 +129,7 @@ bool alloc_buffers(bool psram) {
         return false;
     }
     s_buf_psram = psram;
+    s_buf_key[0] = s_buf_key[1] = 0;
     std::memset(s_buf[0], 0, kBufBytes);
     std::memset(s_buf[1], 0, kBufBytes);
     return true;
@@ -92,6 +162,10 @@ void gfx_task(void* arg) {
     auto* timing = static_cast<board::display::Timing*>(arg);
     ESP_ERROR_CHECK(board::display::init(*timing));
     delete timing;
+
+    pixelia::Palette ui_pal{};
+    pixelia::ui::apply_palette(ui_pal);
+    for (int i = 0; i < 16; ++i) s_ui_pal565[i] = pixelia::to_rgb565(ui_pal[pixelia::ui::kFirstIndex + i]);
 
     uint32_t last_frames = board::display::frame_count();
     uint32_t frame_rem = 0;
@@ -144,17 +218,45 @@ void gfx_task(void* arg) {
         if (ticks > 4) ticks = 4;  // Überlast: nicht endlos nachholen
         const int64_t step_us = static_cast<int64_t>(board::display::frame_period_us()) * swap;
         s_scene->set_load(s_sprites);
+        follow_real_time(t0);
         for (int i = 0; i < ticks; ++i) {
             s_clock.advance(step_us);
             s_scene->tick(s_clock);
         }
 
+        // Systemanzeigen übernehmen (Kopie, damit andere Tasks nie auf den Grafik-Task warten müssen)
+        bool ui_changed = false;
+        {
+            std::lock_guard<std::mutex> g(s_ui_lock);
+            if (s_ui.version != s_ui_local.version) {
+                s_ui_local = s_ui;
+                ui_changed = true;
+            }
+        }
+        if (ui_changed && s_ui_local.setup) s_setup_screen.set(s_ui_local.setup_info);
+
         int64_t t1 = esp_timer_get_time();
         pixelia::Canvas canvas(back, pixelia::kScreenWidth, pixelia::kScreenHeight);
-        s_scene->render(canvas);
-        for (int i = 0; i < s_marks; ++i) canvas.fill_rect(4 + i * 10, 4, 6, 6, 255);
+        const int screen = active_screen(t1);
+        const int bi = back == s_buf[0] ? 0 : 1;
+        if (screen == 0) {
+            s_scene->render(canvas);
+            const UiState& u = s_ui_local;
+            if (!u.toast.empty() && t1 < u.toast_until) pixelia::ui::draw_toast(canvas, u.toast, u.toast_tone);
+            s_buf_key[bi] = 0;
+        } else {
+            uint32_t key = static_cast<uint32_t>(screen) * 0x01000000u + (s_ui_local.version & 0x000FFFFFu) +
+                           static_cast<uint32_t>(s_marks) * 0x00100000u + 1;
+            if (s_buf_key[bi] != key) {
+                draw_screen(canvas, screen);
+                s_buf_key[bi] = key;
+            }
+        }
+        for (int i = 0; i < s_marks; ++i) canvas.fill_rect(4 + i * 10, 4, 6, 6, pixelia::ui::kWhite);
+        // Indizes 240–255 gehören der System-Oberfläche (engine/system_ui.h)
         const pixelia::Palette& pal = s_scene->palette();
-        for (int i = 0; i < 256; ++i) s_pal565[i] = pixelia::to_rgb565(pal[i]);
+        for (int i = 0; i < pixelia::ui::kFirstIndex; ++i) s_pal565[i] = pixelia::to_rgb565(pal[i]);
+        std::memcpy(&s_pal565[pixelia::ui::kFirstIndex], s_ui_pal565, sizeof(s_ui_pal565));
         int64_t t2 = esp_timer_get_time();
         board::display::present(s_pal565);
 
@@ -190,9 +292,23 @@ void request_buffers(bool psram) {
 
 void set_sprites(int n) { s_sprites = n; }
 void set_marks(int n) { s_marks = n; }
-void set_time_of_day(int hour, int minute) { s_req_minute_of_day = (hour % 24) * 60 + minute % 60; }
-void set_speed(float factor) { s_speed = factor > 0 ? factor : 1.0f; }
+void set_time_of_day(int hour, int minute) {
+    s_follow_real = false;
+    s_req_minute_of_day = (hour % 24) * 60 + minute % 60;
+}
+void set_speed(float factor) {
+    s_speed = factor > 0 ? factor : 1.0f;
+    if (s_speed != 1.0f) s_follow_real = false;
+}
 float speed() { return s_speed; }
+void set_real_time(bool on) {
+    if (on) {
+        s_speed = 1.0f;
+        s_next_real_sync = 0;
+    }
+    s_follow_real = on;
+}
+bool real_time() { return s_follow_real; }
 
 EngineStats engine_stats(bool reset_max) {
     portENTER_CRITICAL(&s_stats_lock);
@@ -206,3 +322,63 @@ EngineStats engine_stats(bool reset_max) {
 }
 
 }  // namespace app::gfx
+
+namespace app::ui {
+
+namespace {
+int64_t until(int seconds) { return esp_timer_get_time() + static_cast<int64_t>(seconds) * 1000000; }
+}  // namespace
+
+void show_setup(const pixelia::ui::SetupInfo& info) {
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    if (gfx::s_ui.setup && gfx::s_ui.setup_info == info) return;
+    gfx::s_ui.setup = true;
+    gfx::s_ui.setup_info = info;
+    ++gfx::s_ui.version;
+}
+
+void hide_setup() {
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    if (!gfx::s_ui.setup) return;
+    gfx::s_ui.setup = false;
+    ++gfx::s_ui.version;
+}
+
+void show_update(const pixelia::ui::UpdateInfo& info) {
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    gfx::s_ui.update = true;
+    gfx::s_ui.update_info = info;
+    // Fehlermeldung nach 12 s ausblenden, die alte Version läuft ja weiter
+    gfx::s_ui.update_until = info.phase == pixelia::ui::UpdateInfo::Phase::Failed ? until(12) : 0;
+    ++gfx::s_ui.version;
+}
+
+void hide_update() {
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    gfx::s_ui.update = false;
+    ++gfx::s_ui.version;
+}
+
+void show_message(const pixelia::ui::MessageInfo& info, int seconds) {
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    gfx::s_ui.message = true;
+    gfx::s_ui.message_info = info;
+    gfx::s_ui.message_until = until(seconds);
+    ++gfx::s_ui.version;
+}
+
+void hide_message() {
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    gfx::s_ui.message = false;
+    ++gfx::s_ui.version;
+}
+
+void toast(std::string_view text, pixelia::ui::Tone tone, int seconds) {
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    gfx::s_ui.toast = text;
+    gfx::s_ui.toast_tone = tone;
+    gfx::s_ui.toast_until = until(seconds);
+    ++gfx::s_ui.version;
+}
+
+}  // namespace app::ui

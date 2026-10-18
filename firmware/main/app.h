@@ -1,5 +1,6 @@
 #pragma once
-// Gemeinsame Schnittstellen der Firmware-Module (Phase 0.1: Hardware-Detektiv + Engine-Prototyp)
+// Gemeinsame Schnittstellen der Firmware-Module (Hardware-Detektiv, Grafik, Leistung, Konsole).
+// Netzwerk, Webserver, Updates und Einstellungen haben eigene Header (net.h, web.h, ota.h, settings.h, ui.h).
 
 #include <cstdint>
 
@@ -14,6 +15,8 @@ inline constexpr int kSystemCore = 0;
 namespace sysinfo {
 void log_all();
 void log_heap();
+// Freien internen RAM nach einem Startschritt ausgeben, mit Tiefstwert seit dem vorigen Schritt (Speicherspitzen finden)
+void log_heap_step(const char* step);
 }  // namespace sysinfo
 
 namespace hwtest {
@@ -53,17 +56,31 @@ void request_buffers(bool psram);
 void set_sprites(int n);
 // n weiße Quadrate oben links ins Bild zeichnen (Stufenanzeige für Tests)
 void set_marks(int n);
-// Weltzeit: Uhrzeit stellen und Zeitraffer (1 = Echtzeit). Ohne WLAN startet die Welt um 12:00.
+// Weltzeit: folgt der echten Uhrzeit (NTP), sobald sie bekannt ist; ohne Uhrzeit startet die Welt um 12:00.
+// Uhrzeit stellen oder Zeitraffer ungleich 1 schaltet das Folgen ab, set_real_time(true) wieder an.
 void set_time_of_day(int hour, int minute);
 void set_speed(float factor);
 float speed();
+void set_real_time(bool on);
+bool real_time();
 EngineStats engine_stats(bool reset_max);
 }  // namespace gfx
 
 namespace perf {
+// Letzte Messung (alle 2 s, auch wenn das Log aus ist), z. B. für die Weboberfläche
+struct Snapshot {
+    float lcd_hz;
+    float fps;
+    float render_ms;
+    float isr_pct;
+    float cpu[2];
+    uint32_t desync;
+    unsigned ram_kb, ram_min_kb, ram_blk_kb, psram_kb, psram_min_kb;
+};
 void start(int interval_s);
 void set_interval(int interval_s);  // 0 = aus
 int interval();
+Snapshot snapshot();
 }  // namespace perf
 
 namespace console {

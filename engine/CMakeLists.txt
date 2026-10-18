@@ -3,9 +3,12 @@
 set(PIXELIA_ENGINE_SRCS
     src/canvas.cpp
     src/color.cpp
+    src/font.cpp
     src/png.cpp
+    src/qr.cpp
     src/scenes.cpp
     src/scroll_test.cpp
+    src/system_ui.cpp
     src/tiny_font.cpp)
 
 if(ESP_PLATFORM)

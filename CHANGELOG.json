@@ -1,5 +1,33 @@
 [
   {
+    "v": "0.2.0",
+    "d": "2026-10-18",
+    "t": "Vernetzt",
+    "s": "WLAN mit Setup-Modus, Einrichtungsseite im Browser und Updates ohne USB",
+    "n": [
+      "WLAN: bis zu 5 Netze speichern, Pixelia verbindet sich mit dem stärksten; Name „Pixelia“ im Router",
+      "WLAN: Setup-Modus mit eigenem WLAN „Pixelia-Setup“, Einrichtungsseite öffnet sich am Handy von selbst",
+      "Display: Anleitung mit zwei QR-Codes im Setup-Modus, das Setup-Passwort steht groß daneben",
+      "WLAN: ohne Verbindung alle 2 Minuten ein neuer Versuch, der Setup-Modus bleibt dabei erreichbar",
+      "Web: einfache Einrichtungsseite unter http://pixelia.local mit WLAN, Update, Anzeige und Live-Systemwerten",
+      "Update: neue Version als .bin im Browser hochladen, Fortschritt im Browser und auf dem Display",
+      "Update: Probelauf mit Selbsttest; bei Absturz, Hänger oder gescheitertem Test startet automatisch wieder die alte Version, mit Hinweis und Grund",
+      "Update: Prüfung vor dem Installieren (Pixelia-Firmware, passender Chip, Prüfsumme)",
+      "System: echte Uhrzeit aus dem Internet (Europa/Berlin), die Welt folgt Tag und Nacht in Echtzeit",
+      "System: Einstellungen bleiben erhalten, darunter Bilddrehung 0°/180° und Helligkeit",
+      "Display: Kurzmeldungen am unteren Rand, z. B. beim Verbinden und nach Updates"
+    ],
+    "i": [
+      "WLAN: verbindet sich auch mit Routern im WPA2/WPA3-Mischmodus (z. B. FritzBox)",
+      "Update: Übertragung deutlich schneller und robuster bei schwachem Empfang (Update in etwa 7 Sekunden)",
+      "Display: unbewegte Systemanzeigen kosten praktisch keine Rechenzeit"
+    ],
+    "f": [
+      "System: scheinbarer Einbruch des freien Speichers beim Start geklärt und aus der Anzeige entfernt"
+    ],
+    "r": []
+  },
+  {
     "v": "0.1.0",
     "d": "2026-10-18",
     "t": "Fundament",

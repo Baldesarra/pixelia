@@ -111,4 +111,16 @@ void log_heap() {
              static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) >> 10));
 }
 
+void log_heap_step(const char* step) {
+    // Der Tiefstwert (seit Beginn von app_main) zeigt, ob ein Schritt kurzzeitig mehr Speicher belegt hat, als danach belegt bleibt
+    static size_t prev_free = 0;
+    size_t free_now = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    size_t min_ever = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
+    ESP_LOGI(TAG, "RAM nach %s: frei %u KB (%+d KB), Tiefstwert %u KB, PSRAM frei %u KB", step,
+             static_cast<unsigned>(free_now >> 10),
+             prev_free ? static_cast<int>((static_cast<long>(free_now) - static_cast<long>(prev_free)) / 1024) : 0,
+             static_cast<unsigned>(min_ever >> 10), static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) >> 10));
+    prev_free = free_now;
+}
+
 }  // namespace app::sysinfo

@@ -23,6 +23,7 @@ struct Options {
     int load = -1;                // Lastregler der Szene (z. B. Sprites), -1 = Standard
     bool device_colors = true;    // Farben wie auf dem Display (über RGB565)
     double run_seconds = 0;       // Fenster nach X Sekunden schließen (0 = offen lassen), für Tests
+    std::string screen;           // Systemanzeige statt Szene: setup, update, failed, message, toast
 };
 
 int run_headless(const Options& opt);
