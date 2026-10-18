@@ -7,11 +7,11 @@
 
 | | |
 |---|---|
-| **Phase** | 0.2.x Vernetzt: 0.2.0 **veröffentlicht**, 0.2.1 „Immer erreichbar“ fertig ([PR #8](https://github.com/Baldesarra/pixelia/pull/8)), Release nach dem Merge |
-| **Letzte Version** | 0.2.0 „Vernetzt“ (2026-10-18), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.2.0) |
+| **Phase** | 0.2.x Vernetzt: 0.2.1 „Immer erreichbar“ **veröffentlicht**, Gerätetest durch den User steht aus |
+| **Letzte Version** | 0.2.1 „Immer erreichbar“ (2026-10-18), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.2.1) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
-| **Nächster Schritt** | Release 0.2.1, dann Gerätetest durch den User (Bildrate mit offener Karte, langer Druck, Tippen, QR-Scan, Kurzmeldung nach Neustart); danach 0.3.x Weboberfläche (Svelte, M3 Expressive) |
+| **Nächster Schritt** | Gerätetest 0.2.1 durch den User (Update per Browser, Bildrate mit offener Karte, langer Druck, Tippen, QR-Scan, Kurzmeldung nach Neustart); danach 0.3.x Weboberfläche (Svelte, M3 Expressive) |
 | **Aktualisiert** | 2026-10-18 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
@@ -110,7 +110,7 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 - [x] 0.2.1: Simulator: Info-Karte per `--screen info|info-setup|info-offline|hold|toast-ip`, Maus-Geste im Fenster
 - [x] 0.2.1: Werkzeug `tools/ota.ps1`: Update per WLAN (`POST /api/ota`) mit Fortschritt, Prüfung von Version und
       Selbsttest über `/api/status`, Rückfall-Erkennung; gegen einen nachgebauten Server geprüft
-- [ ] **Release 0.2.1**
+- [x] **Release 0.2.1** (Tag `v0.2.1`, Release mit `.bin`, Factory-Image und Notes, Web-Flasher aktualisiert)
 - [ ] 0.2.1 am Gerät (durch den User, ausnahmsweise allein): Bildrate mit offener Karte, langer Druck und Tippen,
       QR-Code mit dem Handy, Kurzmeldung nach Neustart; erstes Update per `tools/ota.ps1` am echten Gerät
 
