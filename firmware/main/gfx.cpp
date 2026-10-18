@@ -1,5 +1,5 @@
-// Grafik-Task auf Kern 1: legt das Panel an (Interrupt landet so auf Kern 1) und rendert im Engine-Modus
-// den Vollbild-Scrolling-Test in 400×240.
+// Grafik-Task auf Kern 1: legt das Panel an (Interrupt landet so auf Kern 1) und lässt im Engine-Modus die Szene
+// laufen (gleicher Szenen-Code wie im Simulator, siehe engine/ und sim/).
 
 #include <cstring>
 
@@ -9,13 +9,15 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "pixelia/engine/scroll_test.h"
+#include "pixelia/engine/color.h"
+#include "pixelia/engine/scene.h"
 
 namespace app::gfx {
 
 namespace {
 constexpr const char* TAG = "gfx";
 constexpr size_t kBufBytes = pixelia::kScreenPixels;
+constexpr uint64_t kSeed = 0x5049584C4941ULL;  // „PIXLIA“
 
 enum class Request : uint8_t { None, Reconfigure, Buffers };
 
@@ -25,19 +27,17 @@ board::display::Timing s_req_timing;
 volatile bool s_req_psram = true;
 volatile int s_sprites = 48;
 volatile int s_marks = 0;
-volatile bool s_tick_by_vsync = true;
+volatile int s_req_minute_of_day = -1;  // Uhrzeit stellen (vom Konsolen-Task, angewendet im Grafik-Task)
+volatile float s_speed = 1.0f;
 
 uint8_t* s_buf[2] = {nullptr, nullptr};
 bool s_buf_psram = false;
-pixelia::ScrollTest* s_scene = nullptr;
+pixelia::Scene* s_scene = nullptr;
+pixelia::WorldClock s_clock;
 uint16_t s_pal565[256];
 
 portMUX_TYPE s_stats_lock = portMUX_INITIALIZER_UNLOCKED;
 EngineStats s_stats{};
-
-uint16_t to565(pixelia::Color c) {
-    return static_cast<uint16_t>(((c.r & 0xF8) << 8) | ((c.g & 0xFC) << 3) | (c.b >> 3));
-}
 
 void free_buffers() {
     board::display::detach_buffers();
@@ -79,8 +79,10 @@ bool ensure_engine_ready(bool psram) {
              s_buf_psram ? "PSRAM" : "internen RAM");
     app::sysinfo::log_heap();
     if (!s_scene) {
-        s_scene = new pixelia::ScrollTest();
-        s_scene->init(0x5049584C4941ULL);  // „PIXLIA“
+        s_scene = pixelia::make_scene("scrolltest").release();
+        s_scene->init(kSeed);
+        ESP_LOGI(TAG, "Szene %s, Weltzeit Tag %d %02d:%02d", s_scene->name(), s_clock.day(), s_clock.hour(),
+                 s_clock.minute());
     }
     board::display::attach_buffers(s_buf[0], s_buf[1]);
     return true;
@@ -91,8 +93,6 @@ void gfx_task(void* arg) {
     ESP_ERROR_CHECK(board::display::init(*timing));
     delete timing;
 
-    int64_t last = esp_timer_get_time();
-    int64_t acc = 0;
     uint32_t last_frames = board::display::frame_count();
     uint32_t frame_rem = 0;
     for (;;) {
@@ -111,11 +111,15 @@ void gfx_task(void* arg) {
             if (board::display::mode() == board::display::Mode::Engine) ensure_engine_ready(s_req_psram);
             continue;
         }
+        int minute = s_req_minute_of_day;
+        if (minute >= 0) {
+            s_clock.set_time_of_day(minute / 60, minute % 60);
+            s_req_minute_of_day = -1;
+        }
+        s_clock.set_speed(s_speed);
 
         if (board::display::mode() != board::display::Mode::Engine) {
             vTaskDelay(pdMS_TO_TICKS(20));
-            last = esp_timer_get_time();
-            acc = 0;
             last_frames = board::display::frame_count();
             frame_rem = 0;
             continue;
@@ -128,36 +132,29 @@ void gfx_task(void* arg) {
         uint8_t* back = board::display::acquire_back_buffer(200);
         if (!back) continue;
 
+        // Logik-Schritte aus der Zahl der angezeigten Panel-Bilder: im Normalfall genau ein Schritt pro
+        // Engine-Bild, nach einem verpassten Bild zwei. Kein Verhaken mit einer zweiten Uhr möglich.
         int64_t t0 = esp_timer_get_time();
         int swap = board::display::swap_interval();
-        int want = 0;
-        if (s_tick_by_vsync) {
-            // Logik-Schritte aus der Zahl der angezeigten Panel-Bilder: im Normalfall genau ein Schritt pro
-            // Engine-Bild, nach einem verpassten Bild zwei. Kein Verhaken mit einer zweiten Uhr möglich.
-            uint32_t frames = board::display::frame_count();
-            uint32_t elapsed = frames - last_frames + frame_rem;
-            last_frames = frames;
-            want = static_cast<int>(elapsed / swap);
-            frame_rem = elapsed % swap;
-        } else {
-            // Alte Variante zum Vergleich: Echtzeit-Akkumulator mit Schrittweite = Bilddauer × Tauschintervall
-            int64_t step = static_cast<int64_t>(board::display::frame_period_us()) * swap;
-            acc += t0 - last;
-            want = static_cast<int>(acc / step);
-            acc -= want * step;
+        uint32_t frames = board::display::frame_count();
+        uint32_t elapsed = frames - last_frames + frame_rem;
+        last_frames = frames;
+        int ticks = static_cast<int>(elapsed / swap);
+        frame_rem = elapsed % swap;
+        if (ticks > 4) ticks = 4;  // Überlast: nicht endlos nachholen
+        const int64_t step_us = static_cast<int64_t>(board::display::frame_period_us()) * swap;
+        s_scene->set_load(s_sprites);
+        for (int i = 0; i < ticks; ++i) {
+            s_clock.advance(step_us);
+            s_scene->tick(s_clock);
         }
-        last = t0;
-        if (want > 4) want = 4;  // Überlast: nicht endlos nachholen
-        s_scene->set_sprite_count(s_sprites);
-        for (int i = 0; i < want; ++i) s_scene->tick();
-        int ticks = want;
 
         int64_t t1 = esp_timer_get_time();
         pixelia::Canvas canvas(back, pixelia::kScreenWidth, pixelia::kScreenHeight);
         s_scene->render(canvas);
         for (int i = 0; i < s_marks; ++i) canvas.fill_rect(4 + i * 10, 4, 6, 6, 255);
         const pixelia::Palette& pal = s_scene->palette();
-        for (int i = 0; i < 256; ++i) s_pal565[i] = to565(pal[i]);
+        for (int i = 0; i < 256; ++i) s_pal565[i] = pixelia::to_rgb565(pal[i]);
         int64_t t2 = esp_timer_get_time();
         board::display::present(s_pal565);
 
@@ -169,6 +166,8 @@ void gfx_task(void* arg) {
         s_stats.logic_us_sum += static_cast<uint64_t>(t1 - t0);
         s_stats.logic_ticks += ticks;
         s_stats.tick_hist[ticks < 2 ? ticks : 2]++;
+        s_stats.world_minute = s_clock.hour() * 60 + s_clock.minute();
+        s_stats.world_day = s_clock.day();
         portEXIT_CRITICAL(&s_stats_lock);
     }
 }
@@ -191,7 +190,9 @@ void request_buffers(bool psram) {
 
 void set_sprites(int n) { s_sprites = n; }
 void set_marks(int n) { s_marks = n; }
-void set_tick_by_vsync(bool on) { s_tick_by_vsync = on; }
+void set_time_of_day(int hour, int minute) { s_req_minute_of_day = (hour % 24) * 60 + minute % 60; }
+void set_speed(float factor) { s_speed = factor > 0 ? factor : 1.0f; }
+float speed() { return s_speed; }
 
 EngineStats engine_stats(bool reset_max) {
     portENTER_CRITICAL(&s_stats_lock);

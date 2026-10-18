@@ -31,6 +31,7 @@ void print_help() {
     ESP_LOGI(TAG, "  pol <hsync_idle_low> <vsync_idle_low> <pclk_neg>  Polaritäten 0/1");
     ESP_LOGI(TAG, "  bounce <Zeilen> | clk <160|240>                Bounce-Buffer, Taktquelle");
     ESP_LOGI(TAG, "  swap <n> | sprites <n> | buf <int|psram>       Engine-Prototyp");
+    ESP_LOGI(TAG, "  time <HH:MM> | speed <Faktor>                Weltzeit stellen, Zeitraffer");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
 }
 
@@ -70,10 +71,17 @@ void handle(char* line) {
         hwtest::flash_stress(std::atoi(argv[1]));
     } else if (is("marks") && argc >= 2) {
         gfx::set_marks(std::atoi(argv[1]));
-    } else if (is("ticks") && argc >= 2) {
-        bool vsync = std::strcmp(argv[1], "time") != 0;
-        gfx::set_tick_by_vsync(vsync);
-        ESP_LOGI(TAG, "Logik-Takt: %s", vsync ? "Bildzähler" : "Echtzeit-Uhr");
+    } else if (is("time") && argc >= 2) {
+        int h = 0, m = 0;
+        if (std::sscanf(argv[1], "%d:%d", &h, &m) >= 1 && h >= 0 && h < 24 && m >= 0 && m < 60) {
+            gfx::set_time_of_day(h, m);
+            ESP_LOGI(TAG, "Weltzeit %02d:%02d", h, m);
+        } else {
+            ESP_LOGW(TAG, "Uhrzeit als HH:MM angeben");
+        }
+    } else if (is("speed") && argc >= 2) {
+        gfx::set_speed(static_cast<float>(std::atof(argv[1])));
+        ESP_LOGI(TAG, "Zeitraffer %.1fx", gfx::speed());
     } else if (is("rot") && argc >= 2) {
         board::display::set_rotation180(std::atoi(argv[1]) == 180);
         ESP_LOGI(TAG, "Drehung %d°", board::display::rotation180() ? 180 : 0);
