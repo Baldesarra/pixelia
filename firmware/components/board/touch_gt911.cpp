@@ -29,10 +29,16 @@ esp_err_t write_reg8(uint16_t reg, uint8_t value) {
 }  // namespace
 
 void hold_reset(bool low) {
-    gpio_config_t io = {};
-    io.pin_bit_mask = 1ULL << kTouchRst;
-    io.mode = GPIO_MODE_OUTPUT;
-    gpio_config(&io);
+    static bool configured = false;
+    if (!configured) {
+        // Pegel vor dem Umschalten auf Ausgang setzen, damit kein ungewollter Reset-Puls entsteht
+        gpio_set_level(kTouchRst, low ? 0 : 1);
+        gpio_config_t io = {};
+        io.pin_bit_mask = 1ULL << kTouchRst;
+        io.mode = GPIO_MODE_OUTPUT;
+        gpio_config(&io);
+        configured = true;
+    }
     gpio_set_level(kTouchRst, low ? 0 : 1);
 }
 

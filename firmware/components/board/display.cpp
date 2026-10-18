@@ -21,6 +21,7 @@ constexpr const char* TAG = "lcd";
 constexpr int kW = kLcdWidth;
 constexpr int kH = kLcdHeight;
 constexpr int kSrcW = 400;
+constexpr int kSrcH = 240;
 
 // RGB565-Farben der Testbilder
 constexpr uint16_t kBlack = 0x0000, kWhite = 0xFFFF, kRed = 0xF800, kGreen = 0x07E0, kBlue = 0x001F;
@@ -40,6 +41,7 @@ DRAM_ATTR volatile int s_touch_x = -1;
 DRAM_ATTR volatile int s_touch_y = -1;
 DRAM_ATTR volatile uint8_t s_corners = 0;
 DRAM_ATTR uint16_t* volatile s_grad = nullptr;  // 4 Verlaufszeilen für das Farbbalken-Testbild
+DRAM_ATTR volatile bool s_rot180 = false;
 
 // Engine-Doppelpuffer und Paletten (je 256 Einträge, Farbe doppelt für 2 Pixel)
 DRAM_ATTR uint32_t s_lut[2][256];
@@ -171,8 +173,9 @@ IRAM_ATTR void line_touch(uint16_t* d, int y) {
     }
 }
 
-// Engine: Palette nachschlagen und 2× hochskalieren (jede Quellzeile ergibt zwei Bildzeilen)
-IRAM_ATTR void fill_engine(uint16_t* dst, int y0, int lines) {
+// Engine: Palette nachschlagen und 2× hochskalieren (jede Quellzeile ergibt zwei Bildzeilen).
+// Bei 180°-Drehung werden Quellzeilen von unten und Pixel von rechts gelesen, gleicher Aufwand.
+IRAM_ATTR void fill_engine(uint16_t* dst, int y0, int lines, bool rot) {
     const uint8_t* fb = s_front;
     if (fb == nullptr) {
         fill16(dst, kBlack, lines * kW);
@@ -180,27 +183,58 @@ IRAM_ATTR void fill_engine(uint16_t* dst, int y0, int lines) {
     }
     const uint32_t* lut = s_lut[s_lut_front];
     for (int y = y0; y < y0 + lines; y += 2) {
-        const auto* src = reinterpret_cast<const uint32_t*>(fb + (y >> 1) * kSrcW);
+        int sy = rot ? kSrcH - 1 - (y >> 1) : (y >> 1);
+        const auto* src = reinterpret_cast<const uint32_t*>(fb + sy * kSrcW);
         auto* a = reinterpret_cast<uint32_t*>(dst);
         uint32_t* b = a + kW / 2;
-        for (int i = 0; i < kSrcW / 4; ++i) {
-            uint32_t s = src[i];
-            uint32_t p0 = lut[s & 0xff];
-            uint32_t p1 = lut[(s >> 8) & 0xff];
-            uint32_t p2 = lut[(s >> 16) & 0xff];
-            uint32_t p3 = lut[s >> 24];
-            a[0] = p0;
-            a[1] = p1;
-            a[2] = p2;
-            a[3] = p3;
-            b[0] = p0;
-            b[1] = p1;
-            b[2] = p2;
-            b[3] = p3;
-            a += 4;
-            b += 4;
+        if (rot) {
+            for (int i = kSrcW / 4 - 1; i >= 0; --i) {
+                uint32_t s = src[i];
+                uint32_t p0 = lut[s >> 24];
+                uint32_t p1 = lut[(s >> 16) & 0xff];
+                uint32_t p2 = lut[(s >> 8) & 0xff];
+                uint32_t p3 = lut[s & 0xff];
+                a[0] = p0;
+                a[1] = p1;
+                a[2] = p2;
+                a[3] = p3;
+                b[0] = p0;
+                b[1] = p1;
+                b[2] = p2;
+                b[3] = p3;
+                a += 4;
+                b += 4;
+            }
+        } else {
+            for (int i = 0; i < kSrcW / 4; ++i) {
+                uint32_t s = src[i];
+                uint32_t p0 = lut[s & 0xff];
+                uint32_t p1 = lut[(s >> 8) & 0xff];
+                uint32_t p2 = lut[(s >> 16) & 0xff];
+                uint32_t p3 = lut[s >> 24];
+                a[0] = p0;
+                a[1] = p1;
+                a[2] = p2;
+                a[3] = p3;
+                b[0] = p0;
+                b[1] = p1;
+                b[2] = p2;
+                b[3] = p3;
+                a += 4;
+                b += 4;
+            }
         }
         dst += 2 * kW;
+    }
+}
+
+// Zeile spiegeln (für die 180°-Drehung der Testbilder)
+IRAM_ATTR void reverse_line(uint16_t* d) {
+    auto* p = reinterpret_cast<uint32_t*>(d);
+    for (int i = 0, j = kW / 2 - 1; i < j; ++i, --j) {
+        uint32_t a = p[i], b = p[j];
+        p[i] = (b >> 16) | (b << 16);
+        p[j] = (a >> 16) | (a << 16);
     }
 }
 
@@ -210,21 +244,24 @@ IRAM_ATTR bool on_bounce_empty(esp_lcd_panel_handle_t, void* bounce_buf, int pos
     int y0 = pos_px / kW;
     int lines = len_bytes / (kW * 2);
     Mode m = s_mode;
+    bool rot = s_rot180;
     if (m == Mode::Engine) {
-        fill_engine(dst, y0, lines);
+        fill_engine(dst, y0, lines, rot);
     } else {
         for (int y = y0; y < y0 + lines; ++y, dst += kW) {
+            int sy = rot ? kH - 1 - y : y;
             if (m == Mode::Bars) {
-                line_bars(dst, y);
+                line_bars(dst, sy);
             } else if (m == Mode::Frame) {
-                line_frame(dst, y);
+                line_frame(dst, sy);
             } else if (m == Mode::Motion) {
-                line_motion(dst, y);
+                line_motion(dst, sy);
             } else if (m == Mode::Touch) {
-                line_touch(dst, y);
+                line_touch(dst, sy);
             } else {
                 fill16(dst, kBlack, kW);
             }
+            if (rot) reverse_line(dst);
         }
     }
     s_fills = s_fills + 1;
@@ -388,6 +425,9 @@ Stats stats(bool reset_max) {
     if (reset_max) s_fill_max = 0;
     return s;
 }
+
+void set_rotation180(bool on) { s_rot180 = on; }
+bool rotation180() { return s_rot180; }
 
 void set_touch_marker(int x, int y) {
     s_touch_y = y;

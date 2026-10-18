@@ -49,7 +49,11 @@ bool mode_from_name(const char* name, Mode* out);
 
 Stats stats(bool reset_max);
 
-// Touch-Testbild
+// Bild um 180° drehen (Gerät steht mit dem USB-Anschluss auf der anderen Seite). Kostet nichts extra.
+void set_rotation180(bool on);
+bool rotation180();
+
+// Touch-Testbild (Koordinaten in Panel-Ausrichtung, also ungedreht)
 void set_touch_marker(int x, int y);  // x < 0: kein Marker
 void set_corner_hits(uint8_t mask);   // Bit 0..3: oben links, oben rechts, unten links, unten rechts
 

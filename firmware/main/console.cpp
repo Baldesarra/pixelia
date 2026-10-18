@@ -21,7 +21,9 @@ constexpr uart_port_t kUart = UART_NUM_0;
 
 void print_help() {
     ESP_LOGI(TAG, "Befehle:");
-    ESP_LOGI(TAG, "  info | heap | scan | touchrst | reboot");
+    ESP_LOGI(TAG, "  info | heap | scan | touch | touchrst | reboot");
+    ESP_LOGI(TAG, "  rot <0|180>                                   Bild drehen");
+    ESP_LOGI(TAG, "  tour | flash <Sekunden> | marks <n>            geführter Test, Flash-Last, Stufenanzeige");
     ESP_LOGI(TAG, "  pat <black|bars|frame|motion|touch|engine>   Testbild/Modus");
     ESP_LOGI(TAG, "  bl <0-100> | bl cycle | bl stop | blf <Hz>      Hintergrundbeleuchtung");
     ESP_LOGI(TAG, "  pclk <MHz>                                    Pixeltakt zur Laufzeit");
@@ -58,6 +60,17 @@ void handle(char* line) {
         hwtest::scan();
     } else if (is("touchrst")) {
         hwtest::touch_reset_test();
+    } else if (is("touch")) {
+        hwtest::log_touch_status();
+    } else if (is("tour")) {
+        hwtest::start_tour();
+    } else if (is("flash") && argc >= 2) {
+        hwtest::flash_stress(std::atoi(argv[1]));
+    } else if (is("marks") && argc >= 2) {
+        gfx::set_marks(std::atoi(argv[1]));
+    } else if (is("rot") && argc >= 2) {
+        board::display::set_rotation180(std::atoi(argv[1]) == 180);
+        ESP_LOGI(TAG, "Drehung %d°", board::display::rotation180() ? 180 : 0);
     } else if (is("reboot")) {
         ESP_LOGI(TAG, "Neustart");
         vTaskDelay(pdMS_TO_TICKS(100));

@@ -9,6 +9,8 @@
 #include "board/touch_gt911.h"
 #include "driver/i2c_master.h"
 #include "esp_log.h"
+#include "esp_partition.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -26,6 +28,16 @@ board::touch::Info s_info{};
 volatile uint8_t s_corners = 0;
 TaskHandle_t s_bl_task = nullptr;
 
+// Touch-Ergebnisse bleiben gespeichert, damit sie später per Befehl „touch“ abgefragt werden können
+struct TouchRecord {
+    uint32_t touches = 0;
+    int corner_xy[4][2] = {{-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}};
+    int min_x = 9999, min_y = 9999, max_x = -1, max_y = -1;
+    int last_x = -1, last_y = -1;
+};
+TouchRecord s_rec;
+constexpr const char* kCornerNames[] = {"oben links", "oben rechts", "unten links", "unten rechts"};
+
 bool probe(uint8_t addr) { return i2c_master_probe(s_bus, addr, 20) == ESP_OK; }
 
 bool find_and_init_touch() {
@@ -41,12 +53,17 @@ bool find_and_init_touch() {
     return false;
 }
 
-// Touch-Koordinaten auf 800×480 abbilden (falls der GT911 anders konfiguriert ist)
+// Touch-Koordinaten auf 800×480 in Bildausrichtung abbilden
+// (falls der GT911 anders konfiguriert ist, und passend zur 180°-Drehung des Bildes)
 void map_point(const board::touch::Point& p, int* x, int* y) {
     int xr = s_info.x_resolution ? s_info.x_resolution : board::kLcdWidth;
     int yr = s_info.y_resolution ? s_info.y_resolution : board::kLcdHeight;
     *x = p.x * board::kLcdWidth / xr;
     *y = p.y * board::kLcdHeight / yr;
+    if (board::display::rotation180()) {
+        *x = board::kLcdWidth - 1 - *x;
+        *y = board::kLcdHeight - 1 - *y;
+    }
 }
 
 void touch_task(void*) {
@@ -79,17 +96,22 @@ void touch_task(void*) {
                      pts[0].size, n);
             down = true;
             last_move_log = xTaskGetTickCount();
+            s_rec.touches++;
             // Eckfelder 100×100 px
             uint8_t bit = 0;
             if (x < 100 && y < 100) bit = 1;
             else if (x >= board::kLcdWidth - 100 && y < 100) bit = 2;
             else if (x < 100 && y >= board::kLcdHeight - 100) bit = 4;
             else if (x >= board::kLcdWidth - 100 && y >= board::kLcdHeight - 100) bit = 8;
+            if (bit) {
+                int idx = __builtin_ctz(bit);
+                s_rec.corner_xy[idx][0] = x;
+                s_rec.corner_xy[idx][1] = y;
+            }
             if (bit && !(s_corners & bit)) {
                 s_corners |= bit;
                 board::display::set_corner_hits(s_corners);
-                static const char* names[] = {"oben links", "oben rechts", "unten links", "unten rechts"};
-                ESP_LOGI(TAG_TOUCH, "Ecke %s getroffen", names[__builtin_ctz(bit)]);
+                ESP_LOGI(TAG_TOUCH, "Ecke %s getroffen", kCornerNames[__builtin_ctz(bit)]);
                 if (s_corners == 0x0F) ESP_LOGI(TAG_TOUCH, "Alle vier Ecken getroffen");
             }
         } else if (xTaskGetTickCount() - last_move_log > pdMS_TO_TICKS(500) && (std::abs(x - last_x) > 3 || std::abs(y - last_y) > 3)) {
@@ -98,19 +120,95 @@ void touch_task(void*) {
         }
         last_x = x;
         last_y = y;
+        s_rec.last_x = x;
+        s_rec.last_y = y;
+        if (x < s_rec.min_x) s_rec.min_x = x;
+        if (x > s_rec.max_x) s_rec.max_x = x;
+        if (y < s_rec.min_y) s_rec.min_y = y;
+        if (y > s_rec.max_y) s_rec.max_y = y;
         board::display::set_touch_marker(x, y);
     }
 }
 
-void backlight_task(void*) {
-    static const int kLevels[] = {100, 70, 40, 20, 10, 5, 1, 0};
-    for (;;) {
-        for (int level : kLevels) {
-            board::backlight::set_percent(level);
-            ESP_LOGI(TAG_BL, "Helligkeit %d %%", level);
-            vTaskDelay(pdMS_TO_TICKS(1500));
-        }
+constexpr int kBlLevels[] = {100, 70, 40, 20, 10, 5, 1, 0};
+
+// Flash-Last wie bei OTA/Spielständen: Sektoren in „storage“ löschen und beschreiben, danach aufräumen
+void flash_stress_impl(int seconds) {
+    const esp_partition_t* part =
+        esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "storage");
+    if (!part) {
+        ESP_LOGE("flash", "Partition storage fehlt");
+        return;
     }
+    constexpr size_t kSector = 4096;
+    constexpr size_t kRange = 256 * 1024;
+    static uint32_t buf[kSector / 4];
+    for (size_t i = 0; i < kSector / 4; ++i) buf[i] = 0xA5A50000u + i;
+    int64_t t0 = esp_timer_get_time();
+    int64_t end = t0 + static_cast<int64_t>(seconds) * 1000000;
+    size_t off = 0, sectors = 0;
+    esp_err_t err = ESP_OK;
+    while (esp_timer_get_time() < end && err == ESP_OK) {
+        err = esp_partition_erase_range(part, off, kSector);
+        if (err == ESP_OK) err = esp_partition_write(part, off, buf, kSector);
+        ++sectors;
+        off = (off + kSector) % kRange;
+    }
+    double dt = (esp_timer_get_time() - t0) / 1e6;
+    esp_partition_erase_range(part, 0, kRange);
+    ESP_LOGI("flash", "%u Sektoren (%u KB) in %.1f s gelöscht und geschrieben: %s", static_cast<unsigned>(sectors),
+             static_cast<unsigned>(sectors * kSector / 1024), dt, esp_err_to_name(err));
+}
+
+void backlight_steps_once() {
+    for (int level : kBlLevels) {
+        board::backlight::set_percent(level);
+        ESP_LOGI(TAG_BL, "Helligkeit %d %%", level);
+        vTaskDelay(pdMS_TO_TICKS(1500));
+    }
+}
+
+void backlight_task(void*) {
+    for (;;) backlight_steps_once();
+}
+
+// Geführter Ablauf im Tempo des Users. Die weißen Quadrate oben links zeigen die Stufe an:
+//  (Ecken antippen) → 1: Szene 60 Hz → 1: Helligkeitsstufen → 2/3/4: Pixeltakt 30/36/40 MHz
+//  → 5: Flash-Schreiben während der Animation → 1: zurück auf 60 Hz
+void tour_stage(int marks, uint32_t pclk_hz, const char* text) {
+    board::display::set_pclk(pclk_hz);
+    gfx::set_marks(marks);
+    ESP_LOGI("tour", "Stufe %d: %s (Pixeltakt %.1f MHz)", marks, text, pclk_hz / 1e6);
+}
+
+void tour_task(void*) {
+    constexpr uint32_t kBase = 24600000;
+    ESP_LOGI("tour", "Start: vier Ecken antippen");
+    reset_corner_hits();
+    board::display::set_mode(board::display::Mode::Touch);
+    while (s_corners != 0x0F) vTaskDelay(pdMS_TO_TICKS(100));
+    vTaskDelay(pdMS_TO_TICKS(1500));
+    board::display::set_swap_interval(2);
+    tour_stage(1, kBase, "Engine-Szene");
+    board::display::set_mode(board::display::Mode::Engine);
+    vTaskDelay(pdMS_TO_TICKS(12000));
+    ESP_LOGI("tour", "Helligkeitsstufen");
+    backlight_steps_once();
+    board::backlight::set_percent(100);
+    vTaskDelay(pdMS_TO_TICKS(1500));
+    tour_stage(2, 30000000, "höherer Pixeltakt");
+    vTaskDelay(pdMS_TO_TICKS(6000));
+    tour_stage(3, 36000000, "höherer Pixeltakt");
+    vTaskDelay(pdMS_TO_TICKS(6000));
+    tour_stage(4, 40000000, "höherer Pixeltakt");
+    vTaskDelay(pdMS_TO_TICKS(6000));
+    tour_stage(5, kBase, "Flash-Schreiben");
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    flash_stress(8);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    tour_stage(1, kBase, "fertig");
+    ESP_LOGI("tour", "Fertig");
+    vTaskDelete(nullptr);
 }
 }  // namespace
 
@@ -175,11 +273,30 @@ void touch_reset_test() {
     s_touch_pause = false;
 }
 
+void flash_stress(int seconds) { flash_stress_impl(seconds); }
+
+void start_tour() { xTaskCreatePinnedToCore(tour_task, "tour", 3072, nullptr, 3, nullptr, kSystemCore); }
+
 void start_touch_task() { xTaskCreatePinnedToCore(touch_task, "touch", 4096, nullptr, 5, nullptr, kSystemCore); }
 
 void reset_corner_hits() {
     s_corners = 0;
+    s_rec = TouchRecord{};
     board::display::set_corner_hits(0);
+}
+
+void log_touch_status() {
+    ESP_LOGI(TAG_TOUCH, "Status: %s, %lu Berührungen, Ecken %u/4, Bereich x %d..%d y %d..%d, zuletzt %d/%d",
+             s_touch_ok ? "GT911 ok" : "kein GT911", static_cast<unsigned long>(s_rec.touches),
+             static_cast<unsigned>(__builtin_popcount(s_corners)), s_rec.min_x, s_rec.max_x, s_rec.min_y, s_rec.max_y,
+             s_rec.last_x, s_rec.last_y);
+    for (int i = 0; i < 4; ++i) {
+        if (s_rec.corner_xy[i][0] >= 0) {
+            ESP_LOGI(TAG_TOUCH, "  Ecke %s: x=%d y=%d", kCornerNames[i], s_rec.corner_xy[i][0], s_rec.corner_xy[i][1]);
+        } else {
+            ESP_LOGI(TAG_TOUCH, "  Ecke %s: nicht getroffen", kCornerNames[i]);
+        }
+    }
 }
 
 void backlight_cycle(bool on) {

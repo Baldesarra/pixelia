@@ -17,7 +17,7 @@ import time
 import serial
 
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
-OWN_TAGS = r"(app|sys|i2c|touch|bl|lcd|gfx|perf|cmd)"
+OWN_TAGS = r"(app|sys|i2c|touch|tour|flash|bl|lcd|gfx|perf|cmd)"
 DEFAULT_FILTER = (
     rf"^[IWE] \(\d+\) {OWN_TAGS}:"
     r"|^[WE] \(\d+\)"

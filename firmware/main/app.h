@@ -23,6 +23,10 @@ void scan();
 void touch_reset_test();
 void start_touch_task();
 void reset_corner_hits();
+void log_touch_status();
+void start_tour();
+// Flash-Sektoren in der Partition „storage“ löschen/beschreiben (Test: Bild bleibt ruhig?)
+void flash_stress(int seconds);
 void backlight_cycle(bool on);
 }  // namespace hwtest
 
@@ -41,6 +45,8 @@ void start(const board::display::Timing& timing);
 void request_reconfigure(const board::display::Timing& timing);
 void request_buffers(bool psram);
 void set_sprites(int n);
+// n weiße Quadrate oben links ins Bild zeichnen (Stufenanzeige für Tests)
+void set_marks(int n);
 EngineStats engine_stats(bool reset_max);
 }  // namespace gfx
 

@@ -21,8 +21,10 @@ enum class Request : uint8_t { None, Reconfigure, Buffers };
 
 volatile Request s_request = Request::None;
 board::display::Timing s_req_timing;
-volatile bool s_req_psram = false;
+// Standard: Engine-Puffer im PSRAM (spart 192 KB internen RAM, Messung siehe docs/HARDWARE.md)
+volatile bool s_req_psram = true;
 volatile int s_sprites = 48;
+volatile int s_marks = 0;
 
 uint8_t* s_buf[2] = {nullptr, nullptr};
 bool s_buf_psram = false;
@@ -138,6 +140,7 @@ void gfx_task(void* arg) {
         int64_t t1 = esp_timer_get_time();
         pixelia::Canvas canvas(back, pixelia::kScreenWidth, pixelia::kScreenHeight);
         s_scene->render(canvas);
+        for (int i = 0; i < s_marks; ++i) canvas.fill_rect(4 + i * 10, 4, 6, 6, 255);
         const pixelia::Palette& pal = s_scene->palette();
         for (int i = 0; i < 256; ++i) s_pal565[i] = to565(pal[i]);
         int64_t t2 = esp_timer_get_time();
@@ -171,6 +174,7 @@ void request_buffers(bool psram) {
 }
 
 void set_sprites(int n) { s_sprites = n; }
+void set_marks(int n) { s_marks = n; }
 
 EngineStats engine_stats(bool reset_max) {
     portENTER_CRITICAL(&s_stats_lock);
