@@ -37,9 +37,12 @@ int64_t days_from_civil(int y, unsigned m, unsigned d) {
 }
 }  // namespace
 
-void init() {
+void set_timezone() {
     setenv("TZ", kTimezone, 1);
     tzset();
+}
+
+void init() {
     esp_sntp_config_t cfg = ESP_NETIF_SNTP_DEFAULT_CONFIG_MULTIPLE(2, ESP_SNTP_SERVER_LIST("de.pool.ntp.org", "pool.ntp.org"));
     cfg.start = false;
     cfg.sync_cb = on_sync;

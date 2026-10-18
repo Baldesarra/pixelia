@@ -73,7 +73,9 @@ bool running();
 }  // namespace app::captive_dns
 
 namespace app::timesync {
-// Zeitzone setzen und NTP vorbereiten; Abgleich startet mit der ersten WLAN-Verbindung
+// Zeitzone setzen: ganz früh beim Start, damit die Weltzeit nie kurz in UTC läuft
+void set_timezone();
+// NTP vorbereiten; Abgleich startet mit der ersten WLAN-Verbindung
 void init();
 void on_connected();
 bool valid();  // echte Uhrzeit bekannt (NTP oder aus der Zeit vor einem Neustart)

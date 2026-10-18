@@ -38,6 +38,7 @@ constexpr const char* TAG = "wlan";
 constexpr const char* kNvs = "wifi";
 constexpr int kConnectTimeoutMs = 15000;
 constexpr int64_t kLostToSetupUs = 120 * 1000000LL;  // so lange nach Verbindungsverlust probieren, dann Setup
+constexpr int64_t kBootToSetupUs = 45 * 1000000LL;   // beim Start (Router hängt evtl. noch an der alten Sitzung)
 constexpr int64_t kApLingerUs = 60 * 1000000LL;       // Access Point nach dem Einrichten noch offen lassen
 constexpr int kMaxScan = 24;
 constexpr const char kPortalUri[] = "http://192.168.4.1/";
@@ -57,7 +58,7 @@ struct Store {
     NetRecord nets[kMaxSaved]{};
 };
 
-enum class Cmd : uint8_t { Connect, Scan, Setup };
+enum class Cmd : uint8_t { Connect, ConnectNew, Scan, Setup };
 
 std::mutex s_lock;  // schützt s_status, s_store, s_scan
 Status s_status;
@@ -70,9 +71,11 @@ std::atomic<uint32_t> s_scan_gen{0};
 wifi_ap_record_t s_records[kMaxScan];
 uint16_t s_record_count = 0;
 int64_t s_next_retry = 0;   // Setup-Modus: nächster Versuch
-int64_t s_lost_since = 0;   // Verbindung verloren (0 = nicht verloren)
+int64_t s_setup_deadline = 0;  // kein WLAN: bis dahin schnell neu versuchen, danach Setup-Modus (0 = aus)
 int64_t s_next_quick = 0;   // nächster schneller Versuch nach Verlust
 int s_quick_tries = 0;
+int s_burst = 0;            // weitere schnelle Versuche nach dem Eintragen eines Netzes
+constexpr int kBurstPauseSeconds = 10;
 int64_t s_ap_off_at = 0;    // Access Point nach dem Einrichten abschalten
 int64_t s_rssi_at = 0;
 bool s_announced = false;   // erste Verbindung nach dem Start gemeldet
@@ -98,11 +101,15 @@ void set_error(const char* text) {
 
 const char* reason_text(uint8_t reason) {
     switch (reason) {
-        case WIFI_REASON_AUTH_FAIL:
-        case WIFI_REASON_AUTH_EXPIRE:
         case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT:
         case WIFI_REASON_HANDSHAKE_TIMEOUT:
+        case WIFI_REASON_MIC_FAILURE:
             return "Passwort falsch?";
+        case WIFI_REASON_AUTH_FAIL:
+            return "Anmeldung abgelehnt (Passwort?)";
+        case WIFI_REASON_AUTH_EXPIRE:
+        case WIFI_REASON_DISASSOC_DUE_TO_INACTIVITY:
+            return "keine Antwort vom Router";
         case WIFI_REASON_NO_AP_FOUND:
         case WIFI_REASON_NO_AP_FOUND_IN_RSSI_THRESHOLD:
             return "nicht gefunden";
@@ -114,6 +121,12 @@ const char* reason_text(uint8_t reason) {
             return "Anmeldung abgelehnt";
         case WIFI_REASON_BEACON_TIMEOUT:
             return "Signal verloren";
+        case WIFI_REASON_IE_IN_4WAY_DIFFERS:
+        case WIFI_REASON_GROUP_CIPHER_INVALID:
+        case WIFI_REASON_PAIRWISE_CIPHER_INVALID:
+            return "Verschlüsselung des Routers passt nicht";
+        case WIFI_REASON_GROUP_KEY_UPDATE_TIMEOUT:
+            return "Schlüsselaustausch abgebrochen";
         default:
             return "getrennt";
     }
@@ -276,7 +289,75 @@ void reset_link() {
     xEventGroupClearBits(s_events, kBitGotIp | kBitDisconnected | kBitAssociated);
 }
 
-bool connect_to(const NetRecord& n, const wifi_ap_record_t* ap) {
+const char* auth_name(wifi_auth_mode_t m) {
+    switch (m) {
+        case WIFI_AUTH_OPEN: return "offen";
+        case WIFI_AUTH_WEP: return "WEP";
+        case WIFI_AUTH_WPA_PSK: return "WPA";
+        case WIFI_AUTH_WPA2_PSK: return "WPA2";
+        case WIFI_AUTH_WPA_WPA2_PSK: return "WPA/WPA2";
+        case WIFI_AUTH_WPA3_PSK: return "WPA3";
+        case WIFI_AUTH_WPA2_WPA3_PSK: return "WPA2/WPA3";
+        default: return "andere";
+    }
+}
+
+// Verbindungsarten. Manche Router kommen beim Schlüsselaustausch aus dem Tritt (z. B. Grund 17 „IE weicht ab“,
+// gemessen an einer FritzBox im WPA2/WPA3-Mischmodus mit dem WPA3-Kompatibilitätsmodus/RSN-Override von
+// ESP-IDF 6.1): Dann folgt ein zweiter Versuch ohne WPA3-Kompatibilität und ohne festen Zugangspunkt.
+// Was geklappt hat, merkt sich Pixelia im NVS (Schlüssel „hints“) und probiert es beim nächsten Mal zuerst.
+enum Mode : uint8_t { kModeStandard = 0, kModeCompat = 1 };
+struct ModeHint {
+    char ssid[33];
+    uint8_t mode;
+};
+ModeHint s_hints[kMaxSaved] = {};
+
+void load_hints() {
+    nvs_handle_t h;
+    if (nvs_open(kNvs, NVS_READONLY, &h) != ESP_OK) return;
+    size_t len = sizeof(s_hints);
+    if (nvs_get_blob(h, "hints", s_hints, &len) != ESP_OK || len != sizeof(s_hints)) std::memset(s_hints, 0, sizeof(s_hints));
+    nvs_close(h);
+}
+
+uint8_t mode_hint(const char* ssid) {
+    for (const auto& h : s_hints)
+        if (h.ssid[0] && std::strcmp(h.ssid, ssid) == 0) return h.mode;
+    return kModeStandard;
+}
+
+void remember_mode(const char* ssid, uint8_t mode) {
+    ModeHint* slot = nullptr;
+    for (auto& h : s_hints)
+        if (!slot && (!h.ssid[0] || std::strcmp(h.ssid, ssid) == 0)) slot = &h;
+    if (!slot) {
+        std::memmove(&s_hints[1], &s_hints[0], sizeof(ModeHint) * (kMaxSaved - 1));
+        slot = &s_hints[0];
+    }
+    if (std::strcmp(slot->ssid, ssid) == 0 && slot->mode == mode) return;
+    std::snprintf(slot->ssid, sizeof(slot->ssid), "%s", ssid);
+    slot->mode = mode;
+    nvs_handle_t h;
+    if (nvs_open(kNvs, NVS_READWRITE, &h) != ESP_OK) return;
+    if (nvs_set_blob(h, "hints", s_hints, sizeof(s_hints)) == ESP_OK) nvs_commit(h);
+    nvs_close(h);
+}
+
+// Lohnt ein zweiter Versuch mit der anderen Verbindungsart? Nicht, wenn das Netz gar nicht da war.
+bool worth_other_mode(uint8_t reason, bool associated) {
+    switch (reason) {
+        case WIFI_REASON_NO_AP_FOUND:
+        case WIFI_REASON_NO_AP_FOUND_IN_RSSI_THRESHOLD:
+        case WIFI_REASON_BEACON_TIMEOUT:
+            return false;
+        default:
+            return associated || reason != 0;
+    }
+}
+
+bool connect_to(const NetRecord& n, const wifi_ap_record_t* ap, uint8_t mode, bool* retry_other) {
+    *retry_other = false;
     {
         std::lock_guard<std::mutex> g(s_lock);
         s_status.state = State::Connecting;
@@ -284,23 +365,30 @@ bool connect_to(const NetRecord& n, const wifi_ap_record_t* ap) {
         s_status.ip[0] = 0;
     }
     publish_setup();
-    if (ap) ESP_LOGI(TAG, "Verbinde mit „%s“ (%d dBm, Kanal %d)", n.ssid, ap->rssi, ap->primary);
-    else ESP_LOGI(TAG, "Verbinde mit „%s“ (nicht im Scan, evtl. verstecktes Netz)", n.ssid);
+    const char* how = mode == kModeCompat ? ", nur WPA2-kompatibel" : "";
+    if (ap) ESP_LOGI(TAG, "Verbinde mit „%s“ (%d dBm, Kanal %d, %s%s)", n.ssid, ap->rssi, ap->primary, auth_name(ap->authmode), how);
+    else ESP_LOGI(TAG, "Verbinde mit „%s“ (nicht im Scan, evtl. verstecktes Netz%s)", n.ssid, how);
 
     reset_link();
+    s_disc_reason = 0;
     wifi_config_t cfg{};
     std::memcpy(cfg.sta.ssid, n.ssid, strnlen(n.ssid, 32));
     std::memcpy(cfg.sta.password, n.pass, strnlen(n.pass, 64));
     // Mit Passwort mindestens WPA, ohne Passwort auch offene Netze
     cfg.sta.threshold.authmode = n.pass[0] ? WIFI_AUTH_WPA_PSK : WIFI_AUTH_OPEN;
     cfg.sta.sae_pwe_h2e = WPA3_SAE_PWE_BOTH;
-    if (ap) {
+    if (ap && mode == kModeStandard) {
         cfg.sta.bssid_set = true;
         std::memcpy(cfg.sta.bssid, ap->bssid, 6);
         cfg.sta.channel = ap->primary;
         cfg.sta.scan_method = WIFI_FAST_SCAN;
     } else {
         cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+        cfg.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
+    }
+    if (mode == kModeCompat) {
+        cfg.sta.disable_wpa3_compatible_mode = 1;
+        cfg.sta.pmf_cfg.required = false;
     }
     esp_wifi_set_config(WIFI_IF_STA, &cfg);
     esp_err_t err = esp_wifi_connect();
@@ -320,16 +408,34 @@ bool connect_to(const NetRecord& n, const wifi_ap_record_t* ap) {
         s_status.connected_since_s = static_cast<uint32_t>(now_us() / 1000000);
         return true;
     }
-    const char* why = err != ESP_OK                  ? esp_err_to_name(err)
-                      : (bits & kBitDisconnected)    ? reason_text(s_disc_reason)
-                      : (xEventGroupGetBits(s_events) & kBitAssociated) ? "keine IP-Adresse (DHCP)"
-                                                                         : "keine Antwort";
+    const bool associated = (xEventGroupGetBits(s_events) & kBitAssociated) != 0;
+    const uint8_t reason = s_disc_reason;
+    const char* why = err != ESP_OK               ? esp_err_to_name(err)
+                      : (bits & kBitDisconnected) ? reason_text(reason)
+                      : associated                ? "keine IP-Adresse (DHCP)"
+                                                  : "keine Antwort";
     char text[64];
     std::snprintf(text, sizeof(text), "%.24s: %s", n.ssid, why);
     set_error(text);
-    ESP_LOGW(TAG, "Verbindung mit „%s“ fehlgeschlagen: %s (Grund %u)", n.ssid, why, s_disc_reason.load());
+    ESP_LOGW(TAG, "Verbindung mit „%s“ fehlgeschlagen: %s (Grund %u)", n.ssid, why, reason);
     reset_link();
+    *retry_other = err == ESP_OK && worth_other_mode(reason, associated);
     return false;
+}
+
+// Ein Netz verbinden: zuerst die Verbindungsart, die zuletzt geklappt hat, bei Problemen im Schlüsselaustausch
+// gleich noch die andere
+bool connect_net(const NetRecord& n, const wifi_ap_record_t* ap) {
+    const uint8_t first = mode_hint(n.ssid);
+    bool retry_other = false;
+    if (connect_to(n, ap, first, &retry_other)) return true;
+    if (!retry_other) return false;
+    const uint8_t second = first == kModeStandard ? kModeCompat : kModeStandard;
+    if (!connect_to(n, ap, second, &retry_other)) return false;
+    remember_mode(n.ssid, second);
+    ESP_LOGW(TAG, "„%s“ klappt nur %s, wird ab jetzt so verbunden", n.ssid,
+             second == kModeCompat ? "ohne WPA3-Kompatibilitätsmodus" : "im Standardmodus");
+    return true;
 }
 
 // Alle gespeicherten Netze probieren: zuerst die gefundenen nach Signalstärke, dann nicht gefundene (versteckt)
@@ -364,14 +470,14 @@ bool try_saved() {
     for (int i = 1; i < nc; ++i)
         for (int k = i; k > 0 && s_records[cand[k].rec].rssi > s_records[cand[k - 1].rec].rssi; --k) std::swap(cand[k], cand[k - 1]);
     for (int i = 0; i < nc; ++i) {
-        if (connect_to(st.nets[cand[i].net], &s_records[cand[i].rec])) {
+        if (connect_net(st.nets[cand[i].net], &s_records[cand[i].rec])) {
             move_to_front(st.nets[cand[i].net].ssid);
             return true;
         }
     }
     for (int i = 0; i < st.count; ++i) {
         if (found[i]) continue;
-        if (connect_to(st.nets[i], nullptr)) {
+        if (connect_net(st.nets[i], nullptr)) {
             move_to_front(st.nets[i].ssid);
             return true;
         }
@@ -389,7 +495,7 @@ void enter_setup() {
         already = s_status.ap_active;
     }
     s_next_retry = now_us() + kRetrySeconds * 1000000LL;
-    s_lost_since = 0;
+    s_setup_deadline = 0;
     s_ap_off_at = 0;
     if (!already) {
         // Kanal: wo das stärkste gespeicherte Netz funkt (weniger Unterbrechung beim späteren Verbinden)
@@ -452,7 +558,7 @@ void on_connected() {
     Status st = status();
     ESP_LOGI(TAG, "Verbunden mit „%s“: IP %s, %d dBm, Kanal %u, Name „%s“ bzw. http://%s.local", st.ssid, st.ip,
              st.rssi, st.channel, kHostname, kMdnsHost);
-    s_lost_since = 0;
+    s_setup_deadline = 0;
     s_quick_tries = 0;
     s_rssi_at = now_us();
     timesync::on_connected();
@@ -484,10 +590,13 @@ void attempt() {
     }
     Status st = status();
     if (st.ap_active) {
-        s_next_retry = now_us() + kRetrySeconds * 1000000LL;
+        // Direkt nach dem Eintragen eines Netzes noch zweimal kurz hintereinander probieren, sonst alle 2 Minuten
+        const int pause = s_burst > 0 ? kBurstPauseSeconds : kRetrySeconds;
+        if (s_burst > 0) --s_burst;
+        s_next_retry = now_us() + pause * 1000000LL;
         set_state(State::Setup);
         publish_setup();
-    } else if (s_lost_since) {
+    } else if (s_setup_deadline) {
         set_state(State::Connecting);
     } else {
         enter_setup();
@@ -512,7 +621,8 @@ void wifi_task(void*) {
             ESP_LOGW(TAG, "Noch kein WLAN gespeichert");
             enter_setup();
         } else {
-            attempt();
+            s_setup_deadline = now_us() + kBootToSetupUs;
+            s_next_quick = 0;
         }
     }
     for (;;) {
@@ -524,9 +634,11 @@ void wifi_task(void*) {
                     break;
                 case Cmd::Setup:
                     if (status().state == State::Connected) reset_link();
-                    s_lost_since = 0;
                     enter_setup();
                     break;
+                case Cmd::ConnectNew:
+                    s_burst = 2;
+                    [[fallthrough]];
                 case Cmd::Connect:
                     if (status().state != State::Connected) attempt();
                     break;
@@ -544,7 +656,7 @@ void wifi_task(void*) {
                     s_status.ip[0] = 0;
                 }
                 set_state(State::Connecting);
-                s_lost_since = now;
+                s_setup_deadline = now + kLostToSetupUs;
                 s_quick_tries = 0;
                 s_next_quick = now;
                 ui::toast("WLAN getrennt, verbinde neu …", pixelia::ui::Tone::Warning, 5);
@@ -565,8 +677,9 @@ void wifi_task(void*) {
             continue;
         }
 
-        if (s_lost_since) {
-            // Nach Verlust: sofort, dann nach 5, 10, 20, 30 s … neu probieren; nach 2 Minuten Setup-Modus
+        if (s_setup_deadline) {
+            // Ohne Verbindung (nach Verlust oder beim Start): sofort, dann nach 5, 10, 20, 30 s … neu probieren;
+            // klappt es bis zur Frist nicht (2 Minuten bzw. 45 s beim Start), folgt der Setup-Modus
             if (now >= s_next_quick) {
                 attempt();
                 if (status().state == State::Connected) continue;
@@ -574,8 +687,8 @@ void wifi_task(void*) {
                 int pause = kBackoff[std::min(s_quick_tries, 3)];
                 ++s_quick_tries;
                 s_next_quick = now_us() + pause * 1000000LL;
-                if (now_us() - s_lost_since > kLostToSetupUs) {
-                    ESP_LOGW(TAG, "Seit 2 Minuten kein WLAN, starte Setup-Modus");
+                if (now_us() > s_setup_deadline) {
+                    ESP_LOGW(TAG, "Kein gespeichertes WLAN erreichbar, starte Setup-Modus");
                     enter_setup();
                 }
             }
@@ -610,6 +723,7 @@ void start() {
     s_events = xEventGroupCreate();
     s_queue = xQueueCreate(8, sizeof(Cmd));
     load_store();
+    load_hints();
     s_status.saved = s_store.count;
     ensure_ap_password();
 
@@ -676,7 +790,7 @@ esp_err_t add_network(const char* ssid, const char* password) {
         s_status.last_error[0] = 0;
     }
     ESP_LOGI(TAG, "WLAN „%s“ gespeichert (%s)", ssid, pl ? "mit Passwort" : "offen");
-    Cmd cmd = Cmd::Connect;
+    Cmd cmd = Cmd::ConnectNew;
     xQueueSend(s_queue, &cmd, 0);
     return ESP_OK;
 }

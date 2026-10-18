@@ -30,6 +30,7 @@ extern "C" void app_main() {
     heap_caps_monitor_local_minimum_free_size_start();
     app::sysinfo::log_all();
     app::settings::init();
+    app::timesync::set_timezone();
     app::ota::init();
     app::sysinfo::log_heap_step("Einstellungen");
 
