@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Führt idf.py mit aktivierter ESP-IDF-Umgebung aus und zeigt nur das Wichtige.
 

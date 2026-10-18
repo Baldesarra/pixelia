@@ -1,0 +1,42 @@
+# Pixelia – Grundkonfiguration für ESP32-8048S050C_I (ESP32-S3 N16R8)
+# Nur bewusste Abweichungen vom ESP-IDF-Standard. Begründungen im Projektplan (4.1, 4.2, 4.9, 4.10).
+
+CONFIG_IDF_TARGET="esp32s3"
+
+# Flash: 16 MB, Quad-SPI (laut eFuse), 80 MHz
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+
+# Eigene Partitionstabelle (A/B-Update, LittleFS, Core-Dump)
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# CPU 240 MHz, Leistung vor Größe
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+
+# PSRAM: 8 MB Octal im Chip (ESP32-S3R8), 80 MHz
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+# Programmcode und Konstanten beim Start ins PSRAM spiegeln: Flash-Schreiben hält das System nicht an
+CONFIG_SPIRAM_XIP_FROM_PSRAM=y
+
+# Datencache mit 64-Byte-Zeilen (schnellere PSRAM-Zugriffe)
+CONFIG_ESP32S3_DATA_CACHE_LINE_64B=y
+
+# Display: RGB-Interrupt läuft auch bei abgeschaltetem Cache (kein Flackern bei Flash-Zugriffen)
+CONFIG_LCD_RGB_ISR_IRAM_SAFE=y
+
+# A/B-Updates mit Rückfall auf die alte Version
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# Absturzberichte als ELF-Core-Dump in die eigene Partition
+CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
+CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF=y
+
+# FreeRTOS: 1-ms-Takt, Laufzeitstatistik für die CPU-Last pro Kern
+CONFIG_FREERTOS_HZ=1000
+CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS=y
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y
