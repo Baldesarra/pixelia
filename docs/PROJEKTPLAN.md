@@ -496,6 +496,9 @@ Format, ergänzt um ein Datum:
 
 ### 6.0 Prinzipien gegen Langeweile
 
+> Verbindlich ergänzt durch die [Lebendigkeits-Charta](LEBENDIGKEIT.md): Gestaltungsregeln, messbare Mindestziele pro
+> Welt und Nachweis per Langzeit-Test im Simulator.
+
 - **Drei Zeitebenen:**
   - *Sekunden:* ständige Mikro-Animationen (Rauch, Vögel, blinzelnde Figuren, wehende Fahnen, Blätter, Glühwürmchen)
   - *Stunden:* Tagesablauf, Wetterwechsel, Ereignisse
@@ -827,3 +830,4 @@ unsere Paletten um. Details: 4.7.
 | 2026-10-18 | Bilddrehung 0°/180° als Einstellung, Standard 0° | Aufstellort steht noch nicht fest (User); kostet keine Rechenzeit |
 | 2026-10-18 | Touch per Polling alle 20 ms, ohne INT-Leitung | INT-Pin nicht nötig, GT911 liefert zuverlässig |
 | 2026-10-18 | „Kein Sound“ wird neu bewertet | Platine hat einen Lautsprecher-Anschluss „Speak“ mit Verstärker (Foto), Test steht aus (Backlog) |
+| 2026-10-18 | **Lebendigkeits-Charta** ([LEBENDIGKEIT.md](LEBENDIGKEIT.md)) verbindlich: Systeme statt Schleifen, Ereignis-Regisseur, messbare Mindestziele pro Welt, Langzeit-Test mit Kontaktbogen in jedem Welt-PR, Zahlen in jedem Release-Bericht | ausdrücklicher Wunsch des Users: Tiefe und echtes Leben statt einfacher Szenen in Dauerschleife; „lebendig“ muss überprüfbar sein, nicht nur versprochen |

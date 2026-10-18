@@ -8,9 +8,9 @@
 | | |
 |---|---|
 | **Phase** | 0.1.x Fundament: Hardware geprüft, Engine-Prototyp gemessen, **Plan A bestätigt** |
-| **Letzte Version** | – (noch kein Release; Entwicklungsstand auf Branch `fundament-0.1.0`, [PR #1](https://github.com/Baldesarra/pixelia/pull/1)) |
+| **Letzte Version** | – (noch kein Release; [PR #1](https://github.com/Baldesarra/pixelia/pull/1) mit Hardware-Prüfung und Engine-Prototyp ist in `main`) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
-| **Nächster Schritt** | PR #1 mergen, dann Simulator-Grundgerüst, Repo-Grundgerüst vervollständigen, Web-Flasher → Release 0.1.0 |
+| **Nächster Schritt** | Simulator-Grundgerüst (kopflos, Zeitraffer), Repo-Grundgerüst vervollständigen, Web-Flasher → Release 0.1.0 |
 | **Aktualisiert** | 2026-10-18 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
@@ -66,7 +66,7 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 - [x] Diagnose-Schnittstelle (serielle Befehle) und Leistungsmonitor (Zeile alle 2 s)
 - [x] Hilfsskripte `tools/monitor.ps1` und `tools/flash.ps1` (Log mitlesen ohne Interaktion, Backtrace-Dekodierung)
 - [x] 180°-Drehung des Bildes (ohne Mehrlast), Touch passend gedreht
-- [ ] Simulator-Grundgerüst (SDL, Kopflos-Screenshot)
+- [ ] Simulator-Grundgerüst (SDL, Kopflos-Screenshot, Zeitraffer als Grundlage für den Langzeit-Test)
 - [x] Partitionstabelle, Bootloader-Rollback aktiviert, Core-Dump (Rollback-Test mit echtem Update in 0.2.x)
 - [ ] Web-Flasher auf GitHub Pages, Erstinstallation per USB
 
@@ -114,7 +114,17 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 - [ ] Touch-Gesten und Einstellungen
 - [ ] Asset-Pipeline (PNG → Palette), `assets/CREDITS.md`, `docs/STIL.md`
 - [ ] Browser-Simulator auf GitHub Pages, Screenshots im Pull Request
+- [ ] **Langzeit-Test** im Simulator (Zeitraffer, Bericht, Blick-Test, Kontaktbogen) und **Inhaltszähler**, automatisch
+      in jedem Welt-PR ([LEBENDIGKEIT.md](LEBENDIGKEIT.md) Kapitel 3)
+- [ ] **Ereignis-Regisseur** als Engine-Baustein (Spannungsbogen, Sperrzeiten, Kontext Tageszeit/Wetter/Jahreszeit)
+- [ ] Gedächtnis-/Beziehungs-Bausteine für Figuren (von allen Welten nutzbar)
 - [ ] Demo-Szene als Test
+
+## Abnahme der Welten
+
+Jede Welt-Phase endet erst, wenn die **Mindestziele aus [LEBENDIGKEIT.md](LEBENDIGKEIT.md) Kapitel 2** erfüllt und per
+Langzeit-Bericht belegt sind. In jeder Welt-Phase wird hier der Stand „Ist → Ziel“ gepflegt. Zu Beginn jeder Welt-Phase
+entsteht der Ideenspeicher `docs/welten/<welt>.md`.
 
 ## 0.6.x – 🚂 Zugfenster
 
@@ -183,3 +193,4 @@ Neue Wünsche des Users landen hier (mit Datum) und werden einer Version zugeord
 | 2026-10-18 | Engine: Bounce-Callback mit SIMD (PIE) beschleunigen oder intern rendern und ins PSRAM kopieren, falls Welten mehr Zeit brauchen | 0.5.x bei Bedarf |
 | 2026-10-18 | RAM: kurzer Einbruch von ~30 KB internem RAM beim Start und beim Anlegen der Engine untersuchen | 0.2.x |
 | 2026-10-18 | Helligkeitskurve vermessen (gleichmäßig wahrgenommene Stufen, kleinster noch leuchtender Wert) | 0.5.x (Nachtmodus) |
+| 2026-10-18 | **Tiefe statt Kulisse:** Welten sollen wirklich leben, mit Features und Ereignissen statt Dauerschleife. Umgesetzt als verbindliche [Lebendigkeits-Charta](LEBENDIGKEIT.md) mit messbaren Zielen (Wunsch des Users) | alle Welten, Abnahmekriterium |
