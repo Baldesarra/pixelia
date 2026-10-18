@@ -417,6 +417,12 @@ Format, ergänzt um ein Datum:
 ]
 ```
 
+> **Erweitert am 18.10.2026** auf Wunsch des Users (ausführliche, technische Changelogs im Stil der
+> PR-Beschreibungen, von 0.1.0 an): zusätzliche Felder `g` (Geprüft, mit Messwerten), `h` (Hinweise) und `pr`
+> (Pull-Request-Nummern). Jeder PR trägt seine Änderungen sofort ein, auch Fixes und während der Entwicklung behobene
+> Probleme. Der oberste Eintrag darf bis zum Release ohne Datum, Titel und Untertitel sein.
+> `tools/release_notes.py --check` prüft das Format in der CI.
+
 - Jeder Stichpunkt beginnt mit dem Bereich: `System`, `Display`, `WLAN`, `Web`, `Update`, `Engine`, `Zug`, `Dorf`,
   `Held`, `Liga`, `Touch` …
 - Experimentelles bekommt „(Vorschau)“ und liegt hinter dem Experimentell-Schalter.
@@ -581,6 +587,19 @@ Badesee, Eiswagen; Frühling → Blüten, Gartenarbeit.
 **Langzeit-Entwicklung:** Das Dorf wächst über Wochen. Neue Häuser werden gebaut (Baustelle über Tage sichtbar),
 Bewohner ziehen ein und aus, Kinder werden älter, Paare finden sich, Läden eröffnen.
 
+**Aufbau-Wirtschaft und Gedächtnis** (ergänzt am 18.10.2026, Wunsch des Users, Ideen aus der Inselwelt):
+
+- Das Dorf baut sich selbst auf. Rohstoffe wie Holz, Stein, Lehm, Nahrung und Werkzeug sind begrenzt und werden von
+  den Bewohnern selbst gewonnen, transportiert und gelagert (Holzfäller, Steinbruch, Felder, Werkstätten).
+- Bauprojekte verbrauchen Material exakt. Fehlt Material, ruht die Baustelle sichtbar, bis Nachschub kommt.
+- **Neue Bewohner ziehen nur ein, wenn Wohnraum da ist:** Wachstum heißt, Häuser zu bauen.
+- Lager haben eine Kapazität. Bestände sind im Bild sichtbar (Holzstapel, Säcke, Kisten) und in der Weboberfläche genau
+  einsehbar.
+- Zuverlässiges Gedächtnis: Bestände, angefangene Bauprojekte, Besuche und Ereignisse bleiben exakt erhalten, auch über
+  Neustarts ([LEBENDIGKEIT.md](LEBENDIGKEIT.md), Regel 10).
+- Kein Pflichtspiel: Das Dorf gerät nicht in Not, nur weil niemand hinschaut oder das Gerät aus war.
+- Vor dem Bau gibt es **mehrere Darstellungs-Vorschläge** als Simulator-Mockups (siehe Perspektive oben).
+
 **Kamera:** Rundgang (gleitet langsam durchs Dorf), Ereignis-Fokus (schwenkt zu Hochzeit, Brand, Fest), „Folge
 Bewohner X“, fest.
 
@@ -627,7 +646,25 @@ umbenennen, **eigenen Bewohner erstellen**, geheime Aktion (UFO).
 - **Weboberfläche:** Tabelle, Spielplan, Ergebnisse, Liveticker, Kader und Statistiken, Historie.
 - **Touch:** Spieler antippen → Name und Werte; Scoreboard antippen → zum Spiel wechseln.
 
-### 6.5 Spätere Ideen (nicht eingeplant)
+### 6.5 Inselwelt (eingeplant, Position offen) – „Ein Zuhause, das eine Geschichte bekommt“
+
+Aufgenommen am 18.10.2026 auf Wunsch des Users. Rohkonzept: [welten/inselwelt-konzept.md](welten/inselwelt-konzept.md).
+
+- **Eigenständige, ruhige und gemütliche („cozy“) Welt.** Gemütlichkeit ist ausdrücklich wichtig. Sie gehört nicht zum
+  Pixelia-Universum, Verbindungen höchstens später und optional.
+- Ein Bewohner baut Haus, Garten und Boot, später Hühner- und Kuhstall und einen Hofladen. Dazu eine Katze, die
+  zutraulich wird, und wenige wiederkehrende Bekanntschaften. Natur, Handwerk, Alltag, keine Magie, keine Pflichten für
+  den Betrachter.
+- **Zuverlässiges Gedächtnis ist der Kern:** Jede Ware hat einen Bestand und einen Standort. Rezepte und Bauten
+  verbrauchen exakt, angefangene Arbeiten gehen am selben Stand weiter, Besuche und Erinnerungen bleiben. Nichts
+  verdoppelt sich oder verschwindet, auch nicht bei einem Neustart.
+- Das Rohkonzept ist für 320×240 Pixel (2,8") geschrieben. Unser logisches Bild ist mit 400×240 gleich hoch und breiter,
+  die Nahansichten passen also gut. Trotzdem wird die Darstellung für 5" neu geplant, mit mehreren Vorschlägen.
+- Vor der Umsetzung: gemeinsame Überarbeitung des Konzepts, eigene Mindestziele in LEBENDIGKEIT.md, Ideenspeicher.
+- **Offen:** Ob Inselwelt, Pixel-Dorf oder Dungeon-Held der Schwerpunkt der Software wird, entscheiden wir gemeinsam vor
+  Beginn von 0.6.0. Danach richtet sich auch die Position der Inselwelt in der Roadmap.
+
+### 6.6 Spätere Ideen (nicht eingeplant)
 
 Weitere Welten als Module: Aquarium, Raumstation, Ameisenfarm, Leuchtturm am Meer, Bauernhof, Wetterstation-Ansicht,
 Uhr/Kalender-Overlay. Sammelt sich in [ROADMAP.md](ROADMAP.md) im Backlog.
@@ -847,3 +884,9 @@ unsere Paletten um. Details: 4.7.
 | 2026-10-18 | Task-Watchdog löst einen Neustart aus (Panic, 10 s) | Ein Hänger im Probelauf führt so zum automatischen Rückfall; Normalbetrieb bleibt nicht hängen |
 | 2026-10-18 | Selbsttest im Probelauf: mindestens 60 s Panel ≥ 50 Hz und Engine ≥ 20 fps, WLAN verbunden oder Setup-Modus; nach 120 s ohne Erfolg Rückfall. Grund und Absturzstelle werden für die alte Version im NVS gemerkt | konkretisiert Kapitel 4.10, alle drei Rückfall-Wege am Gerät getestet |
 | 2026-10-18 | mDNS als Fremdkomponente `espressif/mdns` 1.14 (Component Registry, Version in `firmware/dependencies.lock`); eigener JSON-Schreiber statt cJSON | mDNS gehört seit ESP-IDF 5 nicht mehr zum Kern; cJSON fehlt in ESP-IDF 6.1, der Bedarf ist klein |
+| 2026-10-18 | **Inselwelt** als weitere Welt eingeplant (cozy, eigenständig, 6.5), Position offen; Rohkonzept in `docs/welten/` | Wunsch des Users: viel Tiefe und Gemütlichkeit |
+| 2026-10-18 | **Entscheidung über die Hauptwelt** (Inselwelt, Pixel-Dorf oder Dungeon-Held) gemeinsam vor Beginn 0.6.0; bis dahin bleibt das Dorf Schwerpunkt | Der User ist unsicher und will das planen und diskutieren |
+| 2026-10-18 | **Zuverlässiges Gedächtnis** als Regel 10 der Lebendigkeits-Charta, mit Bilanz-Test | exakte Bestände, angefangene Arbeiten, Besuche (Wunsch des Users, vor allem für die Inselwelt, aber für alle Welten) |
+| 2026-10-18 | Pixel-Dorf als **Aufbau-Wirtschaft** mit begrenzten Rohstoffen, exaktem Materialverbrauch und Wohnraum als Voraussetzung für Zuzug (6.2) | Wunsch des Users, Ideen aus der Inselwelt |
+| 2026-10-18 | **Systemschrift aus 0.2.0 bleibt** Grundschrift der System-Oberfläche und Ausgangspunkt für den Stil-Leitfaden | gefällt dem User |
+| 2026-10-18 | **Changelog erweitert** um `g` (Geprüft), `h` (Hinweise), `pr`; jeder PR trägt sofort ein; Format-Prüfung in der CI; 0.1.0 und 0.2.0 nachgetragen (4.11) | Wunsch des Users nach ausführlichen technischen Changelogs von 0.1.0 an, später im Versionsverlauf der Oberfläche |
