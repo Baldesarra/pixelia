@@ -15,12 +15,22 @@ Material 3 Expressive Design und Updates über GitHub.
 
 ## Sitzungen und Nutzungslimit
 
-- Eine Sitzung pro Phase, Patches der Phase laufen darin weiter.
-- Neue Sitzung nur bei Phasenwechsel oder ab ca. 300 K Kontext.
-- Einarbeitung schlank: CLAUDE.md, ROADMAP „Aktueller Stand“, docs/CODEMAP.md; weitere Doku und Code nur gezielt lesen.
-- Am Ende einer Phase CODEMAP und ROADMAP aktualisieren und die nächste Phase als Sitzungs-Karte mit schlankem Auftrag
-  vorschlagen.
-- Denkstufe normal „high“, „xhigh“ nur für knifflige Aufgaben nach Absprache mit dem User.
+Ablauf für den User: [docs/ARBEITSWEISE.md](docs/ARBEITSWEISE.md). Kosten entstehen pro Schritt: Jeder Schritt liest
+den ganzen Verlauf neu (0.2.2: 634 Schritte, 740 K Kontext, ein komplettes 5-Stunden-Limit). Daher:
+
+- **Eine Arbeits-Sitzung pro Version** (0.2.3, 0.2.4 …), frisch gestartet. Der Planungs-Chat („Masterplan“) baut nicht.
+- **Obergrenze ca. 250 K Kontext.** Darüber: Übergabe schreiben (siehe unten), User startet eine neue Sitzung.
+  Große Versionen lieber in zwei Patches teilen.
+- Einarbeitung schlank: CLAUDE.md, ROADMAP „Aktueller Stand“, docs/CODEMAP.md. PROJEKTPLAN, LEBENDIGKEIT und Code
+  nur abschnittsweise lesen (Grep/offset), keine Datei zweimal komplett.
+- Sparsam arbeiten: Builds und Logs nur über die Filter-Skripte, Screenshots nur zur Sichtprüfung, zusammengehörige
+  Änderungen in wenigen Edits bündeln, nicht nach jeder Kleinigkeit neu bauen.
+- **Übergabe** (am Ende jeder Version oder bei der Obergrenze): ROADMAP „Aktueller Stand“ mit offenen Punkten,
+  CHANGELOG, CODEMAP bei neuen Modulen. Das Repo ist das Gedächtnis, nicht der Chatverlauf. Dem User zum Schluss den
+  Auftrag für die nächste Sitzung als kopierbaren Textblock geben (Vorlage in ARBEITSWEISE.md).
+- Arbeits-Sitzungen melden sich nicht beim Planungs-Chat; der User sagt dort kurz Bescheid.
+- Denkstufe „high“. „xhigh“ nur nach ausdrücklicher Ansage an den User (Engine-Kern, Simulations-Design, harte
+  Timing-/Speicherfehler); dann im Auftrag in der ersten Zeile vermerken.
 
 ## Zusammenarbeit
 

@@ -1,5 +1,17 @@
 [
   {
+    "v": "0.3.0",
+    "d": "",
+    "t": "",
+    "s": "",
+    "i": [
+      "Doku: Arbeitsweise mit Claude in docs/ARBEITSWEISE.md: Planungs-Chat und Arbeits-Sitzungen getrennt, eine frische Sitzung pro Version, Obergrenze ca. 250 K Kontext mit Übergabe über das Repo (ROADMAP, CHANGELOG, CODEMAP), Auftragsvorlage, Denkstufe „Hoch“ als Normalfall und „Extra Hoch“ nur auf ausdrückliche Ansage. Anlass: Die 0.2.2-Sitzung brauchte 634 Schritte bei bis zu 740 K Kontext (rund 318 Mio. gelesene Token) und damit ein ganzes 5-Stunden-Limit",
+      "Doku: CLAUDE.md, Abschnitt „Sitzungen und Nutzungslimit“ entsprechend neu gefasst (Sitzung pro Version statt pro Phase, sparsames Lesen und Bauen)",
+      "Doku: 0.3.x in der Roadmap in drei Patches aufgeteilt (0.3.0 Grundgerüst, 0.3.1 Seiten, 0.3.2 System und Schutz), damit jede Arbeits-Sitzung klein bleibt"
+    ],
+    "pr": []
+  },
+  {
     "v": "0.2.2",
     "d": "2026-10-19",
     "t": "Fernwartung",

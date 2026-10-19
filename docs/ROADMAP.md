@@ -11,7 +11,7 @@
 | **Letzte Version** | 0.2.2 „Fernwartung“ (2026-10-19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.2.2) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
-| **Nächster Schritt** | 0.3.x Weboberfläche (Svelte, M3 Expressive) in einer neuen Sitzung |
+| **Nächster Schritt** | 0.3.0 Weboberfläche: Grundgerüst (Svelte, M3 Expressive), frische Arbeits-Sitzung, Denkstufe Hoch |
 | **Aktualisiert** | 2026-10-19 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
@@ -135,15 +135,22 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 
 ## 0.3.x – Weboberfläche
 
+Aufgeteilt in drei Patches, je eine Arbeits-Sitzung (siehe [ARBEITSWEISE.md](ARBEITSWEISE.md)). Denkstufe: Hoch.
+
+**0.3.0 Grundgerüst**
 - [ ] Svelte-Projekt, Build in CI, gzip-Einbettung in die Firmware
 - [ ] M3-Expressive-Komponentenbibliothek (Tokens, Formen, Bewegung, dynamische Farben, hell/dunkel)
 - [ ] Offline-Schriften und -Icons (reduziert)
-- [ ] Navigation (Handy + Desktop)
-- [ ] Seiten: Übersicht, Info, Hardware, WLAN (Scan, Signalbalken), Verbundene Geräte, System
+- [ ] Navigation (Handy + Desktop) und Seite Übersicht
+
+**0.3.1 Seiten**
+- [ ] Seiten: Info, Hardware, WLAN (Scan, Signalbalken), Verbundene Geräte, System
+- [ ] Live-Log als Seite in der Oberfläche (Schnittstellen `/ws/log` und `/api/log` gibt es seit 0.2.2)
+
+**0.3.2 System und Schutz**
 - [ ] Neustart, Werksreset, Einstellungen exportieren/importieren
 - [ ] PIN/Passwort optional (Standard aus), schützt dann auch `/api/cmd` und das Löschen des Absturzberichts
       (Prüfstelle seit 0.2.2 vorgesehen)
-- [ ] Live-Log als Seite in der Oberfläche (Schnittstellen `/ws/log` und `/api/log` gibt es seit 0.2.2)
 
 ## 0.4.x – Updates & Diagnose
 
