@@ -1,13 +1,31 @@
+# Weboberfläche (web/, Svelte): tools/web_embed.py baut sie bei Bedarf und erzeugt web_assets.cpp (gzip-Daten)
+set(PIXELIA_WEB_DIR "${CMAKE_CURRENT_LIST_DIR}/../../web")
+set(PIXELIA_WEB_ASSETS "${CMAKE_CURRENT_BINARY_DIR}/web_assets.cpp")
+
 idf_component_register(
     SRCS "main.cpp" "sysinfo.cpp" "hwtest.cpp" "gfx.cpp" "perf.cpp" "console.cpp"
          "settings.cpp" "wifi.cpp" "captive_dns.cpp" "timesync.cpp" "web.cpp" "web_diag.cpp" "ota.cpp"
-         "input.cpp" "logbuf.cpp" "diag.cpp" "json.cpp"
+         "input.cpp" "logbuf.cpp" "diag.cpp" "json.cpp" "${PIXELIA_WEB_ASSETS}"
     INCLUDE_DIRS "."
     EMBED_TXTFILES "web/setup.html"
     REQUIRES board engine
     PRIV_REQUIRES esp_driver_uart esp_driver_i2c esp_psram esp_timer spi_flash app_update esp_app_format
                   espcoredump esp_partition bootloader_support esp_bootloader_format nvs_flash esp_wifi esp_netif
                   esp_event esp_http_server lwip esp_mm hal)
+
+if(NOT CMAKE_BUILD_EARLY_EXPANSION)
+file(GLOB_RECURSE _web_src CONFIGURE_DEPENDS "${PIXELIA_WEB_DIR}/src/*")
+file(GLOB _web_dist CONFIGURE_DEPENDS "${PIXELIA_WEB_DIR}/dist/*")
+idf_build_get_property(_python PYTHON)
+add_custom_command(
+    OUTPUT "${PIXELIA_WEB_ASSETS}"
+    COMMAND "${_python}" "${CMAKE_CURRENT_LIST_DIR}/../../tools/web_embed.py"
+            --web "${PIXELIA_WEB_DIR}" --out "${PIXELIA_WEB_ASSETS}"
+    DEPENDS ${_web_src} ${_web_dist} "${PIXELIA_WEB_DIR}/index.html" "${PIXELIA_WEB_DIR}/vite.config.ts"
+            "${PIXELIA_WEB_DIR}/package.json" "${CMAKE_CURRENT_LIST_DIR}/../../tools/web_embed.py"
+    COMMENT "Weboberfläche einbetten"
+    VERBATIM)
+endif()
 
 # Testvarianten für den Rollback-Test, nur lokal: idf.py -B build-test -DPIXELIA_TEST=crash|hang|selftest build
 # crash = Absturz 20 s nach dem Start im Probelauf, hang = Hänger (Watchdog), selftest = Selbsttest scheitert,

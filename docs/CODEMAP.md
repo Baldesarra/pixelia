@@ -1,6 +1,6 @@
 # Pixelia – Code-Landkarte
 
-> Kurzer Wegweiser durch den Code (Stand 0.2.2). Wer neu einsteigt, liest hier, statt den halben Code zu öffnen.
+> Kurzer Wegweiser durch den Code (Stand 0.3.0). Wer neu einsteigt, liest hier, statt den halben Code zu öffnen.
 > Begründungen stehen in [PROJEKTPLAN.md](PROJEKTPLAN.md), Messwerte und Schnittstellen im Detail in
 > [HARDWARE.md](HARDWARE.md). Am Ende jeder Phase aktualisieren.
 
@@ -11,7 +11,8 @@
 | `engine/` | Plattformunabhängige Engine (Gerät **und** Simulator), keine ESP-IDF-Header. Namensraum `pixelia` |
 | `firmware/` | ESP-IDF-Projekt: `main/` (App), `components/board/` (Display, Touch, Hintergrundbeleuchtung) |
 | `sim/` | PC-Simulator (SDL3-Fenster oder kopflos), Selbsttests `--test` |
-| `worlds/`, `web/`, `assets/` | noch leer bzw. README (Welten ab 0.5/0.6, Svelte-Oberfläche ab 0.3) |
+| `web/` | Weboberfläche: Svelte 5 + TypeScript + Vite, eigene M3-Expressive-Komponenten (siehe unten) |
+| `worlds/`, `assets/` | noch leer bzw. README und Credits (Welten ab 0.5/0.6) |
 | `tools/` | PowerShell-Werkzeuge für Build, Flashen, Log, Updates, Abstürze (siehe unten) |
 | `pages/` | Web-Flasher auf GitHub Pages (ESP Web Tools) |
 | `docs/` | Projektplan, Roadmap, Hardware, Lebendigkeit, diese Landkarte, `welten/` |
@@ -54,14 +55,31 @@ Webserver → Selbsttest (nur im Probelauf).
 | `captive_dns.cpp` | Mini-DNS fürs Captive Portal (nur im Setup-WLAN) |
 | `timesync.cpp` | Zeitzone Europa/Berlin, NTP |
 | `ota.cpp/.h` | Update-Upload mit Prüfung, Probelauf mit Selbsttest, Rückfall-Erkennung, Testvarianten (`PIXELIA_TEST`) |
-| `web.cpp` | Webserver: Einrichtungsseite, Status-JSON, WLAN, Einstellungen, Update, Captive Portal, WebSocket `/ws` |
+| `web.cpp` | Webserver: Oberfläche (`/`, Dateien aus `web_assets.h`, ETag), Einrichtungsseite (`/setup`, im Setup-Modus `/`), Status-JSON, WLAN, Einstellungen, Update, Captive Portal, WebSocket `/ws` |
+| `web_assets.h` | Tabelle der eingebetteten Oberflächen-Dateien; `web_assets.cpp` erzeugt `tools/web_embed.py` beim Build im Build-Ordner |
 | `web_diag.cpp` | Fernwartung: `/api/log`, `/ws/log`, `/api/cmd`, `/api/perf`, `/api/resets`, `/api/coredump*`, `/api/diag` |
 | `web_internal.h` | gemeinsame Web-Hilfen (`send_json`, `form_value`, `authorized` = PIN-Prüfstelle) |
 | `json.cpp/.h` | kleiner JSON-Schreiber (bewusst nicht inline: Codegröße) |
-| `web/setup.html` | Einrichtungsseite (eingebettet), Abfrage per WebSocket bzw. alle 2 s |
+| `web/setup.html` | schlanke Einrichtungsseite (eingebettet, ohne Build-Schritt), Abfrage per WebSocket bzw. alle 2 s |
 
 `components/board/`: `display.*` (RGB-Panel ohne Bildspeicher, Bounce-Buffer-Callback mit Palette + 2×, Doppelpuffer,
 Zähler für Interrupt-Last und Aussetzer), `touch_gt911.*`, `backlight.*` (LEDC 200 Hz), `pins.h`.
+
+## Weboberfläche (`web/`)
+
+Build: `npm run build` → `web/dist` (feste Namen `index.html`, `app.js`, `app.css`, Schrift). Der Firmware-Build ruft
+`tools/web_embed.py` auf: baut bei Bedarf neu, gzip, erzeugt `web_assets.cpp`. Entwicklung: `npm run dev` (Proxy aufs
+Gerät, `PIXELIA_TARGET`), `npm run mock` (ohne Gerät, Beispielwerte), `npm run check` (Typen, läuft in der CI).
+
+| Datei | Aufgabe |
+|---|---|
+| `src/main.ts`, `src/App.svelte` | Start, Rahmen: Navigation, obere Leiste, Hash-Routen (`#/`, `#/darstellung`) |
+| `src/pages/` | Seiten: `Overview.svelte` (Übersicht), `Appearance.svelte` (Darstellung) |
+| `src/lib/status.svelte.ts` | Live-Status: WebSocket `/ws`, Rückfall auf `/api/status`, Typ `Status` (= `status_json()` in web.cpp) |
+| `src/lib/format.ts`, `Logo.svelte` | Anzeige-Hilfen (Zahlen, Dauer, Signal), Pixelia-Zeichen |
+| `src/lib/m3/` | M3-Expressive-Bibliothek: `tokens.css` (Formen, Typo, Federn), `theme.svelte.ts` (dynamische Farben), `Button`, `IconButton`, `ButtonGroup`, `Card`, `Chip`, `Navigation`, `WavyProgress`, `CircularProgress`, `LoadingIndicator`, `shapes.ts`, `Icon` |
+| `src/lib/m3/icon-names.ts` | Liste der benutzten Material Symbols; nur diese bettet das Vite-Plugin in `vite.config.ts` ein |
+| `src/assets/roboto-flex-pixelia.woff2` | reduzierte Schrift (aus `tools/font_subset.py`, im Repo) |
 
 ## Tasks und Kerne
 
@@ -110,8 +128,11 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
 | `flash.ps1`, `monitor.ps1` (+ `serial_log.py`) | USB: Erstinstallation, serielles Log |
 | `sim.ps1` | Simulator bauen und starten (`-Headless`) |
 | `release_notes.py` | CHANGELOG.json prüfen (`--check`) und Release-Notes erzeugen |
+| `web_embed.py` | Oberfläche für die Firmware einbetten (läuft im Firmware-Build) |
+| `web_screens.mjs` | Screenshots der Oberfläche (Handy/Desktop, hell/dunkel) per Edge kopflos, `--url http://pixelia` fürs Gerät |
+| `font_subset.py` | Roboto Flex reduzieren (nur bei neuen Zeichen, braucht `pip install fonttools brotli`) |
 
 ## CI (`.github/workflows/`)
 
-`firmware.yml` (Build, Größenbudget), `simulator.yml` (Linux-Build, Selbsttests, Screenshots), `release.yml`
-(Tag `vX.Y.Z` → Release mit `.bin`, Factory-Image, `.elf`, Notes), `pages.yml` (Web-Flasher nach jedem Release).
+`firmware.yml` (Job `web`: Oberfläche bauen und prüfen; dann Firmware-Build, Größenbudget), `simulator.yml` (Linux-Build, Selbsttests, Screenshots), `release.yml`
+(ebenfalls mit Job `web`; Tag `vX.Y.Z` → Release mit `.bin`, Factory-Image, `.elf`, Notes), `pages.yml` (Web-Flasher nach jedem Release).

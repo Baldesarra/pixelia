@@ -4,7 +4,22 @@
     "d": "",
     "t": "",
     "s": "",
+    "n": [
+      "Web: Neue Weboberfläche unter http://pixelia/ mit Svelte 5, TypeScript und Vite, komplett offline und gzip in die Firmware eingebettet (4 Dateien, 89 KB)",
+      "Web: Eigene M3-Expressive-Bibliothek: Tokens für Formen, Typografie und Federbewegungen, Buttons mit Form-Morphing, Button-Gruppe, Karten, Chips, Icon-Buttons",
+      "Web: Wellige Fortschrittsanzeigen (linear und kreisförmig) und die morphende Ladeanzeige aus M3 Expressive, als SVG ohne Fremdbibliothek",
+      "Web: Dynamische Farben aus einer Akzentfarbe (Material Color Utilities, Spezifikation 2025), drei Farbstile, hell/dunkel/System; die Wahl speichert der Browser",
+      "Web: Navigation unten als Leiste (Handy) bzw. ab 600 px Breite als Schiene links (Desktop), Seiten per Hash-Route",
+      "Web: Seite Übersicht: Version, Laufzeit, fps, Bildzeit, CPU je Kern, RAM und PSRAM, WLAN mit Signalbalken, Neustart-Grund, Fehlerzähler, Hinweise zu Update, Probelauf, Rückfall und Absturz",
+      "Web: Live-Werte über den WebSocket /ws (1/s), Rückfall auf Abfrage von /api/status, Neuverbindung mit 2–15 s Abstand; nach 60 s im Hintergrund wird die Verbindung geschlossen",
+      "Web: Seite Darstellung mit Farbwahl und Vorschau aller Komponenten",
+      "Web: Schrift Roboto Flex reduziert auf 135 Zeichen und die Achsen Stärke und Breite (33 KB statt 250 KB, tools/font_subset.py), Icons nur die 23 benutzten Material Symbols",
+      "Web: Dateien mit ETag (Inhalts-Hash) und no-cache: der Browser fragt nach und bekommt nach einem Update sofort die neuen Dateien, sonst nur 304",
+      "Web: Die Einrichtungsseite bleibt unter /setup und im Setup-Modus unter / (Captive Portal), mit Link zurück zur Übersicht",
+      "Werkzeuge: tools/web_embed.py baut die Oberfläche beim Firmware-Build bei Bedarf neu (npm) und erzeugt web_assets.cpp; npm run mock zeigt sie ohne Gerät; tools/web_screens.mjs macht Screenshots"
+    ],
     "i": [
+      "CI: Eigener Job baut die Oberfläche (npm ci, svelte-check, Build, Größenprüfung: Warnung ab 150 KB, Fehler ab 400 KB) und reicht web/dist an den Firmware-Build weiter",
       "Doku: Arbeitsweise mit Claude (docs/ARBEITSWEISE.md): Planungs-Chat und eine frische Arbeits-Sitzung pro Version mit Übergabe übers Repo. Anlass: 0.2.2 verbrauchte ein ganzes Nutzungslimit",
       "Doku: CLAUDE.md mit neuen Regeln für Sitzungen, Übergabe und Protokoll; ROADMAP „Aktueller Stand“ mit Zeile „Offen“",
       "Doku: Changelog kürzer: höchstens 220 Zeichen pro Stichpunkt und 24 Stichpunkte pro Version, release_notes.py --check prüft das ab 0.2.1",
@@ -12,7 +27,15 @@
       "Doku: 0.3.x in drei Patches aufgeteilt (0.3.0 Grundgerüst, 0.3.1 Seiten, 0.3.2 System und Schutz)",
       "Doku: Inselwelt: Idee einer Lagerübersicht in der Weboberfläche aufgenommen"
     ],
-    "pr": [12]
+    "f": [
+      "Web: Abgebrochene WebSocket-Verbindungen (Browser hart geschlossen, Handy schläft) erzeugten je eine Warnung von httpd_ws und trieben den Warnungszähler hoch; jetzt nur noch Fehler"
+    ],
+    "g": [
+      "Gerät: Oberfläche per WLAN-Update installiert, Selbsttest bestanden; Seiten laden in je ~0,1 s (app.js 53,7 KB gzip), ETag liefert 304, /setup weiter erreichbar",
+      "Gerät: Mit offener Oberfläche (Live-WebSocket, 16 Seitenaufrufe) 29,8–30,3 fps, Zeichnen höchstens 6,4 ms, 0 Aussetzer, interner RAM-Tiefstwert 113 KB",
+      "Gerät: Firmware 1261 KB = 21 % der App-Partition; Setup-Modus nicht am Gerät geprüft (Code-Pfad unverändert die bisherige Einrichtungsseite)"
+    ],
+    "pr": [12, 13]
   },
   {
     "v": "0.2.2",

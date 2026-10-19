@@ -1,0 +1,112 @@
+/* M3 Expressive: Design-Tokens (Formen, Typografie, Bewegung, Höhen). Farben setzt theme.svelte.ts zur Laufzeit. */
+
+@font-face {
+  font-family: 'Roboto Flex';
+  src: url('../../assets/roboto-flex-pixelia.woff2') format('woff2');
+  font-weight: 300 900;
+  font-stretch: 75% 125%;
+  font-display: swap;
+}
+
+:root {
+  /* Formen: Eckenradien laut M3-Expressive-Skala */
+  --md-sys-shape-corner-none: 0;
+  --md-sys-shape-corner-extra-small: 4px;
+  --md-sys-shape-corner-small: 8px;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-large-increased: 20px;
+  --md-sys-shape-corner-extra-large: 28px;
+  --md-sys-shape-corner-extra-large-increased: 32px;
+  --md-sys-shape-corner-extra-extra-large: 48px;
+  --md-sys-shape-corner-full: 9999px;
+
+  /* Bewegung: Federn (Dämpfung/Steifigkeit wie M3 Expressive), als linear()-Kurven vorberechnet */
+  --md-sys-motion-spring-fast-spatial: linear(0, 0.072, 0.238, 0.44, 0.638, 0.806, 0.934, 1.021, 1.071, 1.092, 1.093, 1.081, 1.063, 1.044, 1.026, 1.012, 1.002, 0.995, 0.992, 0.991, 0.992, 0.993, 0.995, 0.997, 1);
+  --md-sys-motion-spring-fast-spatial-duration: 350ms;
+  --md-sys-motion-spring-default-spatial: linear(0, 0.066, 0.213, 0.383, 0.546, 0.685, 0.796, 0.878, 0.935, 0.973, 0.996, 1.008, 1.014, 1.015, 1.014, 1.012, 1.009, 1.007, 1.005, 1.003, 1.002, 1.001, 1, 1, 1);
+  --md-sys-motion-spring-default-spatial-duration: 500ms;
+  --md-sys-motion-spring-slow-spatial: linear(0, 0.06, 0.194, 0.354, 0.511, 0.649, 0.761, 0.848, 0.912, 0.956, 0.985, 1.002, 1.011, 1.015, 1.015, 1.014, 1.011, 1.009, 1.007, 1.005, 1.003, 1.002, 1.001, 1.001, 1);
+  --md-sys-motion-spring-slow-spatial-duration: 650ms;
+  --md-sys-motion-spring-fast-effects: linear(0, 0.181, 0.456, 0.672, 0.813, 0.897, 0.945, 0.971, 0.985, 0.992, 0.996, 0.998, 1);
+  --md-sys-motion-spring-fast-effects-duration: 150ms;
+  --md-sys-motion-spring-default-effects: linear(0, 0.144, 0.385, 0.594, 0.745, 0.845, 0.908, 0.947, 0.969, 0.983, 0.99, 0.995, 1);
+  --md-sys-motion-spring-default-effects-duration: 200ms;
+
+  /* Kurzformen für Übergänge */
+  --m3-spatial-fast: var(--md-sys-motion-spring-fast-spatial-duration) var(--md-sys-motion-spring-fast-spatial);
+  --m3-spatial: var(--md-sys-motion-spring-default-spatial-duration) var(--md-sys-motion-spring-default-spatial);
+  --m3-spatial-slow: var(--md-sys-motion-spring-slow-spatial-duration) var(--md-sys-motion-spring-slow-spatial);
+  --m3-effects-fast: var(--md-sys-motion-spring-fast-effects-duration) var(--md-sys-motion-spring-fast-effects);
+  --m3-effects: var(--md-sys-motion-spring-default-effects-duration) var(--md-sys-motion-spring-default-effects);
+
+  /* Typografie: Roboto Flex, Achsen wght und wdth; „emph“ = betonte Variante (M3 Expressive) */
+  --md-ref-typeface: 'Roboto Flex', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --md-sys-typescale-display-large: 400 57px/64px var(--md-ref-typeface);
+  --md-sys-typescale-display-medium: 400 45px/52px var(--md-ref-typeface);
+  --md-sys-typescale-display-small: 400 36px/44px var(--md-ref-typeface);
+  --md-sys-typescale-headline-large: 400 32px/40px var(--md-ref-typeface);
+  --md-sys-typescale-headline-medium: 400 28px/36px var(--md-ref-typeface);
+  --md-sys-typescale-headline-small: 400 24px/32px var(--md-ref-typeface);
+  --md-sys-typescale-title-large: 400 22px/28px var(--md-ref-typeface);
+  --md-sys-typescale-title-medium: 500 16px/24px var(--md-ref-typeface);
+  --md-sys-typescale-title-small: 500 14px/20px var(--md-ref-typeface);
+  --md-sys-typescale-body-large: 400 16px/24px var(--md-ref-typeface);
+  --md-sys-typescale-body-medium: 400 14px/20px var(--md-ref-typeface);
+  --md-sys-typescale-body-small: 400 12px/16px var(--md-ref-typeface);
+  --md-sys-typescale-label-large: 500 14px/20px var(--md-ref-typeface);
+  --md-sys-typescale-label-medium: 500 12px/16px var(--md-ref-typeface);
+  --md-sys-typescale-label-small: 500 11px/16px var(--md-ref-typeface);
+
+  /* Höhen (Schatten) */
+  --md-sys-elevation-1: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 3px 1px rgb(0 0 0 / 0.15);
+  --md-sys-elevation-2: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px 2px rgb(0 0 0 / 0.15);
+  --md-sys-elevation-3: 0 4px 8px 3px rgb(0 0 0 / 0.15), 0 1px 3px rgb(0 0 0 / 0.3);
+
+  /* Zustandsebenen (Deckkraft) */
+  --md-sys-state-hover: 0.08;
+  --md-sys-state-focus: 0.1;
+  --md-sys-state-pressed: 0.1;
+
+  /* Ersatzfarben, bis theme.svelte.ts die dynamischen Farben setzt */
+  --md-sys-color-surface: Canvas;
+  --md-sys-color-on-surface: CanvasText;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --m3-spatial-fast: 1ms linear;
+    --m3-spatial: 1ms linear;
+    --m3-spatial-slow: 1ms linear;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+  font: var(--md-sys-typescale-body-medium);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  color: var(--md-sys-color-primary);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 3px solid var(--md-sys-color-secondary);
+  outline-offset: 2px;
+}

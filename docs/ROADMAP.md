@@ -7,12 +7,12 @@
 
 | | |
 |---|---|
-| **Phase** | 0.2.x Vernetzt **abgeschlossen**: 0.2.2 „Fernwartung“ veröffentlicht und am Gerät installiert |
+| **Phase** | 0.3.x Weboberfläche: 0.3.0 „Grundgerüst“ gebaut und am Gerät geprüft (30 fps, RAM ≥ 113 KB), PR #13 offen |
 | **Letzte Version** | 0.2.2 „Fernwartung“ (2026-10-19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.2.2) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
-| **Nächster Schritt** | 0.3.0 Weboberfläche: Grundgerüst (Svelte, M3 Expressive), frische Arbeits-Sitzung, Denkstufe Hoch |
-| **Offen** | Planungs-Chat: Hauptwelt vor 0.6.0 festlegen; Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
+| **Nächster Schritt** | PR #13 mergen, Release v0.3.0; danach 0.3.1 Seiten (frische Sitzung) |
+| **Offen** | Setup-Modus mit neuer Firmware einmal am Gerät ansehen (Captive Portal); Planungs-Chat: Hauptwelt vor 0.6.0 festlegen; Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
 | **Aktualisiert** | 2026-10-19 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
@@ -139,10 +139,10 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 Aufgeteilt in drei Patches, je eine Arbeits-Sitzung (siehe [ARBEITSWEISE.md](ARBEITSWEISE.md)). Denkstufe: Hoch.
 
 **0.3.0 Grundgerüst**
-- [ ] Svelte-Projekt, Build in CI, gzip-Einbettung in die Firmware
-- [ ] M3-Expressive-Komponentenbibliothek (Tokens, Formen, Bewegung, dynamische Farben, hell/dunkel)
-- [ ] Offline-Schriften und -Icons (reduziert)
-- [ ] Navigation (Handy + Desktop) und Seite Übersicht
+- [x] Svelte-Projekt, Build in CI, gzip-Einbettung in die Firmware (89 KB, Firmware 1261 KB = 21 % der Partition)
+- [x] M3-Expressive-Komponentenbibliothek (Tokens, Formen, Bewegung, dynamische Farben, hell/dunkel)
+- [x] Offline-Schriften und -Icons (reduziert: Roboto Flex 33 KB, 23 Material Symbols als SVG-Pfade)
+- [x] Navigation (Handy + Desktop) und Seite Übersicht, dazu Seite Darstellung (Farbwahl, Komponenten-Vorschau)
 
 **0.3.1 Seiten**
 - [ ] Seiten: Info, Hardware, WLAN (Scan, Signalbalken), Verbundene Geräte, System
