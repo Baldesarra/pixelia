@@ -16,7 +16,7 @@
       "Web: Schrift Roboto Flex reduziert auf 135 Zeichen und die Achsen Stärke und Breite (33 KB statt 250 KB, tools/font_subset.py), Icons nur die 23 benutzten Material Symbols",
       "Web: Dateien mit ETag (Inhalts-Hash) und no-cache: der Browser fragt nach und bekommt nach einem Update sofort die neuen Dateien, sonst nur 304",
       "Web: Die Einrichtungsseite bleibt unter /setup und im Setup-Modus unter / (Captive Portal), mit Link zurück zur Übersicht",
-      "Werkzeuge: tools/web_embed.py baut die Oberfläche beim Firmware-Build bei Bedarf neu (npm) und erzeugt web_assets.cpp; npm run mock zeigt sie ohne Gerät mit Beispielwerten"
+      "Werkzeuge: tools/web_embed.py baut die Oberfläche beim Firmware-Build bei Bedarf neu (npm) und erzeugt web_assets.cpp; npm run mock zeigt sie ohne Gerät; tools/web_screens.mjs macht Screenshots"
     ],
     "i": [
       "CI: Eigener Job baut die Oberfläche (npm ci, svelte-check, Build, Größenprüfung: Warnung ab 150 KB, Fehler ab 400 KB) und reicht web/dist an den Firmware-Build weiter",

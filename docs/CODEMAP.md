@@ -129,6 +129,7 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
 | `sim.ps1` | Simulator bauen und starten (`-Headless`) |
 | `release_notes.py` | CHANGELOG.json prüfen (`--check`) und Release-Notes erzeugen |
 | `web_embed.py` | Oberfläche für die Firmware einbetten (läuft im Firmware-Build) |
+| `web_screens.mjs` | Screenshots der Oberfläche (Handy/Desktop, hell/dunkel) per Edge kopflos, `--url http://pixelia` fürs Gerät |
 | `font_subset.py` | Roboto Flex reduzieren (nur bei neuen Zeichen, braucht `pip install fonttools brotli`) |
 
 ## CI (`.github/workflows/`)
