@@ -53,7 +53,7 @@
       "Web: Alles ist nur im Heimnetz erreichbar und ohne PIN; der optionale PIN aus 0.3.x schützt dann /api/cmd und das Löschen des Absturzberichts",
       "System: Testvarianten tragen -test-crash bzw. -test-crash-shift in der Version (auf 31 Zeichen gekürzt) und werden nie veröffentlicht"
     ],
-    "pr": []
+    "pr": [10]
   },
   {
     "v": "0.2.1",
