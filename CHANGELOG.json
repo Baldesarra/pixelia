@@ -27,7 +27,7 @@
       "Doku: 0.3.x in drei Patches aufgeteilt (0.3.0 Grundgerüst, 0.3.1 Seiten, 0.3.2 System und Schutz)",
       "Doku: Inselwelt: Idee einer Lagerübersicht in der Weboberfläche aufgenommen"
     ],
-    "pr": [12]
+    "pr": [12, 13]
   },
   {
     "v": "0.2.2",
