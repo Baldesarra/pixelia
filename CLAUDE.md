@@ -15,12 +15,29 @@ Material 3 Expressive Design und Updates über GitHub.
 
 ## Sitzungen und Nutzungslimit
 
-- Eine Sitzung pro Phase, Patches der Phase laufen darin weiter.
-- Neue Sitzung nur bei Phasenwechsel oder ab ca. 300 K Kontext.
-- Einarbeitung schlank: CLAUDE.md, ROADMAP „Aktueller Stand“, docs/CODEMAP.md; weitere Doku und Code nur gezielt lesen.
-- Am Ende einer Phase CODEMAP und ROADMAP aktualisieren und die nächste Phase als Sitzungs-Karte mit schlankem Auftrag
-  vorschlagen.
-- Denkstufe normal „high“, „xhigh“ nur für knifflige Aufgaben nach Absprache mit dem User.
+Ablauf für den User: [docs/ARBEITSWEISE.md](docs/ARBEITSWEISE.md). Kosten entstehen pro Schritt: Jeder Schritt liest
+den ganzen Verlauf neu (0.2.2: 634 Schritte, 740 K Kontext, ein komplettes 5-Stunden-Limit). Daher:
+
+- **Eine Arbeits-Sitzung pro Version** (0.2.3, 0.2.4 …), frisch gestartet. Der Planungs-Chat („Masterplan“) baut nicht.
+- **Obergrenze ca. 250 K Kontext.** Darüber: Übergabe schreiben (siehe unten), User startet eine neue Sitzung.
+  Große Versionen lieber in zwei Patches teilen.
+- Einarbeitung schlank: CLAUDE.md, ROADMAP „Aktueller Stand“, docs/CODEMAP.md. PROJEKTPLAN, LEBENDIGKEIT und Code
+  nur abschnittsweise lesen (Grep/offset), keine Datei zweimal komplett.
+- Sparsam arbeiten: Builds und Logs nur über die Filter-Skripte, Screenshots nur zur Sichtprüfung, zusammengehörige
+  Änderungen in wenigen Edits bündeln, nicht nach jeder Kleinigkeit neu bauen.
+- **Protokoll im Repo, laufend gepflegt:** ROADMAP = was fertig ist (Häkchen), was in Arbeit ist und was ansteht
+  („Aktueller Stand“ mit Zeile „Offen“, Checklisten, Backlog); CHANGELOG = was umgesetzt ist; PROJEKTPLAN Kapitel 14
+  = Entscheidungen; CODEMAP = wo was im Code liegt. Das Repo ist das Gedächtnis, nicht der Chatverlauf.
+- **Übergabe** (am Ende jeder Version, bei der Obergrenze oder wenn der User „Übergabe“ schreibt): erst den laufenden
+  Arbeitsschritt sauber abschließen (Code baut, nichts halb geändert), dann auf dem Branch committen und pushen,
+  ROADMAP „Aktueller Stand“/„Offen“, CHANGELOG und bei neuen Modulen CODEMAP aktualisieren. Zum Schluss dem User den
+  Auftrag für die nächste Sitzung als kopierbaren Textblock geben (Vorlage in ARBEITSWEISE.md).
+- **Rahmen halten:** Arbeits-Sitzungen setzen den Auftrag innerhalb von PROJEKTPLAN, LEBENDIGKEIT und dieser Datei um.
+  Grundsatzänderungen (Architektur, Umfang, Reihenfolge der Phasen) nicht selbst beschließen, sondern dem User als
+  Punkt für den Planungs-Chat nennen und in ROADMAP „Offen“ notieren.
+- Arbeits-Sitzungen melden sich nicht beim Planungs-Chat; der User sagt dort kurz Bescheid.
+- Denkstufe „high“. „xhigh“ nur nach ausdrücklicher Ansage an den User (Engine-Kern, Simulations-Design, harte
+  Timing-/Speicherfehler); dann im Auftrag in der ersten Zeile vermerken.
 
 ## Zusammenarbeit
 
@@ -75,14 +92,17 @@ Firmware ≤ 75 % der App-Partition (6 MB).
 - Immer drei Stellen `MAJOR.MINOR.PATCH`. **MINOR = Phase/Welt** (0.6.x = Zug, 0.7.x = Dorf, …),
   **PATCH = jede Iteration** (0.6.0 erste Zug-Version, 0.6.1 zweite …). Vorschau-Versionen: `X.Y.Z-beta.N`.
 - Version kommt ausschließlich aus dem Git-Tag `vX.Y.Z`. Kein manuelles `FW_VERSION`.
-- **Der User will ausführliche, technische Changelogs** (Vorbild: die PR-Beschreibungen). Sie erscheinen später im
-  Versionsverlauf der Oberfläche. Deshalb gilt:
+- **Changelog: technisch, aber knapp** (der User fand 0.2.2 mit 40 Stichpunkten zu lang). Er erscheint später im
+  Versionsverlauf der Oberfläche; die ausführlichen Details (Ursachen, alle Messwerte) gehören in die PR-Beschreibung.
+  Deshalb gilt:
   - `CHANGELOG.json` (neuester oben): `{v, d (Datum), t (Titel), s (Untertitel), n: Neu, i: Verbessert, f: Behoben,
     r: Entfernt, g: Geprüft (am Gerät/im Simulator, mit Messwerten), h: Hinweise, pr: [PR-Nummern]}`.
   - **Jeder PR trägt seine Änderungen sofort ein**, auch Fixes, Doku und Werkzeuge, auch Probleme, die während der
     Entwicklung gefunden und behoben wurden. Ist der oberste Eintrag schon veröffentlicht, legt der PR den Eintrag der
     nächsten Version an (`d`, `t`, `s` leer bis zum Release). PR-Nummer in `pr` ergänzen.
-  - Stichpunkte technisch und konkret: Messwerte, Ursachen, Grenzwerte, Schnittstellen. Lieber ein Satz mehr.
+  - Ein Stichpunkt = eine Änderung in einem Satz, **höchstens 220 Zeichen**, mit dem wichtigsten Messwert oder der
+    Schnittstelle. **Höchstens 24 Stichpunkte pro Version**; Kleinigkeiten und Entwicklungsfehler zusammenfassen.
+    Vorbild: Eintrag 0.2.2. `--check` prüft beide Grenzen.
   - Jeder Stichpunkt beginnt mit dem Bereich: `System:`, `Display:`, `WLAN:`, `Web:`, `Update:`, `Engine:`, `Touch:`,
     `Simulator:`, `Doku:`, `Zug:`, `Dorf:`, `Held:`, `Liga:`, `Insel:` …
   - `python tools/release_notes.py --check` prüft das Format (läuft in der CI). Beim Release `d`, `t`, `s` setzen.

@@ -1,59 +1,55 @@
 [
   {
+    "v": "0.3.0",
+    "d": "",
+    "t": "",
+    "s": "",
+    "i": [
+      "Doku: Arbeitsweise mit Claude (docs/ARBEITSWEISE.md): Planungs-Chat und eine frische Arbeits-Sitzung pro Version mit Übergabe übers Repo. Anlass: 0.2.2 verbrauchte ein ganzes Nutzungslimit",
+      "Doku: CLAUDE.md mit neuen Regeln für Sitzungen, Übergabe und Protokoll; ROADMAP „Aktueller Stand“ mit Zeile „Offen“",
+      "Doku: Changelog kürzer: höchstens 220 Zeichen pro Stichpunkt und 24 Stichpunkte pro Version, release_notes.py --check prüft das ab 0.2.1",
+      "Doku: Changelogs 0.2.1 und 0.2.2 gekürzt, die Details stehen weiter in den PR-Beschreibungen",
+      "Doku: 0.3.x in drei Patches aufgeteilt (0.3.0 Grundgerüst, 0.3.1 Seiten, 0.3.2 System und Schutz)",
+      "Doku: Inselwelt: Idee einer Lagerübersicht in der Weboberfläche aufgenommen"
+    ],
+    "pr": [12]
+  },
+  {
     "v": "0.2.2",
     "d": "2026-10-19",
     "t": "Fernwartung",
     "s": "Log, Befehle, Leistung, Neustarts und Absturzberichte per WLAN, Diagnosepaket zum Verschicken vom Handy",
     "n": [
-      "System: Log-Ringpuffer: Jede Log-Zeile geht weiter unverändert auf die serielle Konsole und zusätzlich in einen 256-KB-Ringpuffer im PSRAM (No-Init-Bereich, den der Speichertest beim Start ausspart). Jede Zeile trägt eine fortlaufende Nummer, die Laufzeit in ms, die Uhrzeit und den Startzähler. Der Puffer übersteht Software-Neustarts, Updates, Abstürze und Watchdog-Resets, erst ein Stromausfall löscht ihn. Jede Zeile wird sofort aus dem Write-Back-Cache in den PSRAM zurückgeschrieben, sonst fehlen nach einem Neustart genau die letzten Zeilen. Zwei Köpfe mit Prüfsumme in einer Cache-Zeile; beim Start werden alle Datensätze nachgezählt, Unstimmiges wird abgeschnitten",
-      "System: RTC-Sicherung der letzten 6 KB (feste Adresse 0x50000000) für den Fall, dass der nächste Start eine andere Version ist, bei der der PSRAM-Puffer an anderer Stelle liegt (die Lage verschiebt sich in 64-KB-Schritten mit der Größe von Code und Konstanten): Im Probelauf nach einem Update wird jede Zeile mitgeschrieben (Absturz → Rückfall auf die alte Version), sonst kopiert ein Shutdown-Handler die neuesten Zeilen einmal vor jedem Software-Neustart. Beim Start meldet Pixelia, woher der Puffer kommt („übernommen“, „aus RTC-Sicherung“, „neu“), mit Befund beider Köpfe",
-      "Web: GET /api/log liefert Zeilen aus dem Puffer, inkrementell mit since=<nr>, außerdem tail=<n>, boot=<nr> (nur ein bestimmter Start), rid (erkennt einen neu angelegten Puffer), max=<Byte> und format=text. WebSocket /ws/log für das Live-Log: zuerst die letzten 50 Zeilen (tail bzw. since), dann jede neue Zeile, bis zu fünfmal pro Sekunde gebündelt. Der Hook selbst sendet nie",
-      "Web: POST /api/cmd führt dieselben Diagnose-Befehle aus wie die serielle Konsole (in derselben Task, nacheinander) und liefert ihre Log-Zeilen als Antwort (bis 16 KB, bei mehr bleibt das Ende erhalten). Gefährliche Befehle (reboot, wifi forget/setup/connect, flash, pclk, timing, pol, bounce, clk, buf, touchrst, log clear, coredump erase) lehnt das Gerät ohne confirm=1 mit Grund ab (409). WLAN-Passwörter lassen sich weiterhin nicht über Befehle eintragen. Für den optionalen PIN aus 0.3.x vorbereitet (Kopf X-Pixelia-Pin bzw. Feld pin; ohne PIN ist alles erlaubt)",
-      "Web: GET /api/perf mit allen Werten des Leistungsmonitors (Panel, Pixeltakt, Interrupt mit Höchstwert, Aussetzer, Engine mit Zeichen- und Logikzeit, CPU pro Kern, interner RAM, DMA und PSRAM mit Tiefstwerten und größtem Block, WLAN) und den Kosten des Log-Hooks; mit tasks=1 zusätzlich alle Tasks mit Kern, Priorität, Stack-Reserve und CPU-Last",
-      "System: Reset-Historie der letzten 16 Starts im NVS (Namensraum diag): Startnummer, Uhrzeit (nach einem Einschalten nach dem NTP-Abgleich nachgetragen), Grund, Version, Partition, Probelauf, Rückfall mit Grund, Absturz-Task und PC, dazu die Laufzeit des vorigen Starts und der Zeitpunkt seines letzten Lebenszeichens (Herzschlag alle 2 s im RTC-Speicher). Abruf über GET /api/resets und den Befehl resets",
-      "System: Absturzbericht per WLAN: GET /api/coredump liefert die Rohdaten aus der Partition, GET /api/coredump/summary Panic-Grund (bei CPU-Ausnahmen deren Name, z. B. StoreProhibited), Task, PC, Backtrace-Adressen, Ausnahme und die passende Version über den ELF-SHA256; POST /api/coredump/erase löscht ihn. Konsolenbefehle coredump und coredump erase",
-      "Web: Diagnosepaket GET /api/diag: eine JSON-Datei mit Status, System (Chip, Flash, PSRAM, Partitionen mit Version und Zustand, NVS), Einstellungen samt Namen der gespeicherten WLANs (ohne Passwörter), Leistung mit Task-Liste, Reset-Historie, Absturzbericht (Zusammenfassung und Rohdaten als Base64) und dem kompletten Log-Puffer. Auf der Einrichtungsseite neuer Bereich „Diagnose“ mit Startnummer, Resetgrund, Fehlern und Warnungen seit dem Start, Zeilen im Log, Absturzbericht und dem Knopf „Diagnosepaket herunterladen“ (auf dem Handy landet die Datei unter Downloads und lässt sich von dort verschicken)",
-      "Engine: Passwort-Filter (engine/redact.h): ersetzt jedes Vorkommen der gespeicherten WLAN-Passwörter und des Setup-WLAN-Passworts durch Sternchen gleicher Länge, auch in JSON-Schreibweise und über Blockgrenzen hinweg, längstes Geheimnis zuerst. Läuft über alle Ausgaben mit freiem Text: /api/log, /ws/log, /api/cmd und /api/diag. Das Diagnosepaket meldet am Ende secretCheck (geprüft, ersetzt)",
-      "System: Werkzeug tools/netlog.ps1 für Claude: Live-Log per WebSocket mit Filter wie monitor.ps1 (-Full, -Filter, -Until, -MaxLines), Befehle per -Send (mit -Confirm für gefährliche), frühere Starts mit -Boot prev bzw. -Boot <nr>, ganzer Puffer mit -All; Befehlsausgaben erscheinen nicht doppelt. Volles Log in .logs\\netlog-last.log",
-      "System: Werkzeug tools/crash.ps1: Absturzbericht per WLAN (oder mit -File aus einem Diagnosepaket vom Handy) holen, das passende ELF über den SHA256 finden (lokaler Build, Testvarianten, Zwischenspeicher oder pixelia-vX.Y.Z.elf aus dem GitHub-Release), PC und Backtrace mit Funktion, Datei und Zeile dekodieren, den Eintrag der Reset-Historie und die letzten Log-Zeilen des abgestürzten Starts zeigen. -Full ruft zusätzlich esp-coredump mit GDB auf (alle Tasks), -Erase löscht den Bericht",
-      "System: Neue Konsolenbefehle log (Puffer und Kosten des Hooks), log bench [n] (Messung), log clear, tasks, resets, coredump und coredump erase. Die Leistungszeile alle 2 s geht weiter auf die serielle Konsole, in den Puffer nur einmal pro Minute (sonst bestünde er nach einer halben Stunde nur aus Leistungszeilen)",
-      "System: Testvariante -DPIXELIA_TEST=crash-shift: stürzt wie crash im Probelauf ab und verschiebt mit 64 KB zusätzlichen Konstanten den Log-Puffer um eine MMU-Seite (prüft den Weg über die RTC-Sicherung, wie nach einem echten Update mit mehr Code)",
-      "Simulator: Selbsttest --test redact mit 9 Fällen (Blockgrenzen Zeichen für Zeichen und in 7er-Stücken, JSON-Schreibweise, ineinander enthaltene Geheimnisse in beiden Reihenfolgen, zu kurze Geheimnisse, 100 KB ohne Geheimnis, Abbruch des Ziels), läuft in der CI"
+      "System: Log-Ringpuffer (256 KB im PSRAM), jede Zeile mit Nummer, Laufzeit, Uhrzeit und Startzähler. Übersteht Neustarts, Updates, Abstürze und Watchdog-Resets, nur keinen Stromausfall",
+      "System: RTC-Sicherung der letzten 6 KB, falls ein Update die Lage des PSRAM-Puffers verschiebt (im Probelauf zeilenweise, sonst vor jedem Software-Neustart)",
+      "Web: Log per WLAN: GET /api/log (inkrementell mit since, tail, boot, format=text) und Live-Log per WebSocket /ws/log",
+      "Web: POST /api/cmd führt Konsolenbefehle aus; gefährliche nur mit confirm=1. Für den optionalen PIN aus 0.3.x vorbereitet",
+      "Web: GET /api/perf (alle Leistungswerte, mit tasks=1 auch die Task-Liste) und GET /api/resets (letzte 16 Starts mit Grund, Version, Rückfall und Laufzeit)",
+      "System: Absturzbericht per WLAN: /api/coredump (roh), /api/coredump/summary (Grund, Task, PC, Backtrace, Version) und /api/coredump/erase",
+      "Web: Diagnosepaket /api/diag: eine JSON-Datei ohne Passwörter, mit Knopf auf der Einrichtungsseite (auf dem Handy herunterladen und verschicken)",
+      "Engine: Passwort-Filter (engine/redact.h) ersetzt gespeicherte WLAN-Passwörter in allen Log-, Befehls- und Diagnose-Ausgaben durch Sternchen",
+      "System: Werkzeuge tools/netlog.ps1 (Live-Log, Befehle, frühere Starts) und tools/crash.ps1 (Absturzbericht holen, passendes ELF finden, dekodieren)",
+      "System: Konsolenbefehle log, log bench, log clear, tasks, resets und coredump; Testvariante crash-shift prüft den Weg über die RTC-Sicherung"
     ],
     "i": [
-      "Web: /api/status enthält jetzt auch Startnummer, letzten Resetgrund, Fehler und Warnungen seit dem Start, Zeilen im Log-Puffer und einen vorhandenen Absturzbericht (Feld diag)",
-      "System: Der Leistungsmonitor hält mehr Werte bereit (Pixeltakt, längster Interrupt, Zeichen-Höchstwert, Logikzeit, Logik-Schritte, Sprites, Weltzeit, DMA-Speicher, größter PSRAM-Block)",
-      "Web: JSON-Schreiber als eigene Datei (json.cpp) statt inline im Header: Der Compiler (-O2) kopierte die Zeichenkettenarbeit sonst in jede Aufrufstelle, das kostete in der Entwicklung über 100 KB Code. Firmware jetzt 1170 KB (19 % der App-Partition)",
-      "Web: Große Zwischenpuffer (WebSocket-Rahmen, gestreamte Antworten, Befehlsausgaben) werden bewusst ab 16 KB angelegt und landen so im PSRAM statt im internen RAM",
-      "Doku: HARDWARE.md (Diagnose per WLAN mit allen Schnittstellen, Werkzeugen und Messwerten, Lage des Log-Puffers, Kernel-Sperre), Roadmap mit 0.2.2, Entscheidungsprotokoll, CLAUDE.md (netlog.ps1 und crash.ps1)",
-      "Doku: Neue Code-Landkarte docs/CODEMAP.md: Ordner, Engine-Bausteine, Firmware-Module mit Startablauf, Tasks mit Kern und Priorität, Speicher (Partitionen, NVS-Namensräume, No-Init-Bereiche), Schnittstellen, Simulator, Werkzeuge und CI. Neue Sitzungen müssen damit nicht mehr den halben Code lesen",
-      "Doku: CLAUDE.md mit Abschnitt „Sitzungen und Nutzungslimit“ (Vorschlag des Users): eine Sitzung pro Phase, neue Sitzung nur bei Phasenwechsel oder ab ca. 300 K Kontext, schlanke Einarbeitung über CLAUDE.md, Roadmap und CODEMAP, Denkstufe normal „high“; CODEMAP.md unter „Zuerst lesen“"
+      "Web: /api/status meldet zusätzlich Startnummer, Resetgrund, Fehler, Warnungen und einen vorhandenen Absturzbericht",
+      "Web: JSON-Schreiber in eigener Datei spart über 100 KB Code; Firmware 1170 KB (19 % der App-Partition)",
+      "Doku: Code-Landkarte docs/CODEMAP.md, HARDWARE.md mit Diagnose per WLAN, CLAUDE.md mit Sitzungsregeln"
     ],
     "f": [
-      "Web: Der Status-WebSocket /ws hat unter ESP-IDF 6.1 nie gesendet: Beim Handschlag ruft der Webserver den URI-Handler nicht mehr auf, die Anmeldung stand aber genau dort. Die Einrichtungsseite lief deshalb unbemerkt über ihre Ersatz-Abfrage alle 2 s. Jetzt mit Post-Handshake-Callback (CONFIG_HTTPD_WS_POST_HANDSHAKE_CB_SUPPORT); gemessen 5 Nachrichten in 3,5 s",
-      "System: In der Entwicklung gefunden: Die Datensatzköpfe des Log-Puffers wurden über einen uint32_t-Zeiger in eine Struktur mit uint16_t-Feldern gelesen (Verstoß gegen die Aliasing-Regeln von C++). Der Compiler nahm Länge, Größe und Startnummer als 0 an: alle Zeilen kamen leer zurück, nach einem Neustart galten 0 Zeilen als gültig. Jetzt per memcpy; die Compiler-Warnung „may be used uninitialized“ war das Symptom",
-      "System: In der Entwicklung gefunden: Die Task-Liste (uxTaskGetSystemState) hält die Kernel-Sperre 1,1 ms, während sie die Stacks aller Tasks durchsucht. Tick- und Display-Interrupt auf Kern 1 warten so lange, der Bounce-Buffer kommt zu spät: etwa ein Display-Aussetzer pro Abfrage (im Lasttest mit 39 Abfragen pro Sekunde 368 Aussetzer und 27 fps). Die Task-Liste gibt es deshalb nur auf Wunsch (tasks, /api/perf?tasks=1, einmal im Diagnosepaket), /api/perf ohne Parameter ist aussetzerfrei",
-      "System: In der Entwicklung gefunden: Der Puffer-Teil des Hooks kostete zuerst 34 µs pro Zeile, je etwa zur Hälfte PSRAM (mit esp_cache_msync) und RTC-Speicher (~0,3 µs pro 32-Bit-Zugriff). Jetzt RTC-Sicherung nur im Probelauf zeilenweise, Cache-Rückschreiben direkt über die HAL unter dem Spinlock von ESP-IDF, beide Köpfe in einer Cache-Zeile: 16–19 µs",
-      "System: In der Entwicklung gefunden: Die Ausgabe eines Befehls brach bei 16 KB ab, ausgerechnet vor der Zusammenfassung. Jetzt fällt bei Überlauf der Anfang weg und das Ende bleibt erhalten"
+      "Web: Der Status-WebSocket /ws sendete unter ESP-IDF 6.1 nie (Anmeldung im falschen Callback); jetzt über den Post-Handshake-Callback",
+      "System: Die Task-Liste sperrt den Kernel 1,1 ms und verursachte Display-Aussetzer; es gibt sie jetzt nur noch auf Wunsch",
+      "System: In der Entwicklung behoben: leere Log-Zeilen (Aliasing-Fehler), zu teurer Log-Hook (34 → 16–19 µs pro Zeile), abgeschnittenes Ende langer Befehlsausgaben"
     ],
-    "r": [],
     "g": [
-      "System: Alle Nachweise am Gerät ausschließlich per WLAN (tools/ota.ps1, netlog.ps1, crash.ps1, kein serieller Port): Software-Neustart über /api/cmd reboot und Updates auf neue Stände: Puffer „übernommen“ (z. B. 158 bzw. 711 Zeilen früherer Starts), die Zeilen vor dem Neustart stehen im Verlauf",
-      "System: Absturz-Testvariante crash (gleiche Puffer-Lage 0x3C120000) per Update aufgespielt: Absturz nach 20 s im Probelauf, Rückfall auf die alte Version. crash.ps1 zeigt Task selbsttest, StoreProhibited bei Adresse 0, dekodiert auf ota.cpp:125, findet das ELF über den SHA256 automatisch, die Reset-Historie meldet „Start 12 lief 20 s“, und die letzte Log-Zeile des abgestürzten Starts ist „Testversion: absichtlicher Absturz im Probelauf“ (100 ms vor dem Absturz geschrieben)",
-      "System: Testvariante crash-shift (Puffer bei 0x3C130000): Nach dem Rückfall meldet die alte Version „PSRAM: kein gültiger Kopf“ (von der Testversion überschrieben) und „RTC: 95 Zeilen gültig“, der Puffer kommt „aus RTC-Sicherung“ mit der letzten Zeile vor dem Absturz. crash.ps1 -Full mit esp-coredump: Frame #0 test_misbehave (elapsed_s=20) at ota.cpp:125. Auch aus dem Diagnosepaket (-File) dekodiert",
-      "System: Kosten des Log-Hooks (log bench): Puffer 15,8–18,6 µs pro Zeile im Mittel (PSRAM 12,6–15,6 µs inklusive Cache-Rückschreiben), höchstens 24–60 µs; im Probelauf mit RTC-Sicherung 30 µs. Zum Vergleich wie bisher: Formatieren 49–64 µs und serielle Ausgabe 3,6–8,7 ms pro Zeile. 100 Zeilen am Stück: 30,6 fps, 0 Aussetzer",
-      "Web: Lasttest 40 s mit 162 Abrufen (Log 256 KB, Befehle, Absturzbericht, Leistung) und Live-Log parallel: 29,7–30,3 fps, 0 Aussetzer, interner RAM 119–121 KB frei (Tiefstwert 108 KB, Budget ≥ 60 KB), PSRAM 6,4 MB frei. Diagnosepaket 91 KB in 0,2 s, gültiges JSON",
-      "Web: Passwort-Filter Ende zu Ende: Test-WLAN mit dem bekannten Passwort Pruef\"Geheim\\4711 eingetragen und einen Befehl damit abgesetzt: /api/cmd, /api/log (JSON und Text), /ws/log und /api/diag enthalten es weder roh noch in JSON-Schreibweise (Diagnosepaket: 3 Geheimnisse geprüft, 2 ersetzt). Test-WLAN danach wieder entfernt",
-      "System: Stack-Reserven mit dem neuen Hook: IDLE 736 B, sys_evt 1180 B, webstatus 1272 B, wlan 1348 B, console 1484 B, logpush 1680 B, httpd 4312 B",
-      "Simulator: Gestentest 11/11, Passwort-Filter 9/9",
-      "Update: 0.2.1 am Gerät (Test des Users): läuft. Erstes tools/ota.ps1 am echten Gerät: 1168 KB in 6,9–10,8 s (108–183 KB/s), Selbsttest jeweils nach 60 s bestanden"
+      "System: Alle Nachweise am Gerät nur per WLAN: Puffer übersteht Neustart und Update; Absturztests crash und crash-shift mit Rückfall, dekodiert auf ota.cpp:125",
+      "Web: Lasttest 40 s mit 162 Abrufen: 29,7–30,3 fps, 0 Aussetzer, interner RAM ≥ 108 KB frei; Diagnosepaket 91 KB in 0,2 s",
+      "Web: Passwort-Filter Ende zu Ende am Gerät geprüft; Simulator: Passwort-Filter 9/9, Gestentest 11/11",
+      "Update: Erstes tools/ota.ps1 am echten Gerät: 1168 KB in 7–11 s, Selbsttest bestanden"
     ],
     "h": [
-      "System: Verschiebt ein Update die Lage des PSRAM-Puffers (Code und Konstanten wachsen über eine 64-KB-Grenze), bleiben nur die letzten 6 KB aus der RTC-Sicherung erhalten. Nach einem Stromausfall ist der Puffer leer",
-      "Web: Der Passwort-Filter kennt nur die gerade gespeicherten Passwörter. Pixelia schreibt Passwörter nie ins Log; tippt jemand selbst ein Passwort in einen Befehl und löscht das WLAN später, stünde es in alten Log-Zeilen im Klartext",
-      "System: Die Task-Liste kostet etwa einen Display-Aussetzer (1,1 ms Kernel-Sperre), das Diagnosepaket enthält sie einmal. Für die Leistungsanzeige in 0.4.x gilt: die Task-Liste nie regelmäßig abfragen",
-      "Web: Alles ist nur im Heimnetz erreichbar und ohne PIN; der optionale PIN aus 0.3.x schützt dann /api/cmd und das Löschen des Absturzberichts",
-      "System: Testvarianten tragen -test-crash bzw. -test-crash-shift in der Version (auf 31 Zeichen gekürzt) und werden nie veröffentlicht"
+      "System: Verschiebt ein Update den PSRAM-Puffer, bleiben nur die letzten 6 KB; nach Stromausfall ist er leer. Die Task-Liste nie regelmäßig abfragen",
+      "Web: Alles nur im Heimnetz und noch ohne PIN erreichbar; der optionale PIN kommt mit 0.3.2"
     ],
     "pr": [10]
   },
@@ -63,42 +59,30 @@
     "t": "Immer erreichbar",
     "s": "Info-Karte mit IP und QR-Code per langem Druck aufs Display, IP in der Kurzmeldung, Updates per WLAN aus der Kommandozeile",
     "n": [
-      "Display: Info-Karte per langem Druck (3 s irgendwo aufs Display): IP-Adresse groß, QR-Code mit http:// und der IP, z. B. http://192.168.178.42/ (funktioniert in jedem Netz, auch ohne passenden DNS), die Adressen http://pixelia.local (Handy, Mac), http://pixelia/ (Windows) und http://pixelia.fritz.box, WLAN-Name, Signal als 4 Balken und in dBm, Hostname und Firmware-Version. Tippen schließt die Karte, sonst nach 20 s. Die Werte werden alle 2 s aufgefrischt, die Welt läuft abgedunkelt (Pixelraster) dahinter weiter",
-      "Display: Info-Karte im Setup-Modus mit Name und Passwort des Setup-WLANs, QR-Code zum Beitreten, Adresse http://192.168.4.1 und Zahl der verbundenen Geräte; ohne Verbindung mit dem laufenden Verbindungsversuch und dem letzten Fehler",
-      "Touch: Halte-Anzeige „Halten für Info …“ mit Fortschrittsbalken, sobald ein Viertel der Haltezeit erreicht ist, damit klar ist, dass der Druck zählt",
-      "Engine: Gestenerkennung als eigener, plattformunabhängiger Baustein (engine/gesture.h): Tippen (bis 800 ms) und langer Druck. Der lange Druck löst noch während der Finger liegt aus, auch wenn der GT911 bei ruhigem Finger keine neuen Messwerte liefert. Bewegung über 24 Panel-Pixel oder ein zweiter Finger heben beides auf, damit spätere Wischgesten nicht kollidieren. Verteilt wird zentral in firmware/main/input.cpp: heute an die System-Oberfläche, später an die Welten",
-      "System: Dauer des langen Drucks im NVS einstellbar (1–10 s, Standard 3 s): Konsole „set lp 3000“ (Millisekunden), Schnittstelle POST /api/settings mit lp, zu sehen in /api/status unter set.lp. Konsolenbefehl „card“ bzw. „card off“ zeigt oder schließt die Karte",
-      "Update: Werkzeug tools/ota.ps1 spielt eine .bin per WLAN auf (POST /api/ota, Standardziel http://pixelia/, sonst -Target mit der IP, -Build baut vorher). Vorab prüft es den Kopf der Datei (ESP-Image, Projekt „pixelia“, Version) und ob das Gerät antwortet. Es zeigt den Fortschritt in 10-%-Schritten mit KB/s, wartet den Neustart ab und meldet erst Erfolg, wenn /api/status die neue Version mit bestandenem Selbsttest zeigt. Ein Rückfall wird mit Grund gemeldet (Exit 1). USB ist damit nur noch für das serielle Log und die Erstinstallation nötig",
-      "Simulator: Info-Karte, Halte-Anzeige und neue Kurzmeldung per --screen info, info-setup, info-offline, hold und toast-ip. Im Fenster ersetzt die Maus den Touch mit derselben Gestenerkennung: 3 s gedrückt halten zeigt die Info-Karte, ein Klick schließt sie",
-      "Simulator: Selbsttest --test gestures mit 11 nachgestellten Touch-Abläufen (Tippen, langer Druck mit und ohne neue Messwerte, Zittern bis 10 px, Bewegung, zwei Finger, zu langes Tippen, Halte-Fortschritt, einstellbare Dauer, Tippen nach langem Druck, Überlauf der ms-Uhr nach 49 Tagen). Läuft in der CI bei jedem Push",
-      "Doku: Rohkonzept der neuen Welt „Inselwelt“ gesichert (docs/welten/inselwelt-konzept.md), als eingeplante Welt in Roadmap und Projektplan aufgenommen",
-      "Doku: Lebendigkeits-Charta um die Regel „Zuverlässiges Gedächtnis“ ergänzt: exakte Bestände, angefangene Arbeiten und Besuche bleiben erhalten, belegt durch einen Bilanz-Test",
-      "Doku: Pixel-Dorf als Aufbau-Wirtschaft geplant: begrenzte Rohstoffe, Bauprojekte mit exaktem Materialverbrauch, neue Häuser als Voraussetzung für neue Bewohner"
+      "Display: Info-Karte per langem Druck (3 s): IP groß, QR-Code, Adressen, WLAN, Signal und Version; im Setup-Modus mit den Zugangsdaten des Setup-WLANs",
+      "Touch: Halte-Anzeige mit Fortschrittsbalken, damit klar ist, dass der Druck zählt",
+      "Engine: Gestenerkennung (engine/gesture.h) für Tippen und langen Druck, plattformunabhängig, Wischgesten bleiben frei",
+      "System: Dauer des langen Drucks einstellbar (1–10 s, Standard 3 s) über Konsole und /api/settings",
+      "Update: tools/ota.ps1 spielt Firmware per WLAN auf und meldet erst Erfolg, wenn die neue Version den Selbsttest bestanden hat",
+      "Simulator: Info-Karte und Halte-Anzeige als Screens, die Maus ersetzt den Touch; Selbsttest --test gestures mit 11 Abläufen in der CI",
+      "Doku: Inselwelt-Rohkonzept gesichert, Regel „Zuverlässiges Gedächtnis“ in der Lebendigkeits-Charta, Pixel-Dorf als Aufbau-Wirtschaft geplant"
     ],
     "i": [
-      "WLAN: Kurzmeldung nach jedem Verbinden jetzt mit IP-Adresse, z. B. „Verbunden mit „Heimnetz“ · 192.168.178.42“ (10 s nach dem Start, 6 s bei späteren Verbindungen). In fremden Netzen (Handy-Hotspot, anderer Router) ist die IP oft der einzige Weg zur Seite",
-      "WLAN: Die Meldung nach der Einrichtung nennt zusätzlich die Adresse mit IP (z. B. http://192.168.178.42/) und weist auf den langen Druck hin",
-      "Display: Der Merker für unbewegte Systemanzeigen umfasst jetzt Anzeige, Version, Info-Karte und Halte-Fortschritt (64 Bit, Fortschritt in 1-%-Schritten). Unbewegte Anzeigen werden weiterhin nur bei einer Änderung neu gezeichnet",
-      "Doku: HARDWARE.md (Info-Karte, Gestenregeln, Update per WLAN), sim/README.md (neue Anzeigen, Selbsttest, Maus) und CLAUDE.md (Updates bevorzugt per WLAN mit tools/ota.ps1)",
-      "Doku: Changelog ausführlicher im Stil der Pull-Request-Beschreibungen. Neue Felder „Geprüft“ (g), „Hinweise“ (h) und „Pull Requests“ (pr); die Einträge 0.1.0 und 0.2.0 sind mit allen Änderungen, Messwerten und Fehlerbehebungen nachgetragen",
-      "System: tools/release_notes.py prüft das Format von CHANGELOG.json (--check): Pflichtfelder, Bereich am Anfang jedes Stichpunkts, Reihenfolge der Versionen, Datum. Die CI prüft das bei jedem Push",
-      "Update: Release-Notes auf GitHub zeigen zusätzlich „Geprüft“, „Hinweise“ und verlinkte Pull Requests; ein Release ohne Datum, Titel oder Untertitel wird abgelehnt"
+      "WLAN: Die Kurzmeldung nach dem Verbinden zeigt die IP-Adresse",
+      "Doku: Changelog mit den Feldern Geprüft, Hinweise und Pull Requests; tools/release_notes.py --check prüft das Format in der CI",
+      "Update: Release-Notes auf GitHub mit Geprüft, Hinweisen und verlinkten Pull Requests"
     ],
     "f": [
-      "Update: tools/ota.ps1 lehnte in der Entwicklung jede echte Firmware ab, weil PowerShell 5.1 den Hex-Wert 0xABCD5432 (Kennung der App-Beschreibung) als negative Int32 liest. Behoben mit 64-Bit-Literal. Außerdem behandelt PowerShell die deutschen Anführungszeichen „ “ als Zeichenketten-Grenzen; Texte damit stehen jetzt in einfachen Anführungszeichen"
+      "Update: tools/ota.ps1 lehnte jede Firmware ab (PowerShell 5.1 liest 0xABCD5432 als negative Zahl); behoben mit 64-Bit-Wert"
     ],
-    "r": [],
     "g": [
-      "Simulator: Gestentest 11/11 bestanden; Info-Karte in allen drei Zuständen, Halte-Anzeige, Kurzmeldung mit IP und Meldung nach der Einrichtung als Screenshot kontrolliert",
-      "Display: QR-Codes der Info-Karte aus dem Screenshot mit zxing-cpp gelesen: http://192.168.178.42/ (Version 2, 25 × 25 Module, 4 px pro Modul, auf dem Display 8 px) und der WLAN-Code für „Pixelia-Setup“ samt Passwort (Version 3, 3 px pro Modul). Auch die längste mögliche IP passt in Version 2",
-      "Update: tools/ota.ps1 gegen einen nachgebauten Pixelia-Server geprüft: Update mit Neustart und Probelauf (Exit 0), Rückfall mit Grund (Exit 1), vom Gerät abgelehnte Datei mit dessen Meldung, nicht erreichbares Ziel, nicht auflösbarer Name und Datei ohne ESP-Kennung (Exit 2)",
-      "System: Firmware 1134 KB (18,5 % der App-Partition, +21 KB gegenüber 0.2.0), Build ohne Warnungen; Simulator unter Windows (Fenster und kopflos) gebaut",
-      "System: Format-Prüfung und Release-Notes für 0.1.0 und 0.2.0 lokal erzeugt und kontrolliert"
+      "Simulator: Gestentest 11/11; Info-Karte in allen Zuständen per Screenshot geprüft, QR-Codes maschinell gelesen",
+      "Update: tools/ota.ps1 gegen einen nachgebauten Server geprüft (Erfolg, Rückfall, Fehlerfälle)",
+      "System: Firmware 1134 KB (18,5 % der App-Partition), Build ohne Warnungen"
     ],
     "h": [
-      "Display: Am Gerät noch nicht geprüft, das Board war beim Bau nicht angeschlossen: Bildrate mit offener Karte, langer Druck und Tippen am echten Touch, QR-Scan mit dem Handy und die Kurzmeldung nach dem Neustart. Der User prüft das selbst nach dem Update",
-      "System: Die Dauer des langen Drucks lässt sich vorerst über Konsole und Schnittstelle ändern, in der Weboberfläche ab 0.3.x",
-      "Touch: Nur kurzes Tippen (bis 0,8 s) schließt die Karte. Wischen schließt sie nicht, Wischgesten bleiben für die Welten frei"
+      "Display: Beim Bau nicht am Gerät geprüft (Board nicht angeschlossen); der User hat es danach selbst getestet",
+      "Touch: Nur kurzes Tippen schließt die Karte, Wischen bleibt für die Welten frei"
     ],
     "pr": [6, 7, 8]
   },

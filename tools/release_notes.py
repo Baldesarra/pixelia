@@ -33,6 +33,10 @@ VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # Jeder Stichpunkt beginnt mit dem Bereich, z. B. „WLAN: …“, „Doku: …“
 AREA_RE = re.compile(r"^[A-ZÄÖÜ][A-Za-zÄÖÜäöüß0-9-]*: \S")
+# Kurz und konkret: Details gehören in die PR-Beschreibung. Gilt ab 0.2.1 (ältere Einträge bleiben unverändert).
+MAX_ITEM_CHARS = 220
+MAX_ITEMS = 24
+LIMITS_FROM = (0, 2, 1)
 
 
 def load_entries():
@@ -82,6 +86,13 @@ def check(entries):
             for item in items:
                 if not isinstance(item, str) or not AREA_RE.match(item):
                     errors.append(f"{where}, {name}: Stichpunkt beginnt nicht mit „Bereich: “ → {item!r}")
+        if VERSION_RE.match(version) and version_key(version)[:3] >= LIMITS_FROM:
+            all_items = [x for key, _ in SECTIONS for x in entry.get(key, []) if isinstance(x, str)]
+            if len(all_items) > MAX_ITEMS:
+                errors.append(f"{where}: {len(all_items)} Stichpunkte, höchstens {MAX_ITEMS} (zusammenfassen)")
+            for item in all_items:
+                if len(item) > MAX_ITEM_CHARS:
+                    errors.append(f"{where}: Stichpunkt mit {len(item)} Zeichen, höchstens {MAX_ITEM_CHARS} → {item[:60]!r}…")
         prs = entry.get("pr", [])
         if not isinstance(prs, list) or not all(isinstance(n, int) and n > 0 for n in prs):
             errors.append(f"{where}: „pr“ muss eine Liste von PR-Nummern sein")
