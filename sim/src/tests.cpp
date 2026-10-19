@@ -1,6 +1,8 @@
 // Selbsttests der Engine-Bausteine ohne Hardware (--test), laufen auch in der CI.
-// Heute: Gestenerkennung (Tippen, langer Druck) mit nachgestellten Touch-Abläufen wie vom GT911.
+// gestures: Gestenerkennung (Tippen, langer Druck) mit nachgestellten Touch-Abläufen wie vom GT911.
+// redact: Passwort-Filter der Diagnose-Ausgaben (Blockgrenzen, JSON-Schreibweise, mehrere Geheimnisse).
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <functional>
@@ -8,6 +10,7 @@
 #include <vector>
 
 #include "pixelia/engine/gesture.h"
+#include "pixelia/engine/redact.h"
 #include "sim.h"
 
 namespace sim {
@@ -151,16 +154,97 @@ std::vector<Case> gesture_cases() {
     };
 }
 
-}  // namespace
+// Text in Stücken der Größe chunk durch einen SecretFilter schicken
+struct Filtered {
+    std::string out;
+    size_t hits = 0;
+    size_t secrets = 0;
+};
+Filtered filter(const std::string& text, const std::vector<std::string>& secrets, size_t chunk, size_t block = 64) {
+    Filtered f;
+    pixelia::SecretFilter sf([&](const char* d, size_t n) { f.out.append(d, n); return true; }, block);
+    for (const auto& s : secrets) sf.add_secret(s.c_str());
+    for (size_t i = 0; i < text.size(); i += chunk) sf.write(text.data() + i, std::min(chunk, text.size() - i));
+    sf.finish();
+    f.hits = sf.hits();
+    f.secrets = sf.secrets();
+    return f;
+}
 
-int run_tests(const std::string& which) {
-    if (which != "gestures" && which != "all") {
-        std::printf("FEHLER: Test \"%s\" gibt es nicht (gestures, all)\n", which.c_str());
-        return 2;
-    }
-    int failed = 0, total = 0;
-    for (const auto& c : gesture_cases()) {
-        ++total;
+std::string expect_text(const Filtered& f, const std::string& want, size_t hits) {
+    if (f.out != want) return "Ausgabe falsch: \"" + f.out.substr(0, 120) + "\"";
+    if (f.hits != hits) return "erwartet " + std::to_string(hits) + " Ersetzung(en), gezählt " + std::to_string(f.hits);
+    return {};
+}
+
+std::vector<Case> redact_cases() {
+    return {
+        {"Geheimnis zweimal in einem Block",
+         [] {
+             auto f = filter("a GeheimPasswort b GeheimPasswort c", {"GeheimPasswort"}, 1000, 4096);
+             return expect_text(f, "a ************** b ************** c", 2);
+         }},
+        {"Geheimnis über Blockgrenzen (Zeichen für Zeichen)",
+         [] {
+             std::string text(200, 'x');
+             text.replace(60, 10, "Sommer2026");
+             std::string want(200, 'x');
+             want.replace(60, 10, "**********");
+             return expect_text(filter(text, {"Sommer2026"}, 1, 64), want, 1);
+         }},
+        {"Geheimnis über mehreren Blockgrenzen (Stücke zu 7 Zeichen)",
+         [] {
+             std::string text(500, '-'), want(500, '-');
+             for (size_t at : {58u, 127u, 190u, 250u, 492u}) {
+                 text.replace(at, 8, "pw123456");
+                 want.replace(at, 8, "********");
+             }
+             return expect_text(filter(text, {"pw123456"}, 7, 64), want, 5);
+         }},
+        {"JSON-Schreibweise mit Anführungszeichen und Backslash",
+         [] {
+             auto f = filter(R"({"m":"pa\"ss\\wort9"})", {R"(pa"ss\wort9)"}, 3, 64);
+             return expect_text(f, R"({"m":"*************"})", 1);
+         }},
+        {"Mehrere Geheimnisse, eines Teil des anderen",
+         [] {
+             auto f = filter("x Haus1234Garten y Haus1234 z", {"Haus1234Garten", "Haus1234"}, 5, 64);
+             return expect_text(f, "x ************** y ******** z", 2);
+         }},
+        {"Kürzeres Geheimnis zuerst eingetragen: längeres trotzdem ganz ersetzt",
+         [] {
+             auto f = filter("x Haus1234Garten y Haus1234 z", {"Haus1234", "Haus1234Garten"}, 5, 64);
+             return expect_text(f, "x ************** y ******** z", 2);
+         }},
+        {"Leere und zu kurze Geheimnisse werden ignoriert",
+         [] {
+             auto f = filter("abc ab a", {"", "ab", "abc"}, 2, 64);
+             if (f.secrets != 0) return std::string("Geheimnisse gezählt: ") + std::to_string(f.secrets);
+             return expect_text(f, "abc ab a", 0);
+         }},
+        {"Ohne Geheimnisse unverändert (100 KB)",
+         [] {
+             std::string text;
+             for (int i = 0; i < 4000; ++i) text += "I (" + std::to_string(i) + ") log: Zeile ohne Geheimnis\n";
+             return expect_text(filter(text, {}, 333, 4096), text, 0);
+         }},
+        {"Abbruch, wenn das Ziel nichts mehr annimmt",
+         [] {
+             int calls = 0;
+             pixelia::SecretFilter sf([&](const char*, size_t) { return ++calls < 2; }, 64);
+             std::string block(100, 'a');
+             bool ok1 = sf.write(block.data(), block.size());
+             bool ok2 = sf.write(block.data(), block.size());
+             bool ok3 = sf.finish();
+             if (!ok1 || ok2 || ok3) return std::string("Rückgabewerte falsch");
+             return calls == 2 ? std::string() : "Ziel " + std::to_string(calls) + "-mal aufgerufen";
+         }},
+    };
+}
+
+int run_group(const char* title, const std::vector<Case>& cases) {
+    int failed = 0;
+    for (const auto& c : cases) {
         std::string err = c.run();
         if (err.empty()) {
             std::printf("  ok    %s\n", c.name);
@@ -169,7 +253,21 @@ int run_tests(const std::string& which) {
             std::printf("  FEHLER %s: %s\n", c.name, err.c_str());
         }
     }
-    std::printf("sim: Gestentest %d/%d bestanden\n", total - failed, total);
+    const int total = static_cast<int>(cases.size());
+    std::printf("sim: %s %d/%d bestanden\n", title, total - failed, total);
+    return failed;
+}
+
+}  // namespace
+
+int run_tests(const std::string& which) {
+    if (which != "gestures" && which != "redact" && which != "all") {
+        std::printf("FEHLER: Test \"%s\" gibt es nicht (gestures, redact, all)\n", which.c_str());
+        return 2;
+    }
+    int failed = 0;
+    if (which == "gestures" || which == "all") failed += run_group("Gestentest", gesture_cases());
+    if (which == "redact" || which == "all") failed += run_group("Passwort-Filter", redact_cases());
     return failed ? 1 : 0;
 }
 

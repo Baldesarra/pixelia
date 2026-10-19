@@ -25,6 +25,8 @@ demselben Code wie auf dem Gerät: `setup`, `setup-leer`, `setup-fehler`, `updat
 
 `--test gestures` (bzw. `--test all`) prüft die Gestenerkennung ohne Hardware mit nachgestellten Touch-Abläufen:
 Tippen, langer Druck (auch ohne neue Messwerte), Zittern, Bewegung, zwei Finger, einstellbare Dauer, Zeitüberlauf.
+`--test redact` prüft den Passwort-Filter der Diagnose-Ausgaben (`engine/redact.h`, seit 0.2.2): Geheimnisse über
+Blockgrenzen hinweg, JSON-Schreibweise, ineinander enthaltene Geheimnisse, zu kurze, Abbruch des Ziels.
 Exit-Code 1, wenn ein Fall scheitert.
 
 Tasten im Fenster: Leertaste Pause, `+`/`-` Zeitraffer, `T` eine Stunde weiter, `S` Screenshot nach `screenshots/`,

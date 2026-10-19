@@ -1,34 +1,100 @@
-// Diagnose-Schnittstelle über die serielle Konsole (UART0, 115200 Baud).
-// Eine Zeile = ein Befehl. Gedacht für tools/monitor.ps1 -Send, funktioniert aber auch im Terminal.
+// Diagnose-Schnittstelle über die serielle Konsole (UART0, 115200 Baud) und per WLAN (POST /api/cmd).
+// Eine Zeile = ein Befehl. Gedacht für tools/monitor.ps1 -Send bzw. tools/netlog.ps1 -Send, funktioniert aber auch
+// im Terminal. Befehle aus dem Netz laufen in derselben Task wie serielle (nacheinander, gleicher Stack), ihre
+// Log-Zeilen gehen als Antwort zurück. Gefährliche Befehle (Liste kDangerous) brauchen dort eine Bestätigung.
+// WLAN-Passwörter lassen sich über die Konsole bewusst nicht eintragen.
 
+#include <algorithm>
+#include <cinttypes>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <string>
 
 #include "app.h"
 #include "board/backlight.h"
+#include "diag.h"
 #include "input.h"
+#include "logbuf.h"
 #include "net.h"
 #include "ota.h"
 #include "settings.h"
 #include "ui.h"
 #include "web.h"
 #include "driver/uart.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "sdkconfig.h"
 
 namespace app::console {
 
 namespace {
 constexpr const char* TAG = "cmd";
 constexpr uart_port_t kUart = UART_NUM_0;
+constexpr size_t kCaptureBytes = 16 * 1024;
+
+// Befehle, die über das Netz nur mit Bestätigung laufen (sub = zweites Wort, nullptr = egal)
+struct Danger {
+    const char* cmd;
+    const char* sub;
+    const char* why;
+};
+constexpr Danger kDangerous[] = {
+    {"reboot", nullptr, "startet Pixelia neu"},
+    {"wifi", "forget", "löscht ein gespeichertes WLAN (ohne WLAN bleibt nur das Setup-WLAN am Gerät)"},
+    {"wifi", "setup", "trennt Pixelia vom Heimnetz und startet den Setup-Modus"},
+    {"wifi", "connect", "trennt die WLAN-Verbindung kurz"},
+    {"flash", nullptr, "überschreibt die Partition „storage“ (später Spielstände)"},
+    {"pclk", nullptr, "stellt den Pixeltakt um, das Bild kann ausfallen"},
+    {"timing", nullptr, "stellt das Panel-Timing um, das Bild kann ausfallen"},
+    {"pol", nullptr, "stellt die Panel-Polaritäten um, das Bild kann ausfallen"},
+    {"bounce", nullptr, "legt das Panel neu an"},
+    {"clk", nullptr, "stellt die Taktquelle des Panels um"},
+    {"buf", nullptr, "legt die Engine-Puffer neu an"},
+    {"touchrst", nullptr, "setzt den Touch-Controller zurück"},
+    {"log", "clear", "löscht den Log-Puffer"},
+    {"coredump", "erase", "löscht den Absturzbericht"},
+};
+
+struct Job {
+    std::string line;
+    std::string out;
+    bool known = false;
+    SemaphoreHandle_t done = nullptr;
+    ~Job() {
+        if (done) vSemaphoreDelete(done);
+    }
+};
+QueueHandle_t s_jobs = nullptr;            // std::shared_ptr<Job>* aus run_remote()
+SemaphoreHandle_t s_remote_lock = nullptr;  // immer nur ein Befehl aus dem Netz gleichzeitig
+bool s_remote = false;                      // gerade läuft ein Befehl aus dem Netz (nur Konsolen-Task)
+
+const char* danger_of(const char* line) {
+    char copy[64];
+    std::snprintf(copy, sizeof(copy), "%s", line);
+    char* save = nullptr;
+    const char* cmd = strtok_r(copy, " \t", &save);
+    const char* sub = strtok_r(nullptr, " \t", &save);
+    if (!cmd) return nullptr;
+    for (const Danger& d : kDangerous) {
+        if (std::strcmp(cmd, d.cmd) != 0) continue;
+        if (!d.sub || (sub && std::strcmp(sub, d.sub) == 0)) return d.why;
+    }
+    return nullptr;
+}
 
 void print_help() {
     ESP_LOGI(TAG, "Befehle:");
     ESP_LOGI(TAG, "  info | heap | scan | touch | touchrst | reboot");
+    ESP_LOGI(TAG, "  log | log bench [n] | log clear | tasks | resets   Log-Puffer, Tasks, Reset-Historie");
+    ESP_LOGI(TAG, "  coredump | coredump erase                      Absturzbericht zeigen bzw. löschen");
     ESP_LOGI(TAG, "  rot <0|180> | set | set bright <1-100>           Bild drehen, Einstellungen (gespeichert)");
     ESP_LOGI(TAG, "  set lp <1000-10000>                            Dauer des langen Drucks für die Info-Karte (ms)");
     ESP_LOGI(TAG, "  card | card off                                Info-Karte zeigen bzw. schließen");
@@ -52,17 +118,88 @@ void log_timing(const board::display::Timing& t) {
              t.vsync_idle_low, t.pclk_active_neg, t.bounce_lines, t.pll240 ? "PLL240" : "PLL160");
 }
 
-void handle(char* line) {
+void log_buffer_info() {
+    const log::Info i = log::info();
+    const log::Stats& s = i.stats;
+    const double mhz = CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ;
+    ESP_LOGI(TAG, "Log-Puffer: %lu Zeilen (Nr. %lu–%lu), %u von %u KB belegt, Start Nr. %u, beim Start %s (%lu Zeilen)",
+             static_cast<unsigned long>(i.next - i.first), static_cast<unsigned long>(i.first),
+             static_cast<unsigned long>(i.next ? i.next - 1 : 0), static_cast<unsigned>(i.used / 1024),
+             static_cast<unsigned>(i.capacity / 1024), i.boot, i.origin, static_cast<unsigned long>(i.prev_lines));
+    ESP_LOGI(TAG, "  RTC-Sicherung %u von %u Byte (ab Nr. %lu, %s), PSRAM-Puffer bei %p", static_cast<unsigned>(i.rtc_used),
+             static_cast<unsigned>(i.rtc_capacity), static_cast<unsigned long>(i.rtc_first),
+             i.mirror ? "zeilenweise im Probelauf" : "nur beim Neustart", i.address);
+    ESP_LOGI(TAG, "  Hook: %lu Aufrufe, %lu im Puffer, %lu nur seriell, %lu gekürzt, %lu Fehler, %lu Warnungen",
+             static_cast<unsigned long>(s.calls), static_cast<unsigned long>(s.stored),
+             static_cast<unsigned long>(s.serial_only), static_cast<unsigned long>(s.truncated),
+             static_cast<unsigned long>(s.errors), static_cast<unsigned long>(s.warnings));
+    ESP_LOGI(TAG, "  Kosten pro Zeile: Formatieren %.1f µs, Puffer %.1f µs (max %.1f µs), seriell %.0f µs, gesamt max %.0f µs",
+             s.calls ? s.fmt_cycles / mhz / s.calls : 0.0, s.stored ? s.store_cycles / mhz / s.stored : 0.0,
+             s.store_max_cycles / mhz, s.calls ? s.uart_cycles / mhz / s.calls : 0.0, s.total_max_cycles / mhz);
+}
+
+// Messung: Puffer allein (ohne seriell), dann n echte Log-Zeilen über den Hook; Bildrate und Aussetzer dabei
+void log_bench(int n) {
+    const double mhz = CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ;
+    for (bool rtc : {false, true}) {
+        uint32_t avg = 0, mx = 0;
+        const log::Stats s0 = log::info().stats;
+        log::bench_store(n, rtc, &avg, &mx);
+        const log::Stats s1 = log::info().stats;
+        ESP_LOGI(TAG, "Messung Puffer allein%s: %d Zeilen, im Mittel %.2f µs (PSRAM %.2f µs, RTC %.2f µs), höchstens %.2f µs",
+                 rtc ? " mit RTC-Sicherung (Probelauf)" : "", n, avg / mhz, (s1.main_cycles - s0.main_cycles) / mhz / n,
+                 (s1.rtc_cycles - s0.rtc_cycles) / mhz / n, mx / mhz);
+    }
+    const log::Stats before = log::info().stats;
+    const board::display::Stats d0 = board::display::stats(false);
+    const int64_t t0 = esp_timer_get_time();
+    for (int i = 0; i < n; ++i)
+        ESP_LOGI(TAG, "Messzeile %d/%d über den Hook: seriell und Puffer, typische Länge mit Zahlen %d", i + 1, n, i * 37);
+    const int64_t t1 = esp_timer_get_time();
+    const board::display::Stats d1 = board::display::stats(false);
+    const log::Stats after = log::info().stats;
+    const uint32_t calls = after.calls - before.calls;
+    const uint32_t stored = after.stored - before.stored;
+    ESP_LOGI(TAG, "Messung Hook: %lu Zeilen in %.0f ms, pro Zeile Formatieren %.1f µs, Puffer %.1f µs, seriell %.0f µs",
+             static_cast<unsigned long>(calls), (t1 - t0) / 1000.0,
+             calls ? (after.fmt_cycles - before.fmt_cycles) / mhz / calls : 0.0,
+             stored ? (after.store_cycles - before.store_cycles) / mhz / stored : 0.0,
+             calls ? (after.uart_cycles - before.uart_cycles) / mhz / calls : 0.0);
+    ESP_LOGI(TAG, "  Display währenddessen: %.1f Hz, %lu Bildtausch (%.1f fps), %lu Aussetzer",
+             (d1.vsyncs - d0.vsyncs) * 1e6 / (t1 - t0), static_cast<unsigned long>(d1.swaps - d0.swaps),
+             (d1.swaps - d0.swaps) * 1e6 / (t1 - t0), static_cast<unsigned long>(d1.desyncs - d0.desyncs));
+}
+
+// Gibt false zurück, wenn der Befehl unbekannt ist
+bool handle(char* line) {
     char* argv[24] = {};
     int argc = 0;
     for (char* tok = std::strtok(line, " \t"); tok && argc < 24; tok = std::strtok(nullptr, " \t")) argv[argc++] = tok;
-    if (argc == 0) return;
+    if (argc == 0) return false;
     const char* cmd = argv[0];
     auto is = [&](const char* name) { return std::strcmp(cmd, name) == 0; };
     using board::display::Mode;
+    bool known = true;
 
     if (is("help") || is("?")) {
         print_help();
+    } else if (is("log")) {
+        const char* sub = argc >= 2 ? argv[1] : "";
+        if (std::strcmp(sub, "clear") == 0) {
+            log::clear();
+            ESP_LOGW(TAG, "Log-Puffer geleert");
+        } else if (std::strcmp(sub, "bench") == 0) {
+            log_bench(argc >= 3 ? std::max(1, std::min(1000, std::atoi(argv[2]))) : 100);
+        } else {
+            log_buffer_info();
+        }
+    } else if (is("tasks")) {
+        diag::log_tasks();
+    } else if (is("resets")) {
+        diag::log_resets();
+    } else if (is("coredump")) {
+        if (argc >= 2 && std::strcmp(argv[1], "erase") == 0) diag::crash_erase();
+        else diag::log_crash();
     } else if (is("info")) {
         sysinfo::log_all();
         log_timing(board::display::timing());
@@ -156,14 +293,20 @@ void handle(char* line) {
     } else if (is("web")) {
         ESP_LOGI(TAG, "Webserver: http://%s.local, %d WebSocket-Verbindung(en)", wifi::kMdnsHost, web::ws_clients());
     } else if (is("reboot")) {
-        ESP_LOGI(TAG, "Neustart");
-        vTaskDelay(pdMS_TO_TICKS(100));
-        esp_restart();
+        if (s_remote) {
+            // Antwort an den Aufrufer soll noch rausgehen
+            ESP_LOGI(TAG, "Neustart in 1 s");
+            ota::restart_soon(1000);
+        } else {
+            ESP_LOGI(TAG, "Neustart");
+            vTaskDelay(pdMS_TO_TICKS(100));
+            esp_restart();
+        }
     } else if (is("pat") && argc >= 2) {
         Mode m;
         if (!board::display::mode_from_name(argv[1], &m)) {
             ESP_LOGW(TAG, "Unbekanntes Testbild: %s", argv[1]);
-            return;
+            return false;
         }
         if (m == Mode::Touch) hwtest::reset_corner_hits();
         board::display::set_mode(m);
@@ -228,7 +371,27 @@ void handle(char* line) {
         ESP_LOGI(TAG, "Leistungsmonitor: %s", perf::interval() ? "an" : "aus");
     } else {
         ESP_LOGW(TAG, "Unbekannt: %s (help für Liste)", cmd);
+        known = false;
     }
+    return known;
+}
+
+// Befehl aus dem Netz ausführen; seine Log-Zeilen gehen als Antwort zurück
+void run_job(Job& job) {
+    static char* buf = static_cast<char*>(heap_caps_malloc(kCaptureBytes, MALLOC_CAP_SPIRAM));
+    char line[256];
+    std::snprintf(line, sizeof(line), "%s", job.line.c_str());
+    ESP_LOGI(TAG, "> %s (per WLAN)", line);
+    if (!buf) {
+        job.known = handle(line);
+    } else {
+        log::Capture cap(buf, kCaptureBytes);
+        s_remote = true;
+        job.known = handle(line);
+        s_remote = false;
+        job.out.assign(buf, cap.size());
+    }
+    xSemaphoreGive(job.done);
 }
 
 void console_task(void*) {
@@ -236,17 +399,25 @@ void console_task(void*) {
     size_t len = 0;
     for (;;) {
         uint8_t ch;
-        if (uart_read_bytes(kUart, &ch, 1, portMAX_DELAY) != 1) continue;
-        if (ch == '\r' || ch == '\n') {
-            if (len == 0) continue;
-            line[len] = 0;
-            ESP_LOGI(TAG, "> %s", line);
-            handle(line);
-            len = 0;
-        } else if ((ch == 8 || ch == 127) && len > 0) {
-            --len;
-        } else if (ch >= 32 && len < sizeof(line) - 1) {
-            line[len++] = static_cast<char>(ch);
+        // Kurz auf Zeichen warten, dazwischen Befehle aus dem Netz abarbeiten
+        if (uart_read_bytes(kUart, &ch, 1, pdMS_TO_TICKS(20)) == 1) {
+            if (ch == '\r' || ch == '\n') {
+                if (len > 0) {
+                    line[len] = 0;
+                    ESP_LOGI(TAG, "> %s", line);
+                    handle(line);
+                    len = 0;
+                }
+            } else if ((ch == 8 || ch == 127) && len > 0) {
+                --len;
+            } else if (ch >= 32 && len < sizeof(line) - 1) {
+                line[len++] = static_cast<char>(ch);
+            }
+        }
+        std::shared_ptr<Job>* ref = nullptr;
+        while (xQueueReceive(s_jobs, &ref, 0) == pdTRUE) {
+            run_job(**ref);
+            delete ref;
         }
     }
 }
@@ -255,7 +426,35 @@ void console_task(void*) {
 void start() {
     // Nur Empfang über den Treiber; die Log-Ausgabe läuft unverändert weiter
     ESP_ERROR_CHECK(uart_driver_install(kUart, 1024, 0, 0, nullptr, 0));
+    s_jobs = xQueueCreate(4, sizeof(std::shared_ptr<Job>*));
+    s_remote_lock = xSemaphoreCreateMutex();
     xTaskCreatePinnedToCore(console_task, "console", 4096, nullptr, 4, nullptr, kSystemCore);
+}
+
+Result run_remote(const char* line, bool confirmed, char* out, size_t out_len, char* why, size_t why_len,
+                  int timeout_ms) {
+    if (out_len) out[0] = 0;
+    if (why_len) why[0] = 0;
+    if (const char* reason = danger_of(line); reason && !confirmed) {
+        std::snprintf(why, why_len, "%s", reason);
+        return Result::NeedsConfirm;
+    }
+    if (!s_jobs || xSemaphoreTake(s_remote_lock, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) return Result::Busy;
+    auto job = std::make_shared<Job>();
+    job->line = line;
+    job->done = xSemaphoreCreateBinary();
+    auto* ref = new std::shared_ptr<Job>(job);
+    if (!job->done || xQueueSend(s_jobs, &ref, 0) != pdTRUE) {
+        delete ref;
+        xSemaphoreGive(s_remote_lock);
+        return Result::Busy;
+    }
+    // Läuft der Befehl länger, arbeitet die Konsolen-Task ihn trotzdem zu Ende (Job gehört beiden Seiten)
+    const bool finished = xSemaphoreTake(job->done, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
+    xSemaphoreGive(s_remote_lock);
+    if (!finished) return Result::Timeout;
+    std::snprintf(out, out_len, "%s", job->out.c_str());
+    return job->known ? Result::Done : Result::Unknown;
 }
 
 }  // namespace app::console

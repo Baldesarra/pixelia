@@ -42,6 +42,7 @@
   button { font: inherit; font-weight: 600; background: var(--primary); color: var(--on-primary); border: 0; border-radius: 999px; padding: 10px 20px; cursor: pointer; }
   button.tonal { background: transparent; color: var(--primary); border: 1px solid var(--outline); font-weight: 500; padding: 7px 14px; }
   button:disabled { opacity: 0.5; cursor: default; }
+  a.btn { display: inline-block; font-weight: 600; background: var(--primary); color: var(--on-primary); border-radius: 999px; padding: 10px 20px; text-decoration: none; }
   label { display: block; margin: 12px 0 4px; color: var(--muted); font-size: 0.9rem; }
   label.check { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
   input[type=text], input[type=password], select { font: inherit; width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--outline); background: var(--bg); color: var(--text); }
@@ -105,6 +106,14 @@
     <div class="actions"><button class="tonal" id="rebootBtn" type="button">Neustart</button></div>
   </section>
 
+  <section class="card">
+    <h2>Diagnose</h2>
+    <div id="diag" class="small"></div>
+    <div class="actions"><a class="btn" id="diagBtn" href="/api/diag" download>Diagnosepaket herunterladen</a></div>
+    <p class="muted small">Eine Datei mit Status, Versionen, Einstellungen, Neustarts, Log und Absturzbericht, ohne Passwörter. Auf dem Handy landet sie unter „Downloads“ und lässt sich von dort per Mail oder Messenger verschicken.</p>
+    <p class="muted small" id="diagSetupHint" hidden>Im Setup-Fenster des Handys klappt das Herunterladen oft nicht. Dann im normalen Browser <a href="http://192.168.4.1/">http://192.168.4.1</a> öffnen.</p>
+  </section>
+
   <footer>Pixelia · Die volle Oberfläche folgt mit Version 0.3</footer>
 </main>
 <script>
@@ -166,6 +175,18 @@ function render(s) {
     ["PSRAM", `${(p.psram / 1024).toFixed(1)} MB frei`],
   ];
   $("sys").innerHTML = rows.map(([k, v]) => `<div class="row"><span class="muted">${k}</span><span>${v}</span></div>`).join("");
+
+  const d = s.diag;
+  if (d) {
+    const drows = [
+      ["Start", `Nr. ${d.boot} · ${esc(d.reset)}`],
+      ["Seit dem Start", `${d.errors} Fehler · ${d.warnings} Warnungen`],
+      ["Log-Puffer", `${d.logLines} Zeilen`],
+      ["Absturzbericht", d.crash ? `<span class="err">vorhanden: Task „${esc(d.crash.task)}“${d.crash.v ? " · " + esc(d.crash.v) : ""}</span>` : "keiner"],
+    ];
+    $("diag").innerHTML = drows.map(([k, v]) => `<div class="row"><span class="muted">${k}</span><span>${v}</span></div>`).join("");
+  }
+  $("diagSetupHint").hidden = !w.ap;
 
   if (document.activeElement !== $("rot")) $("rot").value = String(s.set.rot);
   if (document.activeElement !== $("bright")) { $("bright").value = s.set.bright; $("brightVal").textContent = s.set.bright + " %"; }

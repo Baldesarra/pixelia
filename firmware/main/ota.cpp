@@ -17,6 +17,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "logbuf.h"
 #include "net.h"
 #include "nvs.h"
 #include "ui.h"
@@ -72,6 +73,7 @@ void detect_rollback() {
 
     char nvs_sha[17] = "", why[96] = "";
     uint8_t ack = 0;
+    bool fresh = false;
     nvs_handle_t h;
     if (nvs_open(kNvs, NVS_READONLY, &h) == ESP_OK) {
         size_t len = sizeof(nvs_sha);
@@ -93,15 +95,29 @@ void detect_rollback() {
         }
         store_reason(sha, why);
         ack = 0;
+        fresh = true;
     }
     std::lock_guard<std::mutex> g(s_lock);
     s_status.rollback = ack == 0;
+    s_status.rollback_new = fresh;
     std::snprintf(s_status.rollback_version, sizeof(s_status.rollback_version), "%s", d.version);
     std::snprintf(s_status.rollback_reason, sizeof(s_status.rollback_reason), "%s", why);
 }
 
+#if defined(PIXELIA_TEST_SHIFT)
+// Testvariante „crash-shift“: 64 KB Konstanten mehr verschieben den No-Init-Bereich im PSRAM um eine MMU-Seite
+// (Zugriff über volatile, damit der Compiler das Feld nicht wegoptimiert)
+const uint8_t kShiftBlock[64 * 1024] = {1};
+#endif
+
 // Testvarianten für den Rollback-Test (nur lokale Builds mit -DPIXELIA_TEST=…, siehe docs/HARDWARE.md)
 void test_misbehave(int elapsed_s) {
+#if defined(PIXELIA_TEST_SHIFT)
+    if (elapsed_s == 1) {
+        const volatile uint8_t* block = kShiftBlock;
+        ESP_LOGW("test", "Testversion mit verschobenem Log-Puffer (Probe %u)", block[(elapsed_s * 4096) % sizeof(kShiftBlock)]);
+    }
+#endif
 #if defined(PIXELIA_TEST_CRASH)
     if (elapsed_s == 20) {
         ESP_LOGE("test", "Testversion: absichtlicher Absturz im Probelauf");
@@ -162,6 +178,7 @@ void selftest_task(void*) {
                 s_status.trial = false;
                 s_status.trial_passed = true;
             }
+            log::set_mirror(false);
             std::snprintf(text, sizeof(text), "Update auf %s erfolgreich", me->version);
             ui::toast(text, pixelia::ui::Tone::Success, 8);
             break;
@@ -212,8 +229,13 @@ void init() {
     }
     esp_ota_img_states_t state;
     if (running && esp_ota_get_state_partition(running, &state) == ESP_OK && state == ESP_OTA_IMG_PENDING_VERIFY) {
-        std::lock_guard<std::mutex> g(s_lock);
-        s_status.trial = true;
+        {
+            std::lock_guard<std::mutex> g(s_lock);
+            s_status.trial = true;
+        }
+        // Stürzt die neue Version im Probelauf ab, startet die alte mit anderer Lage des Log-Puffers: letzte Zeilen
+        // zusätzlich zeilenweise im RTC-Speicher sichern
+        log::set_mirror(true);
     }
     detect_rollback();
     Status st = status();

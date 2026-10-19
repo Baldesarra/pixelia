@@ -39,7 +39,8 @@ void print_help() {
         "  --screen NAME           Systemanzeige mit Beispieldaten als Screenshot (kopflos): setup, setup-leer,\n"
         "                          setup-fehler, update, update-fertig, failed, message, toast, toast-lang,\n"
         "                          toast-ip, info, info-setup, info-offline, hold\n"
-        "  --test NAME             Selbsttest ohne Hardware: gestures (Tippen, langer Druck), all\n"
+        "  --test NAME             Selbsttest ohne Hardware: gestures (Tippen, langer Druck),\n"
+        "                          redact (Passwort-Filter der Diagnose), all\n"
         "\n"
         "Fenster: Leertaste Pause, +/- Zeitraffer, T eine Stunde weiter, S Screenshot, Esc Ende,\n"
         "         Maus 3 s gedrückt halten = Info-Karte (wie langer Druck aufs Display), Klick schließt sie\n",

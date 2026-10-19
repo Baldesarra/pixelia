@@ -10,6 +10,17 @@ Material 3 Expressive Design und Updates über GitHub.
   **Nicht stillschweigend ändern.** Neue Entscheidungen als Zeile ins Entscheidungsprotokoll (Kapitel 14).
 - [docs/ROADMAP.md](docs/ROADMAP.md): aktueller Stand, Phasen, Checklisten, Backlog. **Bei jedem Fortschritt pflegen**
   (Abschnitt „Aktueller Stand“, Häkchen, neue Wünsche des Users ins Backlog mit Datum).
+- [docs/CODEMAP.md](docs/CODEMAP.md): Code-Landkarte (Module, Tasks und Kerne, Speicher, Schnittstellen, Werkzeuge).
+  Statt den Code zu durchsuchen zuerst hier nachsehen; am Ende jeder Phase aktualisieren.
+
+## Sitzungen und Nutzungslimit
+
+- Eine Sitzung pro Phase, Patches der Phase laufen darin weiter.
+- Neue Sitzung nur bei Phasenwechsel oder ab ca. 300 K Kontext.
+- Einarbeitung schlank: CLAUDE.md, ROADMAP „Aktueller Stand“, docs/CODEMAP.md; weitere Doku und Code nur gezielt lesen.
+- Am Ende einer Phase CODEMAP und ROADMAP aktualisieren und die nächste Phase als Sitzungs-Karte mit schlankem Auftrag
+  vorschlagen.
+- Denkstufe normal „high“, „xhigh“ nur für knifflige Aufgaben nach Absprache mit dem User.
 
 ## Zusammenarbeit
 
@@ -47,6 +58,10 @@ Material 3 Expressive Design und Updates über GitHub.
 - **Updates aufs Board bevorzugt per WLAN:** `.\tools\ota.ps1` (Standardziel `http://pixelia/`, sonst `-Target <IP>`,
   `-Build` baut vorher) lädt hoch und prüft danach Version und Selbsttest. USB (`tools/flash.ps1`) nur für die
   Erstinstallation, wenn das WLAN nicht geht, oder fürs serielle Log (`tools/monitor.ps1`).
+- **Log und Diagnose per WLAN (seit 0.2.2):** `.\tools\netlog.ps1` (Live-Log mit Filter, `-Send` Befehle, `-Boot prev`
+  für den Start vor einem Neustart), Abstürze mit `.\tools\crash.ps1` (holt den Bericht, findet das ELF, dekodiert,
+  zeigt das Log davor; `-File` für ein Diagnosepaket vom Handy). Das serielle Log nur, wenn das WLAN nicht geht oder
+  bei Abstürzen ganz früh beim Start. Die Task-Liste (`tasks`, `/api/perf?tasks=1`) kostet einen Display-Aussetzer.
 - Simulator-Compiler: LLVM-MinGW (`g++`/`clang++`), CMake, Ninja. Node.js 24 für die Weboberfläche.
 - Grundsatz: lange Ausgaben (Builds, Logs, serielle Ausgabe) immer über Skripte filtern, nicht roh ins Gespräch holen.
 
