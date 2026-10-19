@@ -27,6 +27,14 @@
       "Doku: 0.3.x in drei Patches aufgeteilt (0.3.0 Grundgerüst, 0.3.1 Seiten, 0.3.2 System und Schutz)",
       "Doku: Inselwelt: Idee einer Lagerübersicht in der Weboberfläche aufgenommen"
     ],
+    "f": [
+      "Web: Abgebrochene WebSocket-Verbindungen (Browser hart geschlossen, Handy schläft) erzeugten je eine Warnung von httpd_ws und trieben den Warnungszähler hoch; jetzt nur noch Fehler"
+    ],
+    "g": [
+      "Gerät: Oberfläche per WLAN-Update installiert, Selbsttest bestanden; Seiten laden in je ~0,1 s (app.js 53,7 KB gzip), ETag liefert 304, /setup weiter erreichbar",
+      "Gerät: Mit offener Oberfläche (Live-WebSocket, 16 Seitenaufrufe) 29,8–30,3 fps, Zeichnen höchstens 6,4 ms, 0 Aussetzer, interner RAM-Tiefstwert 113 KB",
+      "Gerät: Firmware 1261 KB = 21 % der App-Partition; Setup-Modus nicht am Gerät geprüft (Code-Pfad unverändert die bisherige Einrichtungsseite)"
+    ],
     "pr": [12, 13]
   },
   {

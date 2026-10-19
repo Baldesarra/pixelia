@@ -529,6 +529,8 @@ void start() {
     esp_log_level_set("httpd_uri", ESP_LOG_ERROR);
     esp_log_level_set("httpd_txrx", ESP_LOG_ERROR);
     esp_log_level_set("httpd_parse", ESP_LOG_ERROR);
+    // Browser, die einschlafen oder hart schließen, kappen den WebSocket ohne Abschied: harmlos, sonst Warnung pro Fall
+    esp_log_level_set("httpd_ws", ESP_LOG_ERROR);
     esp_err_t err = httpd_start(&s_server, &cfg);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Webserver startet nicht: %s", esp_err_to_name(err));
