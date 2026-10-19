@@ -34,4 +34,8 @@ bool is_log_client(int fd);
 // Endpunkte der Fernwartung anmelden (web_diag.cpp)
 void register_diag();
 
+// Info, Hardware, verbundene Geräte (web_info.cpp): Endpunkte anmelden; Nachricht eines Browsers über /ws
+void register_info();
+void client_message(httpd_req_t* req, const std::string& msg);
+
 }  // namespace app::web::detail

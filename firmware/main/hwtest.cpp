@@ -354,6 +354,12 @@ void reset_corner_hits() {
     board::display::set_corner_hits(0);
 }
 
+bool touch_info(board::touch::Info* info, uint32_t* touches) {
+    *info = s_info;
+    *touches = s_rec.touches;
+    return s_touch_ok;
+}
+
 void log_touch_status() {
     ESP_LOGI(TAG_TOUCH, "Status: %s, %lu Berührungen, Ecken %u/4, Bereich x %d..%d y %d..%d, zuletzt %d/%d",
              s_touch_ok ? "GT911 ok" : "kein GT911", static_cast<unsigned long>(s_rec.touches),

@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "board/display.h"
+#include "board/touch_gt911.h"
 
 namespace app {
 
@@ -37,6 +38,8 @@ void start_tour2();
 // Flash-Sektoren in der Partition „storage“ löschen/beschreiben (Test: Bild bleibt ruhig?)
 void flash_stress(int seconds);
 void backlight_cycle(bool on);
+// Touch-Controller für die Hardware-Seite: false ohne GT911; touches = Berührungen seit dem Start
+bool touch_info(board::touch::Info* info, uint32_t* touches);
 }  // namespace hwtest
 
 namespace gfx {

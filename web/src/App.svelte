@@ -1,25 +1,61 @@
 <script lang="ts">
   // Rahmen der Oberfläche: Navigation (Leiste/Schiene), obere Leiste, Seiten per Hash-Route (#/…)
-  import { Chip, IconButton, Navigation, theme, type NavItem } from './lib/m3';
+  import type { Component } from 'svelte';
+  import { Chip, Dialog, IconButton, Navigation, theme, type NavItem } from './lib/m3';
   import Logo from './lib/Logo.svelte';
   import { device } from './lib/status.svelte';
   import Overview from './pages/Overview.svelte';
   import Appearance from './pages/Appearance.svelte';
+  import Info from './pages/Info.svelte';
+  import Hardware from './pages/Hardware.svelte';
+  import Wifi from './pages/Wifi.svelte';
+  import Devices from './pages/Devices.svelte';
+  import System from './pages/System.svelte';
+  import Log from './pages/Log.svelte';
+  import More from './pages/More.svelte';
 
+  // Handy-Leiste: höchstens fünf Ziele, der Rest steckt unter „Mehr“; die Schiene (ab 600 px) zeigt alles
   const items: NavItem[] = [
     { id: 'uebersicht', label: 'Übersicht', icon: 'dashboard', iconActive: 'dashboard-fill', href: '#/' },
-    { id: 'darstellung', label: 'Darstellung', icon: 'palette', iconActive: 'palette-fill', href: '#/darstellung' },
-    { id: 'einrichtung', label: 'Einrichtung', icon: 'settings', iconActive: 'settings-fill', href: '/setup' },
+    { id: 'wlan', label: 'WLAN', icon: 'wifi', href: '#/wlan' },
+    { id: 'system', label: 'System', icon: 'settings', iconActive: 'settings-fill', href: '#/system' },
+    { id: 'log', label: 'Log', icon: 'terminal', iconActive: 'terminal-fill', href: '#/log' },
+    { id: 'info', label: 'Info', icon: 'info', iconActive: 'info-fill', href: '#/info', bar: false },
+    { id: 'hardware', label: 'Hardware', icon: 'developer_board', iconActive: 'developer_board-fill', href: '#/hardware', bar: false },
+    { id: 'geraete', label: 'Geräte', icon: 'devices', iconActive: 'devices-fill', href: '#/geraete', bar: false },
+    { id: 'darstellung', label: 'Darstellung', icon: 'palette', iconActive: 'palette-fill', href: '#/darstellung', bar: false },
+    { id: 'mehr', label: 'Mehr', icon: 'apps', iconActive: 'apps-fill', href: '#/mehr', rail: false },
   ];
-  const titles: Record<string, string> = { uebersicht: 'Übersicht', darstellung: 'Darstellung' };
+  const pages: Record<string, { title: string; view: Component }> = {
+    uebersicht: { title: 'Übersicht', view: Overview },
+    wlan: { title: 'WLAN', view: Wifi },
+    system: { title: 'System', view: System },
+    log: { title: 'Live-Log', view: Log },
+    info: { title: 'Info', view: Info },
+    hardware: { title: 'Hardware', view: Hardware },
+    geraete: { title: 'Verbundene Geräte', view: Devices },
+    darstellung: { title: 'Darstellung', view: Appearance },
+    mehr: { title: 'Mehr', view: More },
+  };
+  const inMore = ['info', 'hardware', 'geraete', 'darstellung'];
 
   const routeOf = () => (location.hash.replace(/^#\/?/, '') || 'uebersicht').split('/')[0];
   let route = $state(routeOf());
-  const page = $derived(route in titles ? route : 'uebersicht');
+  const page = $derived(route in pages ? route : 'uebersicht');
+  const View = $derived(pages[page].view);
+
+  // Setup-Modus (Captive Portal): ohne eigene Route gleich auf die WLAN-Seite
+  let setupChecked = false;
+  $effect(() => {
+    if (setupChecked || !device.data) return;
+    setupChecked = true;
+    if (device.data.wifi.ap && !location.hash.replace(/^#\/?/, '')) location.hash = '#/wlan';
+  });
 
   $effect(() => theme.apply());
   $effect(() => {
-    document.title = `${titles[page]} · Pixelia`;
+    document.title = `${pages[page].title} · Pixelia`;
+    device.setPage(page);
   });
 
   function cycleMode() {
@@ -36,7 +72,7 @@
   }}
 />
 
-<Navigation {items} active={page}>
+<Navigation {items} active={page} activeBar={inMore.includes(page) ? 'mehr' : page}>
   {#snippet header()}
     <a href="#/" aria-label="Pixelia"><Logo size={48} /></a>
   {/snippet}
@@ -45,7 +81,7 @@
 <div class="frame">
   <header class="bar">
     <span class="mobile-logo"><Logo size={36} /></span>
-    <h1>{titles[page]}</h1>
+    <h1>{pages[page].title}</h1>
     <Chip
       tone={device.link === 'live' ? 'primary' : device.link === 'getrennt' ? 'error' : 'neutral'}
       pulse={device.link === 'live'}
@@ -63,15 +99,13 @@
   <main>
     {#key page}
       <div class="page">
-        {#if page === 'darstellung'}
-          <Appearance />
-        {:else}
-          <Overview />
-        {/if}
+        <View />
       </div>
     {/key}
   </main>
 </div>
+
+<Dialog />
 
 <style>
   .frame {
@@ -91,7 +125,11 @@
   }
   h1 {
     flex: 1;
+    min-width: 0;
     margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font: var(--md-sys-typescale-title-large);
     font-weight: 600;
     font-stretch: 105%;

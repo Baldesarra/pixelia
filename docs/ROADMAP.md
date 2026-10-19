@@ -145,6 +145,9 @@ Aufgeteilt in drei Patches, je eine Arbeits-Sitzung (siehe [ARBEITSWEISE.md](ARB
 - [x] Navigation (Handy + Desktop) und Seite Übersicht, dazu Seite Darstellung (Farbwahl, Komponenten-Vorschau)
 
 **0.3.1 Seiten**
+- [ ] Einrichtungsseite (Setup, `firmware/main/web/setup.html`) ans neue Design anpassen, ohne Funktionsverlust
+      (WLAN, Update-Upload, Anzeige, System, Diagnosepaket); Setup-Modus im Captive Portal am Gerät prüfen
+      (Wunsch des Users, 2026-10-19)
 - [ ] Seiten: Info, Hardware, WLAN (Scan, Signalbalken), Verbundene Geräte, System
 - [ ] Live-Log als Seite in der Oberfläche (Schnittstellen `/ws/log` und `/api/log` gibt es seit 0.2.2)
 

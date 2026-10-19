@@ -30,7 +30,7 @@
         <Chip tone="neutral" icon="schedule"><span class="tnum">läuft seit {duration(s.uptime)}</span></Chip>
         {#if s.time.valid}<Chip tone="neutral"><span class="tnum">{s.time.local}</span></Chip>{/if}
         <span class="grow"></span>
-        <Button variant="filled" icon="settings" href="/setup">Einrichtung</Button>
+        <Button variant="filled" icon="settings" href="#/system">System</Button>
       </div>
     </Card>
 
@@ -83,7 +83,7 @@
           <Icon name="router" />
           <div>
             <strong>Setup-Modus aktiv</strong>
-            <p>Pixelia öffnet ein eigenes WLAN ({s.wifi.apClients} verbunden). WLAN einrichten unter „Einrichtung“.</p>
+            <p>Pixelia öffnet ein eigenes WLAN ({s.wifi.apClients} verbunden). <a href="#/wlan">WLAN einrichten</a></p>
           </div>
         </div>
       </Card>
