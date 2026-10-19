@@ -18,7 +18,11 @@
     "i": [
       "Web: Übersicht verweist auf die Seiten System und WLAN statt auf die Einrichtungsseite; npm run mock liefert alle neuen Schnittstellen und /setup (PIXELIA_MOCK=setup für den Setup-Modus)"
     ],
-    "g": [],
+    "g": [
+      "Gerät: Alle Seiten per WLAN-Update geprüft: Netzsuche, Live-Log, Befehl wifi, Geräte-Anmeldung mit Umbenennen, /api/system in 36 ms, Chiptemperatur 41,8 °C",
+      "Gerät: Mit offener Oberfläche und Live-Log 29,8–30,3 fps, Zeichnen ≤ 4,2 ms, 0 Aussetzer, interner RAM-Tiefstwert 111 KB; Firmware 1305 KB = 21 % der Partition",
+      "Web: Bundle gzip 119 KB (app.js 79 KB, CSS 7 KB, Schrift 33 KB), Ziel ≤ 150 KB"
+    ],
     "pr": []
   },
   {
