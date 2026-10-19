@@ -9,7 +9,7 @@
       "Doku: CLAUDE.md, Abschnitt „Sitzungen und Nutzungslimit“ entsprechend neu gefasst (Sitzung pro Version statt pro Phase, sparsames Lesen und Bauen)",
       "Doku: 0.3.x in der Roadmap in drei Patches aufgeteilt (0.3.0 Grundgerüst, 0.3.1 Seiten, 0.3.2 System und Schutz), damit jede Arbeits-Sitzung klein bleibt"
     ],
-    "pr": []
+    "pr": [12]
   },
   {
     "v": "0.2.2",
