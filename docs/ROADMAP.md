@@ -7,11 +7,11 @@
 
 | | |
 |---|---|
-| **Phase** | 0.3.x Weboberfläche: 0.3.0 „Grundgerüst“ gebaut und am Gerät geprüft (30 fps, RAM ≥ 113 KB), PR #13 offen |
-| **Letzte Version** | 0.2.2 „Fernwartung“ (2026-10-19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.2.2) |
+| **Phase** | 0.3.x Weboberfläche: 0.3.0 „Grundgerüst“ veröffentlicht und am Gerät geprüft (30 fps, RAM ≥ 113 KB) |
+| **Letzte Version** | 0.3.0 „Weboberfläche: Grundgerüst“ (2026-10-19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.3.0) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
-| **Nächster Schritt** | PR #13 mergen, Release v0.3.0; danach 0.3.1 Seiten (frische Sitzung) |
+| **Nächster Schritt** | 0.3.1 Seiten (Info, Hardware, WLAN, Geräte, System, Live-Log), frische Arbeits-Sitzung, Denkstufe Hoch |
 | **Offen** | Setup-Modus mit neuer Firmware einmal am Gerät ansehen (Captive Portal); Planungs-Chat: Hauptwelt vor 0.6.0 festlegen; Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
 | **Aktualisiert** | 2026-10-19 |
 
