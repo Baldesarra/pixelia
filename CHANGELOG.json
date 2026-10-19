@@ -26,7 +26,8 @@
       "Web: JSON-Schreiber als eigene Datei (json.cpp) statt inline im Header: Der Compiler (-O2) kopierte die Zeichenkettenarbeit sonst in jede Aufrufstelle, das kostete in der Entwicklung über 100 KB Code. Firmware jetzt 1170 KB (19 % der App-Partition)",
       "Web: Große Zwischenpuffer (WebSocket-Rahmen, gestreamte Antworten, Befehlsausgaben) werden bewusst ab 16 KB angelegt und landen so im PSRAM statt im internen RAM",
       "Doku: HARDWARE.md (Diagnose per WLAN mit allen Schnittstellen, Werkzeugen und Messwerten, Lage des Log-Puffers, Kernel-Sperre), Roadmap mit 0.2.2, Entscheidungsprotokoll, CLAUDE.md (netlog.ps1 und crash.ps1)",
-      "Doku: Neue Code-Landkarte docs/CODEMAP.md: Ordner, Engine-Bausteine, Firmware-Module mit Startablauf, Tasks mit Kern und Priorität, Speicher (Partitionen, NVS-Namensräume, No-Init-Bereiche), Schnittstellen, Simulator, Werkzeuge und CI. Neue Sitzungen müssen damit nicht mehr den halben Code lesen"
+      "Doku: Neue Code-Landkarte docs/CODEMAP.md: Ordner, Engine-Bausteine, Firmware-Module mit Startablauf, Tasks mit Kern und Priorität, Speicher (Partitionen, NVS-Namensräume, No-Init-Bereiche), Schnittstellen, Simulator, Werkzeuge und CI. Neue Sitzungen müssen damit nicht mehr den halben Code lesen",
+      "Doku: CLAUDE.md mit Abschnitt „Sitzungen und Nutzungslimit“ (Vorschlag des Users): eine Sitzung pro Phase, neue Sitzung nur bei Phasenwechsel oder ab ca. 300 K Kontext, schlanke Einarbeitung über CLAUDE.md, Roadmap und CODEMAP, Denkstufe normal „high“; CODEMAP.md unter „Zuerst lesen“"
     ],
     "f": [
       "Web: Der Status-WebSocket /ws hat unter ESP-IDF 6.1 nie gesendet: Beim Handschlag ruft der Webserver den URI-Handler nicht mehr auf, die Anmeldung stand aber genau dort. Die Einrichtungsseite lief deshalb unbemerkt über ihre Ersatz-Abfrage alle 2 s. Jetzt mit Post-Handshake-Callback (CONFIG_HTTPD_WS_POST_HANDSHAKE_CB_SUPPORT); gemessen 5 Nachrichten in 3,5 s",

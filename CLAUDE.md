@@ -10,6 +10,17 @@ Material 3 Expressive Design und Updates über GitHub.
   **Nicht stillschweigend ändern.** Neue Entscheidungen als Zeile ins Entscheidungsprotokoll (Kapitel 14).
 - [docs/ROADMAP.md](docs/ROADMAP.md): aktueller Stand, Phasen, Checklisten, Backlog. **Bei jedem Fortschritt pflegen**
   (Abschnitt „Aktueller Stand“, Häkchen, neue Wünsche des Users ins Backlog mit Datum).
+- [docs/CODEMAP.md](docs/CODEMAP.md): Code-Landkarte (Module, Tasks und Kerne, Speicher, Schnittstellen, Werkzeuge).
+  Statt den Code zu durchsuchen zuerst hier nachsehen; am Ende jeder Phase aktualisieren.
+
+## Sitzungen und Nutzungslimit
+
+- Eine Sitzung pro Phase, Patches der Phase laufen darin weiter.
+- Neue Sitzung nur bei Phasenwechsel oder ab ca. 300 K Kontext.
+- Einarbeitung schlank: CLAUDE.md, ROADMAP „Aktueller Stand“, docs/CODEMAP.md; weitere Doku und Code nur gezielt lesen.
+- Am Ende einer Phase CODEMAP und ROADMAP aktualisieren und die nächste Phase als Sitzungs-Karte mit schlankem Auftrag
+  vorschlagen.
+- Denkstufe normal „high“, „xhigh“ nur für knifflige Aufgaben nach Absprache mit dem User.
 
 ## Zusammenarbeit
 
