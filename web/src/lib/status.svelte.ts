@@ -1,5 +1,8 @@
 // Live-Status vom Gerät: WebSocket /ws (1/s), sonst Abfrage /api/status alle 2 s.
 // Ist die Seite länger als 60 s unsichtbar, wird die Verbindung geschlossen (spart einen der 7 Sockets am Gerät).
+// Über denselben WebSocket meldet sich der Browser für „Verbundene Geräte“ an (Geräte-ID, Browser, aktuelle Seite).
+
+import { agentLabel, clientId } from './client';
 
 export type Status = {
   v: string;
@@ -72,6 +75,7 @@ class Device {
   #retry = 0;
   #poll = 0;
   #hidden = 0;
+  #page = '';
 
   start() {
     this.#connect();
@@ -97,7 +101,10 @@ class Device {
       return;
     }
     this.#ws = ws;
-    ws.onopen = () => (this.#fails = 0);
+    ws.onopen = () => {
+      this.#fails = 0;
+      ws.send(new URLSearchParams({ hello: clientId, ua: agentLabel(), page: this.#page }).toString());
+    };
     ws.onmessage = (e) => {
       try {
         this.#take(JSON.parse(e.data), 'live');
@@ -110,6 +117,12 @@ class Device {
       this.#fails++;
       if (!document.hidden) this.#scheduleRetry();
     };
+  }
+
+  /** Aktuelle Seite ans Gerät melden (Liste „Verbundene Geräte“) */
+  setPage(page: string) {
+    this.#page = page;
+    if (this.#ws?.readyState === WebSocket.OPEN) this.#ws.send(new URLSearchParams({ page }).toString());
   }
 
   #scheduleRetry() {

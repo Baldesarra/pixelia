@@ -3,66 +3,110 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pixelia</title>
-<!-- Einfache Einrichtungsseite (seit 0.2.x): im Setup-Modus unter /, sonst unter /setup. Die Oberfläche (web/) ersetzt sie schrittweise ab 0.3.x. -->
+<title>Pixelia · Einrichtung</title>
+<!-- Einrichtungsseite (seit 0.2.x, M3-Look seit 0.3.1): Notfallseite ohne Build-Schritt unter /setup, funktioniert auch,
+     wenn die Oberfläche (web/) fehlt oder fehlerhaft ist. WLAN, Update, Anzeige, System, Diagnosepaket.
+     Farben = Standardpalette der Oberfläche („Moos“, tonal), Schrift = eingebettete Roboto Flex (/roboto-flex-pixelia.woff2). -->
 <style>
+  @font-face { font-family: "Roboto Flex"; src: url("/roboto-flex-pixelia.woff2") format("woff2"); font-weight: 300 900; font-stretch: 75% 125%; font-display: swap; }
   :root {
     color-scheme: light dark;
-    --bg: #f6f3fb; --surface: #ffffff; --text: #1c1a22; --muted: #5d586a; --primary: #6b4fd8; --on-primary: #ffffff;
-    --outline: #ddd6ee; --ok: #1d7a45; --err: #b3261e; --warn-bg: #fff3d6; --warn-text: #5c4300; --ok-bg: #dff5e6;
+    --primary: #236a5c; --on-primary: #e3fff6; --primary-c: #abf0de; --on-primary-c: #0e5c4f;
+    --secondary-c: #cde8e0; --on-secondary-c: #3e5750; --tertiary-c: #b6ebfd; --on-tertiary-c: #215867;
+    --error: #a83836; --error-c: #fa746f; --on-error-c: #6e0a12;
+    --surface: #f6faf7; --s-low: #eef5f1; --s-cont: #e8f0ec; --s-high: #e1eae6; --s-highest: #dae5e0;
+    --on-surface: #2a3531; --on-variant: #57615e; --outline: #727d79; --outline-v: #a9b4b0;
+    --spring: cubic-bezier(.34, 1.4, .64, 1);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #141218; --surface: #1f1c26; --text: #ece7f5; --muted: #b0a9bf; --primary: #c4b5ff; --on-primary: #2a1a6e;
-      --outline: #3a3546; --ok: #7ddc96; --err: #ffb4ab; --warn-bg: #3b2f10; --warn-text: #ffe2a3; --ok-bg: #18301f;
+      --primary: #9dd1c3; --on-primary: #13483e; --primary-c: #295b50; --on-primary-c: #b9eedf;
+      --secondary-c: #28403a; --on-secondary-c: #aac5bd; --tertiary-c: #b6ebfd; --on-tertiary-c: #215867;
+      --error: #fa746f; --error-c: #871f21; --on-error-c: #ff9993;
+      --surface: #0a0f0e; --s-low: #0e1513; --s-cont: #131b19; --s-high: #19211f; --s-highest: #1e2825;
+      --on-surface: #dde8e3; --on-variant: #a2aea9; --outline: #6d7874; --outline-v: #404a47;
     }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
-  h1 { font-size: 1.9rem; margin: 6px 0 0; letter-spacing: -0.01em; }
-  h2 { font-size: 1.15rem; margin: 0 0 10px; }
-  .sub { color: var(--muted); margin: 0 0 18px; }
-  .card { background: var(--surface); border: 1px solid var(--outline); border-radius: 24px; padding: 18px 20px; margin: 0 0 16px; }
-  .muted { color: var(--muted); }
-  .small { font-size: 0.88rem; }
-  .ok { color: var(--ok); }
-  .err { color: var(--err); }
-  .banner { border-radius: 16px; padding: 12px 16px; margin: 0 0 14px; background: var(--warn-bg); color: var(--warn-text); }
-  .banner.good { background: var(--ok-bg); color: var(--ok); }
-  .banner button { margin-left: 8px; }
-  .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--outline); }
-  .row:last-child { border-bottom: 0; }
-  .net { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 4px; border: 0; border-bottom: 1px solid var(--outline); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 0; }
-  .net:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
-  .net .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bars { display: inline-flex; gap: 2px; align-items: flex-end; height: 14px; }
-  .bars i { width: 4px; background: var(--outline); border-radius: 1px; }
+  body { margin: 0; background: var(--surface); color: var(--on-surface); font: 400 15px/1.45 "Roboto Flex", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+  main { max-width: 640px; margin: 0 auto; padding: 16px 16px 40px; }
+  header { display: flex; align-items: center; gap: 14px; margin: 4px 0 16px; }
+  .logo { width: 52px; height: 52px; flex: none; display: grid; place-items: center; background: var(--primary); color: var(--on-primary); border-radius: 18px 18px 18px 6px; font: 800 26px/1 "Roboto Flex", sans-serif; font-stretch: 120%; }
+  h1 { margin: 0; font-size: 30px; line-height: 36px; font-weight: 800; font-stretch: 115%; letter-spacing: -.3px; }
+  .sub { margin: 0; color: var(--on-variant); }
+  .sub a { color: var(--primary); font-weight: 600; }
+  h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 16px; font-weight: 650; color: var(--on-variant); }
+  .card { background: var(--s-cont); border-radius: 28px; padding: 20px; margin: 0 0 14px; }
+  .muted { color: var(--on-variant); }
+  .small { font-size: 12.5px; line-height: 1.4; }
+  .ok { color: var(--primary); }
+  .err { color: var(--error); }
+  p { margin: 10px 0 0; }
+  .banner { border-radius: 20px; padding: 14px 18px; margin: 0 0 14px; background: var(--tertiary-c); color: var(--on-tertiary-c); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .banner.bad { background: var(--error-c); color: var(--on-error-c); }
+  .banner.good { background: var(--primary-c); color: var(--on-primary-c); }
+  .banner span { flex: 1; min-width: 200px; }
+  .now { display: flex; align-items: center; gap: 16px; padding: 16px 18px; border-radius: 24px; background: var(--primary-c); color: var(--on-primary-c); }
+  .now.off { background: var(--error-c); color: var(--on-error-c); }
+  .now.ap { background: var(--tertiary-c); color: var(--on-tertiary-c); }
+  .now b { display: block; font-size: 22px; line-height: 28px; font-weight: 750; font-stretch: 110%; overflow-wrap: anywhere; }
+  .now a { color: inherit; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 40px; padding: 4px 0; }
+  .row > :first-child { color: var(--on-variant); }
+  .row > :last-child { text-align: right; font-weight: 550; overflow-wrap: anywhere; }
+  .item { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 56px; padding: 8px; margin: 0 -8px; width: calc(100% + 16px); border: 0; border-radius: 14px; background: none; color: inherit; font: inherit; text-align: left; }
+  button.item { cursor: pointer; transition: background-color .2s, border-radius .35s var(--spring); }
+  button.item:hover { background: color-mix(in srgb, var(--on-surface) 8%, transparent); }
+  button.item:active { border-radius: 28px; }
+  .item .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
+  .item .lead { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--secondary-c); color: var(--on-secondary-c); font-weight: 700; }
+  .bars { display: inline-flex; gap: 2px; align-items: flex-end; height: 20px; flex: none; }
+  .bars i { width: 4.5px; background: var(--s-highest); border-radius: 2px; }
   .bars i.on { background: var(--primary); }
-  button { font: inherit; font-weight: 600; background: var(--primary); color: var(--on-primary); border: 0; border-radius: 999px; padding: 10px 20px; cursor: pointer; }
-  button.tonal { background: transparent; color: var(--primary); border: 1px solid var(--outline); font-weight: 500; padding: 7px 14px; }
-  button:disabled { opacity: 0.5; cursor: default; }
-  a.btn { display: inline-block; font-weight: 600; background: var(--primary); color: var(--on-primary); border-radius: 999px; padding: 10px 20px; text-decoration: none; }
-  label { display: block; margin: 12px 0 4px; color: var(--muted); font-size: 0.9rem; }
-  label.check { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
-  input[type=text], input[type=password], select { font: inherit; width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--outline); background: var(--bg); color: var(--text); }
-  input[type=range] { width: 100%; accent-color: var(--primary); }
-  input[type=file] { margin: 6px 0 10px; max-width: 100%; }
-  progress { width: 100%; height: 12px; accent-color: var(--primary); margin-top: 12px; }
-  .actions { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-  footer { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 24px; }
+  .now .bars { height: 40px; gap: 4px; }
+  .now .bars i { width: 9px; border-radius: 3px; background: color-mix(in srgb, currentColor 22%, transparent); }
+  .now .bars i.on { background: currentColor; }
+  button, a.btn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 20px; border: 0; border-radius: 20px; background: var(--primary); color: var(--on-primary); font: 500 14px/20px "Roboto Flex", system-ui, sans-serif; text-decoration: none; cursor: pointer; transition: border-radius .35s var(--spring), background-color .2s; white-space: nowrap; }
+  button:active, a.btn:active { border-radius: 8px; }
+  button.tonal, a.btn.tonal { background: var(--secondary-c); color: var(--on-secondary-c); }
+  button.text { background: none; color: var(--primary); padding: 0 12px; }
+  button.danger { background: var(--error); color: var(--surface); }
+  button.text.danger { background: none; color: var(--error); }
+  button:disabled { background: color-mix(in srgb, var(--on-surface) 10%, transparent); color: color-mix(in srgb, var(--on-surface) 38%, transparent); cursor: default; }
+  .field { position: relative; margin-top: 12px; }
+  .field input, .field select { width: 100%; height: 56px; padding: 18px 16px 2px; border: 0; border-radius: 16px; outline: none; background: none; color: var(--on-surface); font: 400 16px/24px "Roboto Flex", system-ui, sans-serif; box-shadow: inset 0 0 0 1px var(--outline); transition: box-shadow .2s, border-radius .35s var(--spring); appearance: none; }
+  .field input:focus, .field select:focus { box-shadow: inset 0 0 0 2px var(--primary); border-radius: 12px; }
+  .field label { position: absolute; left: 16px; top: 7px; font-size: 12px; color: var(--on-variant); pointer-events: none; }
+  .field input:focus + label { color: var(--primary); }
+  .field select { padding-right: 40px; background-image: linear-gradient(45deg, transparent 50%, var(--on-variant) 50%), linear-gradient(135deg, var(--on-variant) 50%, transparent 50%); background-position: right 22px top 28px, right 16px top 28px; background-size: 6px 6px; background-repeat: no-repeat; }
+  .field select option { background: var(--s-high); color: var(--on-surface); }
+  .check { display: flex; gap: 10px; align-items: center; margin-top: 10px; color: var(--on-variant); }
+  .check input { width: 18px; height: 18px; accent-color: var(--primary); }
+  .range { margin-top: 16px; }
+  .range .row { min-height: 0; }
+  input[type=range] { width: 100%; height: 32px; margin: 4px 0 0; accent-color: var(--primary); }
+  input[type=file] { display: none; }
+  .prog { position: relative; height: 8px; margin-top: 16px; border-radius: 4px; background: var(--secondary-c); overflow: hidden; }
+  .prog i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 4px; background: var(--primary); transition: width .3s; }
+  .actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  footer { text-align: center; color: var(--on-variant); font-size: 12.5px; margin-top: 24px; }
   a { color: var(--primary); }
 </style>
 </head>
 <body>
 <main>
-  <h1>Pixelia</h1>
-  <p class="sub"><span id="sub">Einrichtung und Updates</span> <a id="toUi" href="/" hidden>· zur Übersicht</a></p>
+  <header>
+    <div class="logo" aria-hidden="true">P</div>
+    <div>
+      <h1>Pixelia</h1>
+      <p class="sub"><span id="sub">Einrichtung</span> <a href="/">· zur Oberfläche</a></p>
+    </div>
+  </header>
   <div id="banners"></div>
 
   <section class="card">
     <h2>WLAN</h2>
-    <div id="wifiState" class="muted">Lade …</div>
+    <div id="wifiState" class="now off"><span>Lade …</span></div>
     <div id="saved"></div>
   </section>
 
@@ -71,10 +115,8 @@
     <div class="actions" style="margin-top:0"><button class="tonal" id="scanBtn" type="button">Netzwerke suchen</button><span id="scanMsg" class="muted small"></span></div>
     <div id="scanList"></div>
     <form id="addForm" method="post" action="/api/wifi/add" autocomplete="off">
-      <label for="ssid">WLAN-Name</label>
-      <input id="ssid" name="ssid" type="text" maxlength="32" required autocapitalize="none" spellcheck="false">
-      <label for="pass">Passwort</label>
-      <input id="pass" name="pass" type="password" maxlength="64" autocapitalize="none" spellcheck="false">
+      <div class="field"><input id="ssid" name="ssid" type="text" maxlength="32" required autocapitalize="none" spellcheck="false"><label for="ssid">WLAN-Name</label></div>
+      <div class="field"><input id="pass" name="pass" type="password" maxlength="64" autocapitalize="none" spellcheck="false"><label for="pass">Passwort</label></div>
       <label class="check"><input type="checkbox" id="showPass"> Passwort anzeigen</label>
       <div class="actions"><button type="submit" id="addBtn">Speichern und verbinden</button></div>
     </form>
@@ -84,37 +126,35 @@
 
   <section class="card">
     <h2>Update</h2>
-    <p class="muted" style="margin-top:0">Installiert: <b id="ver">…</b>. Neue Version als <b>.bin</b> auswählen, z.&nbsp;B. <i>pixelia-v0.2.1.bin</i> von GitHub (nicht das Factory-Image).</p>
+    <p class="muted" style="margin-top:0">Installiert: <b id="ver">…</b>. Neue Version als <b>.bin</b> auswählen, z.&nbsp;B. <i>pixelia-v0.3.1.bin</i> von GitHub (nicht das Factory-Image).</p>
     <input type="file" id="file" accept=".bin,application/octet-stream">
-    <div id="fileInfo" class="small"></div>
-    <div class="actions"><button id="upBtn" type="button" disabled>Update installieren</button></div>
-    <progress id="prog" max="100" value="0" hidden></progress>
+    <div class="actions"><button class="tonal" id="pickBtn" type="button">Datei wählen</button><button id="upBtn" type="button" disabled>Update installieren</button></div>
+    <p id="fileInfo" class="small"></p>
+    <div class="prog" id="prog" hidden><i id="progBar"></i></div>
     <p id="upMsg"></p>
   </section>
 
   <section class="card">
     <h2>Anzeige</h2>
-    <label for="rot">Bilddrehung</label>
-    <select id="rot"><option value="0">0° (normal)</option><option value="180">180° (auf dem Kopf)</option></select>
-    <label for="bright">Helligkeit <span id="brightVal"></span></label>
-    <input type="range" id="bright" min="1" max="100" step="1">
+    <div class="field"><select id="rot"><option value="0">0° (normal)</option><option value="180">180° (auf dem Kopf)</option></select><label for="rot">Bilddrehung</label></div>
+    <div class="range"><div class="row"><span>Helligkeit</span><span id="brightVal"></span></div><input type="range" id="bright" min="1" max="100" step="1" aria-label="Helligkeit"></div>
   </section>
 
   <section class="card">
     <h2>System</h2>
     <div id="sys"></div>
-    <div class="actions"><button class="tonal" id="rebootBtn" type="button">Neustart</button></div>
+    <div class="actions"><button class="text danger" id="rebootBtn" type="button">Neustart</button></div>
   </section>
 
   <section class="card">
     <h2>Diagnose</h2>
-    <div id="diag" class="small"></div>
+    <div id="diag"></div>
     <div class="actions"><a class="btn" id="diagBtn" href="/api/diag" download>Diagnosepaket herunterladen</a></div>
     <p class="muted small">Eine Datei mit Status, Versionen, Einstellungen, Neustarts, Log und Absturzbericht, ohne Passwörter. Auf dem Handy landet sie unter „Downloads“ und lässt sich von dort per Mail oder Messenger verschicken.</p>
-    <p class="muted small" id="diagSetupHint" hidden>Im Setup-Fenster des Handys klappt das Herunterladen oft nicht. Dann im normalen Browser <a href="http://192.168.4.1/">http://192.168.4.1</a> öffnen.</p>
+    <p class="muted small" id="diagSetupHint" hidden>Im Setup-Fenster des Handys klappt das Herunterladen oft nicht. Dann im normalen Browser <a href="http://192.168.4.1/setup">http://192.168.4.1/setup</a> öffnen.</p>
   </section>
 
-  <footer>Pixelia · Die volle Oberfläche folgt mit Version 0.3</footer>
+  <footer>Pixelia · Einfache Einrichtungsseite · <a href="/">zur vollen Oberfläche</a></footer>
 </main>
 <script>
 "use strict";
@@ -129,8 +169,8 @@ async function api(path, data) {
 }
 
 function bars(rssi) {
-  const n = rssi >= -55 ? 4 : rssi >= -67 ? 3 : rssi >= -78 ? 2 : 1;
-  return `<span class="bars" title="${rssi} dBm">` + [1, 2, 3, 4].map((i) => `<i class="${i <= n ? "on" : ""}" style="height:${2 + i * 3}px"></i>`).join("") + "</span>";
+  const n = rssi >= -55 ? 4 : rssi >= -67 ? 3 : rssi >= -75 ? 2 : 1;
+  return `<span class="bars" title="${rssi} dBm">` + [1, 2, 3, 4].map((i) => `<i class="${i <= n ? "on" : ""}" style="height:${i * 25}%"></i>`).join("") + "</span>";
 }
 
 function dur(s) {
@@ -138,34 +178,42 @@ function dur(s) {
   return (d ? d + " d " : "") + (d || h ? h + " h " : "") + m + " min";
 }
 
+const rows = (list) => list.map(([k, v]) => `<div class="row"><span>${k}</span><span>${v}</span></div>`).join("");
+
+function setProg(p) { $("prog").hidden = false; $("progBar").style.width = p + "%"; }
+
 function render(s) {
   lastSeen = Date.now();
   $("ver").textContent = s.v;
   const w = s.wifi;
-  $("sub").textContent = w.ap ? "Setup-Modus: WLAN einrichten" : "Einrichtung und Updates";
-  $("toUi").hidden = w.ap; // im Setup-Modus ist diese Seite die Startseite
+  $("sub").textContent = w.ap ? "Setup-Modus: WLAN einrichten" : "Einfache Einrichtung";
 
   let b = "";
-  if (s.rollback) b += `<div class="banner">Das Update auf <b>${esc(s.rollback.v)}</b> wurde zurückgerollt: ${esc(s.rollback.why)}. Es läuft wieder ${esc(s.v)}.<button class="tonal" type="button" id="ackBtn">OK</button></div>`;
-  if (s.ota.trial) b += `<div class="banner">Probelauf von ${esc(s.v)}: Selbsttest läuft (${s.ota.trialS} von ${s.ota.trialNeed} s, ${esc(s.ota.trialNote)}).</div>`;
-  else if (s.ota.passed) b += `<div class="banner good">Update auf ${esc(s.v)} erfolgreich, Selbsttest bestanden.</div>`;
+  if (s.rollback) b += `<div class="banner bad"><span>Das Update auf <b>${esc(s.rollback.v)}</b> wurde zurückgenommen: ${esc(s.rollback.why)}. Es läuft wieder ${esc(s.v)}.</span><button class="tonal" type="button" id="ackBtn">OK</button></div>`;
+  if (s.ota.trial) b += `<div class="banner"><span>Probelauf von ${esc(s.v)}: Selbsttest läuft (${s.ota.trialS} von ${s.ota.trialNeed} s, ${esc(s.ota.trialNote)}).</span></div>`;
+  else if (s.ota.passed) b += `<div class="banner good"><span>Update auf ${esc(s.v)} erfolgreich, Selbsttest bestanden.</span></div>`;
   $("banners").innerHTML = b;
   if ($("ackBtn")) $("ackBtn").onclick = () => api("/api/ota/ack", {}).then(refresh);
 
-  let t;
+  let t, cls;
   if (w.state === "verbunden") {
-    t = `<span class="ok">● Verbunden</span> mit <b>${esc(w.ssid)}</b> ${bars(w.rssi)}<br><span class="muted small">${esc(w.ip)} · Kanal ${w.ch} · ${w.rssi} dBm · <a href="http://${esc(s.host)}.local/">http://${esc(s.host)}.local</a></span>`;
+    cls = "now";
+    t = `${bars(w.rssi)}<span><b>${esc(w.ssid)}</b>${esc(w.ip)} · Kanal ${w.ch} · ${w.rssi} dBm<br><a href="http://${esc(s.host)}.local/">http://${esc(s.host)}.local</a></span>`;
   } else if (w.state === "verbinde") {
-    t = `Verbinde mit <b>${esc(w.ssid)}</b> …`;
+    cls = "now ap";
+    t = `<span><b>Verbinde …</b>mit ${esc(w.ssid)}</span>`;
   } else {
-    t = `<span class="err">● Nicht verbunden</span>` + (w.retry >= 0 ? `<span class="muted"> · neuer Versuch in ${w.retry} s</span>` : "");
+    cls = w.ap ? "now ap" : "now off";
+    t = `<span><b>${w.ap ? "Setup-Modus" : "Nicht verbunden"}</b>` + (w.retry >= 0 ? `Neuer Versuch in ${w.retry} s` : "");
+    if (w.err) t += `<br><span class="small">${esc(w.err)}</span>`;
+    if (w.ap) t += `<br><span class="small">Setup-WLAN „Pixelia-Setup“ aktiv, ${w.apClients} Gerät(e) angemeldet</span>`;
+    t += "</span>";
   }
-  if (w.err && w.state !== "verbunden") t += `<br><span class="err small">${esc(w.err)}</span>`;
-  if (w.ap) t += `<br><span class="muted small">Setup-WLAN „Pixelia-Setup“ aktiv, ${w.apClients} Gerät(e) angemeldet</span>`;
+  $("wifiState").className = cls;
   $("wifiState").innerHTML = t;
 
   const p = s.perf;
-  const rows = [
+  $("sys").innerHTML = rows([
     ["Version", `${esc(s.v)} (${esc(s.part)})`],
     ["Gebaut", `${esc(s.built)} · ESP-IDF ${esc(s.idf)}`],
     ["Laufzeit", dur(s.uptime)],
@@ -174,18 +222,16 @@ function render(s) {
     ["CPU", `Kern 0: ${p.cpu0} % · Kern 1: ${p.cpu1} %`],
     ["RAM intern", `${p.ram} KB frei (min. ${p.ramMin} KB)`],
     ["PSRAM", `${(p.psram / 1024).toFixed(1)} MB frei`],
-  ];
-  $("sys").innerHTML = rows.map(([k, v]) => `<div class="row"><span class="muted">${k}</span><span>${v}</span></div>`).join("");
+  ]);
 
   const d = s.diag;
   if (d) {
-    const drows = [
+    $("diag").innerHTML = rows([
       ["Start", `Nr. ${d.boot} · ${esc(d.reset)}`],
       ["Seit dem Start", `${d.errors} Fehler · ${d.warnings} Warnungen`],
       ["Log-Puffer", `${d.logLines} Zeilen`],
       ["Absturzbericht", d.crash ? `<span class="err">vorhanden: Task „${esc(d.crash.task)}“${d.crash.v ? " · " + esc(d.crash.v) : ""}</span>` : "keiner"],
-    ];
-    $("diag").innerHTML = drows.map(([k, v]) => `<div class="row"><span class="muted">${k}</span><span>${v}</span></div>`).join("");
+    ]);
   }
   $("diagSetupHint").hidden = !w.ap;
 
@@ -193,8 +239,7 @@ function render(s) {
   if (document.activeElement !== $("bright")) { $("bright").value = s.set.bright; $("brightVal").textContent = s.set.bright + " %"; }
 
   if (!uploading && s.ota.busy && s.ota.total) {
-    $("prog").hidden = false;
-    $("prog").value = (s.ota.bytes * 100) / s.ota.total;
+    setProg((s.ota.bytes * 100) / s.ota.total);
     $("upMsg").textContent = `Update auf ${s.ota.newV} läuft …`;
   }
   if (waitingFor) {
@@ -202,7 +247,7 @@ function render(s) {
       if (s.ota.trial) $("upMsg").innerHTML = `Neue Version ${esc(s.v)} läuft. Selbsttest: ${s.ota.trialS} von ${s.ota.trialNeed} s …`;
       else { $("upMsg").innerHTML = `<span class="ok">Update auf ${esc(s.v)} erfolgreich ✓</span>`; waitingFor = null; uploading = false; $("prog").hidden = true; }
     } else if (s.rollback && s.rollback.v === waitingFor) {
-      $("upMsg").innerHTML = `<span class="err">Update auf ${esc(waitingFor)} wurde zurückgerollt: ${esc(s.rollback.why)}</span>`;
+      $("upMsg").innerHTML = `<span class="err">Update auf ${esc(waitingFor)} wurde zurückgenommen: ${esc(s.rollback.why)}</span>`;
       waitingFor = null; uploading = false; $("prog").hidden = true;
     }
   }
@@ -214,9 +259,9 @@ async function refresh() {
 
 function renderWifi(j) {
   $("saved").innerHTML = j.saved.length
-    ? j.saved.map((n) => `<div class="row"><span>${esc(n)} <span class="ok small">gespeichert ✓</span></span><button class="tonal" type="button" data-del="${esc(n)}">Entfernen</button></div>`).join("")
+    ? j.saved.map((n) => `<div class="item"><span class="lead">✓</span><span class="name">${esc(n)}</span><button class="text danger" type="button" data-del="${esc(n)}">Entfernen</button></div>`).join("")
     : `<p class="muted small">Noch kein WLAN gespeichert.</p>`;
-  $("scanList").innerHTML = j.scan.map((n) => `<button class="net" type="button" data-ssid="${esc(n.ssid)}">${bars(n.rssi)}<span class="name">${esc(n.ssid)}</span><span class="muted small">${n.secure ? "🔒" : "offen"}${n.saved ? " · ✓" : ""}</span></button>`).join("");
+  $("scanList").innerHTML = j.scan.map((n) => `<button class="item" type="button" data-ssid="${esc(n.ssid)}">${bars(n.rssi)}<span class="name">${esc(n.ssid)}</span><span class="muted small">${n.secure ? "🔒" : "offen"}${n.saved ? " · ✓" : ""}</span></button>`).join("");
 }
 
 async function loadWifi(fresh) {
@@ -253,7 +298,7 @@ $("addForm").onsubmit = async (e) => {
   $("addBtn").disabled = false;
 };
 
-// Update: Kopf der .bin schon im Browser lesen (Projekt, Version, Chip), dann hochladen
+// Update: Kopf der .bin schon im Browser lesen (Projekt, Version, Chip), dann hochladen (gleiche Prüfung wie web/src/lib/firmware.ts)
 function parseHeader(buf) {
   const u8 = new Uint8Array(buf), d = new DataView(buf);
   if (u8.length < 288 || u8[0] !== 0xe9) return { err: "Keine ESP32-Firmware (.bin)" };
@@ -265,6 +310,7 @@ function parseHeader(buf) {
   return { v: str(48, 32), time: str(112, 16), date: str(128, 16), idf: str(144, 32) };
 }
 
+$("pickBtn").onclick = () => $("file").click();
 $("file").onchange = async () => {
   const f = $("file").files[0];
   $("upBtn").disabled = true;
@@ -281,8 +327,7 @@ $("upBtn").onclick = () => {
   if (!f) return;
   uploading = true;
   $("upBtn").disabled = true;
-  $("prog").hidden = false;
-  $("prog").value = 0;
+  setProg(0);
   const x = new XMLHttpRequest();
   // Hängt die Übertragung 30 s ohne Fortschritt (z. B. schwacher WLAN-Empfang), abbrechen und Bescheid sagen
   let lastProgress = Date.now(), sent = false;
@@ -301,7 +346,7 @@ $("upBtn").onclick = () => {
     lastProgress = Date.now();
     if (!e.lengthComputable) return;
     const p = (e.loaded * 100) / e.total;
-    $("prog").value = p;
+    setProg(p);
     $("upMsg").textContent = `Übertragen: ${Math.round(p)} % (${Math.round(e.loaded / 1024)} von ${Math.round(e.total / 1024)} KB)`;
   };
   x.onload = () => {

@@ -1,7 +1,7 @@
 // Webserver: Einrichtungsseite, JSON-API, WebSocket, Update-Upload, Captive Portal (siehe web.h).
 //
-// Seiten: / liefert die Weboberfläche (web/, eingebettet über web_assets.h), im Setup-Modus die Einrichtungsseite.
-//   GET  /setup               Einrichtungsseite (immer, auch außerhalb des Setup-Modus)
+// Seiten: / liefert die Weboberfläche (web/, eingebettet über web_assets.h), auch im Setup-Modus (seit 0.3.1).
+//   GET  /setup               einfache Einrichtungsseite (Notfallseite ohne Build-Schritt, immer erreichbar)
 //
 // API (alle Antworten JSON, Eingaben als Formulardaten application/x-www-form-urlencoded):
 //   GET  /api/status          Gesamtstatus (auch per WebSocket /ws jede Sekunde)
@@ -17,6 +17,7 @@
 //
 // Fernwartung (seit 0.2.2, web_diag.cpp): /api/log, WebSocket /ws/log, /api/cmd, /api/perf, /api/resets,
 // /api/coredump, /api/coredump/summary, /api/coredump/erase, /api/diag (Diagnosepaket).
+// Info und Geräte (seit 0.3.1, web_info.cpp): /api/system, /api/clients, /api/clients/name.
 
 #include "web.h"
 
@@ -272,13 +273,16 @@ esp_err_t ws_open(httpd_req_t*) {
     return ESP_OK;
 }
 
+// Nachrichten vom Browser: Anmeldung und Seitenwechsel für „Verbundene Geräte“ (web_info.cpp)
 esp_err_t ws_handler(httpd_req_t* req) {
     httpd_ws_frame_t frame{};
-    uint8_t buf[64];
+    char buf[257];
     if (httpd_ws_recv_frame(req, &frame, 0) != ESP_OK) return ESP_FAIL;
-    if (frame.len >= sizeof(buf)) return ESP_OK;  // Nachrichten vom Browser werden noch nicht gebraucht
-    frame.payload = buf;
-    return httpd_ws_recv_frame(req, &frame, frame.len);
+    if (frame.len >= sizeof(buf)) return ESP_OK;
+    frame.payload = reinterpret_cast<uint8_t*>(buf);
+    if (httpd_ws_recv_frame(req, &frame, frame.len) != ESP_OK) return ESP_FAIL;
+    if (frame.type == HTTPD_WS_TYPE_TEXT && frame.len > 0) client_message(req, std::string(buf, frame.len));
+    return ESP_OK;
 }
 
 // --- Seiten und API -----------------------------------------------------------------------------------------
@@ -320,9 +324,10 @@ esp_err_t asset_get(httpd_req_t* req) {
     return send_asset(req, *a);
 }
 
-// Startseite: im Setup-Modus die schlanke Einrichtungsseite (Captive-Portal-Fenster können wenig), sonst die Oberfläche
+// Startseite: die Oberfläche, auch im Setup-Modus (sie startet dann auf der WLAN-Seite, seit 0.3.1).
+// Ohne eingebettete Oberfläche die einfache Einrichtungsseite, die außerdem immer unter /setup erreichbar bleibt.
 esp_err_t root_get(httpd_req_t* req) {
-    const assets::Asset* a = setup_active() ? nullptr : find_asset("/index.html");
+    const assets::Asset* a = find_asset("/index.html");
     if (!a) return setup_get(req);
     return send_asset(req, *a);
 }
@@ -551,6 +556,7 @@ void start() {
     add("/api/speedtest", HTTP_POST, speedtest_post);
     add("/ws", HTTP_GET, ws_handler, true, ws_open);
     register_diag();
+    register_info();
     for (const char* uri : {"/generate_204", "/gen_204", "/hotspot-detect.html", "/library/test/success.html",
                             "/connecttest.txt", "/ncsi.txt", "/redirect", "/canonical.html", "/success.txt"}) {
         add(uri, HTTP_GET, captive_check);

@@ -1,7 +1,16 @@
 <script lang="ts" module>
   import type { IconName } from './icon-names';
 
-  export type NavItem = { id: string; label: string; icon: IconName; iconActive?: IconName; href: string };
+  /** bar/rail = false: nur in der Schiene (Desktop) bzw. nur in der Leiste (Handy) zeigen */
+  export type NavItem = {
+    id: string;
+    label: string;
+    icon: IconName;
+    iconActive?: IconName;
+    href: string;
+    bar?: boolean;
+    rail?: boolean;
+  };
 </script>
 
 <script lang="ts">
@@ -10,15 +19,21 @@
   import type { Snippet } from 'svelte';
   import Icon from './Icon.svelte';
 
-  let { items, active, header }: { items: NavItem[]; active: string; header?: Snippet } = $props();
+  // activeBar: aktives Ziel in der Leiste, falls die Seite dort nicht vorkommt (z. B. „Mehr“)
+  let {
+    items,
+    active,
+    activeBar = active,
+    header,
+  }: { items: NavItem[]; active: string; activeBar?: string; header?: Snippet } = $props();
 </script>
 
 <nav class="nav" aria-label="Hauptnavigation">
   {#if header}<div class="header">{@render header()}</div>{/if}
   <ul>
     {#each items as it (it.id)}
-      {@const on = it.id === active}
-      <li>
+      {@const on = it.id === active || (it.rail === false && it.id === activeBar)}
+      <li class:no-bar={it.bar === false} class:no-rail={it.rail === false}>
         <a href={it.href} class:on aria-current={on ? 'page' : undefined}>
           <span class="pill"><Icon name={on && it.iconActive ? it.iconActive : it.icon} /></span>
           <span class="label">{it.label}</span>
@@ -50,6 +65,9 @@
   }
   li {
     flex: 1;
+  }
+  li.no-bar {
+    display: none;
   }
   a {
     display: flex;
@@ -110,7 +128,9 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 24px;
+      gap: 16px;
+      overflow-y: auto;
+      scrollbar-width: none;
       background: var(--md-sys-color-surface);
     }
     .header {
@@ -119,8 +139,15 @@
     ul {
       flex-direction: column;
       height: auto;
-      gap: 12px;
+      gap: 4px;
       width: 100%;
+      padding-bottom: 12px;
+    }
+    li.no-bar {
+      display: block;
+    }
+    li.no-rail {
+      display: none;
     }
     a {
       height: 64px;

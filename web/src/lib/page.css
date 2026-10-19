@@ -1,0 +1,139 @@
+/* Gemeinsame Seiten-Bausteine (global): Kartenraster, Kartentitel, Schlüssel-Wert-Listen, Listenzeilen */
+
+.page-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.page-grid > .wide {
+  grid-column: 1 / -1;
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  font: var(--md-sys-typescale-title-medium);
+  font-weight: 650;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.card-title .end {
+  margin-left: auto;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+.kv dt {
+  color: var(--md-sys-color-on-surface-variant);
+}
+.kv dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  color: var(--md-sys-color-on-surface-variant);
+}
+.small {
+  font: var(--md-sys-typescale-body-small);
+}
+.ok-text {
+  color: var(--md-sys-color-primary);
+}
+.err-text {
+  color: var(--md-sys-color-error);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* Listenzeilen in Karten (M3-Liste: Symbol, zwei Textzeilen, Aktion am Ende) */
+.list {
+  display: grid;
+  margin: 0 -8px;
+  padding: 0;
+  list-style: none;
+}
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+  padding: 8px;
+  border-radius: var(--md-sys-shape-corner-medium);
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  background: none;
+  border: 0;
+  width: 100%;
+}
+button.list-item {
+  cursor: pointer;
+  transition:
+    background-color var(--m3-effects),
+    border-radius var(--m3-spatial-fast);
+}
+button.list-item:hover {
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+}
+button.list-item:active {
+  border-radius: var(--md-sys-shape-corner-extra-large);
+}
+.list-item .lead {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+.list-item .text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+}
+.list-item .headline {
+  font: var(--md-sys-typescale-body-large);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.list-item .supporting {
+  font: var(--md-sys-typescale-body-medium);
+  color: var(--md-sys-color-on-surface-variant);
+  overflow-wrap: anywhere;
+}
+
+/* Speicherbalken: Anteil belegt (flach, mit Stopp-Punkt) */
+.meter-row {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+.meter-row .head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--md-sys-color-on-surface-variant);
+}

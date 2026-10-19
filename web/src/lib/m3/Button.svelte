@@ -167,6 +167,14 @@
   .text {
     --pad: 12px;
   }
+  /* Gefährliche Aktion (Neustart, Löschen): class="danger" */
+  .btn.filled.danger {
+    --bg: var(--md-sys-color-error);
+    --fg: var(--md-sys-color-on-error);
+  }
+  .btn.danger:not(.filled) {
+    --fg: var(--md-sys-color-error);
+  }
   .label {
     display: inline-flex;
     align-items: center;
