@@ -187,9 +187,14 @@ Heap-Bereich, und dieser meldet einen Tiefstwert von 0, solange niemand daraus S
 
 ```
 .\tools\idf.ps1 -C firmware -B firmware/build-test-crash -DPIXELIA_TEST=crash build
+.\tools\idf.ps1 -C firmware -B firmware/build-test-crash-shift -DPIXELIA_TEST=crash-shift build
 .\tools\idf.ps1 -C firmware -B firmware/build-test-hang -DPIXELIA_TEST=hang build
 .\tools\idf.ps1 -C firmware -B firmware/build-test-selftest -DPIXELIA_TEST=selftest build
 ```
+
+`crash-shift` (seit 0.2.2) stürzt wie `crash` ab, hat aber 64 KB mehr Konstanten: Der Log-Puffer im PSRAM liegt dann
+eine MMU-Seite weiter (0x3C130000 statt 0x3C120000), wie nach einem echten Update mit mehr Code. Damit wird der Weg über
+die RTC-Sicherung geprüft (siehe Fernwartung).
 
 Danach die jeweilige `pixelia.bin` über die Einrichtungsseite hochladen oder per WLAN mit
 `.\tools\ota.ps1 -Bin firmware\build-test-crash\pixelia.bin` (meldet den Rückfall samt Grund und endet mit Exit 1).
@@ -202,10 +207,11 @@ prüft danach, dass die neue Version läuft und den Selbsttest bestanden hat. St
 
 ## Diagnose-Schnittstelle
 
-Die Firmware nimmt über die serielle Konsole (115200 Baud) Befehle entgegen, `help` listet sie. `tools/monitor.ps1 -Send`
-schickt Befehle und liest das Log gefiltert mit, ohne das Board neu zu starten. Der Leistungsmonitor schreibt alle 2 s
-eine Zeile: Modus, Bildrate des Panels, Pixeltakt, Interrupt-Last, Aussetzer (desync), fps, Zeichen- und Logikzeit,
-CPU-Last pro Kern, freier RAM und PSRAM.
+Die Firmware nimmt über die serielle Konsole (115200 Baud) und seit 0.2.2 auch per WLAN (`POST /api/cmd`, siehe
+Fernwartung) Befehle entgegen, `help` listet sie. `tools/monitor.ps1 -Send` schickt Befehle über USB und liest das Log
+gefiltert mit, ohne das Board neu zu starten; `tools/netlog.ps1 -Send` macht dasselbe per WLAN. Der Leistungsmonitor
+schreibt alle 2 s eine Zeile auf die serielle Konsole (in den Log-Puffer nur jede Minute): Modus, Bildrate des Panels,
+Pixeltakt, Interrupt-Last, Aussetzer (desync), fps, Zeichen- und Logikzeit, CPU-Last pro Kern, freier RAM und PSRAM.
 
 Wichtige Befehle: `pat bars|frame|motion|touch|engine|black`, `bl <0-100>|cycle|stop`, `pclk <MHz>`,
 `timing …`, `pol …`, `rot 0|180` (wird gespeichert), `set` / `set bright <1-100>` / `set lp <1000-10000>`
@@ -218,10 +224,80 @@ erzwingen), `wifi connect`, `ota` (Partitionen, Probelauf, Rückfall), `ntp` (Uh
 (Kurzmeldung zum Prüfen der Anzeige). WLAN-Passwörter lassen sich über die Konsole bewusst nicht eintragen, nur über
 die Einrichtungsseite.
 
+Log, Diagnose und Absturzbericht (seit 0.2.2): `log` (Puffer, Herkunft beim Start, Kosten des Hooks), `log bench [n]`
+(Messung), `log clear`, `tasks` (Kern, Priorität, Stack-Reserve, CPU-Last; kostet einen Display-Aussetzer, siehe unten),
+`resets` (Reset-Historie), `coredump` / `coredump erase`.
+
 Über das Netz (JSON): `GET /api/status`, `GET /api/wifi`, `POST /api/wifi/scan`, `POST /api/settings` (`rot`, `bright`,
 `lp`), `POST /api/ota`,
 `POST /api/reboot`, `POST /api/speedtest` (Daten empfangen und verwerfen, misst die Übertragungsrate), WebSocket `/ws`
-mit dem Status jede Sekunde.
+mit dem Status jede Sekunde (sendet erst seit 0.2.2 wirklich, siehe unten). Fernwartung siehe nächster Abschnitt.
+
+### Fernwartung per WLAN (seit 0.2.2, gemessen 2026-10-19)
+
+Daten, Fehler und Logs lassen sich komplett per WLAN abrufen, USB ist nur noch für die Erstinstallation und Abstürze ganz
+früh beim Start nötig. Alles läuft nur im Heimnetz und ohne PIN; der optionale PIN aus 0.3.x wird `/api/cmd` und das
+Löschen des Absturzberichts schützen (Kopf `X-Pixelia-Pin` bzw. Feld `pin`, im Code schon vorgesehen).
+
+| Schnittstelle | Inhalt |
+|---|---|
+| `GET /api/log` | Zeilen aus dem Log-Puffer: `since=<nr>` (nur neuere), `tail=<n>`, `boot=<nr>` (ein Start), `rid=<kennung>` (Puffer neu angelegt → ab der ältesten Zeile, `reset:true`), `max=<Byte>` (Standard 48 KB), `format=text` |
+| WebSocket `/ws/log` | Live-Log: zuerst die letzten 50 Zeilen (`tail`, `since`), dann jede neue, bis 5× pro Sekunde gebündelt |
+| `POST /api/cmd` | `cmd=<Befehl>`: wie die serielle Konsole (gleiche Task), Ausgabe als Antwort (bis 16 KB, das Ende bleibt). Gefährliche Befehle (reboot, wifi forget/setup/connect, flash, pclk, timing, pol, bounce, clk, buf, touchrst, log clear, coredump erase) nur mit `confirm=1`, sonst 409 mit Grund |
+| `GET /api/perf` | Leistungsmonitor komplett, Speicher mit Tiefstwerten, Kosten des Log-Hooks; `tasks=1` zusätzlich die Task-Liste |
+| `GET /api/resets` | Reset-Historie der letzten 16 Starts (NVS): Zeit, Grund, Version, Partition, Probelauf, Rückfall, Absturz-Task/PC, Laufzeit davor |
+| `GET /api/coredump` | Rohdaten des Absturzberichts aus der Partition (Format „raw“ für esp-coredump) |
+| `GET /api/coredump/summary` | Panic-Grund bzw. CPU-Ausnahme, Task, PC, Backtrace-Adressen, ELF-SHA256 und passende Version |
+| `POST /api/coredump/erase` | Absturzbericht löschen |
+| `GET /api/diag` | Diagnosepaket (eine JSON-Datei): Status, System, Einstellungen ohne Geheimnisse, Leistung mit Tasks, Resets, Absturzbericht (Base64), kompletter Log-Puffer, `secretCheck` am Ende. Knopf „Diagnosepaket herunterladen“ auf der Einrichtungsseite |
+
+**Werkzeuge für Claude** (beide ohne seriellen Port, Ziel `http://pixelia/` oder `-Target <IP>`):
+
+- `tools/netlog.ps1`: Live-Log per WebSocket, Filter wie `monitor.ps1` (`-Full`, `-Filter`, `-Until`, `-MaxLines`),
+  Befehle mit `-Send 'info','+2','tasks'` (`-Confirm` für gefährliche), frühere Starts mit `-Boot prev`/`-Boot <nr>`,
+  ganzer Puffer mit `-All`. Volles Log in `.logs\netlog-last.log`.
+- `tools/crash.ps1`: Absturzbericht holen (oder `-File` mit einem Diagnosepaket vom Handy), passendes ELF über den
+  SHA256 suchen (lokale Builds, Testvarianten, `.logs\elf\`, sonst `pixelia-vX.Y.Z.elf` aus dem GitHub-Release),
+  Backtrace mit Datei und Zeile, Reset-Eintrag und letzte Log-Zeilen des abgestürzten Starts; `-Full` mit esp-coredump
+  und GDB, `-Erase` löscht den Bericht. Ergebnis in `.logs\crash-last.txt`.
+
+**Log-Puffer:** 256 KB im No-Init-Bereich des PSRAM (`EXT_RAM_NOINIT_ATTR`, `CONFIG_SPIRAM_ALLOW_NOINIT_SEG_EXTERNAL_MEMORY`;
+der Speichertest beim Start spart ihn aus), dazu 6 KB Sicherung im RTC-Speicher bei 0x50000000. Jede Zeile: Nummer,
+Laufzeit (ms), Uhrzeit, Startzähler. Wichtig für die Haltbarkeit:
+
+- Der PSRAM hängt hinter einem Write-Back-Cache, den ESP-IDF beim Neustart nicht zurückschreibt. Der Hook schreibt
+  deshalb jede Zeile und den Kopf sofort zurück (`cache_hal_writeback_addr` unter dem Cache-Spinlock von ESP-IDF).
+- Die Lage hängt an der Größe von Code und Konstanten: `_ext_ram_noinit_start` liegt hinter den Konstanten, auf
+  64 KB aufgerundet (0.2.2: 0x3C120000). Wächst die Firmware über eine 64-KB-Grenze, liegt der Puffer der nächsten
+  Version woanders, und das Kopieren des Codes in den PSRAM beim Start überschreibt den alten. Dann helfen die letzten
+  6 KB aus der RTC-Sicherung: im Probelauf zeilenweise geführt, sonst einmal vom Shutdown-Handler bei jedem
+  Software-Neustart gefüllt.
+- Der RTC-Speicher ist langsam: ~0,3 µs pro 32-Bit-Zugriff, gemessen 14–16 µs pro Zeile. Deshalb nicht dauerhaft.
+
+| Messung | Ergebnis |
+|---|---|
+| Neustart per `/api/cmd reboot`, Updates auf neue Stände (gleiche Lage) | Puffer „übernommen“, z. B. 158 bzw. 711 Zeilen früherer Starts ✅ |
+| Absturz-Testvariante `crash` (gleiche Lage) | nach dem Rückfall alle Zeilen da, letzte Zeile 100 ms vor dem Absturz; `crash.ps1`: StoreProhibited, `ota.cpp:125` ✅ |
+| Testvariante `crash-shift` (Lage verschoben) | Befund „PSRAM: kein gültiger Kopf“, „RTC: 95 Zeilen gültig“ → Puffer „aus RTC-Sicherung“ mit der letzten Zeile vor dem Absturz ✅ |
+| Kosten des Hooks (Puffer, `log bench`) | im Mittel 15,8–18,6 µs pro Zeile (PSRAM inkl. Cache-Rückschreiben 12,6–15,6 µs), höchstens 24–60 µs; im Probelauf mit RTC 30 µs |
+| zum Vergleich (wie vor 0.2.2) | Formatieren 49–64 µs, serielle Ausgabe 3,6–8,7 ms pro Zeile |
+| 100 Log-Zeilen am Stück | 30,6 fps, 0 Aussetzer ✅ |
+| Lasttest 40 s: 162 Abrufe (Log 256 KB, Befehle, Absturzbericht, Leistung) + Live-Log | 29,7–30,3 fps, 0 Aussetzer, interner RAM 119–121 KB frei, Tiefstwert 108 KB ✅ (Budget ≥ 60 KB) |
+| Diagnosepaket | 91 KB in 0,2 s; Passwort-Test mit bekanntem Test-WLAN: in keiner Ausgabe enthalten ✅ |
+| Freier PSRAM | 6,4 MB (Puffer 256 KB, Index 64 KB, Befehlsausgabe 16 KB) ✅ |
+| Stack-Reserven mit dem Hook | IDLE 736 B, sys_evt 1180 B, webstatus 1272 B, wlan 1348 B, console 1484 B, logpush 1680 B, httpd 4312 B |
+| Firmware-Größe | 1170 KB (19 % der App-Partition) |
+
+**Kernel-Sperre und Display (wichtig für die Leistungsanzeige in 0.4.x):** `uxTaskGetSystemState()` hält die globale
+Kernel-Sperre, während es die Stacks aller Tasks nach dem Füllmuster durchsucht: gemessen 1,0–1,1 ms. Der Tick- und
+der Display-Interrupt auf Kern 1 (`xSemaphoreGiveFromISR` am Bildende) warten so lange mit maskierten Interrupts, der
+Bounce-Buffer kommt zu spät: etwa ein Aussetzer (desync) pro Abfrage, bei 39 Abfragen pro Sekunde 368 Aussetzer und
+27 fps. Die Task-Liste gibt es deshalb nur auf Wunsch (`tasks`, `/api/perf?tasks=1`, einmal im Diagnosepaket). Regel:
+nichts regelmäßig aufrufen, was die Kernel-Sperre lange hält.
+
+**Status-WebSocket repariert:** ESP-IDF 6.1 ruft beim WebSocket-Handschlag den URI-Handler nicht mehr auf. Die Anmeldung
+von `/ws` stand dort, der Status kam deshalb seit 0.2.0 nie per WebSocket (die Einrichtungsseite fragte ersatzweise
+alle 2 s ab). Seit 0.2.2 über `ws_post_handshake_cb` (`CONFIG_HTTPD_WS_POST_HANDSHAKE_CB_SUPPORT`): 5 Nachrichten in 3,5 s.
 
 **Info-Karte und Gesten (seit 0.2.1):** 3 s irgendwo aufs Display drücken zeigt die Info-Karte (IP, Namen, WLAN,
 Signal, Firmware, QR-Code mit `http://<IP>/`; im Setup-Modus Name und Passwort des Setup-WLANs mit QR-Code zum

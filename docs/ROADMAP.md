@@ -7,17 +7,19 @@
 
 | | |
 |---|---|
-| **Phase** | 0.2.x Vernetzt: 0.2.1 „Immer erreichbar“ **veröffentlicht**, Gerätetest durch den User steht aus |
+| **Phase** | 0.2.x Vernetzt: 0.2.2 „Fernwartung“ **fertig und am Gerät geprüft**, Release nach dem Merge |
 | **Letzte Version** | 0.2.1 „Immer erreichbar“ (2026-10-18), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.2.1) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
-| **Nächster Schritt** | Gerätetest 0.2.1 durch den User (Update per Browser, Bildrate mit offener Karte, langer Druck, Tippen, QR-Scan, Kurzmeldung nach Neustart); danach 0.3.x Weboberfläche (Svelte, M3 Expressive) |
-| **Aktualisiert** | 2026-10-18 |
+| **Nächster Schritt** | Merge und Release 0.2.2 (Update per `tools/ota.ps1`); danach 0.3.x Weboberfläche (Svelte, M3 Expressive) |
+| **Aktualisiert** | 2026-10-19 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
-4,0 ms pro Bild, Hochskalier-Interrupt 20 %, keine Aussetzer, auch mit WLAN, Webserver und während Updates. Interner RAM
-im Betrieb 125 KB frei (Tiefstwert ≥ 115 KB). Update per Browser in 7 s, Rückfall bei Absturz, Hänger oder
-gescheitertem Selbsttest am Gerät geprüft.
+4,0 ms pro Bild, Hochskalier-Interrupt 20 %, keine Aussetzer, auch mit WLAN, Webserver, während Updates und unter Last
+auf allen Diagnose-Schnittstellen. Interner RAM im Betrieb 116–121 KB frei (Tiefstwert ≥ 107 KB). Update per WLAN in
+7–11 s, Rückfall bei Absturz, Hänger oder gescheitertem Selbsttest am Gerät geprüft. Log, Befehle, Leistung,
+Reset-Historie und Absturzberichte per WLAN (`tools/netlog.ps1`, `tools/crash.ps1`), USB nur noch für die
+Erstinstallation.
 Simulator: `tools/sim.ps1` (Fenster) bzw. kopflos mit Screenshot, Zeitraffer und Kontaktbogen, siehe [sim/README.md](../sim/README.md).
 
 ## Versionsschema
@@ -32,7 +34,7 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 | Version | Phase | Inhalt |
 |---|---|---|
 | 0.1.x | Fundament | Repo, CI, Display und Touch, Engine-Prototyp, Simulator |
-| 0.2.x | Vernetzt | WLAN, Setup-Modus, Webserver, OTA per Upload mit Rollback |
+| 0.2.x | Vernetzt | WLAN, Setup-Modus, Webserver, OTA per Upload mit Rollback, Fernwartung per WLAN |
 | 0.3.x | Weboberfläche | M3-Expressive-Komponenten, Info-/Hardware-/WLAN-/System-Seiten |
 | 0.4.x | Updates & Diagnose | Update von GitHub, Versionsverlauf, Absturzberichte, Experimentell, Live-Vorschau |
 | 0.5.x | Engine | Sprites, Licht, Wetter, Schrift, Dienste, Regie, Asset-Pipeline |
@@ -111,8 +113,23 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 - [x] 0.2.1: Werkzeug `tools/ota.ps1`: Update per WLAN (`POST /api/ota`) mit Fortschritt, Prüfung von Version und
       Selbsttest über `/api/status`, Rückfall-Erkennung; gegen einen nachgebauten Server geprüft
 - [x] **Release 0.2.1** (Tag `v0.2.1`, Release mit `.bin`, Factory-Image und Notes, Web-Flasher aktualisiert)
-- [ ] 0.2.1 am Gerät (durch den User, ausnahmsweise allein): Bildrate mit offener Karte, langer Druck und Tippen,
-      QR-Code mit dem Handy, Kurzmeldung nach Neustart; erstes Update per `tools/ota.ps1` am echten Gerät
+- [x] 0.2.1 am Gerät: vom User getestet („läuft“); erstes Update per `tools/ota.ps1` am echten Gerät in 0.2.2
+      (1168 KB in 6,9–10,8 s, Selbsttest bestanden)
+- [x] 0.2.2: **Log-Ringpuffer** 256 KB im PSRAM (No-Init, übersteht Neustarts, Updates und Abstürze, Cache wird pro
+      Zeile zurückgeschrieben) mit Nummer, Laufzeit, Uhrzeit, Startzähler; RTC-Sicherung der letzten 6 KB für
+      Versionswechsel (Probelauf zeilenweise, sonst Shutdown-Handler)
+- [x] 0.2.2: Schnittstellen per WLAN: `GET /api/log` (inkrementell), WebSocket `/ws/log` (Live-Log), `POST /api/cmd`
+      (Konsolenbefehle, gefährliche nur mit Bestätigung, PIN vorbereitet), `GET /api/perf`, `GET /api/resets`,
+      `GET /api/coredump` (roh), `/api/coredump/summary`, `POST /api/coredump/erase`
+- [x] 0.2.2: Reset-Historie der letzten 16 Starts im NVS (Zeit, Grund, Version, Rückfall, Absturzstelle, Laufzeit davor)
+- [x] 0.2.2: **Diagnosepaket** (`/api/diag`, eine JSON-Datei ohne Passwörter) mit Knopf auf der Einrichtungsseite;
+      Passwort-Filter über alle Ausgaben (`engine/redact.h`, Simulator-Test 9/9, Ende-zu-Ende am Gerät geprüft)
+- [x] 0.2.2: Werkzeuge `tools/netlog.ps1` (Live-Log, Befehle, frühere Starts) und `tools/crash.ps1` (Bericht holen,
+      ELF finden, dekodieren, Log vor dem Absturz); beide am Gerät ohne seriellen Port nachgewiesen, auch mit den
+      Absturz-Testvarianten `crash` und `crash-shift`
+- [x] 0.2.2: Messung: 30 fps, 0 Aussetzer unter Last, interner RAM ≥ 107 KB, Hook 16–19 µs pro Zeile
+      ([HARDWARE.md](HARDWARE.md)); Status-WebSocket `/ws` repariert (sendete unter ESP-IDF 6.1 nie)
+- [ ] **Release 0.2.2** (Tag `v0.2.2`, Update per `tools/ota.ps1`)
 
 ## 0.3.x – Weboberfläche
 
@@ -122,10 +139,9 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 - [ ] Navigation (Handy + Desktop)
 - [ ] Seiten: Übersicht, Info, Hardware, WLAN (Scan, Signalbalken), Verbundene Geräte, System
 - [ ] Neustart, Werksreset, Einstellungen exportieren/importieren
-- [ ] PIN/Passwort optional (Standard aus)
-- [ ] Live-Log in der Oberfläche
-- [ ] **Diagnose über WLAN:** Log und Diagnose-Befehle per WebSocket, Werkzeug `tools/netlog.ps1` für Claude. Danach ist
-      USB nur noch für Erstinstallation, Notfälle und Abstürze ganz früh beim Start nötig
+- [ ] PIN/Passwort optional (Standard aus), schützt dann auch `/api/cmd` und das Löschen des Absturzberichts
+      (Prüfstelle seit 0.2.2 vorgesehen)
+- [ ] Live-Log als Seite in der Oberfläche (Schnittstellen `/ws/log` und `/api/log` gibt es seit 0.2.2)
 
 ## 0.4.x – Updates & Diagnose
 
@@ -134,10 +150,11 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
 - [ ] Update von GitHub: Prüfung, Kanal Stabil/Vorschau, Installation per HTTPS
 - [ ] Versionsverlauf-Timeline mit **allen Feldern** (Neu, Verbessert, Behoben, Entfernt, Geprüft, Hinweise, verlinkte
       Pull Requests), Markierung „Installiert“, Änderungsvorschau aus gewählter `.bin`
-- [ ] Absturzberichte (Core-Dump, Backtrace), Reset-Historie
+- [ ] Absturzberichte und Reset-Historie in der Oberfläche anzeigen (Daten, Schnittstellen und Werkzeuge seit 0.2.2)
 - [ ] Experimentell-Seite: Touch-Test, Displaytests, Stromsparmodus, Panel-Timing, Experimentell-Schalter
 - [ ] Live-Vorschau und Screenshot (PNG)
-- [ ] Leistungsanzeige (FPS, Frame-Zeiten, CPU pro Kern, Tasks, Heap/PSRAM)
+- [ ] Leistungsanzeige (FPS, Frame-Zeiten, CPU pro Kern, Tasks, Heap/PSRAM) über `/api/perf`; die Task-Liste nur auf
+      Knopfdruck, nie regelmäßig (hält 1,1 ms die Kernel-Sperre, kostet einen Display-Aussetzer, [HARDWARE.md](HARDWARE.md))
 
 ## 0.5.x – Engine
 
@@ -256,4 +273,7 @@ Neue Wünsche des Users landen hier (mit Datum) und werden einer Version zugeord
 | 2026-10-18 | **Ausführliche Changelogs** im Stil der PR-Beschreibungen: Neu, Geprüft am Gerät (mit Messwerten), gefundene und behobene Probleme, Hinweise. Alle Änderungen inkl. Fixes seit 0.1.0. Format um Felder „Geprüft“ und „Hinweise“ erweitern, 0.1.0/0.2.0 ausführlich nachtragen (aus PR #1, #3, #4, #5), `tools/release_notes.py` anpassen, Regel in CLAUDE.md. Anzeige später unter „Versionsverlauf“ | ✅ 0.2.1 (Format, Nachtrag, CI-Prüfung, Regel); Anzeige 0.4.x |
 | 2026-10-18 | **IP jederzeit sehen:** langer Druck (3 s) aufs Display → Info-Karte mit IP, `pixelia.local`, WLAN-Name, Signal und QR-Code zur Weboberfläche; zusätzlich IP nach jedem Verbinden kurz einblenden; Geste in der Weboberfläche einstellbar | ✅ 0.2.1 (Geste, Info-Karte, Kurzmeldung, Dauer im NVS); 0.3.x (einstellbar in der Oberfläche) |
 | 2026-10-18 | **Arbeiten von unterwegs:** Cloud-Sitzungen über claude.ai bzw. die Claude-App (GitHub einmal verbinden), Remote Control, um lokale Sitzungen vom Handy aus weiterzuführen, wenn der PC läuft. Rückweg immer über Pull Requests auf GitHub | bei Bedarf einrichten |
-| 2026-10-18 | **USB optional machen:** Updates per WLAN als Werkzeug (`tools/ota.ps1`), Log und Diagnose per WebSocket (`tools/netlog.ps1`) | ✅ 0.2.1 (`tools/ota.ps1`); 0.3.x (`tools/netlog.ps1`) |
+| 2026-10-18 | **USB optional machen:** Updates per WLAN als Werkzeug (`tools/ota.ps1`), Log und Diagnose per WebSocket (`tools/netlog.ps1`) | ✅ 0.2.1 (`tools/ota.ps1`); ✅ 0.2.2 (`tools/netlog.ps1`, `tools/crash.ps1`) |
+| 2026-10-19 | **Fernwartung für den Notfall:** Daten, Fehler und Logs komplett per WLAN abrufbar (Board hängt normal per USB am PC), Diagnosepaket, das der User vom Handy aus schicken kann (Wunsch des Users) | ✅ 0.2.2 |
+| 2026-10-19 | Task-Liste mit Stack-Reserven ohne Display-Aussetzer (eigene Messung außerhalb der Kernel-Sperre), Grundlage für eine laufende Task-Anzeige | 0.4.x bei Bedarf |
+| 2026-10-19 | Log-Zeilen der WLAN-Bibliothek, die in zwei Teilen kommen (z. B. „wifi:“ + „<ba-add>…“), im Log-Puffer zu einer Zeile zusammenfügen | offen (Kleinigkeit) |
