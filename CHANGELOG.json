@@ -23,7 +23,7 @@
       "Gerät: Mit offener Oberfläche und Live-Log 29,8–30,3 fps, Zeichnen ≤ 4,2 ms, 0 Aussetzer, interner RAM-Tiefstwert 111 KB; Firmware 1305 KB = 21 % der Partition",
       "Web: Bundle gzip 119 KB (app.js 79 KB, CSS 7 KB, Schrift 33 KB), Ziel ≤ 150 KB"
     ],
-    "pr": []
+    "pr": [15]
   },
   {
     "v": "0.3.0",
