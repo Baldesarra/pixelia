@@ -126,6 +126,12 @@ Alle nutzbaren und verkäuflichen Gegenstände werden dauerhaft gespeichert. Ein
 - Bauen und Kochen verbrauchen die erforderlichen vorhandenen Zutaten beziehungsweise Materialien. Ein fertiges Produkt entsteht genau einmal nach Abschluss der Arbeit.
 - Ein Verkauf entfernt genau die übergebene Ware und verbucht den Erlös zusammen mit diesem Bestandswechsel. Nur anwesende Kunden können kaufen. Kein Hintergrundverkauf und keine erneute Gutschrift nach einem Neustart.
 
+> **Pixelia-Idee (19.10.2026, Wunsch des Users): Lagerübersicht in der Weboberfläche.** Eine Seite zeigt, welche
+> Waren und Gegenstände der Bewohner besitzt, wie viele davon und wo sie liegen (Lagerplatz mit Kapazität, z. B.
+> Fangkorb, Vorratskammer, Werkstatt, Laden). Sie liest dieselben gespeicherten Bestände wie die Simulation, zeigt
+> also auch verdeckte Inhalte geschlossener Behälter. Die genaue Ausarbeitung (Gliederung, Filter, Verlauf der
+> Bestandswechsel, Einzelstücke wie Möbel mit Herkunft) folgt gemeinsam bei der Überarbeitung des Konzepts.
+
 Beispiel: Drei gefangene Fische liegen im Korb. Einen brät er selbst, zwei trägt er in den Laden. Ein Kunde kauft einen davon. Danach existiert noch genau ein verkäuflicher Fisch; der verzehrte und der verkaufte Fisch erscheinen nirgends erneut. Ein unverkaufter Stuhl bleibt auch nach Schließen des Ladens oder einem Neustart an seinem gespeicherten Platz.
 
 Lebensmittel werden vorerst nicht durch einen unsichtbaren Verderb-Timer gelöscht. Kühlkiste und Vorratshaltung werden bildlich dargestellt; ältere Lebensmittel verwendet er bevorzugt selbst oder verarbeitet sie zu haltbaren Produkten. Eine spätere Verderbmechanik wäre eine gesonderte Gestaltungsentscheidung. Möbel bleiben bestehen, bis eine ausdrückliche Handlung ihren Zustand oder Standort verändert.

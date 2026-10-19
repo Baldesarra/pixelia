@@ -39,7 +39,10 @@ Stand 2026-10-19. Anlass: Die Sitzung für 0.2.2 hat allein ein ganzes 5-Stunden
 5. Ab und zu auf die **Kontextanzeige** schauen (der Kreis bzw. die Prozentzahl am Eingabefeld). 250.000 Token sind
    bei einem 1-Millionen-Fenster etwa **25 %**.
 6. Ist die Anzeige über 25 % und die Version noch nicht fertig, schreibst du: **„Bitte Übergabe schreiben.“**
-   Claude trägt den Stand ins Repo ein und gibt dir einen kurzen Auftragstext.
+   Das darfst du jederzeit schreiben, auch wenn Claude gerade arbeitet. Die Nachricht wird beim nächsten Schritt
+   gelesen. Claude bringt dann zuerst die laufende Änderung sauber zu Ende (Code baut, nichts halb fertig),
+   sichert alles auf GitHub, trägt den Stand ins Repo ein und gibt dir einen kurzen Auftragstext.
+   Nicht auf **Stopp** drücken: Das bricht mitten in einer Änderung ab.
 7. Neue Sitzung starten (Knopf **Neue Sitzung** in der Seitenleiste), den Auftragstext einfügen und abschicken.
    Die Denkstufe im Eingabefeld auf **Hoch** lassen, außer im Auftrag steht etwas anderes.
 

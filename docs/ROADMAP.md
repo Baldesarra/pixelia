@@ -12,6 +12,7 @@
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
 | **Nächster Schritt** | 0.3.0 Weboberfläche: Grundgerüst (Svelte, M3 Expressive), frische Arbeits-Sitzung, Denkstufe Hoch |
+| **Offen** | Planungs-Chat: Hauptwelt vor 0.6.0 festlegen; Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
 | **Aktualisiert** | 2026-10-19 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
@@ -285,4 +286,7 @@ Neue Wünsche des Users landen hier (mit Datum) und werden einer Version zugeord
 | 2026-10-18 | **USB optional machen:** Updates per WLAN als Werkzeug (`tools/ota.ps1`), Log und Diagnose per WebSocket (`tools/netlog.ps1`) | ✅ 0.2.1 (`tools/ota.ps1`); ✅ 0.2.2 (`tools/netlog.ps1`, `tools/crash.ps1`) |
 | 2026-10-19 | **Fernwartung für den Notfall:** Daten, Fehler und Logs komplett per WLAN abrufbar (Board hängt normal per USB am PC), Diagnosepaket, das der User vom Handy aus schicken kann (Wunsch des Users) | ✅ 0.2.2 |
 | 2026-10-19 | Task-Liste mit Stack-Reserven ohne Display-Aussetzer (eigene Messung außerhalb der Kernel-Sperre), Grundlage für eine laufende Task-Anzeige | 0.4.x bei Bedarf |
+| 2026-10-19 | **Inselwelt: Lagerübersicht in der Weboberfläche** – welche Waren und Gegenstände der Bewohner hat, wie viele, wo sie gelagert sind (Lagerplatz, Kapazität). Genaue Ausarbeitung folgt gemeinsam (Idee des Users). In [welten/inselwelt-konzept.md](welten/inselwelt-konzept.md) vermerkt | Inselwelt (Welt-Seite in der Oberfläche) |
+| 2026-10-19 | **Kürzere Changelogs:** technisch, aber höchstens 220 Zeichen pro Stichpunkt und 24 pro Version, Details in die PR-Beschreibung; 0.2.1 und 0.2.2 gekürzt (Wunsch des Users) | ✅ 0.3.0 (Regel, `--check`) |
+| 2026-10-19 | **Arbeitsweise mit Sitzung pro Version** und Übergabe übers Repo, damit eine Version nicht das ganze Nutzungslimit braucht ([ARBEITSWEISE.md](ARBEITSWEISE.md)) | ✅ 0.3.0 |
 | 2026-10-19 | Log-Zeilen der WLAN-Bibliothek, die in zwei Teilen kommen (z. B. „wifi:“ + „<ba-add>…“), im Log-Puffer zu einer Zeile zusammenfügen | offen (Kleinigkeit) |
