@@ -315,8 +315,16 @@
   .hidden {
     display: none;
   }
+  /* Text unter Knöpfen und Fortschritt braucht Abstand nach oben, direkt unter dem Kartentitel nicht */
   p {
-    margin: 0 0 12px;
+    margin: 12px 0 0;
+  }
+  .card-title + p {
+    margin-top: 0;
+  }
+  p + :global(.wp),
+  .actions + :global(.wp) {
+    margin-top: 12px;
   }
   .alert {
     display: flex;

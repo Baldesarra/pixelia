@@ -7,12 +7,12 @@
 
 | | |
 |---|---|
-| **Phase** | 0.3.x Weboberfläche: 0.3.0 „Grundgerüst“ veröffentlicht und am Gerät geprüft (30 fps, RAM ≥ 113 KB) |
-| **Letzte Version** | 0.3.0 „Weboberfläche: Grundgerüst“ (2026-10-19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.3.0) |
+| **Phase** | 0.3.x Weboberfläche: 0.3.1 „Seiten“ veröffentlicht und am Gerät geprüft (30 fps, RAM ≥ 111 KB) |
+| **Letzte Version** | 0.3.1 „Weboberfläche: Seiten“ (2026-10-19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.3.1) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
-| **Nächster Schritt** | 0.3.1 Seiten (Info, Hardware, WLAN, Geräte, System, Live-Log), frische Arbeits-Sitzung, Denkstufe Hoch |
-| **Offen** | Setup-Modus mit neuer Firmware einmal am Gerät ansehen (Captive Portal); Planungs-Chat: Hauptwelt vor 0.6.0 festlegen; Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
+| **Nächster Schritt** | 0.3.2 System und Schutz (Werksreset, Export/Import, optionaler PIN), frische Arbeits-Sitzung, Denkstufe Hoch |
+| **Offen** | Captive Portal unter Windows (und iOS) einmal ansehen; Geräteliste: kopflose Screenshot-Läufe legen jedes Mal ein neues Gerät an (harmlos, älteste fallen raus); Planungs-Chat: Hauptwelt vor 0.6.0 festlegen; Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
 | **Aktualisiert** | 2026-10-19 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
@@ -145,11 +145,12 @@ Aufgeteilt in drei Patches, je eine Arbeits-Sitzung (siehe [ARBEITSWEISE.md](ARB
 - [x] Navigation (Handy + Desktop) und Seite Übersicht, dazu Seite Darstellung (Farbwahl, Komponenten-Vorschau)
 
 **0.3.1 Seiten**
-- [ ] Einrichtungsseite (Setup, `firmware/main/web/setup.html`) ans neue Design anpassen, ohne Funktionsverlust
+- [x] Einrichtungsseite (Setup, `firmware/main/web/setup.html`) ans neue Design anpassen, ohne Funktionsverlust
       (WLAN, Update-Upload, Anzeige, System, Diagnosepaket); Setup-Modus im Captive Portal am Gerät prüfen
-      (Wunsch des Users, 2026-10-19)
-- [ ] Seiten: Info, Hardware, WLAN (Scan, Signalbalken), Verbundene Geräte, System
-- [ ] Live-Log als Seite in der Oberfläche (Schnittstellen `/ws/log` und `/api/log` gibt es seit 0.2.2)
+      (Wunsch des Users, 2026-10-19). Ergebnis: Setup-Modus zeigt die neue Oberfläche (WLAN-Seite), `/setup` bleibt
+      als schlanke Notfallseite im M3-Look; Android-Portal geprüft, Windows-Portal noch offen
+- [x] Seiten: Info, Hardware, WLAN (Scan, Signalbalken), Verbundene Geräte, System (Bundle gzip 119 KB)
+- [x] Live-Log als Seite in der Oberfläche (Schnittstellen `/ws/log` und `/api/log` gibt es seit 0.2.2), mit Befehlszeile
 
 **0.3.2 System und Schutz**
 - [ ] Neustart, Werksreset, Einstellungen exportieren/importieren

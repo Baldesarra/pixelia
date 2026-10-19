@@ -76,7 +76,7 @@
   <div class="page-grid">
     <Card class="wide">
       <h2 class="card-title">
-        <Icon name="devices" size={20} />Browser
+        <Icon name="devices" size={20} />Verbundene Browser
         <span class="end tnum muted">{list.filter((c) => c.online).length} online · {list.length} bekannt</span>
       </h2>
       {#if list.length}
@@ -93,10 +93,13 @@
                     <Button type="button" variant="text" size="s" onclick={() => (editing = '')}>Abbrechen</Button>
                   </form>
                 {:else}
-                  <span class="headline">
-                    {c.name || c.agent || 'Unbekannter Browser'}
-                    {#if self}<Chip tone="tertiary">Dieses Gerät</Chip>{/if}
-                  </span>
+                  <span class="headline">{c.name || c.agent || 'Unbekannter Browser'}</span>
+                  {#if self || c.online}
+                    <span class="tags">
+                      {#if c.online}<Chip tone="primary" pulse>online</Chip>{/if}
+                      {#if self}<Chip tone="tertiary">Dieses Gerät</Chip>{/if}
+                    </span>
+                  {/if}
                   <span class="supporting tnum">
                     {[c.name ? c.agent : '', c.ip].filter(Boolean).join(' · ')}
                   </span>
@@ -111,7 +114,6 @@
                 {/if}
               </span>
               {#if editing !== c.id}
-                {#if c.online}<Chip tone="primary" pulse>online</Chip>{/if}
                 <IconButton icon="edit" label="Namen ändern" onclick={() => edit(c.id, c.name)} />
               {/if}
             </li>
@@ -163,11 +165,15 @@
     gap: 2px;
   }
   .device .headline {
-    display: flex;
-    align-items: center;
-    gap: 8px;
     white-space: normal;
+    overflow-wrap: anywhere;
     font-weight: 600;
+  }
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 4px 0 2px;
   }
   .lead {
     transition:

@@ -1,9 +1,9 @@
 [
   {
     "v": "0.3.1",
-    "d": "",
-    "t": "",
-    "s": "",
+    "d": "2026-10-19",
+    "t": "Weboberfläche: Seiten",
+    "s": "WLAN, System mit Update, Live-Log, Info, Hardware und verbundene Geräte in der neuen Oberfläche; Setup-Modus und Einrichtungsseite im M3-Look",
     "n": [
       "Web: Seite WLAN: Verbindung mit Router, DNS, Zugangspunkt und Dauer, gespeicherte Netze entfernen, Netzsuche mit Signalbalken, Netz hinzufügen mit Passwort-Prüfung",
       "Web: Seite System: Update hochladen (Datei wird im Browser geprüft, Fortschritt, Probelauf), Drehung, Helligkeit, langer Druck, Diagnosepaket, Absturzbericht löschen, letzte Starts, Neustart",
@@ -18,7 +18,11 @@
     "i": [
       "Web: Übersicht verweist auf die Seiten System und WLAN statt auf die Einrichtungsseite; npm run mock liefert alle neuen Schnittstellen und /setup (PIXELIA_MOCK=setup für den Setup-Modus)"
     ],
+    "f": [
+      "Web: Abstände über Text unter Knöpfen (System: Update, Diagnose), abgeschnittene Chips in der Geräteliste, Fußzeile der Einrichtungsseite, Fokus beim Umbenennen (am Gerät gefunden)"
+    ],
     "g": [
+      "Gerät: Setup-Modus im Captive Portal von Android: das Anmeldefenster (WebView) lädt die neue Oberfläche, meldet sich live an, Netzsuche und /setup funktionieren; Windows nicht geprüft",
       "Gerät: Alle Seiten per WLAN-Update geprüft: Netzsuche, Live-Log, Befehl wifi, Geräte-Anmeldung mit Umbenennen, /api/system in 36 ms, Chiptemperatur 41,8 °C",
       "Gerät: Mit offener Oberfläche und Live-Log 29,8–30,3 fps, Zeichnen ≤ 4,2 ms, 0 Aussetzer, interner RAM-Tiefstwert 111 KB; Firmware 1305 KB = 21 % der Partition",
       "Web: Bundle gzip 119 KB (app.js 79 KB, CSS 7 KB, Schrift 33 KB), Ziel ≤ 150 KB"

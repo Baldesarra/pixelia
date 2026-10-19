@@ -33,7 +33,7 @@
     log: { title: 'Live-Log', view: Log },
     info: { title: 'Info', view: Info },
     hardware: { title: 'Hardware', view: Hardware },
-    geraete: { title: 'Verbundene Geräte', view: Devices },
+    geraete: { title: 'Geräte', view: Devices },
     darstellung: { title: 'Darstellung', view: Appearance },
     mehr: { title: 'Mehr', view: More },
   };
