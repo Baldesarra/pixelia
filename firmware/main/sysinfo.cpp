@@ -17,9 +17,10 @@ namespace app::sysinfo {
 
 namespace {
 constexpr const char* TAG = "sys";
+}  // namespace
 
-const char* reset_reason_text(esp_reset_reason_t r) {
-    switch (r) {
+const char* reset_reason_text(int reason) {
+    switch (static_cast<esp_reset_reason_t>(reason)) {
         case ESP_RST_POWERON: return "Einschalten";
         case ESP_RST_EXT: return "externer Reset";
         case ESP_RST_SW: return "Software-Neustart";
@@ -35,7 +36,6 @@ const char* reset_reason_text(esp_reset_reason_t r) {
         default: return "unbekannt";
     }
 }
-}  // namespace
 
 void log_all() {
     const esp_app_desc_t* app = esp_app_get_description();

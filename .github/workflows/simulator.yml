@@ -25,7 +25,7 @@ jobs:
             -DSDL_X11=OFF -DSDL_WAYLAND=OFF -DSDL_UNIX_CONSOLE_BUILD=ON > /dev/null
           cmake --build build-sim
 
-      - name: Selbsttests (Gestenerkennung)
+      - name: Selbsttests (Gestenerkennung, Passwort-Filter)
         run: build-sim/pixelia-sim --test all
 
       - name: Screenshots und Kontaktbogen

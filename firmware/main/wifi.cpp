@@ -762,6 +762,13 @@ Status status() {
 
 const char* ap_password() { return s_ap_password; }
 
+void for_each_secret(void (*fn)(const char* secret, void* ctx), void* ctx) {
+    std::lock_guard<std::mutex> g(s_lock);
+    for (int i = 0; i < s_store.count; ++i)
+        if (s_store.nets[i].pass[0]) fn(s_store.nets[i].pass, ctx);
+    if (s_ap_password[0]) fn(s_ap_password, ctx);
+}
+
 int saved_networks(char (*ssids)[33], int max) {
     std::lock_guard<std::mutex> g(s_lock);
     int n = std::min<int>(max, s_store.count);

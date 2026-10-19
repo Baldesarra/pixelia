@@ -36,6 +36,7 @@ struct Status {
     bool trial_passed;  // in diesem Start bestanden
     // Rückfall auf die alte Version
     bool rollback;
+    bool rollback_new;  // in diesem Start erkannt (für die Reset-Historie)
     char rollback_version[32];
     char rollback_reason[96];
 };

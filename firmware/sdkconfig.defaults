@@ -23,6 +23,10 @@ CONFIG_SPIRAM_SPEED_80M=y
 # Programmcode und Konstanten beim Start ins PSRAM spiegeln: Flash-Schreiben hält das System nicht an
 CONFIG_SPIRAM_XIP_FROM_PSRAM=y
 
+# Log-Ringpuffer (0.2.2) im No-Init-Bereich des PSRAM: übersteht Neustarts und Abstürze, der Speichertest beim
+# Start spart den Bereich aus
+CONFIG_SPIRAM_ALLOW_NOINIT_SEG_EXTERNAL_MEMORY=y
+
 # Datencache mit 64-Byte-Zeilen (schnellere PSRAM-Zugriffe)
 CONFIG_ESP32S3_DATA_CACHE_LINE_64B=y
 
@@ -40,6 +44,8 @@ CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF=y
 CONFIG_FREERTOS_HZ=1000
 CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS=y
 CONFIG_FREERTOS_USE_TRACE_FACILITY=y
+# Task-Liste mit Kern (Befehl „tasks“, /api/perf)
+CONFIG_FREERTOS_VTASKLIST_INCLUDE_COREID=y
 
 # Watchdog: ein Hänger löst einen Neustart aus (im Probelauf eines Updates folgt dann der Rückfall, 4.10)
 CONFIG_ESP_TASK_WDT_PANIC=y
@@ -55,6 +61,8 @@ CONFIG_LWIP_SNTP_MAX_SERVERS=2
 
 # Webserver mit WebSocket (Live-Status); lange Kopfzeilen (Captive-Portal-Abfragen, Browser-Kennungen)
 CONFIG_HTTPD_WS_SUPPORT=y
+# Rückruf nach dem WebSocket-Handschlag: ESP-IDF 6.1 ruft dabei den URI-Handler nicht mehr auf (Status, Live-Log)
+CONFIG_HTTPD_WS_POST_HANDSHAKE_CB_SUPPORT=y
 CONFIG_HTTPD_MAX_REQ_HDR_LEN=2048
 
 # TCP: größeres Empfangsfenster (32 KB statt 5,7 KB) und SACK. Mit nur 4 Paketen im Fenster endet jeder

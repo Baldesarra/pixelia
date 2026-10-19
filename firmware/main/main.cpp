@@ -1,8 +1,9 @@
 // Pixelia – Firmware
 //
 // Ablauf beim Start:
+//  0. Log-Ringpuffer übernehmen (Zeilen vor einem Neustart oder Absturz bleiben per WLAN abrufbar)
 //  1. Systeminfo ins Log (Chip, Flash, PSRAM, Heap, Resetgrund), Einstellungen aus dem NVS
-//  2. Update-Zustand: Probelauf einer neuen Version? Wurde ein Update zurückgerollt?
+//  2. Update-Zustand: Probelauf einer neuen Version? Wurde ein Update zurückgerollt? Startzähler, Reset-Historie
 //  3. I²C-Scan und GT911-Erkennung, Touch-Abfrage im Hintergrund
 //  4. Hintergrundbeleuchtung und RGB-Panel auf Kern 1, Engine (30 fps) mit Systemanzeigen
 //  5. Diagnose über die serielle Konsole (Befehl „help“), Leistungsmessung alle 2 s
@@ -11,10 +12,12 @@
 
 #include "app.h"
 #include "board/backlight.h"
+#include "diag.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "logbuf.h"
 #include "net.h"
 #include "ota.h"
 #include "settings.h"
@@ -28,10 +31,12 @@ extern "C" void app_main() {
     // Tiefstwert des freien Speichers ab hier messen: Der beim Systemstart reservierte DMA-Pool (32 KB,
     // SPIRAM_MALLOC_RESERVE_INTERNAL) meldet sonst einen Tiefstwert von 0 und der Wert wäre immer 31 KB zu niedrig
     heap_caps_monitor_local_minimum_free_size_start();
+    app::timesync::set_timezone();
+    app::log::init();
     app::sysinfo::log_all();
     app::settings::init();
-    app::timesync::set_timezone();
     app::ota::init();
+    app::diag::init();
     app::sysinfo::log_heap_step("Einstellungen");
 
     app::hwtest::init_i2c_and_scan();

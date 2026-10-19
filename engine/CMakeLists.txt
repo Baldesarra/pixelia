@@ -7,6 +7,7 @@ set(PIXELIA_ENGINE_SRCS
     src/gesture.cpp
     src/png.cpp
     src/qr.cpp
+    src/redact.cpp
     src/scenes.cpp
     src/scroll_test.cpp
     src/system_ui.cpp

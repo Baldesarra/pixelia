@@ -2,6 +2,7 @@
 // Gemeinsame Schnittstellen der Firmware-Module (Hardware-Detektiv, Grafik, Leistung, Konsole).
 // Netzwerk, Webserver, Updates und Einstellungen haben eigene Header (net.h, web.h, ota.h, settings.h, ui.h).
 
+#include <cstddef>
 #include <cstdint>
 
 #include "board/display.h"
@@ -17,6 +18,8 @@ void log_all();
 void log_heap();
 // Freien internen RAM nach einem Startschritt ausgeben, mit Tiefstwert seit dem vorigen Schritt (Speicherspitzen finden)
 void log_heap_step(const char* step);
+// Resetgrund (esp_reset_reason_t) als Text
+const char* reset_reason_text(int reason);
 }  // namespace sysinfo
 
 namespace hwtest {
@@ -67,15 +70,26 @@ EngineStats engine_stats(bool reset_max);
 }  // namespace gfx
 
 namespace perf {
-// Letzte Messung (alle 2 s, auch wenn das Log aus ist), z. B. für die Weboberfläche
+// Letzte Messung (alle 2 s, auch wenn das Log aus ist), z. B. für die Weboberfläche und /api/perf
 struct Snapshot {
+    uint32_t at_s;  // Laufzeit bei der Messung
+    const char* mode;
     float lcd_hz;
+    float pclk_mhz;
+    float isr_pct;
+    float isr_max_us;
+    uint32_t desync;
+    bool engine;  // Engine-Modus aktiv (sonst Testbild): dann gelten die Engine-Werte
     float fps;
     float render_ms;
-    float isr_pct;
+    float render_max_ms;
+    float logic_ms;
+    uint32_t ticks[3];  // Bilder mit 0, 1, 2+ Logik-Schritten
+    int sprites;
+    bool buf_psram;
+    int world_day, world_minute;
     float cpu[2];
-    uint32_t desync;
-    unsigned ram_kb, ram_min_kb, ram_blk_kb, psram_kb, psram_min_kb;
+    unsigned ram_kb, ram_min_kb, ram_blk_kb, dma_kb, psram_kb, psram_min_kb, psram_blk_kb;
 };
 void start(int interval_s);
 void set_interval(int interval_s);  // 0 = aus
@@ -85,6 +99,12 @@ Snapshot snapshot();
 
 namespace console {
 void start();
+
+// Befehl über das Netz (POST /api/cmd): läuft in der Konsolen-Task wie ein serieller Befehl, die Log-Zeilen
+// dieser Task während der Ausführung landen in out. Gefährliche Befehle brauchen confirmed (sonst Grund in why).
+enum class Result { Done, NeedsConfirm, Busy, Timeout, Unknown };
+Result run_remote(const char* line, bool confirmed, char* out, size_t out_len, char* why, size_t why_len,
+                  int timeout_ms);
 }  // namespace console
 
 }  // namespace app

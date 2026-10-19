@@ -11,6 +11,9 @@
 //   POST /api/ota/ack         Hinweis auf zurückgerolltes Update gelesen
 //   POST /api/reboot
 //   POST /api/speedtest       Daten empfangen und verwerfen (Messung der Übertragungsrate)
+//
+// Fernwartung (seit 0.2.2, web_diag.cpp): /api/log, WebSocket /ws/log, /api/cmd, /api/perf, /api/resets,
+// /api/coredump, /api/coredump/summary, /api/coredump/erase, /api/diag (Diagnosepaket).
 
 #include "web.h"
 
@@ -22,16 +25,21 @@
 #include <string>
 
 #include "app.h"
+#include "diag.h"
 #include "esp_app_desc.h"
 #include "esp_heap_caps.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "json.h"
+#include "logbuf.h"
 #include "net.h"
 #include "ota.h"
 #include "settings.h"
+#include "web_internal.h"
 
 extern const char kSetupHtmlStart[] asm("_binary_setup_html_start");
 extern const char kSetupHtmlEnd[] asm("_binary_setup_html_end");
@@ -42,83 +50,9 @@ namespace {
 constexpr const char* TAG = "web";
 httpd_handle_t s_server = nullptr;
 std::atomic<int> s_ws_clients{0};
+}  // namespace
 
-// --- JSON ---------------------------------------------------------------------------------------------------
-
-// Minimaler JSON-Schreiber: Kommas und Escaping automatisch
-class Json {
-public:
-    Json& obj(const char* k = nullptr) { return open(k, '{'); }
-    Json& arr(const char* k = nullptr) { return open(k, '['); }
-    Json& end_obj() { return close('}'); }
-    Json& end_arr() { return close(']'); }
-    Json& str(const char* k, const char* v) {
-        key(k);
-        quote(v);
-        return *this;
-    }
-    Json& num(const char* k, double v, int decimals = 0) {
-        key(k);
-        char b[32];
-        std::snprintf(b, sizeof(b), "%.*f", decimals, v);
-        s_ += b;
-        return *this;
-    }
-    Json& boolean(const char* k, bool v) {
-        key(k);
-        s_ += v ? "true" : "false";
-        return *this;
-    }
-    Json& null(const char* k) {
-        key(k);
-        s_ += "null";
-        return *this;
-    }
-    std::string& text() { return s_; }
-
-private:
-    Json& open(const char* k, char c) {
-        key(k);
-        s_ += c;
-        first_[++depth_] = true;
-        return *this;
-    }
-    Json& close(char c) {
-        s_ += c;
-        --depth_;
-        return *this;
-    }
-    void key(const char* k) {
-        if (depth_ >= 0) {
-            if (!first_[depth_]) s_ += ',';
-            first_[depth_] = false;
-        }
-        if (k) {
-            quote(k);
-            s_ += ':';
-        }
-    }
-    void quote(const char* v) {
-        s_ += '"';
-        for (const char* p = v; *p; ++p) {
-            auto c = static_cast<unsigned char>(*p);
-            if (c == '"' || c == '\\') {
-                s_ += '\\';
-                s_ += static_cast<char>(c);
-            } else if (c < 0x20) {
-                char b[8];
-                std::snprintf(b, sizeof(b), "\\u%04x", c);
-                s_ += b;
-            } else {
-                s_ += static_cast<char>(c);
-            }
-        }
-        s_ += '"';
-    }
-    std::string s_;
-    bool first_[12] = {};
-    int depth_ = -1;
-};
+namespace detail {
 
 std::string status_json() {
     const esp_app_desc_t* app = esp_app_get_description();
@@ -168,20 +102,35 @@ std::string status_json() {
     }
     j.obj("set").num("rot", set.rotate180 ? 180 : 0).num("bright", set.brightness).num("lp", set.long_press_ms);
     j.end_obj();
+
+    // Fernwartung (0.2.2): Startnummer, letzter Resetgrund, Absturzbericht, Fehler/Warnungen seit dem Start
+    const log::Info li = log::info();
+    diag::Crash c;
+    const bool crashed = diag::crash(&c);
+    j.obj("diag").num("boot", diag::boot()).str("reset", sysinfo::reset_reason_text(esp_reset_reason()));
+    j.num("errors", li.stats.errors).num("warnings", li.stats.warnings).num("logLines", li.next - li.first);
+    if (crashed) {
+        j.obj("crash").str("task", c.task).str("reason", c.reason).str("v", c.version).end_obj();
+    } else {
+        j.null("crash");
+    }
+    j.end_obj();
     j.end_obj();
     return std::move(j.text());
 }
 
 // --- Hilfen -------------------------------------------------------------------------------------------------
 
-esp_err_t send_json(httpd_req_t* req, const std::string& body, const char* status = "200 OK") {
+httpd_handle_t server() { return s_server; }
+
+esp_err_t send_json(httpd_req_t* req, const std::string& body, const char* status) {
     httpd_resp_set_status(req, status);
     httpd_resp_set_type(req, "application/json; charset=utf-8");
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
     return httpd_resp_send(req, body.data(), static_cast<ssize_t>(body.size()));
 }
 
-esp_err_t reply(httpd_req_t* req, bool ok, const char* msg, const char* status = nullptr) {
+esp_err_t reply(httpd_req_t* req, bool ok, const char* msg, const char* status) {
     Json j;
     j.obj().boolean("ok", ok).str("msg", msg).end_obj();
     return send_json(req, j.text(), status ? status : (ok ? "200 OK" : "400 Bad Request"));
@@ -240,11 +189,42 @@ bool form_value(const std::string& body, const char* key, std::string* out) {
     return false;
 }
 
+bool query_value(httpd_req_t* req, const char* key, std::string* out) {
+    const size_t len = httpd_req_get_url_query_len(req);
+    if (len == 0 || len > 512) return false;
+    std::string q(len + 1, '\0');
+    if (httpd_req_get_url_query_str(req, q.data(), q.size()) != ESP_OK) return false;
+    q.resize(len);
+    return form_value(q, key, out);
+}
+
+bool authorized(httpd_req_t*, const std::string*) {
+    // PIN kommt mit 0.3.x (settings), dann hier: Kopf „X-Pixelia-Pin“ bzw. Feld „pin“ prüfen, Sperre nach Fehlversuchen
+    return true;
+}
+
+void add(const char* uri, httpd_method_t method, esp_err_t (*handler)(httpd_req_t*), bool ws,
+         esp_err_t (*ws_open)(httpd_req_t*)) {
+    httpd_uri_t u{};
+    u.uri = uri;
+    u.method = method;
+    u.handler = handler;
+    u.is_websocket = ws;
+    u.ws_post_handshake_cb = ws_open;
+    esp_err_t err = httpd_register_uri_handler(s_server, &u);
+    if (err != ESP_OK) ESP_LOGE(TAG, "URI %s nicht registriert: %s", uri, esp_err_to_name(err));
+}
+
+}  // namespace detail
+
+namespace {
+using namespace detail;
+
 bool setup_active() { return wifi::status().ap_active; }
 
 // --- WebSocket ----------------------------------------------------------------------------------------------
 
-// An alle WebSocket-Clients senden; nur im Kontext des Server-Tasks aufrufen
+// An alle WebSocket-Clients des Status senden (nicht an /ws/log); nur im Kontext des Server-Tasks aufrufen
 void broadcast_in_server(const std::string& text) {
     size_t fds = 8;
     int clients[8];
@@ -256,6 +236,7 @@ void broadcast_in_server(const std::string& text) {
     int n = 0;
     for (size_t i = 0; i < fds; ++i) {
         if (httpd_ws_get_fd_info(s_server, clients[i]) != HTTPD_WS_CLIENT_WEBSOCKET) continue;
+        if (is_log_client(clients[i])) continue;
         ++n;
         httpd_ws_send_frame_async(s_server, clients[i], &frame);
     }
@@ -277,14 +258,17 @@ void status_task(void*) {
     }
 }
 
+// Neue Verbindung: gleich den aktuellen Stand schicken. Bis 0.2.1 stand das im Handler unter HTTP_GET, den ESP-IDF 6.1
+// beim Handschlag aber nicht mehr aufruft: Der Status kam deshalb nie per WebSocket, die Seite lief über ihre
+// Ersatz-Abfrage alle 2 s (beim Live-Log in 0.2.2 aufgefallen)
+esp_err_t ws_open(httpd_req_t*) {
+    s_ws_clients++;
+    auto* text = new std::string(status_json());
+    if (httpd_queue_work(s_server, broadcast_work, text) != ESP_OK) delete text;
+    return ESP_OK;
+}
+
 esp_err_t ws_handler(httpd_req_t* req) {
-    if (req->method == HTTP_GET) {
-        // Handschlag erledigt: gleich den aktuellen Stand schicken
-        s_ws_clients++;
-        auto* text = new std::string(status_json());
-        if (httpd_queue_work(s_server, broadcast_work, text) != ESP_OK) delete text;
-        return ESP_OK;
-    }
     httpd_ws_frame_t frame{};
     uint8_t buf[64];
     if (httpd_ws_recv_frame(req, &frame, 0) != ESP_OK) return ESP_FAIL;
@@ -487,16 +471,6 @@ esp_err_t not_found(httpd_req_t* req, httpd_err_code_t) {
     httpd_resp_set_type(req, "text/plain; charset=utf-8");
     return httpd_resp_send(req, "Nicht gefunden", HTTPD_RESP_USE_STRLEN);
 }
-
-void add(const char* uri, httpd_method_t method, esp_err_t (*handler)(httpd_req_t*), bool ws = false) {
-    httpd_uri_t u{};
-    u.uri = uri;
-    u.method = method;
-    u.handler = handler;
-    u.is_websocket = ws;
-    esp_err_t err = httpd_register_uri_handler(s_server, &u);
-    if (err != ESP_OK) ESP_LOGE(TAG, "URI %s nicht registriert: %s", uri, esp_err_to_name(err));
-}
 }  // namespace
 
 void start() {
@@ -504,7 +478,7 @@ void start() {
     cfg.core_id = kSystemCore;
     cfg.stack_size = 8192;
     cfg.task_priority = 5;
-    cfg.max_uri_handlers = 32;
+    cfg.max_uri_handlers = 40;
     cfg.max_open_sockets = 7;
     cfg.lru_purge_enable = true;
     cfg.recv_wait_timeout = 10;
@@ -529,7 +503,8 @@ void start() {
     add("/api/ota/ack", HTTP_POST, ota_ack_post);
     add("/api/reboot", HTTP_POST, reboot_post);
     add("/api/speedtest", HTTP_POST, speedtest_post);
-    add("/ws", HTTP_GET, ws_handler, true);
+    add("/ws", HTTP_GET, ws_handler, true, ws_open);
+    register_diag();
     for (const char* uri : {"/generate_204", "/gen_204", "/hotspot-detect.html", "/library/test/success.html",
                             "/connecttest.txt", "/ncsi.txt", "/redirect", "/canonical.html", "/success.txt"}) {
         add(uri, HTTP_GET, captive_check);

@@ -62,6 +62,10 @@ int scan(ScanEntry* out, int max, bool fresh, int timeout_ms = 8000);
 // Passwort des Setup-WLANs (steht im Setup-Modus ohnehin auf dem Display), leer bis zum ersten Setup-Modus
 const char* ap_password();
 
+// Alle gespeicherten Passwörter (Heimnetze und Setup-WLAN) an fn geben. Nur für den Passwort-Filter der
+// Diagnose-Ausgaben (pixelia::SecretFilter), damit sie dort sicher getilgt werden; nie ausgeben oder speichern.
+void for_each_secret(void (*fn)(const char* secret, void* ctx), void* ctx);
+
 // Sofort neu verbinden bzw. den Setup-Modus erzwingen (Konsole, Weboberfläche)
 void reconnect();
 void force_setup();
