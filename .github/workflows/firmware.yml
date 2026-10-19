@@ -9,8 +9,50 @@ on:
   workflow_dispatch:
 
 jobs:
+  web:
+    name: Weboberfläche bauen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Abhängigkeiten, Typprüfung, Build
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run check
+          npm run build
+
+      - name: Größe prüfen (Ziel gzip ≤ 150 KB, Budget laut Projektplan 400 KB)
+        working-directory: web/dist
+        run: |
+          TOTAL=0
+          for f in $(find . -type f); do
+            case "$f" in
+              *.woff2|*.png) S=$(stat -c %s "$f") ;;
+              *) S=$(gzip -9 -c "$f" | wc -c) ;;
+            esac
+            echo "$f: $S Byte"
+            TOTAL=$((TOTAL + S))
+          done
+          echo "## Weboberfläche: $((TOTAL / 1024)) KB eingebettet (gzip)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$TOTAL" -gt $((400 * 1024)) ]; then echo "::error::Weboberfläche $TOTAL Byte, Budget 400 KB"; exit 1; fi
+          if [ "$TOTAL" -gt $((150 * 1024)) ]; then echo "::warning::Weboberfläche $TOTAL Byte, Ziel 150 KB"; fi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web-dist
+          path: web/dist/
+          retention-days: 7
+
   build:
     name: Firmware bauen
+    needs: web
     runs-on: ubuntu-latest
     container: espressif/idf:v6.1
     steps:
@@ -18,6 +60,12 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Weboberfläche aus dem Job „web“ übernehmen
+        uses: actions/download-artifact@v8
+        with:
+          name: web-dist
+          path: web/dist
 
       - name: Changelog prüfen (Format, Bereiche, Reihenfolge)
         shell: bash

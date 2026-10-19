@@ -1,5 +1,8 @@
 // Webserver: Einrichtungsseite, JSON-API, WebSocket, Update-Upload, Captive Portal (siehe web.h).
 //
+// Seiten: / liefert die Weboberfläche (web/, eingebettet über web_assets.h), im Setup-Modus die Einrichtungsseite.
+//   GET  /setup               Einrichtungsseite (immer, auch außerhalb des Setup-Modus)
+//
 // API (alle Antworten JSON, Eingaben als Formulardaten application/x-www-form-urlencoded):
 //   GET  /api/status          Gesamtstatus (auch per WebSocket /ws jede Sekunde)
 //   GET  /api/wifi            gespeicherte Netze (nur Namen) und letzter Scan
@@ -39,6 +42,7 @@
 #include "net.h"
 #include "ota.h"
 #include "settings.h"
+#include "web_assets.h"
 #include "web_internal.h"
 
 extern const char kSetupHtmlStart[] asm("_binary_setup_html_start");
@@ -279,10 +283,48 @@ esp_err_t ws_handler(httpd_req_t* req) {
 
 // --- Seiten und API -----------------------------------------------------------------------------------------
 
-esp_err_t root_get(httpd_req_t* req) {
+esp_err_t setup_get(httpd_req_t* req) {
     httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
     return httpd_resp_send(req, kSetupHtmlStart, kSetupHtmlEnd - kSetupHtmlStart - 1);
+}
+
+const assets::Asset* find_asset(const char* uri) {
+    const size_t len = std::strcspn(uri, "?#");
+    for (size_t i = 0; i < assets::kCount; ++i) {
+        const assets::Asset& a = assets::kAssets[i];
+        if (std::strlen(a.path) == len && std::strncmp(a.path, uri, len) == 0) return &a;
+    }
+    return nullptr;
+}
+
+// Datei der Weboberfläche senden: gzip-komprimiert, mit ETag (Inhalts-Hash). Der Browser fragt jedes Mal nach
+// (no-cache) und bekommt nach einem Update die neuen Dateien, sonst nur „304 Not Modified“.
+esp_err_t send_asset(httpd_req_t* req, const assets::Asset& a) {
+    char tag[24] = "";
+    if (httpd_req_get_hdr_value_str(req, "If-None-Match", tag, sizeof(tag)) == ESP_OK && std::strcmp(tag, a.etag) == 0) {
+        httpd_resp_set_status(req, "304 Not Modified");
+        httpd_resp_set_hdr(req, "ETag", a.etag);
+        return httpd_resp_send(req, nullptr, 0);
+    }
+    httpd_resp_set_type(req, a.mime);
+    httpd_resp_set_hdr(req, "Cache-Control", "no-cache");
+    httpd_resp_set_hdr(req, "ETag", a.etag);
+    if (a.gzip) httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
+    return httpd_resp_send(req, reinterpret_cast<const char*>(a.data), static_cast<ssize_t>(a.size));
+}
+
+esp_err_t asset_get(httpd_req_t* req) {
+    const assets::Asset* a = find_asset(req->uri);
+    if (!a) return httpd_resp_send_404(req);
+    return send_asset(req, *a);
+}
+
+// Startseite: im Setup-Modus die schlanke Einrichtungsseite (Captive-Portal-Fenster können wenig), sonst die Oberfläche
+esp_err_t root_get(httpd_req_t* req) {
+    const assets::Asset* a = setup_active() ? nullptr : find_asset("/index.html");
+    if (!a) return setup_get(req);
+    return send_asset(req, *a);
 }
 
 esp_err_t status_get(httpd_req_t* req) { return send_json(req, status_json()); }
@@ -478,7 +520,7 @@ void start() {
     cfg.core_id = kSystemCore;
     cfg.stack_size = 8192;
     cfg.task_priority = 5;
-    cfg.max_uri_handlers = 40;
+    cfg.max_uri_handlers = 48;
     cfg.max_open_sockets = 7;
     cfg.lru_purge_enable = true;
     cfg.recv_wait_timeout = 10;
@@ -493,6 +535,8 @@ void start() {
         return;
     }
     add("/", HTTP_GET, root_get);
+    add("/setup", HTTP_GET, setup_get);
+    for (size_t i = 0; i < assets::kCount; ++i) add(assets::kAssets[i].path, HTTP_GET, asset_get);
     add("/api/status", HTTP_GET, status_get);
     add("/api/wifi", HTTP_GET, wifi_get);
     add("/api/wifi/scan", HTTP_POST, wifi_scan_post);
@@ -511,7 +555,8 @@ void start() {
     }
     httpd_register_err_handler(s_server, HTTPD_404_NOT_FOUND, not_found);
     xTaskCreatePinnedToCore(status_task, "webstatus", 4096, nullptr, 2, nullptr, kSystemCore);
-    ESP_LOGI(TAG, "Webserver auf Port 80 gestartet");
+    ESP_LOGI(TAG, "Webserver auf Port 80 gestartet, Oberfläche %u Dateien, %u KB", static_cast<unsigned>(assets::kCount),
+             static_cast<unsigned>(assets::kBytes / 1024));
 }
 
 int ws_clients() { return s_ws_clients; }

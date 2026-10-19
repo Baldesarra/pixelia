@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pixelia</title>
-<!-- Einfache Einrichtungsseite (0.2.x). Die richtige Oberfläche mit M3 Expressive folgt in 0.3.x. -->
+<!-- Einfache Einrichtungsseite (seit 0.2.x): im Setup-Modus unter /, sonst unter /setup. Die Oberfläche (web/) ersetzt sie schrittweise ab 0.3.x. -->
 <style>
   :root {
     color-scheme: light dark;
@@ -57,7 +57,7 @@
 <body>
 <main>
   <h1>Pixelia</h1>
-  <p class="sub" id="sub">Einrichtung und Updates</p>
+  <p class="sub"><span id="sub">Einrichtung und Updates</span> <a id="toUi" href="/" hidden>· zur Übersicht</a></p>
   <div id="banners"></div>
 
   <section class="card">
@@ -143,6 +143,7 @@ function render(s) {
   $("ver").textContent = s.v;
   const w = s.wifi;
   $("sub").textContent = w.ap ? "Setup-Modus: WLAN einrichten" : "Einrichtung und Updates";
+  $("toUi").hidden = w.ap; // im Setup-Modus ist diese Seite die Startseite
 
   let b = "";
   if (s.rollback) b += `<div class="banner">Das Update auf <b>${esc(s.rollback.v)}</b> wurde zurückgerollt: ${esc(s.rollback.why)}. Es läuft wieder ${esc(s.v)}.<button class="tonal" type="button" id="ackBtn">OK</button></div>`;
