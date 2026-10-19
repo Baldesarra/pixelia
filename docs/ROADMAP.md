@@ -7,11 +7,11 @@
 
 | | |
 |---|---|
-| **Phase** | 0.2.x Vernetzt: 0.2.2 „Fernwartung“ **fertig und am Gerät geprüft**, Release nach dem Merge |
-| **Letzte Version** | 0.2.1 „Immer erreichbar“ (2026-10-18), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.2.1) |
+| **Phase** | 0.2.x Vernetzt **abgeschlossen**: 0.2.2 „Fernwartung“ veröffentlicht und am Gerät installiert |
+| **Letzte Version** | 0.2.2 „Fernwartung“ (2026-10-19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.2.2) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
-| **Nächster Schritt** | Merge und Release 0.2.2 (Update per `tools/ota.ps1`); danach 0.3.x Weboberfläche (Svelte, M3 Expressive) |
+| **Nächster Schritt** | 0.3.x Weboberfläche (Svelte, M3 Expressive) in einer neuen Sitzung |
 | **Aktualisiert** | 2026-10-19 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
@@ -129,7 +129,9 @@ Immer drei Stellen: `MAJOR.MINOR.PATCH`.
       Absturz-Testvarianten `crash` und `crash-shift`
 - [x] 0.2.2: Messung: 30 fps, 0 Aussetzer unter Last, interner RAM ≥ 107 KB, Hook 16–19 µs pro Zeile
       ([HARDWARE.md](HARDWARE.md)); Status-WebSocket `/ws` repariert (sendete unter ESP-IDF 6.1 nie)
-- [ ] **Release 0.2.2** (Tag `v0.2.2`, Update per `tools/ota.ps1`)
+- [x] **Release 0.2.2** (Tag `v0.2.2`, Release mit `.bin`, Factory-Image, `.elf` und Notes, Web-Flasher aktualisiert).
+      Per `tools/ota.ps1` aufs Board: 1170 KB in 7,0 s, Selbsttest bestanden, 29,8 fps; Log-Puffer über das Update
+      übernommen (2716 Zeilen); ELF-SHA256 des Releases passt zur laufenden Firmware (für `tools/crash.ps1`)
 
 ## 0.3.x – Weboberfläche
 
