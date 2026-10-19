@@ -1,9 +1,9 @@
 [
   {
     "v": "0.3.0",
-    "d": "",
-    "t": "",
-    "s": "",
+    "d": "2026-10-19",
+    "t": "Weboberfläche: Grundgerüst",
+    "s": "Neue Oberfläche im Material 3 Expressive Design: Übersicht mit Live-Werten, dynamische Farben, hell und dunkel, komplett offline",
     "n": [
       "Web: Neue Weboberfläche unter http://pixelia/ mit Svelte 5, TypeScript und Vite, komplett offline und gzip in die Firmware eingebettet (4 Dateien, 89 KB)",
       "Web: Eigene M3-Expressive-Bibliothek: Tokens für Formen, Typografie und Federbewegungen, Buttons mit Form-Morphing, Button-Gruppe, Karten, Chips, Icon-Buttons",
@@ -35,7 +35,7 @@
       "Gerät: Mit offener Oberfläche (Live-WebSocket, 16 Seitenaufrufe) 29,8–30,3 fps, Zeichnen höchstens 6,4 ms, 0 Aussetzer, interner RAM-Tiefstwert 113 KB",
       "Gerät: Firmware 1261 KB = 21 % der App-Partition; Setup-Modus nicht am Gerät geprüft (Code-Pfad unverändert die bisherige Einrichtungsseite)"
     ],
-    "pr": [12, 13]
+    "pr": [12, 13, 14]
   },
   {
     "v": "0.2.2",
