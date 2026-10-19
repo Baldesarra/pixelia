@@ -236,8 +236,11 @@ mit dem Status jede Sekunde (sendet erst seit 0.2.2 wirklich, siehe unten). Fern
 ### Fernwartung per WLAN (seit 0.2.2, gemessen 2026-10-19)
 
 Daten, Fehler und Logs lassen sich komplett per WLAN abrufen, USB ist nur noch für die Erstinstallation und Abstürze ganz
-früh beim Start nötig. Alles läuft nur im Heimnetz und ohne PIN; der optionale PIN aus 0.3.x wird `/api/cmd` und das
-Löschen des Absturzberichts schützen (Kopf `X-Pixelia-Pin` bzw. Feld `pin`, im Code schon vorgesehen).
+früh beim Start nötig. Alles läuft nur im Heimnetz. Ist der optionale PIN gesetzt (seit 0.3.2), brauchen `/api/cmd`, das
+Löschen des Absturzberichts und alle ändernden Endpunkte eine Anmeldung: Skripte schicken den PIN im Kopf
+`X-Pixelia-Pin` (bzw. Feld `pin`), `tools/netlog.ps1`, `crash.ps1` und `ota.ps1` mit `-Pin` oder `$env:PIXELIA_PIN`.
+Lesen (Log, Status, Diagnosepaket) bleibt offen. Sperre nach 5 Fehlversuchen: 30 s, danach jeweils doppelt, höchstens
+15 min. Am Gerät gemessen: Anmeldung 140–250 ms (1000 Runden SHA-256), Sperre greift beim 5. Fehlversuch.
 
 | Schnittstelle | Inhalt |
 |---|---|

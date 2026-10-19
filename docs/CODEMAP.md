@@ -44,22 +44,23 @@ Webserver → Selbsttest (nur im Probelauf).
 | `app.h` | gemeinsame Schnittstellen: `sysinfo`, `hwtest`, `gfx`, `perf`, `console`; Kerne `kGfxCore=1`, `kSystemCore=0` |
 | `gfx.cpp` | Grafik-Task (Kern 1): Panel anlegen, Szene ticken/rendern, Systemanzeigen darüber, Puffertausch |
 | `ui.h` (in `gfx.cpp`) | Systemanzeigen von jeder Task aus ein-/ausblenden (`toast`, `show_update`, `show_info` …) |
-| `input.cpp/.h` | Touch → Gesten → Aktionen (Info-Karte), Daten der Info-Karte |
+| `input.cpp/.h` | Touch → Gesten → Aktionen (Info-Karte), Daten der Info-Karte, Zurücksetzen am Gerät (Knopf 3 s halten: PIN entfernen, Werksreset) |
 | `hwtest.cpp` | I²C-Scan, Touch-Task (Polling alle 20 ms), geführte Tests `tour`, Flash-Last, Helligkeit |
 | `perf.cpp` | Leistungsmonitor alle 2 s (Snapshot für API), Zeile seriell, im Log-Puffer 1×/min; ruft `diag::heartbeat()` |
 | `console.cpp` | Diagnose-Befehle (seriell und `run_remote` für `/api/cmd`), Liste `kDangerous` |
 | `logbuf.cpp/.h` | Log-Hook (`esp_log_set_vprintf`), Ringpuffer 256 KB PSRAM No-Init + RTC-Sicherung, `read()`, `Capture` |
 | `diag.cpp/.h` | Startzähler, Reset-Historie (NVS), Herzschlag (RTC), Core-Dump-Infos, Task-Liste, JSON-Bausteine |
-| `settings.cpp/.h` | NVS-Einstellungen: Drehung, Helligkeit, langer Druck |
+| `settings.cpp/.h` | NVS-Einstellungen: Drehung, Helligkeit, langer Druck, Farbwahl der Oberfläche (`ui`); `factory_reset()`, `frozen()` |
+| `auth.cpp/.h` | optionaler PIN: gesalzener Hash im NVS, Sitzungs-Tokens im RAM, Sperre nach Fehlversuchen |
 | `wifi.cpp`, `net.h` | WLAN-Manager (5 Netze), Setup-Modus mit AP, mDNS; `for_each_secret` für den Filter |
 | `captive_dns.cpp` | Mini-DNS fürs Captive Portal (nur im Setup-WLAN) |
 | `timesync.cpp` | Zeitzone Europa/Berlin, NTP |
 | `ota.cpp/.h` | Update-Upload mit Prüfung, Probelauf mit Selbsttest, Rückfall-Erkennung, Testvarianten (`PIXELIA_TEST`) |
-| `web.cpp` | Webserver: Oberfläche (`/`, auch im Setup-Modus; Dateien aus `web_assets.h`, ETag), Einrichtungsseite (`/setup`), Status-JSON, WLAN, Einstellungen, Update, Captive Portal, WebSocket `/ws` (empfängt Geräte-Anmeldungen) |
+| `web.cpp` | Webserver: Oberfläche (`/`, auch im Setup-Modus; Dateien aus `web_assets.h`, ETag), Einrichtungsseite (`/setup`), Status-JSON, WLAN, Einstellungen, Update, Captive Portal, WebSocket `/ws` (empfängt Geräte-Anmeldungen), Prüfstelle `authorized()`, Anmeldung, PIN, Werksreset, Sicherung |
 | `web_info.cpp` | `/api/system` (Hardware, Netz, Partitionen, Temperatur), `/api/clients` + `/api/clients/name` (verbundene Geräte, NVS `clients`), `client_message()` für `/ws` |
 | `web_assets.h` | Tabelle der eingebetteten Oberflächen-Dateien; `web_assets.cpp` erzeugt `tools/web_embed.py` beim Build im Build-Ordner |
 | `web_diag.cpp` | Fernwartung: `/api/log`, `/ws/log`, `/api/cmd`, `/api/perf`, `/api/resets`, `/api/coredump*`, `/api/diag` |
-| `web_internal.h` | gemeinsame Web-Hilfen (`send_json`, `form_value`, `authorized` = PIN-Prüfstelle) |
+| `web_internal.h` | gemeinsame Web-Hilfen (`send_json`, `form_value`, `authorized` = PIN-Prüfstelle, `deny` = 401/429) |
 | `json.cpp/.h` | kleiner JSON-Schreiber (bewusst nicht inline: Codegröße) |
 | `web/setup.html` | einfache Einrichtungsseite im M3-Look (eingebettet, ohne Build-Schritt, Notfallweg), Abfrage per WebSocket bzw. alle 2 s |
 
@@ -77,12 +78,14 @@ Gerät, `PIXELIA_TARGET`), `npm run mock` (ohne Gerät, Beispielwerte), `npm run
 | `src/main.ts`, `src/App.svelte` | Start, Rahmen: Navigation (Handy 5 Ziele + „Mehr“, Schiene alle), obere Leiste, Hash-Routen, Setup-Modus → `#/wlan` |
 | `src/pages/` | `Overview` (Übersicht), `Wifi` (`#/wlan`), `System`, `Log`, `Info`, `Hardware`, `Devices` (`#/geraete`), `Appearance` (`#/darstellung`), `More` (`#/mehr`) |
 | `src/lib/status.svelte.ts` | Live-Status: WebSocket `/ws`, Rückfall auf `/api/status`, Typ `Status` (= `status_json()` in web.cpp); meldet Geräte-ID und Seite |
-| `src/lib/api.ts` | `get`/`post` (Formulardaten) und Antworttypen der API (`SystemInfo`, `ClientList`, `WifiList`, `ResetList`, `LogLine` …) |
+| `src/lib/api.ts` | `get`/`post` (Formulardaten; bei 401 einmal PIN abfragen und wiederholen, `quiet` ohne Abfrage) und Antworttypen der API (`SystemInfo`, `ClientList`, `Backup` …) |
+| `src/lib/auth.svelte.ts` | Anmeldung: Token im localStorage (Kopf `X-Pixelia-Token`), PIN-Dialog, `ensure()` vor Uploads |
+| `src/lib/theme-sync.svelte.ts` | Farbwahl mit dem Gerät abgleichen (Gerät ist die Quelle, `unsaved` ohne Anmeldung) |
 | `src/lib/client.ts` | Geräte-ID (localStorage `pixelia.client`) und Kurzname „Browser · System“ aus der Browser-Kennung |
 | `src/lib/firmware.ts` | Update: Kopf der .bin prüfen (wie setup.html), Hochladen mit Fortschritt und 30-s-Wächter |
 | `src/lib/page.css` | globale Seiten-Bausteine: `.page-grid`, `.card-title`, `.kv`, `.list`/`.list-item`, `.meter-row` |
 | `src/lib/format.ts`, `Logo.svelte`, `SignalBars.svelte` | Anzeige-Hilfen (Zahlen, Dauer, Signal), Pixelia-Zeichen, WLAN-Balken |
-| `src/lib/m3/` | M3-Expressive-Bibliothek: `tokens.css` (Formen, Typo, Federn), `theme.svelte.ts` (dynamische Farben), `Button`, `IconButton`, `ButtonGroup`, `Card`, `Chip`, `Navigation`, `WavyProgress`, `CircularProgress`, `LoadingIndicator`, `TextField`, `Slider`, `Dialog` (`confirmDialog()`), `shapes.ts`, `Icon` |
+| `src/lib/m3/` | M3-Expressive-Bibliothek: `tokens.css` (Formen, Typo, Federn), `theme.svelte.ts` (dynamische Farben), `Button`, `IconButton`, `ButtonGroup`, `Card`, `Chip`, `Navigation`, `WavyProgress`, `CircularProgress`, `LoadingIndicator`, `TextField`, `Slider`, `Dialog` (`confirmDialog()`, `promptDialog()` mit Prüfung), `shapes.ts`, `Icon` |
 | `src/lib/m3/icon-names.ts` | Liste der benutzten Material Symbols; nur diese bettet das Vite-Plugin in `vite.config.ts` ein |
 | `src/assets/roboto-flex-pixelia.woff2` | reduzierte Schrift (aus `tools/font_subset.py`, im Repo) |
 
@@ -105,7 +108,7 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
 ## Speicher
 
 - Flash: `partitions.csv` – nvs 24 KB, otadata, ota_0/ota_1 je 6 MB, storage (LittleFS, noch ungenutzt), coredump 64 KB.
-- NVS-Namensräume: `pixelia` (Einstellungen), `wifi` (Netze, Setup-Passwort, Hinweise), `ota` (Rückfall-Grund),
+- NVS-Namensräume: `pixelia` (Einstellungen inkl. `ui`), `wifi` (Netze, Setup-Passwort, Hinweise), `auth` (Salz und Hash des PINs), `ota` (Rückfall-Grund),
   `diag` (Startzähler `boot`, Reset-Historie `r00`–`r15`), `clients` (Blob `list`: bis 12 Browser, je 92 Byte).
 - PSRAM No-Init: Log-Puffer (Lage hängt an der Codegröße). RTC-Speicher No-Init: Log-Sicherung 6 KB, Herzschlag.
 
@@ -114,6 +117,8 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
 - **Konsole** (seriell 115200 und `/api/cmd`): `help` listet alles; Übersicht in HARDWARE.md „Diagnose-Schnittstelle“.
 - **HTTP/JSON** (`web.cpp`): `/api/status`, `/api/wifi`, `/api/wifi/scan|add|remove`, `/api/settings`, `/api/ota`,
   `/api/ota/ack`, `/api/reboot`, `/api/speedtest`; WebSocket `/ws` (Status 1/s; vom Browser `hello=<id>&ua=…&page=…`).
+- **Schutz** (`web.cpp`, seit 0.3.2): `/api/auth`, `/api/login`, `/api/logout`, `/api/pin`, `/api/factory-reset`,
+  `/api/backup`. Werksreset löscht `pixelia`, `wifi`, `clients`, `auth`; `diag` und `ota` bleiben.
 - **Info** (`web_info.cpp`): `/api/system`, `/api/clients`, `/api/clients/name`.
 - **Fernwartung** (`web_diag.cpp`): siehe HARDWARE.md „Fernwartung per WLAN“.
 - WebSocket-Anmeldung über `ws_post_handshake_cb` (ESP-IDF 6.1 ruft beim Handschlag keinen Handler auf).

@@ -7,12 +7,12 @@
 
 | | |
 |---|---|
-| **Phase** | 0.3.x Weboberfläche: 0.3.1 „Seiten“ veröffentlicht und am Gerät geprüft (30 fps, RAM ≥ 111 KB) |
-| **Letzte Version** | 0.3.1 „Weboberfläche: Seiten“ (2026-10-19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.3.1) |
+| **Phase** | 0.3.x Weboberfläche abgeschlossen: 0.3.2 „System und Schutz“ veröffentlicht und am Gerät geprüft (30 fps, RAM ≥ 97 KB auch im Setup-Modus) |
+| **Letzte Version** | 0.3.2 „System und Schutz“ (2026-10-19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.3.2) |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
-| **Nächster Schritt** | 0.3.2 System und Schutz (Werksreset, Export/Import, optionaler PIN), frische Arbeits-Sitzung, Denkstufe Hoch |
-| **Offen** | Captive Portal unter Windows (und iOS) einmal ansehen; Geräteliste: kopflose Screenshot-Läufe legen jedes Mal ein neues Gerät an (harmlos, älteste fallen raus); Planungs-Chat: Hauptwelt vor 0.6.0 festlegen; Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
+| **Nächster Schritt** | 0.4.0 Updates & Diagnose (eingebetteter Changelog, Versionsverlauf, Absturzberichte und Reset-Historie in der Oberfläche), frische Arbeits-Sitzung, Denkstufe Hoch |
+| **Offen** | Captive Portal unter iOS einmal ansehen (Android und Windows geprüft); Screenshot-Läufe schreiben die Standard-Farbwahl aufs Gerät, solange es noch keine hat (harmlos); Geräteliste: kopflose Screenshot-Läufe legen jedes Mal ein neues Gerät an (harmlos, älteste fallen raus); Planungs-Chat: Hauptwelt vor 0.6.0 festlegen; Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
 | **Aktualisiert** | 2026-10-19 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
@@ -153,9 +153,11 @@ Aufgeteilt in drei Patches, je eine Arbeits-Sitzung (siehe [ARBEITSWEISE.md](ARB
 - [x] Live-Log als Seite in der Oberfläche (Schnittstellen `/ws/log` und `/api/log` gibt es seit 0.2.2), mit Befehlszeile
 
 **0.3.2 System und Schutz**
-- [ ] Neustart, Werksreset, Einstellungen exportieren/importieren
-- [ ] PIN/Passwort optional (Standard aus), schützt dann auch `/api/cmd` und das Löschen des Absturzberichts
-      (Prüfstelle seit 0.2.2 vorgesehen)
+- [x] Neustart, Werksreset (Oberfläche und Touch-Geste am Gerät), Einstellungen exportieren/importieren (inkl. Farbwahl,
+      die jetzt auf dem Gerät liegt); die Sicherung enthält nie WLAN-Passwörter oder den PIN
+- [x] PIN/Passwort optional (Standard aus): schützt Einstellungen, Aktionen, Updates, Werksreset, `/api/cmd`, Absturzbericht
+      löschen und Gerätenamen; Sperre nach 5 Fehlversuchen; vergessen → am Gerät zurücksetzen (Info-Karte → Zurücksetzen)
+- [x] Captive Portal unter Windows geprüft: Windows öffnet die Einrichtung von selbst (iOS noch offen)
 
 ## 0.4.x – Updates & Diagnose
 
