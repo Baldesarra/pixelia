@@ -1,0 +1,117 @@
+# Pixelia – Code-Landkarte
+
+> Kurzer Wegweiser durch den Code (Stand 0.2.2). Wer neu einsteigt, liest hier, statt den halben Code zu öffnen.
+> Begründungen stehen in [PROJEKTPLAN.md](PROJEKTPLAN.md), Messwerte und Schnittstellen im Detail in
+> [HARDWARE.md](HARDWARE.md). Am Ende jeder Phase aktualisieren.
+
+## Ordner
+
+| Ordner | Inhalt |
+|---|---|
+| `engine/` | Plattformunabhängige Engine (Gerät **und** Simulator), keine ESP-IDF-Header. Namensraum `pixelia` |
+| `firmware/` | ESP-IDF-Projekt: `main/` (App), `components/board/` (Display, Touch, Hintergrundbeleuchtung) |
+| `sim/` | PC-Simulator (SDL3-Fenster oder kopflos), Selbsttests `--test` |
+| `worlds/`, `web/`, `assets/` | noch leer bzw. README (Welten ab 0.5/0.6, Svelte-Oberfläche ab 0.3) |
+| `tools/` | PowerShell-Werkzeuge für Build, Flashen, Log, Updates, Abstürze (siehe unten) |
+| `pages/` | Web-Flasher auf GitHub Pages (ESP Web Tools) |
+| `docs/` | Projektplan, Roadmap, Hardware, Lebendigkeit, diese Landkarte, `welten/` |
+
+## Engine (`engine/include/pixelia/engine/`, Quellen in `engine/src/`)
+
+| Datei | Aufgabe |
+|---|---|
+| `canvas.h` | Zeichenfläche 400×240, 1 Byte pro Pixel (Paletten-Index) |
+| `color.h` | Palette RGB888 ↔ RGB565 |
+| `scene.h`, `scenes.cpp` | Schnittstelle `pixelia::Scene` (tick/render), `make_scene("scrolltest")` |
+| `scroll_test.h` | Testszene mit Tag/Nacht, Wolken, Parallax, Vögeln |
+| `world_clock.h` | Weltzeit mit Zeitraffer (`kTicksPerSecond = 30`) |
+| `system_ui.h` | Systemanzeigen: Setup, Update, Meldung, Kurzmeldung, Info-Karte, Halte-Anzeige (Paletten 240–255) |
+| `font.h`, `tiny_font.h` | Systemschrift 5×7 mit Umlauten; 3×5-Prüfschrift |
+| `qr.h`, `png.h` | eigener QR-Code-Erzeuger und PNG-Encoder |
+| `gesture.h` | Tippen und langer Druck aus rohen Touch-Daten |
+| `rng.h` | deterministischer Zufall (PCG32) |
+| `redact.h` | Passwort-Filter für Diagnose-Ausgaben (`SecretFilter`) |
+
+## Firmware (`firmware/main/`)
+
+Start in `main.cpp` (`app_main`): Log-Puffer → Systeminfo → NVS-Einstellungen → Update-Zustand → Diagnose
+(Startzähler) → I²C/Touch → Hintergrundbeleuchtung → Grafik auf Kern 1 → Konsole, Leistungsmonitor → WLAN →
+Webserver → Selbsttest (nur im Probelauf).
+
+| Datei | Aufgabe |
+|---|---|
+| `app.h` | gemeinsame Schnittstellen: `sysinfo`, `hwtest`, `gfx`, `perf`, `console`; Kerne `kGfxCore=1`, `kSystemCore=0` |
+| `gfx.cpp` | Grafik-Task (Kern 1): Panel anlegen, Szene ticken/rendern, Systemanzeigen darüber, Puffertausch |
+| `ui.h` (in `gfx.cpp`) | Systemanzeigen von jeder Task aus ein-/ausblenden (`toast`, `show_update`, `show_info` …) |
+| `input.cpp/.h` | Touch → Gesten → Aktionen (Info-Karte), Daten der Info-Karte |
+| `hwtest.cpp` | I²C-Scan, Touch-Task (Polling alle 20 ms), geführte Tests `tour`, Flash-Last, Helligkeit |
+| `perf.cpp` | Leistungsmonitor alle 2 s (Snapshot für API), Zeile seriell, im Log-Puffer 1×/min; ruft `diag::heartbeat()` |
+| `console.cpp` | Diagnose-Befehle (seriell und `run_remote` für `/api/cmd`), Liste `kDangerous` |
+| `logbuf.cpp/.h` | Log-Hook (`esp_log_set_vprintf`), Ringpuffer 256 KB PSRAM No-Init + RTC-Sicherung, `read()`, `Capture` |
+| `diag.cpp/.h` | Startzähler, Reset-Historie (NVS), Herzschlag (RTC), Core-Dump-Infos, Task-Liste, JSON-Bausteine |
+| `settings.cpp/.h` | NVS-Einstellungen: Drehung, Helligkeit, langer Druck |
+| `wifi.cpp`, `net.h` | WLAN-Manager (5 Netze), Setup-Modus mit AP, mDNS; `for_each_secret` für den Filter |
+| `captive_dns.cpp` | Mini-DNS fürs Captive Portal (nur im Setup-WLAN) |
+| `timesync.cpp` | Zeitzone Europa/Berlin, NTP |
+| `ota.cpp/.h` | Update-Upload mit Prüfung, Probelauf mit Selbsttest, Rückfall-Erkennung, Testvarianten (`PIXELIA_TEST`) |
+| `web.cpp` | Webserver: Einrichtungsseite, Status-JSON, WLAN, Einstellungen, Update, Captive Portal, WebSocket `/ws` |
+| `web_diag.cpp` | Fernwartung: `/api/log`, `/ws/log`, `/api/cmd`, `/api/perf`, `/api/resets`, `/api/coredump*`, `/api/diag` |
+| `web_internal.h` | gemeinsame Web-Hilfen (`send_json`, `form_value`, `authorized` = PIN-Prüfstelle) |
+| `json.cpp/.h` | kleiner JSON-Schreiber (bewusst nicht inline: Codegröße) |
+| `web/setup.html` | Einrichtungsseite (eingebettet), Abfrage per WebSocket bzw. alle 2 s |
+
+`components/board/`: `display.*` (RGB-Panel ohne Bildspeicher, Bounce-Buffer-Callback mit Palette + 2×, Doppelpuffer,
+Zähler für Interrupt-Last und Aussetzer), `touch_gt911.*`, `backlight.*` (LEDC 200 Hz), `pins.h`.
+
+## Tasks und Kerne
+
+| Task | Kern | Prio | Aufgabe |
+|---|---|---|---|
+| `gfx` | 1 | 10 | Engine 30 fps; Display-Interrupt läuft ebenfalls auf Kern 1 |
+| `touch` | 0 | 5 | GT911 alle 20 ms, Gesten |
+| `wlan` | 0 | 5 | Verbinden, Setup-Modus, Neuversuche |
+| `httpd` | 0 | 5 | Webserver (eine Task für alle Anfragen und WebSocket-Sendungen) |
+| `console` | 0 | 4 | serielle Befehle und Befehle aus `/api/cmd` |
+| `dns` | 0 | 4 | nur im Setup-Modus |
+| `selbsttest` | 0 | 3 | nur im Probelauf, beendet sich danach |
+| `perf`, `webstatus`, `logpush` | 0 | 2 | Leistung alle 2 s, Status-WebSocket 1/s, Live-Log 5/s |
+
+Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTOS-Kernel-Sperre lange hält (z. B.
+`uxTaskGetSystemState`, 1,1 ms → Display-Aussetzer). Allokationen < 16 KB landen im internen RAM, größere im PSRAM.
+
+## Speicher
+
+- Flash: `partitions.csv` – nvs 24 KB, otadata, ota_0/ota_1 je 6 MB, storage (LittleFS, noch ungenutzt), coredump 64 KB.
+- NVS-Namensräume: `pixelia` (Einstellungen), `wifi` (Netze, Setup-Passwort, Hinweise), `ota` (Rückfall-Grund),
+  `diag` (Startzähler `boot`, Reset-Historie `r00`–`r15`).
+- PSRAM No-Init: Log-Puffer (Lage hängt an der Codegröße). RTC-Speicher No-Init: Log-Sicherung 6 KB, Herzschlag.
+
+## Schnittstellen
+
+- **Konsole** (seriell 115200 und `/api/cmd`): `help` listet alles; Übersicht in HARDWARE.md „Diagnose-Schnittstelle“.
+- **HTTP/JSON** (`web.cpp`): `/api/status`, `/api/wifi`, `/api/wifi/scan|add|remove`, `/api/settings`, `/api/ota`,
+  `/api/ota/ack`, `/api/reboot`, `/api/speedtest`; WebSocket `/ws` (Status 1/s).
+- **Fernwartung** (`web_diag.cpp`): siehe HARDWARE.md „Fernwartung per WLAN“.
+- WebSocket-Anmeldung über `ws_post_handshake_cb` (ESP-IDF 6.1 ruft beim Handschlag keinen Handler auf).
+
+## Simulator (`sim/src/`)
+
+`main.cpp` (Befehlszeile), `window.cpp` (SDL3, Maus = Touch), `headless.cpp` (Screenshot, Zeitraffer, Kontaktbogen,
+`--screen` für Systemanzeigen), `tests.cpp` (`--test gestures|redact|all`, läuft in der CI).
+
+## Werkzeuge (`tools/`, Windows)
+
+| Werkzeug | Zweck |
+|---|---|
+| `idf.ps1` | `idf.py` mit Umgebung, gekürzte Ausgabe, Log in `.logs/idf-last.log` |
+| `ota.ps1` | Update per WLAN mit Prüfung von Version und Selbsttest (Standardweg) |
+| `netlog.ps1` | Live-Log, Befehle (`-Send`), frühere Starts (`-Boot prev`) per WLAN |
+| `crash.ps1` | Absturzbericht per WLAN oder aus Diagnosepaket holen und dekodieren |
+| `flash.ps1`, `monitor.ps1` (+ `serial_log.py`) | USB: Erstinstallation, serielles Log |
+| `sim.ps1` | Simulator bauen und starten (`-Headless`) |
+| `release_notes.py` | CHANGELOG.json prüfen (`--check`) und Release-Notes erzeugen |
+
+## CI (`.github/workflows/`)
+
+`firmware.yml` (Build, Größenbudget), `simulator.yml` (Linux-Build, Selbsttests, Screenshots), `release.yml`
+(Tag `vX.Y.Z` → Release mit `.bin`, Factory-Image, `.elf`, Notes), `pages.yml` (Web-Flasher nach jedem Release).
