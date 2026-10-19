@@ -14,6 +14,7 @@
     type ThemeMode,
     type ThemeStyle,
   } from '../lib/m3';
+  import { themeSync } from '../lib/theme-sync.svelte';
 
   const modes: { value: ThemeMode; label: string; icon: 'brightness_auto' | 'light_mode' | 'dark_mode' }[] = [
     { value: 'system', label: 'System', icon: 'brightness_auto' },
@@ -58,9 +59,15 @@
       </label>
     </div>
     <p class="hint">
-      Alle Farbtöne werden aus der Akzentfarbe berechnet (Material Color Utilities, Spezifikation 2025). Die Wahl
-      speichert dieser Browser.
+      Alle Farbtöne werden aus der Akzentfarbe berechnet (Material Color Utilities, Spezifikation 2025). Pixelia
+      speichert die Wahl für alle Browser, sie steckt auch in der Sicherung der Einstellungen.
     </p>
+    {#if themeSync.unsaved}
+      <div class="unsaved">
+        <span>Nur in diesem Browser: Zum Speichern auf dem Gerät ist der PIN nötig.</span>
+        <Button variant="tonal" icon="lock_open" onclick={() => themeSync.save(true)}>Speichern</Button>
+      </div>
+    {/if}
   </Card>
 
   <Card variant="outlined">
@@ -156,6 +163,20 @@
   .hint {
     margin: 16px 0 0;
     color: var(--md-sys-color-on-surface-variant);
+  }
+  .unsaved {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: var(--md-sys-shape-corner-large);
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+  }
+  .unsaved span {
+    flex: 1 1 200px;
   }
   .row {
     display: flex;

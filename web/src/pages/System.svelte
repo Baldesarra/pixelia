@@ -1,6 +1,6 @@
 <script lang="ts">
-  // Seite „System“: Update hochladen, Anzeige (Drehung, Helligkeit, langer Druck), Diagnose (Paket, Absturzbericht),
-  // Neustart-Historie, Neustart. Werksreset und PIN folgen mit 0.3.2.
+  // Seite „System“: Update hochladen, Anzeige (Drehung, Helligkeit, langer Druck), Schutz (PIN), Sicherung
+  // (Export/Import), Diagnose (Paket, Absturzbericht), Neustart-Historie, Neustart und Werksreset.
   import { onMount } from 'svelte';
   import {
     Button,
@@ -10,11 +10,13 @@
     confirmDialog,
     Icon,
     LoadingIndicator,
+    promptDialog,
     Slider,
     WavyProgress,
   } from '../lib/m3';
   import { device } from '../lib/status.svelte';
-  import { get, post, type CrashSummary, type ResetList } from '../lib/api';
+  import { auth } from '../lib/auth.svelte';
+  import { get, post, type Backup, type CrashSummary, type Reply, type ResetList } from '../lib/api';
   import { HEADER_BYTES, parseHeader, upload } from '../lib/firmware';
   import { duration, num } from '../lib/format';
 
@@ -42,8 +44,9 @@
     fileInfo = { ok: true, text: `Pixelia ${h.v} · gebaut ${h.date} ${h.time} · ${num(f.size / 1024)} KB` };
   }
 
-  function start() {
+  async function start() {
     if (!file) return;
+    if (!(await auth.ensure('Updates sind mit einem PIN geschützt.'))) return;
     sending = true;
     sent = 0;
     total = file.size;
@@ -161,6 +164,150 @@
   }
 
   const ackRollback = () => post('/api/ota/ack').catch(() => null);
+
+  // --- Schutz (PIN) -----------------------------------------------------------------------------------------
+  const pinOn = $derived(!!s?.auth?.pin);
+  let loggedIn = $state<boolean | null>(null);
+  let pinMsg = $state<{ ok: boolean; text: string } | null>(null);
+  async function refreshAuth() {
+    loggedIn = (await auth.state().catch(() => null))?.ok ?? null;
+  }
+  // Nach PIN-Wechsel, Neustart oder Anmeldung in einem Dialog neu fragen
+  $effect(() => {
+    void pinOn;
+    void auth.token;
+    void refreshAuth();
+  });
+
+  async function setPin() {
+    pinMsg = null;
+    let first = '';
+    const pin = await promptDialog({
+      title: pinOn ? 'Neuer PIN' : 'PIN festlegen',
+      text: 'Schützt Einstellungen, Updates, Neustart, Werksreset, Befehle und Gerätenamen. Ansehen bleibt ohne PIN möglich.',
+      icon: 'password',
+      ok: 'Weiter',
+      field: {
+        label: 'PIN oder Passwort',
+        type: 'password',
+        autocomplete: 'new-password',
+        supporting: '4 bis 32 Zeichen, Ziffern oder Wörter',
+        check: async (v) => (v.length < 4 || v.length > 32 ? '4 bis 32 Zeichen' : ((first = v), null)),
+      },
+    });
+    if (pin === null) return;
+    const again = await promptDialog({
+      title: 'PIN wiederholen',
+      icon: 'password',
+      ok: 'Speichern',
+      field: {
+        label: 'PIN noch einmal',
+        type: 'password',
+        autocomplete: 'new-password',
+        check: async (v) => (v === first ? null : 'Stimmt nicht mit dem ersten überein'),
+      },
+    });
+    if (again === null) return;
+    const r = await post<Reply & { token?: string }>('/api/pin', { new: pin }).catch(() => null);
+    if (r?.ok && r.token) auth.save(r.token);
+    pinMsg = { ok: !!r?.ok, text: r?.msg ?? 'Keine Antwort vom Gerät' };
+  }
+
+  async function pinOff() {
+    const ok = await confirmDialog({
+      title: 'PIN ausschalten?',
+      text: 'Danach kann jeder im Heimnetz Einstellungen ändern, Updates installieren und Pixelia zurücksetzen.',
+      ok: 'Ausschalten',
+      icon: 'lock_open',
+      danger: true,
+    });
+    if (!ok) return;
+    const r = await post('/api/pin', { new: '' }).catch(() => null);
+    if (r?.ok) auth.save('');
+    pinMsg = { ok: !!r?.ok, text: r?.msg ?? 'Keine Antwort vom Gerät' };
+  }
+
+  async function logout() {
+    await auth.logout();
+    pinMsg = { ok: true, text: 'Abgemeldet. Dieser Browser fragt beim nächsten Ändern wieder nach dem PIN.' };
+  }
+
+  // --- Sicherung (Export/Import) ----------------------------------------------------------------------------
+  let importInput = $state<HTMLInputElement>();
+  let backupMsg = $state<{ ok: boolean; text: string } | null>(null);
+  let importing = $state(false);
+
+  function describe(b: Backup): string {
+    const parts = [
+      `Bilddrehung ${b.set.rot}°`,
+      `Helligkeit ${b.set.bright} %`,
+      `langer Druck ${num(b.set.lp / 1000, 1)} s`,
+    ];
+    if (b.set.ui) parts.push('Farbwahl der Oberfläche');
+    if (b.names.length) parts.push(`${b.names.length} Gerätename${b.names.length === 1 ? '' : 'n'}`);
+    return parts.join(', ');
+  }
+
+  async function importFile() {
+    const f = importInput?.files?.[0];
+    if (importInput) importInput.value = '';
+    if (!f) return;
+    backupMsg = null;
+    let b: Backup;
+    try {
+      b = JSON.parse(await f.text()) as Backup;
+      if (b.pixelia !== 'settings' || typeof b.set !== 'object') throw new Error();
+      b.names = Array.isArray(b.names) ? b.names.filter((n) => typeof n?.id === 'string' && typeof n?.name === 'string') : [];
+      b.wifi = Array.isArray(b.wifi) ? b.wifi : [];
+    } catch {
+      backupMsg = { ok: false, text: 'Das ist keine Pixelia-Sicherung (.json aus „Sicherung herunterladen“).' };
+      return;
+    }
+    const extra = [
+      b.wifi.length ? `WLAN-Netze (${b.wifi.join(', ')}) stehen nur zur Erinnerung drin, ohne Passwörter: bei Bedarf auf der Seite WLAN neu eintragen.` : '',
+      b.pin ? 'Ein PIN war gesetzt; er steckt nie in der Sicherung und wird hier nicht geändert.' : '',
+    ].filter(Boolean);
+    const ok = await confirmDialog({
+      title: 'Sicherung übernehmen?',
+      text: `Von ${b.host || 'Pixelia'} ${b.v ? `(${b.v}${b.date ? `, ${b.date}` : ''})` : ''}: ${describe(b)}. ${extra.join(' ')}`,
+      ok: 'Übernehmen',
+      icon: 'settings_backup_restore',
+    });
+    if (!ok) return;
+    importing = true;
+    const data: Record<string, string | number> = { rot: b.set.rot === 180 ? 180 : 0, bright: b.set.bright, lp: b.set.lp };
+    if (typeof b.set.ui === 'string' && b.set.ui) data.ui = b.set.ui;
+    const r = await post('/api/settings', data).catch(() => null);
+    let names = 0;
+    if (r?.ok) {
+      for (const n of b.names) {
+        const nr = await post('/api/clients/name', { id: n.id, name: n.name, create: 1 }).catch(() => null);
+        if (nr?.ok) names++;
+      }
+    }
+    importing = false;
+    backupMsg = r?.ok
+      ? { ok: true, text: `Übernommen: ${describe(b)}${b.names.length ? ` (${names} von ${b.names.length} Namen)` : ''}.` }
+      : { ok: false, text: r?.msg ?? 'Keine Antwort vom Gerät' };
+  }
+
+  // --- Werksreset -------------------------------------------------------------------------------------------
+  let factoryDone = $state(false);
+  async function factoryReset() {
+    const ok = await confirmDialog({
+      title: 'Auf Werkseinstellungen zurücksetzen?',
+      text: 'Löscht WLAN-Netze, Einstellungen, Farbwahl, Gerätenamen und den PIN. Pixelia startet danach im Setup-Modus und muss neu eingerichtet werden. Vorher am besten die Sicherung herunterladen.',
+      ok: 'Zurücksetzen',
+      icon: 'delete_forever',
+      danger: true,
+    });
+    if (!ok) return;
+    const r = await post('/api/factory-reset', { confirm: 1 }).catch(() => null);
+    if (r?.ok) {
+      factoryDone = true;
+      auth.save('');
+    }
+  }
 </script>
 
 {#if !s}
@@ -243,6 +390,53 @@
     </Card>
 
     <Card>
+      <h2 class="card-title">
+        <Icon name="shield_lock" size={20} />Schutz
+        <span class="end">
+          <Chip tone={pinOn ? 'primary' : 'neutral'} icon={pinOn ? 'lock' : 'lock_open'}>
+            {pinOn ? (loggedIn ? 'PIN an · angemeldet' : 'PIN an') : 'kein PIN'}
+          </Chip>
+        </span>
+      </h2>
+      <p class="muted">
+        {#if pinOn}
+          Einstellungen, Updates, Neustart, Werksreset, Befehle und Gerätenamen brauchen den PIN. Nach 5 Fehlversuchen
+          sperrt Pixelia 30 Sekunden, danach jedes Mal doppelt so lange.
+        {:else}
+          Optional: Ein PIN oder Passwort schützt Einstellungen, Updates, Neustart, Werksreset, Befehle und Gerätenamen.
+          Ansehen bleibt für alle im Heimnetz möglich.
+        {/if}
+      </p>
+      {#if s.auth?.lockS}<p class="err-text">Gesperrt nach Fehlversuchen, noch {s.auth.lockS} s.</p>{/if}
+      <div class="actions">
+        <Button variant={pinOn ? 'tonal' : 'filled'} icon="password" onclick={setPin}>{pinOn ? 'PIN ändern' : 'PIN festlegen'}</Button>
+        {#if pinOn}
+          <Button variant="text" class="danger" icon="lock_open" onclick={pinOff}>Ausschalten</Button>
+          {#if loggedIn && auth.token}<Button variant="text" icon="logout" onclick={logout}>Abmelden</Button>{/if}
+        {/if}
+      </div>
+      {#if pinMsg}<p class={pinMsg.ok ? 'ok-text' : 'err-text'}>{pinMsg.text}</p>{/if}
+      <p class="muted small">
+        PIN vergessen? Am Gerät lange aufs Display drücken, auf der Info-Karte „Zurücksetzen …“ tippen und „PIN
+        entfernen“ 3 Sekunden halten. Über das Netz geht das bewusst nicht.
+      </p>
+    </Card>
+
+    <Card>
+      <h2 class="card-title"><Icon name="settings_backup_restore" size={20} />Sicherung</h2>
+      <p class="muted">
+        Anzeige, Farbwahl und Gerätenamen als Datei sichern und wieder einspielen, z. B. nach einem Werksreset. Die Datei
+        enthält nie WLAN-Passwörter oder den PIN.
+      </p>
+      <input class="hidden" type="file" accept=".json,application/json" bind:this={importInput} onchange={importFile} />
+      <div class="actions">
+        <Button icon="download" href="/api/backup" download>Sicherung herunterladen</Button>
+        <Button variant="tonal" icon="upload" disabled={importing} onclick={() => importInput?.click()}>Einspielen</Button>
+      </div>
+      {#if backupMsg}<p class={backupMsg.ok ? 'ok-text' : 'err-text'}>{backupMsg.text}</p>{/if}
+    </Card>
+
+    <Card>
       <h2 class="card-title"><Icon name="bug_report" size={20} />Diagnose</h2>
       <dl class="kv">
         <dt>Start</dt>
@@ -296,12 +490,26 @@
     </Card>
 
     <Card>
-      <h2 class="card-title"><Icon name="restart_alt" size={20} />Neustart</h2>
-      <p class="muted">Läuft seit {duration(s.uptime)}. Einstellungen und WLAN-Netze bleiben erhalten.</p>
-      <div class="actions">
-        <Button class="danger" icon="restart_alt" onclick={reboot}>Neu starten</Button>
-        <Button variant="text" icon="open_in_new" href="/setup">Einfache Einrichtungsseite</Button>
-      </div>
+      <h2 class="card-title"><Icon name="restart_alt" size={20} />Neustart und Werksreset</h2>
+      {#if factoryDone}
+        <p class="err-text">
+          Zurückgesetzt. Pixelia startet im Setup-Modus: Mit dem WLAN „Pixelia-Setup“ verbinden (Passwort steht auf dem
+          Display), dann öffnet sich die Einrichtung.
+        </p>
+      {:else}
+        <p class="muted">Läuft seit {duration(s.uptime)}. Beim Neustart bleiben Einstellungen und WLAN-Netze erhalten.</p>
+        <div class="actions">
+          <Button class="danger" icon="restart_alt" onclick={reboot}>Neu starten</Button>
+          <Button variant="text" icon="open_in_new" href="/setup">Einfache Einrichtungsseite</Button>
+        </div>
+        <p class="muted">
+          Der Werksreset löscht WLAN-Netze, Einstellungen, Farbwahl, Gerätenamen und PIN. Startzähler und Neustart-Historie
+          bleiben für die Diagnose.
+        </p>
+        <div class="actions">
+          <Button variant="outlined" class="danger" icon="delete_forever" onclick={factoryReset}>Werksreset …</Button>
+        </div>
+      {/if}
     </Card>
   </div>
 {/if}

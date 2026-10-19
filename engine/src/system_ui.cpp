@@ -396,10 +396,69 @@ void InfoCard::render(Canvas& c) const {
         label_value("Name", d.hostname, kText);
     }
 
-    // Fußzeile
+    // Fußzeile: Knopf zum Zurücksetzen (vergessener PIN, Werksreset), Hinweis, Firmware
     const int foot = kY + kCh - 20;
-    font::draw(c, left, foot, "Tippen schließt die Karte", kTextDim);
-    if (!d.version.empty()) text_right(c, right, foot, font::ellipsize("Firmware " + d.version, 170), kTextDim);
+    const Rect b = info_reset_button();
+    framed(c, b.x, b.y, b.w, b.h, kSurfaceHigh, kOutline, 4);
+    font::draw_centered(c, b.x + b.w / 2, b.y + (b.h - font::kCellHeight) / 2 + 1, "Zurücksetzen …", kText);
+    font::draw(c, b.x + b.w + 10, foot, "Tippen schließt", kTextDim);
+    if (!d.version.empty()) text_right(c, right, foot, font::ellipsize("Firmware " + d.version, 130), kTextDim);
+}
+
+Rect info_reset_button() {
+    // Gleiche Maße wie die Karte in InfoCard::render: x 18, Breite 364, unten bei 230
+    return {18 + 12, 230 - 26, 96, 20};
+}
+
+Rect reset_button_rect(ResetButton button) {
+    switch (button) {
+        case ResetButton::Pin: return {24, 74, 170, 104};
+        case ResetButton::Factory: return {206, 74, 170, 104};
+        case ResetButton::Cancel: return {(kW - 140) / 2, 194, 140, 28};
+        default: return {};
+    }
+}
+
+ResetButton reset_button_at(const ResetInfo& info, int x, int y) {
+    constexpr int kMargin = 4;
+    for (ResetButton b : {ResetButton::Pin, ResetButton::Factory, ResetButton::Cancel}) {
+        if (b == ResetButton::Pin && !info.pin_set) continue;
+        if (reset_button_rect(b).contains(x, y, kMargin)) return b;
+    }
+    return ResetButton::None;
+}
+
+void render_reset(Canvas& c, const ResetInfo& info) {
+    c.clear(kBg);
+    font::draw(c, 24, 16, "Gerät zurücksetzen", kText, 2);
+    font::draw(c, 24, 46, "Zum Bestätigen den Knopf 3 Sekunden gedrückt halten.", kTextDim);
+
+    auto tile = [&](ResetButton which, const char* title, const char* text, uint8_t accent, bool enabled) {
+        const Rect r = reset_button_rect(which);
+        const bool held = info.held == which;
+        const uint8_t dim = kTextDim, line = kOutline;
+        framed(c, r.x, r.y, r.w, r.h, held ? kSurfaceHigh : kSurface, held ? accent : line, 5);
+        c.fill_rect(r.x + 1, r.y + 10, 3, r.h - 20, enabled ? accent : line);
+        font::draw(c, r.x + 14, r.y + 12, title, enabled ? accent : dim, 2);
+        font::draw_wrapped(c, r.x + 14, r.y + 40, r.w - 24, text, enabled ? static_cast<uint8_t>(kText) : dim, 1, 0, 3);
+        if (!enabled) return;
+        // Fortschritt des Haltens unten in der Kachel
+        const int bx = r.x + 14, bw = r.w - 28, by = r.y + r.h - 16;
+        round_rect(c, bx, by, bw, 6, kOutline, 2);
+        round_rect(c, bx + 1, by + 1, bw - 2, 4, kBg, 1);
+        const int fill = held ? (bw - 2) * std::clamp(info.permille, 0, 1000) / 1000 : 0;
+        if (fill > 0) round_rect(c, bx + 1, by + 1, fill, 4, accent, 1);
+    };
+    tile(ResetButton::Pin, "PIN entfernen",
+         info.pin_set ? "Schaltet den PIN aus. Einstellungen und WLAN bleiben erhalten." : "Es ist kein PIN gesetzt.",
+         kPrimary, info.pin_set);
+    tile(ResetButton::Factory, "Werksreset",
+         "Löscht WLAN-Netze, Einstellungen, Gerätenamen und PIN. Danach Setup-Modus.", kError, true);
+
+    const Rect cancel = reset_button_rect(ResetButton::Cancel);
+    framed(c, cancel.x, cancel.y, cancel.w, cancel.h, kSurfaceHigh, kOutline, 6);
+    font::draw_centered(c, cancel.x + cancel.w / 2, cancel.y + (cancel.h - font::kCellHeight) / 2 + 1, "Abbrechen",
+                        kText);
 }
 
 void draw_hold_indicator(Canvas& c, float progress) {

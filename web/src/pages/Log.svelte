@@ -4,7 +4,7 @@
   // Passwörter filtert schon die Firmware heraus (web_diag.cpp).
   import { onMount, tick } from 'svelte';
   import { Button, ButtonGroup, Card, Chip, confirmDialog, Icon, IconButton, TextField } from '../lib/m3';
-  import type { LogLine } from '../lib/api';
+  import { post, type LogLine } from '../lib/api';
 
   const MAX_LINES = 2000;
   const TAIL = 200;
@@ -162,9 +162,7 @@
     if (!c) return;
     running = true;
     try {
-      const body = new URLSearchParams({ cmd: c, ...(confirmed ? { confirm: '1' } : {}) });
-      const r = await fetch('/api/cmd', { method: 'POST', body });
-      const j = await r.json();
+      const j = await post<{ ok: boolean; out?: string; msg?: string; ms?: number; needsConfirm?: boolean }>('/api/cmd', { cmd: c, ...(confirmed ? { confirm: '1' } : {}) });
       if (j.needsConfirm && !confirmed) {
         running = false;
         const ok = await confirmDialog({ title: 'Befehl wirklich ausführen?', text: j.msg, ok: 'Ausführen', icon: 'warning', danger: true });

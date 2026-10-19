@@ -1,6 +1,9 @@
-// Zugriff auf die JSON-API des Geräts (Eingaben als Formulardaten, wie in firmware/main/web.cpp beschrieben)
+// Zugriff auf die JSON-API des Geräts (Eingaben als Formulardaten, wie in firmware/main/web.cpp beschrieben).
+// Ist ein PIN gesetzt, gehen ändernde Anfragen mit dem Sitzungs-Token; fehlt es, fragt post() einmal nach dem PIN
+// und versucht es danach noch einmal (auth.svelte.ts).
+import { auth } from './auth.svelte';
 
-export type Reply = { ok: boolean; msg?: string; [k: string]: unknown };
+export type Reply = { ok: boolean; msg?: string; auth?: boolean; lockS?: number; [k: string]: unknown };
 
 export async function get<T>(path: string): Promise<T> {
   const r = await fetch(path, { cache: 'no-store' });
@@ -8,9 +11,20 @@ export async function get<T>(path: string): Promise<T> {
   return (await r.json()) as T;
 }
 
-export async function post<T = Reply>(path: string, data: Record<string, string | number> = {}): Promise<T> {
-  const body = new URLSearchParams(Object.entries(data).map(([k, v]) => [k, String(v)]));
-  const r = await fetch(path, { method: 'POST', body });
+/** quiet: bei fehlender Anmeldung nicht nach dem PIN fragen (z. B. Farbwahl, die auch nur im Browser gilt) */
+export async function post<T = Reply>(
+  path: string,
+  data: Record<string, string | number> = {},
+  opts: { quiet?: boolean } = {},
+): Promise<T> {
+  const body = () => new URLSearchParams(Object.entries(data).map(([k, v]) => [k, String(v)]));
+  let r = await fetch(path, { method: 'POST', body: body(), headers: auth.headers() });
+  if ((r.status === 401 || r.status === 429) && !opts.quiet) {
+    const j = (await r.json()) as Reply;
+    if (!j.auth) return j as T;
+    if (!(await auth.login())) return { ok: false, msg: 'Abgebrochen: PIN nötig', auth: true } as T;
+    r = await fetch(path, { method: 'POST', body: body(), headers: auth.headers() });
+  }
   return (await r.json()) as T;
 }
 
@@ -98,3 +112,16 @@ export type CrashSummary = {
 };
 
 export type LogLine = { n: number; b: number; t: number; u: number; l: string; m: string; cut?: boolean };
+
+/** Sicherung der Einstellungen (GET /api/backup): nie mit WLAN-Passwörtern oder PIN */
+export type Backup = {
+  pixelia: 'settings';
+  format: number;
+  v: string;
+  date: string;
+  host: string;
+  set: { rot: number; bright: number; lp: number; ui: string };
+  names: { id: string; name: string }[];
+  wifi: string[];
+  pin: boolean;
+};

@@ -2,9 +2,11 @@
 
 #include "input.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <mutex>
 
+#include "auth.h"
 #include "esp_app_desc.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -26,7 +28,95 @@ bool s_configured = false;
 bool s_hold_shown = false;
 uint32_t s_samples = 0;  // Touch-Daten im laufenden Druck (Diagnose: liefert der GT911 auch bei ruhigem Finger?)
 
+// Zurücksetzen am Gerät (Info-Karte → „Zurücksetzen …“): eigene Knopf-Logik statt Gesten, Knopf 3 s halten
+using ResetButton = pixelia::ui::ResetButton;
+constexpr int kResetSeconds = 30;  // ohne Berührung schließt der Bildschirm
+bool s_reset_open = false;
+pixelia::ui::ResetInfo s_reset;
+bool s_reset_down = false;            // Finger liegt, seit der Bildschirm offen ist
+ResetButton s_reset_first = ResetButton::None;  // Knopf beim Aufsetzen
+uint32_t s_reset_t0 = 0;
+bool s_swallow = false;  // Gesten bis zum Loslassen ignorieren (Finger lag noch beim Schließen)
+
 uint32_t now_ms() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
+
+void reset_show() { ui::show_reset(s_reset, kResetSeconds); }
+
+void reset_open() {
+    infocard::hide();
+    s_reset = {};
+    s_reset.pin_set = auth::enabled();
+    s_reset_open = true;
+    s_reset_down = false;
+    reset_show();
+    ESP_LOGI(TAG, "Zurücksetzen am Gerät geöffnet (PIN %s)", s_reset.pin_set ? "an" : "aus");
+}
+
+void reset_close(const char* why) {
+    s_reset_open = false;
+    s_swallow = s_reset_down;
+    ui::hide_reset();
+    ESP_LOGI(TAG, "Zurücksetzen geschlossen: %s", why);
+}
+
+void reset_touch(int fingers, int x, int y, uint32_t t) {
+    const int cx = x / 2, cy = y / 2;  // Panel 800×480 → Leinwand 400×240
+    if (fingers > 0 && !s_reset_down) {
+        s_reset_down = true;
+        s_reset_first = pixelia::ui::reset_button_at(s_reset, cx, cy);
+        s_reset_t0 = t;
+        if (s_reset_first == ResetButton::Pin || s_reset_first == ResetButton::Factory) s_reset.held = s_reset_first;
+        reset_show();  // zeigt den gehaltenen Knopf und verlängert die Anzeigedauer
+    } else if (fingers > 0) {
+        // Vom Knopf gerutscht: Halten abbrechen
+        if (s_reset.held != ResetButton::None &&
+            !pixelia::ui::reset_button_rect(s_reset.held).contains(cx, cy, 12)) {
+            s_reset.held = ResetButton::None;
+            s_reset.permille = 0;
+            reset_show();
+        }
+    } else if (s_reset_down) {
+        s_reset_down = false;
+        if (s_reset_first == ResetButton::Cancel) return reset_close("Abbrechen");
+        if (s_reset.held != ResetButton::None) {
+            ESP_LOGI(TAG, "Zurücksetzen: Knopf nach %lu ms losgelassen (zu kurz)",
+                     static_cast<unsigned long>(t - s_reset_t0));
+            s_reset.held = ResetButton::None;
+            s_reset.permille = 0;
+            reset_show();
+        }
+    }
+}
+
+void reset_tick(uint32_t t) {
+    if (!s_reset_open) return;
+    if (!ui::reset_visible()) {
+        s_reset_open = false;
+        s_swallow = s_reset_down;
+        ESP_LOGI(TAG, "Zurücksetzen geschlossen: Zeit abgelaufen");
+        return;
+    }
+    if (s_reset.held == ResetButton::None) return;
+    const int permille = static_cast<int>(std::min<uint32_t>(t - s_reset_t0, pixelia::ui::kResetHoldMs) * 1000 /
+                                          pixelia::ui::kResetHoldMs);
+    if (permille < 1000) {
+        // In 5-%-Schritten neu zeichnen lassen
+        if (permille / 50 != s_reset.permille / 50) {
+            s_reset.permille = permille;
+            reset_show();
+        }
+        return;
+    }
+    if (s_reset.held == ResetButton::Pin) {
+        reset_close("PIN entfernt");
+        auth::clear_on_device();
+        ui::toast("PIN entfernt: Die Weboberfläche ist wieder ohne PIN erreichbar.", pixelia::ui::Tone::Success, 8);
+    } else {
+        s_reset_open = false;
+        s_swallow = true;
+        settings::factory_reset("Touch-Geste am Gerät");
+    }
+}
 
 void configure_locked() {
     if (s_configured) return;
@@ -40,6 +130,7 @@ void configure_locked() {
 
 void dispatch(const pixelia::gesture::Event& e) {
     using pixelia::gesture::Type;
+    if (s_reset_open || s_swallow) return;
     if (e.type == Type::LongPress) {
         if (ui::update_visible()) {
             ESP_LOGI(TAG, "Langer Druck bei %d/%d ignoriert (Update läuft)", e.x, e.y);
@@ -50,6 +141,10 @@ void dispatch(const pixelia::gesture::Event& e) {
         infocard::show();
     } else if (e.type == Type::Tap) {
         if (infocard::visible()) {
+            if (pixelia::ui::info_reset_button().contains(e.x / 2, e.y / 2, 6)) {
+                reset_open();
+                return;
+            }
             ESP_LOGI(TAG, "Tippen bei %d/%d (%lu ms) → Info-Karte geschlossen", e.x, e.y,
                      static_cast<unsigned long>(e.duration_ms));
             infocard::hide();
@@ -61,8 +156,9 @@ void dispatch(const pixelia::gesture::Event& e) {
 void process_locked(uint32_t t) {
     pixelia::gesture::Event e;
     while (s_rec.poll(&e)) dispatch(e);
+    reset_tick(t);
     float p = s_rec.hold_progress(t);
-    bool show = p >= kHoldIndicatorFrom && !infocard::visible() && !ui::update_visible();
+    bool show = p >= kHoldIndicatorFrom && !s_reset_open && !s_swallow && !infocard::visible() && !ui::update_visible();
     if (show) ui::set_hold_progress(p);
     else if (s_hold_shown) ui::set_hold_progress(-1.0f);
     s_hold_shown = show;
@@ -75,8 +171,11 @@ void on_touch(int fingers, int x, int y) {
     const uint32_t t = now_ms();
     if (fingers > 0 && !s_rec.pressed()) s_samples = 0;
     if (fingers > 0) ++s_samples;
+    if (s_reset_open) reset_touch(fingers, x, y, t);
+    else if (fingers == 0) s_reset_down = false;
     s_rec.touch(fingers, x, y, t);
     process_locked(t);
+    if (fingers == 0 && !s_reset_open) s_swallow = false;
 }
 
 void tick() {

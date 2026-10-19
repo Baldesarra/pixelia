@@ -4,6 +4,7 @@
   import { Chip, Dialog, IconButton, Navigation, theme, type NavItem } from './lib/m3';
   import Logo from './lib/Logo.svelte';
   import { device } from './lib/status.svelte';
+  import { themeSync } from './lib/theme-sync.svelte';
   import Overview from './pages/Overview.svelte';
   import Appearance from './pages/Appearance.svelte';
   import Info from './pages/Info.svelte';
@@ -52,7 +53,11 @@
     if (device.data.wifi.ap && !location.hash.replace(/^#\/?/, '')) location.hash = '#/wlan';
   });
 
-  $effect(() => theme.apply());
+  $effect(() => {
+    theme.apply();
+    themeSync.changed(theme.json());
+  });
+  $effect(() => themeSync.fromStatus(device.data?.set.ui));
   $effect(() => {
     document.title = `${pages[page].title} · Pixelia`;
     device.setPage(page);

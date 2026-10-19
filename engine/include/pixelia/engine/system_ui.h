@@ -132,6 +132,33 @@ private:
     std::string qr_key_;
 };
 
+// Rechteck in Leinwand-Koordinaten (400×240); margin vergrößert die Trefferfläche für Finger
+struct Rect {
+    int x = 0, y = 0, w = 0, h = 0;
+    bool contains(int px, int py, int margin = 0) const {
+        return px >= x - margin && px < x + w + margin && py >= y - margin && py < y + h + margin;
+    }
+};
+
+// Knopf „Zurücksetzen …“ unten links auf der Info-Karte
+Rect info_reset_button();
+
+// Zurücksetzen am Gerät (Info-Karte → Zurücksetzen): PIN entfernen oder Werksreset, jeweils Knopf halten.
+// Der Weg für einen vergessenen PIN (Projektplan 4.12): Wer das Display berühren kann, darf das.
+inline constexpr int kResetHoldMs = 3000;
+enum class ResetButton : int8_t { None = -1, Pin = 0, Factory = 1, Cancel = 2 };
+struct ResetInfo {
+    bool pin_set = false;                    // ohne PIN ist „PIN entfernen“ ausgegraut
+    ResetButton held = ResetButton::None;    // gerade gehaltener Knopf
+    int permille = 0;                        // Fortschritt des Haltens 0–1000
+
+    bool operator==(const ResetInfo&) const = default;
+};
+Rect reset_button_rect(ResetButton button);
+// Knopf an der Stelle (Leinwand-Koordinaten), ausgegraute Knöpfe zählen nicht
+ResetButton reset_button_at(const ResetInfo& info, int x, int y);
+void render_reset(Canvas& canvas, const ResetInfo& info);
+
 // Halte-Anzeige während eines langen Drucks (progress 0..1), unten in der Mitte
 void draw_hold_indicator(Canvas& canvas, float progress);
 

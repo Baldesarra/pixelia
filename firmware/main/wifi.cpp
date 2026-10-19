@@ -29,6 +29,7 @@
 #include "mdns.h"
 #include "net.h"
 #include "nvs.h"
+#include "settings.h"
 #include "ui.h"
 
 namespace app::wifi {
@@ -149,6 +150,8 @@ void load_store() {
 
 // Aufruf mit gehaltenem s_lock
 void save_store_locked() {
+    s_status.saved = s_store.count;
+    if (settings::frozen()) return;  // Werksreset läuft
     nvs_handle_t h;
     if (nvs_open(kNvs, NVS_READWRITE, &h) != ESP_OK) return;
     esp_err_t err = nvs_set_blob(h, "nets", &s_store, sizeof(s_store));

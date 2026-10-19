@@ -51,7 +51,8 @@ export type Status = {
     passed: boolean;
   };
   rollback: { v: string; why: string } | null;
-  set: { rot: number; bright: number; lp: number };
+  set: { rot: number; bright: number; lp: number; ui?: string };
+  auth?: { pin: boolean; lockS: number };
   diag: {
     boot: number;
     reset: string;

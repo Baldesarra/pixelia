@@ -286,7 +286,7 @@ esp_err_t ws_log_handler(httpd_req_t* req) {
 esp_err_t cmd_post(httpd_req_t* req) {
     std::string body, cmd, v;
     if (!read_body(req, &body, 600) || !form_value(body, "cmd", &cmd)) return reply(req, false, "Befehl fehlt (cmd=…)");
-    if (!authorized(req, &body)) return reply(req, false, "PIN fehlt oder falsch", "401 Unauthorized");
+    if (!authorized(req, &body)) return deny(req);
     // Steuerzeichen raus, Leerzeichen am Rand weg
     cmd.erase(std::remove_if(cmd.begin(), cmd.end(), [](char c) { return static_cast<unsigned char>(c) < 32; }), cmd.end());
     while (!cmd.empty() && cmd.back() == ' ') cmd.pop_back();
@@ -382,7 +382,7 @@ esp_err_t coredump_get(httpd_req_t* req) {
 esp_err_t coredump_erase_post(httpd_req_t* req) {
     std::string body;
     read_body(req, &body, 256);
-    if (!authorized(req, &body)) return reply(req, false, "PIN fehlt oder falsch", "401 Unauthorized");
+    if (!authorized(req, &body)) return deny(req);
     diag::Crash c;
     if (!diag::crash(&c)) return reply(req, true, "Es war kein Absturzbericht vorhanden");
     const esp_err_t err = diag::crash_erase();

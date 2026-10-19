@@ -4,7 +4,7 @@ export { default as ButtonGroup } from './ButtonGroup.svelte';
 export { default as Card } from './Card.svelte';
 export { default as Chip } from './Chip.svelte';
 export { default as CircularProgress } from './CircularProgress.svelte';
-export { default as Dialog, confirmDialog } from './Dialog.svelte';
+export { default as Dialog, confirmDialog, promptDialog } from './Dialog.svelte';
 export { default as Icon } from './Icon.svelte';
 export { default as Slider } from './Slider.svelte';
 export { default as TextField } from './TextField.svelte';
