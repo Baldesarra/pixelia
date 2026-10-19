@@ -66,6 +66,13 @@ export const ICONS = [
   'chevron_right',
   'content_copy',
   'delete_sweep',
+  // System und Schutz (0.3.2)
+  'password',
+  'logout',
+  'settings_backup_restore',
+  'upload',
+  'delete_forever',
+  'shield_lock',
 ] as const;
 
 export type IconName = (typeof ICONS)[number];

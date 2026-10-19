@@ -162,10 +162,38 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 let lastSeen = 0, uploading = false, waitingFor = null, ws = null;
 
+// Optionaler PIN (seit 0.3.2): Fragt das Gerät danach, einmal abfragen und im Kopf mitschicken (nur bis zum Neuladen).
+// Im Setup-Modus braucht das WLAN-Speichern keinen PIN.
+let pin = "";
+const pinHeaders = () => (pin ? { "X-Pixelia-Pin": pin } : {});
+function askPin(j) {
+  if (j.lockS) { alert(`Zu viele Fehlversuche. Bitte ${j.lockS} s warten.`); return false; }
+  const p = prompt(pin ? "PIN falsch. PIN noch einmal eingeben:" : "Diese Aktion ist mit einem PIN geschützt. PIN eingeben:");
+  if (p === null) return false;
+  pin = p;
+  return true;
+}
+
 async function api(path, data) {
-  const opt = data ? { method: "POST", body: new URLSearchParams(data) } : { cache: "no-store" };
-  const r = await fetch(path, opt);
-  return r.json();
+  for (;;) {
+    const opt = data ? { method: "POST", body: new URLSearchParams(data), headers: pinHeaders() } : { cache: "no-store" };
+    const r = await fetch(path, opt);
+    const j = await r.json();
+    if (!data || !j.auth || !askPin(j)) return j;
+  }
+}
+
+// Vor dem Update: PIN nötig? Dann vorher prüfen, statt 6 MB abweisen zu lassen
+async function ensurePin() {
+  const a = await api("/api/auth").catch(() => null);
+  if (!a || !a.pin) return true;
+  for (;;) {
+    if (!pin && !askPin(a)) return false;
+    const j = await fetch("/api/login", { method: "POST", body: new URLSearchParams({ pin }) }).then((r) => r.json());
+    if (j.ok) return true;
+    pin = pin || "x";
+    if (!askPin(j)) return false;
+  }
 }
 
 function bars(rssi) {
@@ -322,9 +350,9 @@ $("file").onchange = async () => {
   $("upBtn").disabled = false;
 };
 
-$("upBtn").onclick = () => {
+$("upBtn").onclick = async () => {
   const f = $("file").files[0];
-  if (!f) return;
+  if (!f || !(await ensurePin())) return;
   uploading = true;
   $("upBtn").disabled = true;
   setProg(0);
@@ -341,6 +369,7 @@ $("upBtn").onclick = () => {
   }, 2000);
   x.open("POST", "/api/ota");
   x.setRequestHeader("Content-Type", "application/octet-stream");
+  if (pin) x.setRequestHeader("X-Pixelia-Pin", pin);
   x.upload.onload = () => { sent = true; };
   x.upload.onprogress = (e) => {
     lastProgress = Date.now();

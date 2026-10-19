@@ -39,6 +39,7 @@
 #include "lwip/sockets.h"
 #include "net.h"
 #include "nvs.h"
+#include "settings.h"
 #include "web_internal.h"
 
 namespace app::web::detail {
@@ -124,6 +125,7 @@ void load() {
 
 void save() {
     s_saved_us = esp_timer_get_time();
+    if (settings::frozen()) return;  // Werksreset läuft
     Stored list[kMaxClients] = {};
     int n = 0;
     for (const Client& c : s_clients) {
@@ -439,10 +441,21 @@ esp_err_t clients_get(httpd_req_t* req) {
 esp_err_t clients_name_post(httpd_req_t* req) {
     std::string body, id, name;
     if (!read_body(req, &body, 256) || !form_value(body, "id", &id)) return reply(req, false, "Geräte-ID fehlt");
-    if (!authorized(req, &body)) return reply(req, false, "PIN fehlt oder falsch", "401 Unauthorized");
+    if (!authorized(req, &body)) return deny(req);
     form_value(body, "name", &name);
     load();
-    const int i = find(id.c_str());
+    int i = find(id.c_str());
+    // Import einer Sicherung (create=1): Namen auch für Browser übernehmen, die sich seit dem Werksreset noch nicht
+    // gemeldet haben. Sie bekommen ihren Namen zurück, sobald sie die Seite wieder öffnen.
+    std::string create;
+    if (i < 0 && form_value(body, "create", &create) && create == "1" && !name.empty() && id.size() >= 8 &&
+        id.size() <= 16) {
+        i = free_slot();
+        if (i >= 0) {
+            s_clients[i] = Client{};
+            copy(s_clients[i].s.id, sizeof(s_clients[i].s.id), id);
+        }
+    }
     if (i < 0) return reply(req, false, "Gerät unbekannt");
     copy(s_clients[i].s.name, sizeof(s_clients[i].s.name), name);
     save();
@@ -493,6 +506,16 @@ void client_message(httpd_req_t* req, const std::string& msg) {
         copy(c.page, sizeof(c.page), v);
         touch(c);
     }
+}
+
+// Für die Sicherung (GET /api/backup): Geräte mit eigenem Namen als Feld „names“
+void client_names_json(Json& j) {
+    load();
+    j.arr("names");
+    for (const Client& c : s_clients) {
+        if (c.s.id[0] && c.s.name[0]) j.obj().str("id", c.s.id).str("name", c.s.name).end_obj();
+    }
+    j.end_arr();
 }
 
 void register_info() {

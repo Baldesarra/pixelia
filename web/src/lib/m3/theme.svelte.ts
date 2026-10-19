@@ -1,5 +1,5 @@
 // Dynamische Farben (M3, Spezifikation 2025) aus einer Akzentfarbe, hell/dunkel/System.
-// Die Wahl liegt vorerst im Browser (localStorage); ab 0.3.2 kann das Gerät sie speichern.
+// Die Wahl liegt im Browser (localStorage, für den schnellen Start) und seit 0.3.2 auf dem Gerät (theme-sync).
 import {
   argbFromHex,
   Hct,
@@ -35,16 +35,43 @@ function load(): { mode: ThemeMode; seed: string; style: ThemeStyle } {
   }
 }
 
+function hasStored(): boolean {
+  try {
+    return localStorage.getItem(KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
 class Theme {
   mode = $state<ThemeMode>('system');
   seed = $state(SEEDS[0].hex);
   style = $state<ThemeStyle>('tonal');
   systemDark = $state(media.matches);
+  /** Hatte dieser Browser schon eine eigene Wahl gespeichert? (Ein frischer Browser überträgt seinen Standard nicht) */
+  readonly hadChoice = hasStored();
   dark = $derived(this.mode === 'dark' || (this.mode === 'system' && this.systemDark));
 
   constructor() {
     Object.assign(this, load());
     media.addEventListener('change', (e) => (this.systemDark = e.matches));
+  }
+
+  /** Auswahl als kurzer JSON-Text (so speichert sie das Gerät, seit 0.3.2) */
+  json(): string {
+    return JSON.stringify({ mode: this.mode, seed: this.seed, style: this.style });
+  }
+
+  /** Auswahl aus JSON übernehmen; Unbekanntes wird ignoriert */
+  adopt(json: string) {
+    try {
+      const v = JSON.parse(json) as Partial<{ mode: string; seed: string; style: string }>;
+      if (v.mode === 'system' || v.mode === 'light' || v.mode === 'dark') this.mode = v.mode;
+      if (typeof v.seed === 'string' && /^#[0-9a-f]{6}$/i.test(v.seed)) this.seed = v.seed;
+      if (v.style === 'tonal' || v.style === 'vibrant' || v.style === 'expressive') this.style = v.style;
+    } catch {
+      /* kaputter Wert: Auswahl bleibt */
+    }
   }
 
   /** Farben auf :root schreiben und Auswahl merken (läuft als $effect in App.svelte) */

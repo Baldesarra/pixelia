@@ -67,6 +67,9 @@ struct UiState {
     bool info = false;
     pixelia::ui::InfoCardData info_data;
     int64_t info_until = 0;
+    bool reset = false;
+    pixelia::ui::ResetInfo reset_info;
+    int64_t reset_until = 0;
 };
 std::mutex s_ui_lock;
 UiState s_ui;
@@ -95,10 +98,12 @@ void follow_real_time(int64_t now) {
     }
 }
 
-// Ganzseitige Systemanzeige, die gerade gilt: 0 = keine (Welt läuft), 1 = Update, 2 = Meldung, 3 = Setup
+// Ganzseitige Systemanzeige, die gerade gilt: 0 = keine (Welt läuft), 1 = Update, 2 = Meldung, 3 = Setup,
+// 4 = Zurücksetzen
 int active_screen(int64_t now) {
     const UiState& u = s_ui_local;
     if (u.update && (u.update_until == 0 || now < u.update_until)) return 1;
+    if (u.reset && now < u.reset_until) return 4;
     if (u.message && now < u.message_until) return 2;
     if (u.setup) return 3;
     return 0;
@@ -108,6 +113,7 @@ void draw_screen(pixelia::Canvas& canvas, int screen) {
     const UiState& u = s_ui_local;
     if (screen == 1) pixelia::ui::render_update(canvas, u.update_info);
     else if (screen == 2) pixelia::ui::render_message(canvas, u.message_info);
+    else if (screen == 4) pixelia::ui::render_reset(canvas, u.reset_info);
     else s_setup_screen.render(canvas);
 }
 
@@ -393,6 +399,27 @@ void hide_message() {
     std::lock_guard<std::mutex> g(gfx::s_ui_lock);
     gfx::s_ui.message = false;
     ++gfx::s_ui.version;
+}
+
+void show_reset(const pixelia::ui::ResetInfo& info, int seconds) {
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    // Auch ohne neue Daten Version erhöhen: Der Grafik-Task übernimmt die neue Anzeigedauer nur so
+    gfx::s_ui.reset_until = until(seconds);
+    gfx::s_ui.reset = true;
+    gfx::s_ui.reset_info = info;
+    ++gfx::s_ui.version;
+}
+
+void hide_reset() {
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    if (!gfx::s_ui.reset) return;
+    gfx::s_ui.reset = false;
+    ++gfx::s_ui.version;
+}
+
+bool reset_visible() {
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    return gfx::s_ui.reset && esp_timer_get_time() < gfx::s_ui.reset_until;
 }
 
 void toast(std::string_view text, pixelia::ui::Tone tone, int seconds) {

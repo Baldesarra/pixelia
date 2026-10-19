@@ -120,6 +120,15 @@ bool render_screen(const std::string& name, std::vector<uint8_t>& frame) {
         ui::InfoCard card;
         card.set(sample_info(name));
         card.render(canvas);
+    } else if (name == "reset" || name == "reset-ohne-pin" || name == "reset-halten") {
+        // Zurücksetzen am Gerät (Info-Karte → „Zurücksetzen …“)
+        ui::ResetInfo info;
+        info.pin_set = name != "reset-ohne-pin";
+        if (name == "reset-halten") {
+            info.held = ui::ResetButton::Factory;
+            info.permille = 620;
+        }
+        ui::render_reset(canvas, info);
     } else if (name == "hold") {
         ui::draw_hold_indicator(canvas, 0.55f);
     } else if (name == "toast-ip") {
@@ -257,7 +266,7 @@ int run_headless(const Options& opt) {
         if (!opt.screen.empty() && !render_screen(opt.screen, frame)) {
             std::printf("FEHLER: Systemanzeige \"%s\" gibt es nicht (setup, setup-leer, setup-fehler, update, "
                         "update-fertig, failed, message, toast, toast-lang, toast-ip, info, info-setup, "
-                        "info-offline, hold)\n", opt.screen.c_str());
+                        "info-offline, hold, reset, reset-ohne-pin, reset-halten)\n", opt.screen.c_str());
             return 2;
         }
         const int s = std::max(1, opt.scale);

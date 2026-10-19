@@ -1,6 +1,6 @@
 #pragma once
 // Systemanzeigen auf dem Display (gezeichnet im Grafik-Task, siehe engine/system_ui.h).
-// Vorrang: Update > Meldung > Setup-Modus > Welt. Kurzmeldungen erscheinen über der Welt,
+// Vorrang: Update > Zurücksetzen > Meldung > Setup-Modus > Welt. Kurzmeldungen erscheinen über der Welt,
 // die Info-Karte und die Halte-Anzeige über allem außer dem Update.
 // Alle Funktionen dürfen von jedem Task aus aufgerufen werden.
 
@@ -27,6 +27,11 @@ void refresh_info(const pixelia::ui::InfoCardData& data);
 void hide_info();
 bool info_visible();
 bool update_visible();
+
+// Zurücksetzen am Gerät (über allem außer dem Update): zeigen bzw. aktualisieren, Anzeigedauer startet neu
+void show_reset(const pixelia::ui::ResetInfo& info, int seconds);
+void hide_reset();
+bool reset_visible();
 
 // Halte-Anzeige während eines langen Drucks: 0..1, negativ = ausblenden
 void set_hold_progress(float progress);

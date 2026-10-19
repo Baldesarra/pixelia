@@ -1,5 +1,41 @@
 [
   {
+    "v": "0.3.2",
+    "d": "2026-10-19",
+    "t": "System und Schutz",
+    "s": "Optionaler PIN mit Sperre, Werksreset auch am Gerät, Sicherung der Einstellungen und Farbwahl auf dem Gerät",
+    "n": [
+      "System: Optionaler PIN oder Passwort (Standard aus) schützt Einstellungen, Updates, Neustart, Werksreset, Befehle, Absturzbericht löschen und Gerätenamen; Lesen bleibt offen",
+      "System: PIN als gesalzener SHA-256-Hash (1000 Runden) im NVS, Sitzungs-Token nur im RAM, Sperre nach 5 Fehlversuchen ab 30 s, verdoppelnd bis 15 min",
+      "System: Werksreset löscht WLAN-Netze, Einstellungen, Farbwahl, Gerätenamen und PIN, danach Setup-Modus; Startzähler und Reset-Historie bleiben für die Diagnose",
+      "Display: Info-Karte mit Knopf „Zurücksetzen …“: PIN entfernen oder Werksreset, jeweils 3 s halten (Fortschrittsbalken), Abbrechen; der Weg für einen vergessenen PIN",
+      "Web: Seite System mit den Karten Schutz (PIN festlegen, ändern, ausschalten, abmelden), Sicherung (herunterladen, einspielen) und Werksreset",
+      "Web: Geschützte Aktionen fragen einmal nach dem PIN (neuer Baustein promptDialog mit Prüfung) und wiederholen sich; Updates prüfen die Anmeldung vor dem Hochladen",
+      "Web: Sicherung als JSON-Datei (/api/backup) mit Anzeige, Farbwahl und Gerätenamen, ohne WLAN-Passwörter und PIN; der Import zeigt vorher, was übernommen wird",
+      "Web: Farbwahl liegt jetzt auf dem Gerät und gilt für alle Browser; ohne Anmeldung bleibt eine Änderung im Browser, mit Knopf zum Speichern",
+      "Web: Neue Schnittstellen /api/auth, /api/login, /api/logout, /api/pin, /api/factory-reset, /api/backup; der Status meldet auth.pin und set.ui"
+    ],
+    "i": [
+      "Web: Einrichtungsseite /setup fragt bei Bedarf nach dem PIN; im Setup-Modus braucht das WLAN-Speichern keinen (das Passwort des Setup-WLANs steht auf dem Display)",
+      "Update: tools/ota.ps1 mit -Pin bzw. $env:PIXELIA_PIN; netlog.ps1 und crash.ps1 kannten -Pin schon",
+      "Simulator: Systemanzeigen reset, reset-ohne-pin und reset-halten für Screenshots; npm run mock spielt PIN, Anmeldung, Sicherung und Werksreset nach"
+    ],
+    "f": [
+      "Web: npm run mock leitete den Status-WebSocket ans echte Gerät weiter (Proxy war auch im Mock aktiv), die Oberfläche zeigte dann dessen Werte"
+    ],
+    "g": [
+      "Gerät: PIN per API: alle geschützten Endpunkte 401 ohne Anmeldung, Token, Kopf und Formularfeld gehen, Sperre beim 5. Fehlversuch (429, 30 s), Anmeldung 140–250 ms",
+      "Gerät: Touch-Geste vom User geprüft: Info-Karte → Zurücksetzen, Abbrechen, kurzes Tippen ohne Wirkung, PIN entfernen nach 3 s Halten, Werksreset mit Neustart",
+      "Gerät: Nach dem Werksreset Captive Portal unter Windows: Windows öffnet die Einrichtung von selbst, WLAN neu eingetragen, Startzähler lief weiter; iOS nicht geprüft",
+      "Gerät: 29,8–29,9 fps, interner RAM 113 KB frei (Tiefstwert 110 KB, mit Setup-Modus 97 KB); Firmware 1321 KB = 21,5 % der Partition; Update per WLAN in 8 s",
+      "Web: Bundle gzip 120 KB (app.js 81 KB, CSS 7 KB, Schrift 32 KB), Ziel ≤ 150 KB"
+    ],
+    "h": [
+      "System: PIN vergessen? Am Gerät lange aufs Display drücken, auf der Info-Karte „Zurücksetzen …“ tippen und „PIN entfernen“ 3 Sekunden halten. Über das Netz geht das bewusst nicht."
+    ],
+    "pr": [16]
+  },
+  {
     "v": "0.3.1",
     "d": "2026-10-19",
     "t": "Weboberfläche: Seiten",

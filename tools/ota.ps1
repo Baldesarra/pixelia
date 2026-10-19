@@ -11,6 +11,7 @@
   - Danach: Neustart abwarten, /api/status prüfen: neue Version läuft, Probelauf mit Selbsttest bestanden (60 s).
     Erkennt einen Rückfall auf die alte Version und zeigt den Grund. Mit -NoWait nur hochladen.
   - Exit 0 = neue Version läuft und hat den Selbsttest bestanden, 1 = Fehler oder Rückfall, 2 = falscher Aufruf.
+  - Mit PIN (seit 0.3.2): -Pin 1234 oder $env:PIXELIA_PIN (Kopf X-Pixelia-Pin).
   - Volles Protokoll: .logs\ota-last.log
 
 .EXAMPLE
@@ -23,7 +24,9 @@ param(
     [string]$Bin,
     [switch]$Build,
     [switch]$NoWait,
-    [int]$TimeoutS = 240
+    [int]$TimeoutS = 240,
+    # Optionaler PIN des Geräts (seit 0.3.2), sonst aus der Umgebungsvariable PIXELIA_PIN
+    [string]$Pin = $env:PIXELIA_PIN
 )
 
 $ErrorActionPreference = 'Stop'
@@ -127,6 +130,9 @@ $shown = if ($ipBase -ne $base) { "$base → $ipBase" } else { $base }
 Say ('Gerät:  {0}, Version {1} ({2}), WLAN „{3}“ {4} dBm, läuft seit {5} s' -f $shown, $before.v, $before.part,
     $before.wifi.ssid, $before.wifi.rssi, $before.uptime)
 if ($before.ota.busy) { Fail 'Auf dem Gerät läuft bereits ein Update' }
+if ($before.auth -and $before.auth.pin -and -not $Pin) {
+    Fail 'Das Gerät ist mit einem PIN geschützt: -Pin angeben oder $env:PIXELIA_PIN setzen'
+}
 
 # --- Hochladen -----------------------------------------------------------------------------------------------
 [System.Net.ServicePointManager]::Expect100Continue = $false
@@ -138,6 +144,7 @@ $req.AllowWriteStreamBuffering = $false
 $req.SendChunked = $false
 $req.KeepAlive = $false
 $req.Proxy = $null
+if ($Pin) { $req.Headers.Add('X-Pixelia-Pin', $Pin) }
 # Das Gerät löscht vor dem Schreiben den Zielbereich (~3 s), in der Zeit stockt die Übertragung
 $req.Timeout = 90000
 $req.ReadWriteTimeout = 90000

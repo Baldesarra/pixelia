@@ -7,6 +7,10 @@
 
 #include "esp_http_server.h"
 
+namespace app {
+class Json;
+}
+
 namespace app::web::detail {
 
 httpd_handle_t server();
@@ -23,10 +27,11 @@ bool query_value(httpd_req_t* req, const char* key, std::string* out);
 
 std::string status_json();
 
-// Zugriffsschutz für Befehle und Löschen (Projektplan 4.12): Der optionale PIN kommt mit 0.3.x. Ist er gesetzt,
-// müssen Aufrufer ihn im Kopf „X-Pixelia-Pin“ oder im Formularfeld „pin“ mitschicken, sonst 401.
-// Bis dahin ist kein PIN gesetzt und alles erlaubt (nur im Heimnetz erreichbar).
+// Zugriffsschutz (Projektplan 4.12, auth.h): ohne PIN ist alles erlaubt. Mit PIN braucht es ein gültiges
+// Sitzungs-Token im Kopf „X-Pixelia-Token“ oder den PIN im Kopf „X-Pixelia-Pin“ bzw. im Formularfeld „pin“.
 bool authorized(httpd_req_t* req, const std::string* body = nullptr);
+// Antwort 401 (bzw. 429 während der Sperre) mit {ok:false, auth:true, msg, lockS, left}
+esp_err_t deny(httpd_req_t* req);
 
 // WebSocket-Sitzungen von /ws/log (alle anderen WebSocket-Sitzungen bekommen den Status)
 bool is_log_client(int fd);
@@ -37,5 +42,6 @@ void register_diag();
 // Info, Hardware, verbundene Geräte (web_info.cpp): Endpunkte anmelden; Nachricht eines Browsers über /ws
 void register_info();
 void client_message(httpd_req_t* req, const std::string& msg);
+void client_names_json(Json& j);
 
 }  // namespace app::web::detail

@@ -11,6 +11,7 @@
 //  7. Im Probelauf: Selbsttest, danach gilt die neue Version dauerhaft
 
 #include "app.h"
+#include "auth.h"
 #include "board/backlight.h"
 #include "diag.h"
 #include "esp_heap_caps.h"
@@ -35,6 +36,7 @@ extern "C" void app_main() {
     app::log::init();
     app::sysinfo::log_all();
     app::settings::init();
+    app::auth::init();
     app::ota::init();
     app::diag::init();
     app::sysinfo::log_heap_step("Einstellungen");

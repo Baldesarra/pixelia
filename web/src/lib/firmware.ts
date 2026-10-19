@@ -1,6 +1,8 @@
 // Update-Datei schon im Browser prüfen: Kopf der .bin lesen (ESP-Image, Chip, App-Beschreibung, Projekt).
 // Gleiche Prüfung wie in firmware/main/web/setup.html; die Firmware prüft beim Hochladen noch einmal (ota.cpp).
 
+import { auth } from './auth.svelte';
+
 export type FirmwareHeader = { err: string } | { v: string; date: string; time: string; idf: string };
 
 export const HEADER_BYTES = 288;
@@ -48,6 +50,7 @@ export function upload(file: File, ev: UploadEvents): () => void {
   }, 2000);
   x.open('POST', '/api/ota');
   x.setRequestHeader('Content-Type', 'application/octet-stream');
+  for (const [k, v] of Object.entries(auth.headers())) x.setRequestHeader(k, v);
   x.upload.onload = () => (sent = true);
   x.upload.onprogress = (e) => {
     last = Date.now();

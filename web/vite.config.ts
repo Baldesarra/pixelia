@@ -42,11 +42,112 @@ function mockDevice(): Plugin {
   const now = () => Math.floor(Date.now() / 1000);
   const logLine = (n: number, l: string, m: string) => ({ n, b: 42, t: now() - (300 - n), u: n * 900, l, m });
   let logN = 300;
+  // Einstellungen und Schutz wie auf dem Gerät (auth.cpp): PIXELIA_MOCK_PIN=1234 startet mit PIN
+  const set = { rot: 0, bright: 80, lp: 3000, ui: '' };
+  const names: Record<string, string> = { a1b2c3d4e5f6: 'Handy Wohnzimmer' };
+  let pin = process.env.PIXELIA_MOCK_PIN ?? '';
+  let fails = 0;
+  let lockedUntil = 0;
+  const tokens = new Set<string>();
+  type Req = import('node:http').IncomingMessage;
+  type Res = import('node:http').ServerResponse;
+  const form = (req: Req) =>
+    new Promise<URLSearchParams>((resolve) => {
+      let s = '';
+      req.on('data', (c) => (s += c));
+      req.on('end', () => resolve(new URLSearchParams(s)));
+    });
+  const lockS = () => Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000));
+  const checkPin = (p: string | null) => {
+    if (!pin) return true;
+    if (p === null || lockS() > 0) return false;
+    if (p === pin) return ((fails = 0), true);
+    if (++fails >= 5) lockedUntil = Date.now() + Math.min(30_000 << Math.min(fails - 5, 5), 900_000);
+    return false;
+  };
+  const authorized = (req: Req, f?: URLSearchParams) => {
+    if (!pin) return true;
+    const t = req.headers['x-pixelia-token'];
+    if (typeof t === 'string' && tokens.has(t)) return true;
+    const p = req.headers['x-pixelia-pin'];
+    return checkPin(typeof p === 'string' ? p : (f?.get('pin') ?? null));
+  };
+  const deny = (res: Res) => {
+    res.statusCode = lockS() ? 429 : 401;
+    json(res, { ok: false, auth: true, msg: lockS() ? 'Zu viele Fehlversuche, bitte warten' : 'PIN nötig', lockS: lockS(), left: Math.max(1, 5 - fails) });
+  };
+  const newToken = () => {
+    const t = [...Array(32)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    tokens.add(t);
+    return t;
+  };
   return {
     name: 'pixelia-mock',
     apply: 'serve',
     configureServer(server) {
       if (server.config.mode !== 'mock') return;
+      server.middlewares.use('/api/auth', (req, res) => {
+        const t = req.headers['x-pixelia-token'];
+        json(res, { pin: !!pin, ok: !pin || (typeof t === 'string' && tokens.has(t)), lockS: lockS(), left: Math.max(1, 5 - fails) });
+      });
+      server.middlewares.use('/api/login', async (req, res) => {
+        const f = await form(req);
+        if (checkPin(f.get('pin'))) return json(res, { ok: true, msg: 'Angemeldet', token: newToken() });
+        res.statusCode = lockS() ? 429 : 401;
+        const left = Math.max(1, 5 - fails);
+        json(res, {
+          ok: false, auth: true, lockS: lockS(), left,
+          msg: lockS() ? `Zu viele Fehlversuche. Nächster Versuch in ${lockS()} s` : `PIN falsch, noch ${left} Versuch${left === 1 ? '' : 'e'}`,
+        });
+      });
+      server.middlewares.use('/api/logout', (req, res) => {
+        tokens.delete(String(req.headers['x-pixelia-token']));
+        json(res, { ok: true, msg: 'Abgemeldet' });
+      });
+      server.middlewares.use('/api/pin', async (req, res) => {
+        const f = await form(req);
+        if (!authorized(req, f)) return deny(res);
+        const p = f.get('new') ?? '';
+        if (p && (p.length < 4 || p.length > 32)) return json(res, { ok: false, msg: 'Der PIN braucht 4 bis 32 Zeichen' });
+        pin = p;
+        tokens.clear();
+        json(res, { ok: true, msg: p ? 'PIN gespeichert' : 'PIN ausgeschaltet', ...(p ? { token: newToken() } : {}) });
+      });
+      server.middlewares.use('/api/settings', async (req, res) => {
+        const f = await form(req);
+        if (!authorized(req, f)) return deny(res);
+        if (f.has('rot')) set.rot = f.get('rot') === '180' ? 180 : 0;
+        if (f.has('bright')) set.bright = Number(f.get('bright'));
+        if (f.has('lp')) set.lp = Number(f.get('lp'));
+        if (f.has('ui')) set.ui = f.get('ui') ?? '';
+        json(res, { ok: true, msg: 'Gespeichert' });
+      });
+      server.middlewares.use('/api/clients/name', async (req, res) => {
+        const f = await form(req);
+        if (!authorized(req, f)) return deny(res);
+        names[f.get('id') ?? ''] = f.get('name') ?? '';
+        json(res, { ok: true, msg: 'Gespeichert' });
+      });
+      for (const p of ['/api/reboot', '/api/factory-reset', '/api/coredump/erase']) {
+        server.middlewares.use(p, async (req, res) => {
+          const f = await form(req);
+          if (!authorized(req, f)) return deny(res);
+          if (p === '/api/factory-reset') {
+            pin = '';
+            tokens.clear();
+            Object.assign(set, { rot: 0, bright: 100, lp: 3000, ui: '' });
+          }
+          json(res, { ok: true, msg: 'OK' });
+        });
+      }
+      server.middlewares.use('/api/backup', (_req, res) => {
+        res.setHeader('Content-Disposition', 'attachment; filename="pixelia-einstellungen-2026-10-19.json"');
+        json(res, {
+          pixelia: 'settings', format: 1, v: '0.3.2', date: '2026-10-19', host: 'pixelia', set,
+          names: Object.entries(names).filter(([, n]) => n).map(([id, name]) => ({ id, name })),
+          wifi: setup ? [] : ['FRITZ!Box 7590', 'Gartenhaus'], pin: !!pin,
+        });
+      });
       server.middlewares.use('/api/wifi', (req, res) => {
         json(res, {
           saved: setup ? [] : ['FRITZ!Box 7590', 'Gartenhaus'],
@@ -151,7 +252,7 @@ function mockDevice(): Plugin {
               desync: 0, ram: 117, ramMin: 107, ramBlk: 92, psram: 7310, psramMin: 7280 },
             ota: { busy: false, bytes: 0, total: 0, newV: '', err: '', trial: false, trialS: 0, trialNeed: 60,
               trialNote: '', passed: true },
-            rollback: null, set: { rot: 0, bright: 80, lp: 3000 },
+            rollback: null, set, auth: { pin: !!pin, lockS: lockS() },
             diag: { boot: 42, reset: 'Software-Neustart', errors: 0, warnings: 2, logLines: 1834, crash: null },
           }),
         );
@@ -160,7 +261,7 @@ function mockDevice(): Plugin {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [svelte(), materialSymbols(), mockDevice()],
   build: {
     target: 'es2020',
@@ -179,11 +280,12 @@ export default defineConfig({
       },
     },
   },
-  server: {
+  // Im Mock nichts ans Gerät weiterleiten (sonst kam der Status per WebSocket vom echten Gerät)
+  server: mode === 'mock' ? {} : {
     proxy: {
       '/api': target,
       '/setup': target,
       '/ws': { target, ws: true },
     },
   },
-});
+}));

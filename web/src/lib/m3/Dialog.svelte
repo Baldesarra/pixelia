@@ -1,13 +1,29 @@
 <script lang="ts" module>
-  // Bestätigungsdialog für die ganze Oberfläche: await confirmDialog({...}) liefert true/false.
-  // App.svelte bindet <Dialog /> einmal ein.
+  // Dialoge für die ganze Oberfläche (App.svelte bindet <Dialog /> einmal ein):
+  // - await confirmDialog({...}) liefert true/false
+  // - await promptDialog({...}) liefert den eingegebenen Text oder null (Abbrechen). Mit check() bleibt der Dialog
+  //   offen, solange check einen Fehlertext liefert (z. B. „PIN falsch, noch 3 Versuche“).
+  import type { HTMLInputAttributes } from 'svelte/elements';
   import type { IconName } from './icon-names';
 
   type Ask = { title: string; text?: string; ok?: string; cancel?: string; icon?: IconName; danger?: boolean };
-  let current = $state<(Ask & { resolve: (v: boolean) => void }) | null>(null);
+  type Field = {
+    label: string;
+    type?: 'text' | 'password';
+    autocomplete?: HTMLInputAttributes['autocomplete'];
+    inputmode?: 'text' | 'numeric';
+    supporting?: string;
+    check?: (value: string) => Promise<string | null>;
+  };
+  let current = $state<(Ask & { field?: Field; resolve: (v: string | null) => void }) | null>(null);
 
   export function confirmDialog(a: Ask): Promise<boolean> {
-    current?.resolve(false);
+    current?.resolve(null);
+    return new Promise((resolve) => (current = { ...a, resolve: (v) => resolve(v !== null) }));
+  }
+
+  export function promptDialog(a: Ask & { field: Field }): Promise<string | null> {
+    current?.resolve(null);
     return new Promise((resolve) => (current = { ...a, resolve }));
   }
 </script>
@@ -15,34 +31,85 @@
 <script lang="ts">
   import Button from './Button.svelte';
   import Icon from './Icon.svelte';
+  import TextField from './TextField.svelte';
 
   let dlg = $state<HTMLDialogElement>();
+  let value = $state('');
+  let error = $state('');
+  let busy = $state(false);
+  let input = $state<HTMLInputElement>();
 
   $effect(() => {
     if (!dlg) return;
-    if (current && !dlg.open) dlg.showModal();
+    if (current && !dlg.open) {
+      value = '';
+      error = '';
+      busy = false;
+      dlg.showModal();
+      if (current.field) queueMicrotask(() => input?.focus());
+    }
     if (!current && dlg.open) dlg.close();
   });
 
-  function done(v: boolean) {
-    current?.resolve(v);
+  function cancel() {
+    current?.resolve(null);
+    current = null;
+  }
+
+  async function accept() {
+    const c = current;
+    if (!c || busy) return;
+    if (c.field?.check) {
+      busy = true;
+      const err = await c.field.check(value).catch(() => 'Keine Verbindung zu Pixelia');
+      busy = false;
+      if (err) {
+        error = err;
+        input?.select();
+        return;
+      }
+    }
+    c.resolve(c.field ? value : '');
     current = null;
   }
 </script>
 
-<dialog bind:this={dlg} oncancel={() => done(false)} onclick={(e) => e.target === dlg && done(false)}>
+<dialog bind:this={dlg} oncancel={cancel} onclick={(e) => e.target === dlg && cancel()}>
   {#if current}
-    <div class="body">
+    <form
+      class="body"
+      onsubmit={(e) => {
+        e.preventDefault();
+        void accept();
+      }}
+    >
       {#if current.icon}<span class="icon" class:danger={current.danger}><Icon name={current.icon} size={28} /></span>{/if}
       <h2>{current.title}</h2>
       {#if current.text}<p>{current.text}</p>{/if}
+      {#if current.field}
+        <TextField
+          label={current.field.label}
+          type={current.field.type ?? 'text'}
+          autocomplete={current.field.autocomplete}
+          inputmode={current.field.inputmode}
+          supporting={current.field.supporting}
+          {error}
+          bind:value
+          bind:input
+        />
+      {/if}
       <div class="actions">
-        <Button variant="text" onclick={() => done(false)}>{current.cancel ?? 'Abbrechen'}</Button>
-        <Button variant={current.danger ? 'filled' : 'tonal'} class={current.danger ? 'danger' : ''} onclick={() => done(true)}>
+        <Button variant="text" type="button" onclick={cancel}>{current.cancel ?? 'Abbrechen'}</Button>
+        <Button
+          variant={current.danger ? 'filled' : current.field ? 'filled' : 'tonal'}
+          class={current.danger ? 'danger' : ''}
+          type="submit"
+          disabled={busy}
+        >
           {current.ok ?? 'OK'}
         </Button>
       </div>
-    </div>
+    </form>
   {/if}
 </dialog>
 
