@@ -11,9 +11,10 @@ so wie auf dem 5″-Display. Es ist kein Engine- oder Firmware-Code.
 |---|---|---|
 | [perspektiven-v1.html](perspektiven-v1.html) | 2026-10-20 | Fünf Perspektiven im Vergleich (Seitenansicht mit Parallax, Querschnitt, 3/4-Draufsicht, Isometrie, Bühne mit Bodentiefe), je Hof, Haus, Dorf, Zug, Tag und Nacht, Bildfolge, Vergleichstabelle |
 | [szenen-v2.html](szenen-v2.html) | 2026-10-20 | Die gewählte Mischung mit fester Kamera: außen 3/4 (Hof, Dorf West, Dorf Ost), innen nahe Seitenansicht (Küche, Wohnzimmer, Zugabteil) |
+| [figuren-v3.html](figuren-v3.html) | 2026-10-20 | Chibi-Figuren mit 28 px, zehn Bewohner, Küche und Wohnzimmer je in Seiten- und 3/4-Ansicht, Hof, Zugabteil, Küche mit doppelt so nahem Bild |
 
 Die Zahlen unter den Bildern (Farben, Schreibzugriffe, sortierte Objekte, geänderte Pixel) zählt die Skizze selbst
 im Browser. Sie sind Anhaltspunkte, keine Messungen am ESP32-S3.
 
-Hinweise für die spätere Einbindung in die Weboberfläche: Die Dateien zusammen sind etwa 315 KB groß, gzip-gepackt
+Hinweise für die spätere Einbindung in die Weboberfläche: Die Dateien zusammen sind etwa 480 KB groß, gzip-gepackt
 deutlich weniger. Ohne Internet fallen die Schriften auf Systemschriften zurück; das ist gewollt (keine CDNs).
