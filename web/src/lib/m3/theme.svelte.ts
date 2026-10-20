@@ -8,6 +8,7 @@ import {
   SchemeExpressive,
   SchemeTonalSpot,
   SchemeVibrant,
+  TonalPalette,
   type DynamicScheme,
 } from '@material/material-color-utilities';
 
@@ -22,6 +23,12 @@ export const SEEDS = [
   { hex: '#a07a00', name: 'Sonne' },
   { hex: '#b23a6b', name: 'Beere' },
 ];
+
+/** Zusatzfarben: success = Grün (Behoben, OK), warning = Bernstein (Hinweise) → --pixelia-color-<name>[-container] */
+const CUSTOM = [
+  ['success', '#2e7d32'],
+  ['warning', '#b07800'],
+] as const;
 
 const KEY = 'pixelia.theme';
 const media = matchMedia('(prefers-color-scheme: dark)');
@@ -82,6 +89,17 @@ class Theme {
     const root = document.documentElement;
     for (const c of new MaterialDynamicColors().allColors) {
       root.style.setProperty(`--md-sys-color-${c.name.replaceAll('_', '-')}`, hexFromArgb(c.getArgb(scheme)));
+    }
+    // Zusatzfarben (M3 „custom colors“) mit festem Farbton, damit Grün und Bernstein bei jeder Akzentfarbe
+    // erkennbar bleiben; Töne wie bei den Systemfarben (hell 40/100/90/10, dunkel 80/20/30/90)
+    const tones = this.dark ? [80, 20, 30, 90] : [40, 100, 90, 10];
+    for (const [name, hex] of CUSTOM) {
+      const p = TonalPalette.fromInt(argbFromHex(hex));
+      const [c, on, box, onBox] = tones.map((t) => hexFromArgb(p.tone(t)));
+      root.style.setProperty(`--pixelia-color-${name}`, c);
+      root.style.setProperty(`--pixelia-color-on-${name}`, on);
+      root.style.setProperty(`--pixelia-color-${name}-container`, box);
+      root.style.setProperty(`--pixelia-color-on-${name}-container`, onBox);
     }
     root.style.colorScheme = this.dark ? 'dark' : 'light';
     root.dataset.theme = this.dark ? 'dark' : 'light';

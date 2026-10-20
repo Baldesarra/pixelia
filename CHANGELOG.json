@@ -11,6 +11,8 @@
       "Web: Seite Diagnose mit Absturzbericht (Grund, Task, PC, Ausnahme, Backtrace, Rohdaten, Löschen mit PIN), Bilanz und Reset-Historie der letzten 16 Starts"
     ],
     "i": [
+      "Web: Versionsverlauf farbig je Abschnitt: Neu Primärfarbe, Verbessert Tertiär, Behoben Grün, Entfernt Rot, Geprüft neutral, Hinweise Bernstein; zugeklappt farbige Zähler",
+      "Web: Grün und Bernstein als Zusatzfarben im Theme (feste Farbtöne, Töne für hell und dunkel); Erfolgsmeldungen jetzt grün",
       "Web: Seite System zeigt die Diagnose nur noch kurz und verweist auf die neue Seite; Mock mit Versionsverlauf und Absturzbericht (PIXELIA_MOCK_CRASH=0: keiner)",
       "Doku: Roadmap 0.4.x in drei Patches geteilt: 0.4.0 Versionsverlauf und Diagnose, 0.4.1 Update von GitHub, 0.4.2 Experimentell, Live-Vorschau, Leistung"
     ],
@@ -19,7 +21,7 @@
       "Web: Vorschau mit der Build-.bin (1 neue Version) und der Release-.bin 0.3.2 (kein Verlauf); Absturzbericht löschen fragt im Mock den PIN ab",
       "Web: Bundle gzip 127 KB (app.js 91 KB, CSS 8 KB, Schrift 33 KB), Ziel ≤ 150 KB; Firmware 1340 KB = 21,8 % der Partition"
     ],
-    "pr": [17]
+    "pr": [17, 18]
   },
   {
     "v": "0.3.2",
