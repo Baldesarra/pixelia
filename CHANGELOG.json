@@ -29,7 +29,7 @@
       "Web: Bundle gzip 141 KB (Ziel ≤ 150 KB); Firmware 1553 KB = 25,3 % der Partition"
     ],
     "h": [
-      "Update: Die automatische Installation ohne Nachfrage bleibt vorerst aus; ein Hinweis auf dem Display kommt mit den Overlays in 0.5.x"
+      "Update: Keine automatische Installation ohne Nachfrage, auch nicht als Option (Entscheidung des Users); ein Hinweis auf dem Display kommt mit den Overlays in 0.5.x"
     ],
     "pr": [20]
   },
