@@ -21,7 +21,7 @@
       "Web: Vorschau mit der Build-.bin (1 neue Version) und der Release-.bin 0.3.2 (kein Verlauf); Absturzbericht löschen fragt im Mock den PIN ab",
       "Web: Bundle gzip 127 KB (app.js 91 KB, CSS 8 KB, Schrift 33 KB), Ziel ≤ 150 KB; Firmware 1340 KB = 21,8 % der Partition"
     ],
-    "pr": [17]
+    "pr": [17, 18]
   },
   {
     "v": "0.3.2",
