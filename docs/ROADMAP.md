@@ -7,8 +7,8 @@
 
 | | |
 |---|---|
-| **Phase** | 0.4.x Updates & Diagnose: 0.4.0 „Versionsverlauf und Diagnose“ fertig und am Gerät geprüft (eingebetteter Changelog, Versionsverlauf, Änderungsvorschau aus der .bin, Seite Diagnose) |
-| **Letzte Version** | 0.3.2 „System und Schutz“ (2026-10-19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.3.2); 0.4.0 folgt nach dem Merge |
+| **Phase** | 0.4.x Updates & Diagnose: 0.4.1 „Update von GitHub“ in Arbeit (Branch `update-von-github`) |
+| **Letzte Version** | 0.4.0 „Versionsverlauf und Diagnose“ (2026-10-20, PR #17 und #18), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.4.0) mit `pixelia-v0.4.0.bin`, `-factory.bin` und `.elf`; am Gerät geprüft: 29,8 fps, RAM 113/110 KB frei |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
 | **Nächster Schritt** | 0.4.1 Update von GitHub (Prüfung, Kanal Stabil/Vorschau, Installation per HTTPS), frische Arbeits-Sitzung, Denkstufe Hoch |

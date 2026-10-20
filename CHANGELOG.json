@@ -1,5 +1,35 @@
 [
   {
+    "v": "0.4.1",
+    "d": "",
+    "t": "",
+    "s": "",
+    "n": [
+      "Update: Prüfung auf neue Versionen direkt vom Gerät über die GitHub-Releases (nur auf Knopfdruck), Kanal Stabil oder Vorschau (beta, Prerelease), Einstellung im NVS",
+      "Update: Installation per HTTPS vom Gerät (Weiterleitung zum Datei-Server, Zertifikate aus dem ESP-IDF-Bundle) mit Prüfung von Kopf, Version und Größe, Probelauf und Rückfall",
+      "Web: Seite System mit Abschnitt „Von GitHub“: Kanal, Nach Updates suchen, Änderungsvorschau aus den Release-Notes aller neueren Versionen, Installieren mit Fortschritt",
+      "Web: Neue Schnittstellen GET /api/update, POST /api/update/check, /api/update/channel und /api/update/install (PIN wie der Upload); Status meldet ota.src"
+    ],
+    "i": [
+      "System: Puffer von mbedTLS im PSRAM (CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC); eine TLS-Verbindung kostet so nur 13 KB internen RAM",
+      "Doku: Release-Notes nennen das Update von GitHub auf der Seite System als ersten Installationsweg"
+    ],
+    "pr": []
+  },
+  {
+    "v": "0.4.1-beta.1",
+    "d": "2026-10-20",
+    "t": "Update von GitHub (Vorschau)",
+    "s": "Vorabversion zum Testen: Pixelia sucht selbst nach neuen Versionen auf GitHub und installiert sie per HTTPS",
+    "n": [
+      "Update: Prüfung auf neue Versionen über die GitHub-Releases, Kanal Stabil oder Vorschau, Installation per HTTPS direkt vom Gerät mit Probelauf und Rückfall",
+      "Web: Seite System mit Abschnitt „Von GitHub“: Kanal, Nach Updates suchen, Änderungsvorschau aus den Release-Notes, Installieren mit Fortschritt"
+    ],
+    "h": [
+      "Doku: Vorabversion für den ersten echten Durchlauf am Gerät; erscheint nur im Kanal Vorschau, der Web-Flasher bleibt bei der stabilen Version"
+    ]
+  },
+  {
     "v": "0.4.0",
     "d": "2026-10-20",
     "t": "Versionsverlauf und Diagnose",

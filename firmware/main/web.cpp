@@ -13,12 +13,16 @@
 //   POST /api/settings        rot (0|180), bright (1–100), lp (langer Druck in ms, 1000–10000), ui (Farbwahl, JSON)
 //   POST /api/ota             Rohdaten der .bin (application/octet-stream)
 //   POST /api/ota/ack         Hinweis auf zurückgerolltes Update gelesen
+//   GET  /api/update          Update von GitHub (seit 0.4.1, github.h): Kanal, letzte Prüfung, neuere Versionen
+//   POST /api/update/check    neue Versionen suchen (asynchron, Ergebnis über GET /api/update)
+//   POST /api/update/channel  ch (stable|preview)
+//   POST /api/update/install  v (Version aus der letzten Prüfung): laden und installieren, Fortschritt in /api/status
 //   POST /api/reboot
 //   POST /api/speedtest       Daten empfangen und verwerfen (Messung der Übertragungsrate)
 //
 // Schutz (seit 0.3.2, auth.h): GET /api/auth (Stand), POST /api/login (pin → token), /api/logout, /api/pin (new,
 // leer = aus), /api/factory-reset (confirm=1), GET /api/backup (Sicherung als Datei, ohne Passwörter und PIN).
-// Mit PIN brauchen alle ändernden Endpunkte außer /api/ota/ack, /api/wifi/scan und /api/speedtest eine Anmeldung;
+// Mit PIN brauchen alle ändernden Endpunkte außer /api/ota/ack, /api/wifi/scan, /api/update/check und /api/speedtest eine Anmeldung;
 // /api/wifi/add im Setup-Modus nicht. Lesen bleibt offen (wie das Diagnosepaket: ohne Passwörter).
 //
 // Fernwartung (seit 0.2.2, web_diag.cpp): /api/log, WebSocket /ws/log, /api/cmd, /api/perf, /api/resets,
@@ -45,6 +49,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "github.h"
 #include "json.h"
 #include "logbuf.h"
 #include "net.h"
@@ -102,7 +107,7 @@ std::string status_json() {
     j.end_obj();
 
     j.obj("ota");
-    j.boolean("busy", o.busy).num("bytes", o.bytes).num("total", o.total).str("newV", o.new_version);
+    j.boolean("busy", o.busy).str("src", o.source).num("bytes", o.bytes).num("total", o.total).str("newV", o.new_version);
     j.str("err", o.last_error).boolean("trial", o.trial).num("trialS", o.trial_elapsed_s);
     j.num("trialNeed", ota::kTrialSeconds).str("trialNote", o.trial_note).boolean("passed", o.trial_passed);
     j.end_obj();
@@ -284,7 +289,10 @@ void broadcast_work(void* arg) {
 void status_task(void*) {
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(1000));
-        if (s_ws_clients <= 0 || ota::status().busy) continue;
+        // Beim Upload sendet der Upload-Handler selbst (der Server ist dann belegt); beim Download von GitHub nicht
+        if (s_ws_clients <= 0) continue;
+        const ota::Status o = ota::status();
+        if (o.busy && std::strcmp(o.source, "github") != 0) continue;
         auto* text = new std::string(status_json());
         if (httpd_queue_work(s_server, broadcast_work, text) != ESP_OK) delete text;
     }
@@ -620,6 +628,39 @@ esp_err_t ota_post(httpd_req_t* req) {
     return ESP_OK;
 }
 
+// --- Update von GitHub (github.h): Prüfen ohne PIN (ändert nichts), Kanal und Installation mit PIN ---------------
+
+esp_err_t update_get(httpd_req_t* req) { return send_json(req, github::state_json()); }
+
+esp_err_t update_check_post(httpd_req_t* req) {
+    std::string body;
+    read_body(req, &body, 256);
+    char error[160];
+    if (!github::start_check(error, sizeof(error))) return reply(req, false, error);
+    return reply(req, true, "Prüfung läuft");
+}
+
+esp_err_t update_channel_post(httpd_req_t* req) {
+    std::string body, ch;
+    read_body(req, &body, 256);
+    if (!authorized(req, &body)) return deny(req);
+    if (!form_value(body, "ch", &ch) || (ch != "stable" && ch != "preview")) {
+        return reply(req, false, "Kanal fehlt (stable oder preview)");
+    }
+    github::set_channel(ch == "preview" ? github::Channel::Preview : github::Channel::Stable);
+    return reply(req, true, "OK");
+}
+
+esp_err_t update_install_post(httpd_req_t* req) {
+    std::string body, v;
+    read_body(req, &body, 256);
+    if (!authorized(req, &body)) return deny(req);
+    if (!form_value(body, "v", &v)) return reply(req, false, "Version fehlt");
+    char error[160];
+    if (!github::start_install(v.c_str(), error, sizeof(error))) return reply(req, false, error);
+    return reply(req, true, "Download läuft");
+}
+
 // Netzwerk-Messung: nimmt beliebige Daten entgegen und verwirft sie (Diagnose der Übertragungsrate ohne Flashen,
 // z. B. curl --data-binary @datei http://pixelia/api/speedtest)
 esp_err_t speedtest_post(httpd_req_t* req) {
@@ -679,7 +720,7 @@ void start() {
     cfg.core_id = kSystemCore;
     cfg.stack_size = 8192;
     cfg.task_priority = 5;
-    cfg.max_uri_handlers = 56;  // 0.4.0: 45 belegt
+    cfg.max_uri_handlers = 56;  // 0.4.1: 49 belegt
     cfg.max_open_sockets = 7;
     cfg.lru_purge_enable = true;
     cfg.recv_wait_timeout = 10;
@@ -707,6 +748,10 @@ void start() {
     add("/api/settings", HTTP_POST, settings_post);
     add("/api/ota", HTTP_POST, ota_post);
     add("/api/ota/ack", HTTP_POST, ota_ack_post);
+    add("/api/update", HTTP_GET, update_get);
+    add("/api/update/check", HTTP_POST, update_check_post);
+    add("/api/update/channel", HTTP_POST, update_channel_post);
+    add("/api/update/install", HTTP_POST, update_install_post);
     add("/api/reboot", HTTP_POST, reboot_post);
     add("/api/auth", HTTP_GET, auth_get);
     add("/api/login", HTTP_POST, login_post);

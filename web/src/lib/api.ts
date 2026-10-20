@@ -133,3 +133,17 @@ export type Backup = {
   wifi: string[];
   pin: boolean;
 };
+
+/** GET /api/update (seit 0.4.1): Update von GitHub, neuere Versionen mit Release-Notes (Markdown) */
+export type GhRelease = { v: string; pre: boolean; date: string; size: number; notes: string };
+export type GhState = {
+  ch: 'stable' | 'preview';
+  job: '' | 'check' | 'install';
+  err: string;
+  net: boolean;
+  checkedS: number; // Sekunden seit der letzten Prüfung, -1 = noch nie
+  checkedCh: 'stable' | 'preview';
+  latest: string; // neueste Version im Kanal (auch wenn nicht neuer)
+  rel: GhRelease[]; // neuer als installiert, neueste zuerst
+  rate: { left: number; limit: number; resetS: number };
+};

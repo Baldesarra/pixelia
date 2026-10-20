@@ -313,7 +313,7 @@ bool check_header(const uint8_t* head, size_t len, esp_app_desc_t* desc, char* e
     return true;
 }
 
-esp_err_t begin(const uint8_t* head, size_t len, size_t total, char* error, size_t error_len) {
+esp_err_t begin(const uint8_t* head, size_t len, size_t total, char* error, size_t error_len, const char* source) {
     esp_app_desc_t ad;
     if (!check_header(head, len, &ad, error, error_len)) {
         set_error(error);
@@ -350,14 +350,15 @@ esp_err_t begin(const uint8_t* head, size_t len, size_t total, char* error, size
     {
         std::lock_guard<std::mutex> g(s_lock);
         s_status.busy = true;
+        std::snprintf(s_status.source, sizeof(s_status.source), "%s", source);
         s_status.bytes = 0;
         s_status.total = static_cast<uint32_t>(total);
         std::snprintf(s_status.new_version, sizeof(s_status.new_version), "%s", ad.version);
         s_status.last_error[0] = 0;
     }
     s_ui_bytes = 0;
-    ESP_LOGW(TAG, "Update auf %s (%u KB, gebaut %s %s) nach %s", ad.version, static_cast<unsigned>(total / 1024),
-             ad.date, ad.time, s_target->label);
+    ESP_LOGW(TAG, "Update auf %s (%u KB, gebaut %s %s, Quelle %s) nach %s", ad.version,
+             static_cast<unsigned>(total / 1024), ad.date, ad.time, source, s_target->label);
     show_progress(UpdateInfo::Phase::Receiving);
     return ESP_OK;
 }

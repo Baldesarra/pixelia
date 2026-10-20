@@ -133,7 +133,10 @@ def notes(entry, version):
     lines += [
         "### Installation",
         "",
-        "- **Update (ab 0.2.0):** auf der Einrichtungsseite des Geräts unter „Update“ die Datei "
+        "- **Update von GitHub (ab 0.4.1):** in der Oberfläche auf der Seite System unter „Von GitHub“ auf "
+        "„Nach Updates suchen“ tippen, dann installieren"
+        + (" (Vorabversion: Kanal „Vorschau“ wählen)." if "-" in version else "."),
+        "- **Update aus Datei (ab 0.2.0):** auf der Seite System bzw. der Einrichtungsseite unter „Update“ die Datei "
         f"`pixelia-v{version}.bin` hochladen.",
         "- **Erstinstallation:** Web-Flasher https://baldesarra.github.io/pixelia/ öffnen (Chrome oder Edge am PC), "
         "Board per USB-Datenkabel anschließen, auf „Installieren“ klicken.",

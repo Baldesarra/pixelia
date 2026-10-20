@@ -81,6 +81,8 @@ export const ICONS = [
   'remove',
   'power_settings_new',
   'refresh',
+  'cloud_download',
+  'science',
 ] as const;
 
 export type IconName = (typeof ICONS)[number];

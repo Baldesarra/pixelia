@@ -40,6 +40,7 @@ export type Status = {
   };
   ota: {
     busy: boolean;
+    src?: 'upload' | 'github'; // seit 0.4.1
     bytes: number;
     total: number;
     newV: string;
