@@ -323,4 +323,5 @@ Neue Wünsche des Users landen hier (mit Datum) und werden einer Version zugeord
 | 2026-10-20 | **Erste Phase von 0.5.x nachprüfen** (ausdrücklicher Wunsch des Users): Alles, was in der ersten Phase von 0.5.x gebaut wird, wird erneut geprüft und an das Setting angepasst, sobald dieses feststeht | nach der Setting-Entscheidung |
 | 2026-10-20 | **Hinweis auf eine neue Version auch auf dem Display** (gefunden von der Prüfung im Hintergrund), Entscheidung des Planungs-Chats | 0.5.x (mit den Overlays) |
 | 2026-10-20 | Automatische Installation neuer Versionen ohne Nachfrage | ❌ entschieden: nicht, auch nicht als Option; Hinweis reicht (Entscheidung des Users) |
+| 2026-10-20 | **Easter Egg „So entstand Pixelia“:** Knopf in der Weboberfläche öffnet die frühen Skizzen ([docs/skizzen](skizzen/README.md): fünf Perspektiven, dann die gewählte Mischung), als Rückblick auf die Entwicklung (Wunsch des Users) | später (Weboberfläche) |
 | 2026-10-19 | Log-Zeilen der WLAN-Bibliothek, die in zwei Teilen kommen (z. B. „wifi:“ + „<ba-add>…“), im Log-Puffer zu einer Zeile zusammenfügen | offen (Kleinigkeit) |
