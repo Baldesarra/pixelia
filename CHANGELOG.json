@@ -1,9 +1,9 @@
 [
   {
     "v": "0.4.0",
-    "d": "",
-    "t": "",
-    "s": "",
+    "d": "2026-10-20",
+    "t": "Versionsverlauf und Diagnose",
+    "s": "Changelog in der Firmware, Timeline aller Versionen, Vorschau vor dem Update und Absturzberichte in der Oberfläche",
     "n": [
       "Update: CHANGELOG.json steckt als gzip-Block mit festem Marker in der Firmware (tools/release_notes.py --embed, 10 KB), GET /api/changelog liefert ihn aus",
       "Web: Seite Versionsverlauf als Timeline mit allen Feldern (Neu, Verbessert, Behoben, Entfernt, Geprüft, Hinweise, Pull Requests), installierte Version markiert",
