@@ -79,7 +79,7 @@ function mockDevice(): Plugin {
     const log = JSON.parse(readFileSync(fileURLToPath(new URL('../CHANGELOG.json', import.meta.url)), 'utf8')) as Entry[];
     const today = new Date().toISOString().slice(0, 10);
     const all = log.filter((e) => e.d).map((e) => ({ v: e.v, pre: e.v.includes('-'), date: e.d, size: 1_556_000, notes: notesMd(e) }));
-    if (!log[0].d) {
+    if (!log[0].d && !all.some((r) => r.v.startsWith(`${log[0].v}-`))) {
       const v = `${log[0].v}-beta.1`;
       all.unshift({ v, pre: true, date: today, size: 1_559_000, notes: notesMd({ ...log[0], v, t: log[0].t || 'Update von GitHub', s: log[0].s || 'Vorabversion zum Ausprobieren', d: today }) });
     }
@@ -127,6 +127,8 @@ function mockDevice(): Plugin {
     apply: 'serve',
     configureServer(server) {
       if (server.config.mode !== 'mock') return;
+      // Kopflose Screenshot-Läufe kappen Verbindungen hart: ohne Handler beendet ECONNRESET den ganzen Mock
+      server.httpServer?.on('connection', (socket) => socket.on('error', () => {}));
       server.middlewares.use('/api/auth', (req, res) => {
         const t = req.headers['x-pixelia-token'];
         json(res, { pin: !!pin, ok: !pin || (typeof t === 'string' && tokens.has(t)), lockS: lockS(), left: Math.max(1, 5 - fails) });

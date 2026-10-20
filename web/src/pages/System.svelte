@@ -486,7 +486,7 @@
           </div>
         {:else if ghFresh}
           <p>
-            Pixelia ist aktuell. {gh?.latest ? `Neueste ${ghCh === 'stable' ? 'stabile ' : ''}Version auf GitHub: ${gh.latest}.` : 'In diesem Kanal gibt es auf GitHub noch keine Version.'}
+            Pixelia ist aktuell. {!gh?.latest ? 'In diesem Kanal gibt es auf GitHub noch keine Version.' : cmpVersion(parseFw(s.v).base, gh.latest) > 0 ? `Installiert ist ${s.v}, neuer als die neueste ${ghCh === 'stable' ? 'stabile ' : ''}Version auf GitHub (${gh.latest}).` : `Neueste ${ghCh === 'stable' ? 'stabile ' : ''}Version auf GitHub: ${gh.latest}.`}
           </p>
         {:else}
           <p class="muted">

@@ -205,6 +205,20 @@ prüft danach, dass die neue Version läuft und den Selbsttest bestanden hat. St
 `-Target <IP>`; `-Build` baut vorher, `-NoWait` lädt nur hoch. Exit 0 = läuft und bestanden, 1 = Fehler oder Rückfall,
 2 = falsche Datei. Volles Protokoll in `.logs/ota-last.log`.
 
+**Update von GitHub (seit 0.4.1, gemessen 2026-10-20, WLAN -64 dBm):** Das Gerät fragt
+`api.github.com/repos/Baldesarra/pixelia/releases?per_page=10` ab (9 Releases = 107 KB Antwort im PSRAM, 2,8 s inkl.
+TLS-Handschlag) und lädt `pixelia-vX.Y.Z.bin` über die Weiterleitung auf `release-assets.githubusercontent.com`.
+
+| Messung | Wert |
+|---|---|
+| Interner RAM während der TLS-Verbindung | 109 → 96 KB frei (mbedTLS-Puffer im PSRAM, `CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC`) |
+| Download 0.4.0-1-gf8d1acc → 0.4.1-beta.1 (1521 KB) | 16,6 s gesamt: Verbindung mit Weiterleitung 3,3 s, Löschen 4,5 s, ~114 KB/s |
+| Während des Downloads | 29,8–30,3 fps, interner RAM ≥ 90 KB frei (Tiefstwert seit Start 88 KB), Stack der Task 5,4 von 8 KB |
+| Danach | Neustart, Probelauf 60 s bestanden, 29,8 fps, RAM 117/111 KB |
+
+Ohne Token erlaubt GitHub 60 Abfragen pro Stunde je öffentlicher IP (geteilt mit allen Geräten im Heimnetz); der Download
+der Datei zählt nicht. Deshalb nur auf Knopfdruck.
+
 ## Diagnose-Schnittstelle
 
 Die Firmware nimmt über die serielle Konsole (115200 Baud) und seit 0.2.2 auch per WLAN (`POST /api/cmd`, siehe

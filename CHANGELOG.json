@@ -1,9 +1,9 @@
 [
   {
     "v": "0.4.1",
-    "d": "",
-    "t": "",
-    "s": "",
+    "d": "2026-10-20",
+    "t": "Update von GitHub",
+    "s": "Pixelia sucht auf Knopfdruck selbst nach neuen Versionen auf GitHub und installiert sie per HTTPS, Kanal Stabil oder Vorschau",
     "n": [
       "Update: Prüfung auf neue Versionen direkt vom Gerät über die GitHub-Releases (nur auf Knopfdruck), Kanal Stabil oder Vorschau (beta, Prerelease), Einstellung im NVS",
       "Update: Installation per HTTPS vom Gerät (Weiterleitung zum Datei-Server, Zertifikate aus dem ESP-IDF-Bundle) mit Prüfung von Kopf, Version und Größe, Probelauf und Rückfall",
@@ -12,9 +12,14 @@
     ],
     "i": [
       "System: Puffer von mbedTLS im PSRAM (CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC); eine TLS-Verbindung kostet so nur 13 KB internen RAM",
-      "Doku: Release-Notes nennen das Update von GitHub auf der Seite System als ersten Installationsweg"
+      "Doku: Release-Notes nennen das Update von GitHub auf der Seite System als ersten Installationsweg",
+      "Web: Mock spielt das Update von GitHub (Releases aus CHANGELOG.json, PIXELIA_MOCK_GH=limit|fail) und übersteht hart getrennte Verbindungen der Screenshot-Läufe"
     ],
-    "pr": []
+    "g": [
+      "Gerät: Prüfung 9 Releases (107 KB, 2,8 s), Download 0.4.0-1 → 0.4.1-beta.1 über GitHub 1521 KB in 16,6 s, 29,8 fps, RAM ≥ 90 KB frei, Probelauf bestanden",
+      "Web: Bundle gzip 130 KB (Ziel ≤ 150 KB); Firmware 1522 KB = 24,8 % der Partition; Mock-Durchlauf Suchen, Installieren, Neustart und Probelauf"
+    ],
+    "pr": [19]
   },
   {
     "v": "0.4.1-beta.1",
