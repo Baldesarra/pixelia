@@ -11,6 +11,8 @@
       "Web: Seite Diagnose mit Absturzbericht (Grund, Task, PC, Ausnahme, Backtrace, Rohdaten, Löschen mit PIN), Bilanz und Reset-Historie der letzten 16 Starts"
     ],
     "i": [
+      "Web: Versionsverlauf farbig je Abschnitt: Neu Primärfarbe, Verbessert Tertiär, Behoben Grün, Entfernt Rot, Geprüft neutral, Hinweise Bernstein; zugeklappt farbige Zähler",
+      "Web: Grün und Bernstein als Zusatzfarben im Theme (feste Farbtöne, Töne für hell und dunkel); Erfolgsmeldungen jetzt grün",
       "Web: Seite System zeigt die Diagnose nur noch kurz und verweist auf die neue Seite; Mock mit Versionsverlauf und Absturzbericht (PIXELIA_MOCK_CRASH=0: keiner)",
       "Doku: Roadmap 0.4.x in drei Patches geteilt: 0.4.0 Versionsverlauf und Diagnose, 0.4.1 Update von GitHub, 0.4.2 Experimentell, Live-Vorschau, Leistung"
     ],

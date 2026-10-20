@@ -46,7 +46,7 @@
   font: var(--md-sys-typescale-body-small);
 }
 .ok-text {
-  color: var(--md-sys-color-primary);
+  color: var(--pixelia-color-success, var(--md-sys-color-primary));
 }
 .err-text {
   color: var(--md-sys-color-error);

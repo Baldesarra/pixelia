@@ -33,9 +33,12 @@
       {#if entry.t}<span class="t">{entry.t}</span>{/if}
       {#if mark}<span class="mark">{mark}</span>{/if}
     </span>
-    <span class="sub">
-      {entry.d ? dateDe(entry.d) : 'in Arbeit'}{entry.s ? ` · ${entry.s}` : ''}{open ? '' : ` · ${count} Änderungen`}
-    </span>
+    <span class="sub">{entry.d ? dateDe(entry.d) : 'in Arbeit'}{entry.s ? ` · ${entry.s}` : ''}</span>
+    {#if !open}
+      <span class="counts" aria-label="{count} Änderungen">
+        {#each sections as s (s.key)}<span class="cnt {s.key}">{s.items.length} {s.label}</span>{/each}
+      </span>
+    {/if}
   {/snippet}
   {#if toggle}
     <button class="head" type="button" aria-expanded={open} onclick={() => (open = !open)}>
@@ -47,13 +50,15 @@
 
   {#if open}
     {#each sections as s (s.key)}
-      <h4 class="sec {s.key}"><Icon name={s.icon} size={18} />{s.label}</h4>
-      <ul>
-        {#each s.items as item, k (k)}
-          {@const [area, text] = split(item)}
-          <li>{#if area}<span class="area">{area}</span>{/if}{text}</li>
-        {/each}
-      </ul>
+      <section class="sec {s.key}">
+        <h4><Icon name={s.icon} size={18} />{s.label}</h4>
+        <ul>
+          {#each s.items as item, k (k)}
+            {@const [area, text] = split(item)}
+            <li>{#if area}<span class="area">{area}</span>{/if}{text}</li>
+          {/each}
+        </ul>
+      </section>
     {/each}
     {#if entry.pr?.length}
       <p class="prs">
@@ -120,30 +125,74 @@
   .open .chev {
     transform: rotate(180deg);
   }
+  /* Farbe je Abschnitt: --c Akzent (Linie, Punkte), --bg/--fg Etikett. Neu = Primärfarbe kräftig (M3 Expressive),
+     Verbessert = Tertiär, Behoben = Grün, Entfernt = Rot, Geprüft = Sekundär, Hinweise = Bernstein */
+  .n {
+    --c: var(--md-sys-color-primary);
+    --bg: var(--md-sys-color-primary);
+    --fg: var(--md-sys-color-on-primary);
+  }
+  .i {
+    --c: var(--md-sys-color-tertiary);
+    --bg: var(--md-sys-color-tertiary-container);
+    --fg: var(--md-sys-color-on-tertiary-container);
+  }
+  .f {
+    --c: var(--pixelia-color-success);
+    --bg: var(--pixelia-color-success-container);
+    --fg: var(--pixelia-color-on-success-container);
+  }
+  .r {
+    --c: var(--md-sys-color-error);
+    --bg: var(--md-sys-color-error-container);
+    --fg: var(--md-sys-color-on-error-container);
+  }
+  .g {
+    --c: var(--md-sys-color-secondary);
+    --bg: var(--md-sys-color-secondary-container);
+    --fg: var(--md-sys-color-on-secondary-container);
+  }
+  .h {
+    --c: var(--pixelia-color-warning);
+    --bg: var(--pixelia-color-warning-container);
+    --fg: var(--pixelia-color-on-warning-container);
+  }
   .sec {
-    display: flex;
+    margin-top: 16px;
+  }
+  h4 {
+    display: inline-flex;
     align-items: center;
     gap: 6px;
-    margin: 16px 0 6px;
+    margin: 0 0 8px;
+    padding: 4px 12px 4px 8px;
+    border-radius: var(--md-sys-shape-corner-full);
+    background: var(--bg);
+    color: var(--fg);
     font: var(--md-sys-typescale-label-large);
     font-weight: 650;
-    color: var(--md-sys-color-on-surface-variant);
-  }
-  .sec.n {
-    color: var(--md-sys-color-primary);
-  }
-  .sec.f {
-    color: var(--md-sys-color-tertiary);
-  }
-  .sec.r {
-    color: var(--md-sys-color-error);
   }
   ul {
     display: grid;
     gap: 6px;
-    margin: 0;
-    padding: 0 0 0 4px;
+    margin: 0 0 0 10px;
+    padding: 2px 0 2px 12px;
     list-style: none;
+    border-left: 2px solid color-mix(in srgb, var(--c) 45%, transparent);
+  }
+  .counts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .cnt {
+    padding: 1px 8px;
+    border-radius: var(--md-sys-shape-corner-full);
+    background: var(--bg);
+    color: var(--fg);
+    font: var(--md-sys-typescale-label-medium);
+    font-weight: 600;
   }
   li {
     position: relative;
@@ -158,15 +207,15 @@
     width: 5px;
     height: 5px;
     border-radius: 2px;
-    background: var(--md-sys-color-outline);
+    background: var(--c);
   }
   .area {
     display: inline-block;
     margin-right: 6px;
     padding: 0 6px;
     border-radius: var(--md-sys-shape-corner-extra-small);
-    background: var(--md-sys-color-secondary-container);
-    color: var(--md-sys-color-on-secondary-container);
+    background: var(--md-sys-color-surface-container-highest);
+    color: var(--md-sys-color-on-surface-variant);
     font: var(--md-sys-typescale-label-medium);
     font-weight: 600;
     line-height: 1.6;
