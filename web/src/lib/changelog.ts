@@ -111,5 +111,39 @@ export async function logFromBin(file: Blob): Promise<BinLog> {
   return { ok: false, why: 'none' };
 }
 
+// --- Release-Notes von GitHub ---------------------------------------------------------------------------------
+
+/**
+ * Eintrag aus den Release-Notes eines GitHub-Releases (Markdown von tools/release_notes.py: „## Pixelia X – Titel“,
+ * „*Untertitel* · Datum“, „### Neu“ … mit Stichpunkten, „### Pull Requests“). So zeigt die Vorschau die Version
+ * auf GitHub mit denselben Abschnitten wie der Versionsverlauf, ohne die .bin dafür zu laden. Fremder Text landet
+ * unter „Hinweise“.
+ */
+export function entryFromNotes(v: string, md: string, date: string): ChangeEntry {
+  const e: ChangeEntry = { v, d: date, t: '', s: '' };
+  const label = new Map<string, string>(SECTIONS.map((x) => [x.label, x.key]));
+  let key: string | null = 'h';
+  for (const raw of md.split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    let m: RegExpExecArray | null;
+    if ((m = /^##\s+(.*)$/.exec(line))) {
+      e.t = m[1].replace(/^Pixelia\s+\S+\s+[–-]\s+/, '');
+    } else if ((m = /^\*(.+)\*\s+·\s+(\d{4}-\d{2}-\d{2})$/.exec(line))) {
+      e.s = m[1];
+      e.d = m[2];
+    } else if ((m = /^###\s+(.*)$/.exec(line))) {
+      key = m[1] === 'Pull Requests' ? 'pr' : (label.get(m[1]) ?? 'h');
+    } else if (key === 'pr') {
+      e.pr = [...line.matchAll(/#(\d+)/g)].map((x) => +x[1]);
+    } else if (key) {
+      const list = ((e as Record<string, unknown>)[key] as string[] | undefined) ?? [];
+      list.push(line.replace(/^[-*]\s+/, ''));
+      (e as Record<string, unknown>)[key] = list;
+    }
+  }
+  return e;
+}
+
 /** Datum JJJJ-MM-TT → TT.MM.JJJJ */
 export const dateDe = (d: string) => d.split('-').reverse().join('.');

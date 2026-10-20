@@ -72,3 +72,7 @@ CONFIG_LWIP_TCP_WND_DEFAULT=32768
 CONFIG_LWIP_TCP_RECVMBOX_SIZE=32
 CONFIG_LWIP_TCP_SND_BUF_DEFAULT=16384
 CONFIG_LWIP_TCP_SACK_OUT=y
+
+# HTTPS (Update von GitHub, 0.4.1): Puffer von mbedTLS (16 KB Empfang, Handschlag, Zertifikate) im PSRAM, der
+# interne RAM bleibt für Display und WLAN. Zertifikate aus dem Bundle von ESP-IDF (Standard: vollständige Liste).
+CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y

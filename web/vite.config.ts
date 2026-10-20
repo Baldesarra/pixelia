@@ -51,6 +51,45 @@ function mockDevice(): Plugin {
   let fails = 0;
   let lockedUntil = 0;
   const tokens = new Set<string>();
+  // Update von GitHub (0.4.1): gespielte Releases aus CHANGELOG.json (Release-Notes wie tools/release_notes.py), dazu
+  // eine Vorabversion des offenen Eintrags. PIXELIA_MOCK_GH=limit spielt das Limit der API, =fail einen Abbruch.
+  const ghMode = process.env.PIXELIA_MOCK_GH ?? '';
+  let installedV = '0.3.2';
+  const ota = { busy: false, src: 'upload', bytes: 0, total: 0, newV: '', err: '', trial: false, trialS: 0, trialNeed: 60, trialNote: '', passed: true };
+  const gh = { ch: 'stable', job: '', err: '', checkedAt: 0, checkedCh: 'stable', latest: '', rel: [] as unknown[], left: 60 };
+  let downUntil = 0; // simulierter Neustart
+  const cmpV = (a: string, b: string) => {
+    const p = (v: string) => { const m = /^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?/.exec(v) ?? []; return [+m[1], +m[2], +m[3], m[4] ? 0 : 1, +(m[4] ?? 0)]; };
+    const x = p(a), y = p(b);
+    for (let i = 0; i < 5; i++) if (x[i] !== y[i]) return x[i] - y[i];
+    return 0;
+  };
+  type Entry = { v: string; d: string; t: string; s: string; pr?: number[] } & Record<string, unknown>;
+  const SECT: [string, string][] = [['n', 'Neu'], ['i', 'Verbessert'], ['f', 'Behoben'], ['r', 'Entfernt'], ['g', 'Geprüft'], ['h', 'Hinweise']];
+  const notesMd = (e: Entry) => {
+    const l = [`## Pixelia ${e.v} – ${e.t}`, '', `*${e.s}* · ${e.d}`, ''];
+    for (const [k, name] of SECT) {
+      const items = (e[k] as string[] | undefined) ?? [];
+      if (items.length) l.push(`### ${name}`, ...items.map((x) => `- ${x}`), '');
+    }
+    if (e.pr?.length) l.push('### Pull Requests', e.pr.map((n) => `[#${n}](https://github.com/Baldesarra/pixelia/pull/${n})`).join(', '));
+    return l.join('\n').trim();
+  };
+  const ghCheck = () => {
+    const log = JSON.parse(readFileSync(fileURLToPath(new URL('../CHANGELOG.json', import.meta.url)), 'utf8')) as Entry[];
+    const today = new Date().toISOString().slice(0, 10);
+    const all = log.filter((e) => e.d).map((e) => ({ v: e.v, pre: e.v.includes('-'), date: e.d, size: 1_556_000, notes: notesMd(e) }));
+    if (!log[0].d && !all.some((r) => r.v.startsWith(`${log[0].v}-`))) {
+      const v = `${log[0].v}-beta.1`;
+      all.unshift({ v, pre: true, date: today, size: 1_559_000, notes: notesMd({ ...log[0], v, t: log[0].t || 'Update von GitHub', s: log[0].s || 'Vorabversion zum Ausprobieren', d: today }) });
+    }
+    const inCh = all.filter((r) => gh.ch === 'preview' || !r.pre).sort((a, b) => cmpV(b.v, a.v));
+    gh.latest = inCh[0]?.v ?? '';
+    gh.rel = inCh.filter((r) => cmpV(r.v, installedV) > 0);
+    gh.checkedAt = Date.now();
+    gh.checkedCh = gh.ch;
+    gh.left = Math.max(0, gh.left - 1);
+  };
   type Req = import('node:http').IncomingMessage;
   type Res = import('node:http').ServerResponse;
   const form = (req: Req) =>
@@ -88,6 +127,8 @@ function mockDevice(): Plugin {
     apply: 'serve',
     configureServer(server) {
       if (server.config.mode !== 'mock') return;
+      // Kopflose Screenshot-Läufe kappen Verbindungen hart: ohne Handler beendet ECONNRESET den ganzen Mock
+      server.httpServer?.on('connection', (socket) => socket.on('error', () => {}));
       server.middlewares.use('/api/auth', (req, res) => {
         const t = req.headers['x-pixelia-token'];
         json(res, { pin: !!pin, ok: !pin || (typeof t === 'string' && tokens.has(t)), lockS: lockS(), left: Math.max(1, 5 - fails) });
@@ -227,6 +268,68 @@ function mockDevice(): Plugin {
         res.setHeader('Content-Disposition', 'attachment; filename="pixelia-coredump-mock.bin"');
         res.end(Buffer.alloc(crashed ? 1024 : 0));
       });
+      // Update von GitHub (erst die Unterpfade, sonst fängt der Präfix-Abgleich von /api/update alles)
+      server.middlewares.use('/api/update/check', (_req, res) => {
+        if (setup) return json(res, { ok: false, msg: 'Im Setup-Modus hat Pixelia kein Internet. Erst das WLAN einrichten.' });
+        if (gh.job) return json(res, { ok: false, msg: 'Die Prüfung läuft schon' });
+        gh.job = 'check';
+        gh.err = '';
+        setTimeout(() => {
+          gh.job = '';
+          if (ghMode === 'limit') gh.err = 'GitHub-Limit erreicht: höchstens 60 Abfragen pro Stunde je Internetanschluss. Wieder möglich um 18:42 Uhr (in 23 min).';
+          else ghCheck();
+        }, 1800);
+        json(res, { ok: true, msg: 'Prüfung läuft' });
+      });
+      server.middlewares.use('/api/update/channel', async (req, res) => {
+        const f = await form(req);
+        if (!authorized(req, f)) return deny(res);
+        gh.ch = f.get('ch') === 'preview' ? 'preview' : 'stable';
+        json(res, { ok: true, msg: 'OK' });
+      });
+      server.middlewares.use('/api/update/install', async (req, res) => {
+        const f = await form(req);
+        if (!authorized(req, f)) return deny(res);
+        const r = gh.rel[0] as { v: string; size: number } | undefined;
+        if (!r || r.v !== f.get('v')) return json(res, { ok: false, msg: 'Version ist nicht das Ergebnis der letzten Prüfung, bitte neu suchen' });
+        gh.job = 'install';
+        gh.err = '';
+        json(res, { ok: true, msg: 'Download läuft' });
+        setTimeout(() => {
+          Object.assign(ota, { busy: true, src: 'github', bytes: 0, total: r.size, newV: r.v });
+          const timer = setInterval(() => {
+            ota.bytes = Math.min(r.size, ota.bytes + Math.round(r.size / 16));
+            if (ghMode === 'fail' && ota.bytes > r.size / 3) {
+              clearInterval(timer);
+              Object.assign(ota, { busy: false });
+              gh.job = '';
+              gh.err = 'Download nach 512 KB abgebrochen';
+              return;
+            }
+            if (ota.bytes < r.size) return;
+            clearInterval(timer);
+            // Neustart, danach Probelauf (im Mock schneller)
+            downUntil = Date.now() + 3000;
+            setTimeout(() => {
+              installedV = r.v;
+              gh.job = '';
+              gh.rel = [];
+              Object.assign(ota, { busy: false, trial: true, trialS: 0, passed: false });
+              const trial = setInterval(() => {
+                ota.trialS += 6;
+                if (ota.trialS >= 60) Object.assign(ota, { trial: false, passed: true }), clearInterval(trial);
+              }, 1000);
+            }, 3000);
+          }, 400);
+        }, 1500);
+      });
+      server.middlewares.use('/api/update', (_req, res) => {
+        if (Date.now() < downUntil) return ((res.statusCode = 503), res.end());
+        json(res, {
+          ch: gh.ch, job: gh.job, err: gh.err, net: !setup, checkedS: gh.checkedAt ? Math.floor((Date.now() - gh.checkedAt) / 1000) : -1,
+          checkedCh: gh.checkedCh, latest: gh.latest, rel: gh.rel, rate: { left: gh.left, limit: 60, resetS: 1380 },
+        });
+      });
       // Versionsverlauf wie in der Firmware: CHANGELOG.json aus dem Repo
       server.middlewares.use('/api/changelog', (_req, res) => {
         res.setHeader('Content-Type', 'application/json');
@@ -257,12 +360,13 @@ function mockDevice(): Plugin {
       });
       server.middlewares.use('/api/cmd', (_req, res) => json(res, { ok: true, cmd: 'help', out: 'help    Befehle anzeigen\nperf    Leistung\nwifi    WLAN-Status', ms: 12 }));
       server.middlewares.use('/api/status', (_req, res) => {
+        if (Date.now() < downUntil) return ((res.statusCode = 503), res.end());
         const up = Math.floor((Date.now() - t0) / 1000) + 3 * 3600 + 17 * 60;
         const j = (x: number) => Math.round((x + Math.random() * 0.4 - 0.2) * 10) / 10;
         res.setHeader('Content-Type', 'application/json');
         res.end(
           JSON.stringify({
-            v: '0.3.2', built: 'Oct 19 2026 18:02:11', idf: 'v6.1', part: 'ota_0', uptime: up, host: 'pixelia',
+            v: installedV, built: 'Oct 19 2026 18:02:11', idf: 'v6.1', part: 'ota_0', uptime: up, host: 'pixelia',
             wifi: setup
               ? { state: 'setup', ssid: '', rssi: 0, ch: 1, ip: '', ap: true, apClients: 1, retry: 87, err: 'Kein gespeichertes Netz', saved: 0 }
               : { state: 'verbunden', ssid: 'FRITZ!Box 7590', rssi: -58, ch: 6, ip: '192.168.178.74', ap: false,
@@ -270,8 +374,7 @@ function mockDevice(): Plugin {
             time: { valid: !setup, local: setup ? '' : new Date().toLocaleString('de-DE').replace(',', '') },
             perf: { fps: 30, render: j(4.0), isr: j(20), lcd: 60.02, cpu0: Math.round(j(9)), cpu1: Math.round(j(34)),
               desync: 0, ram: 117, ramMin: 107, ramBlk: 92, psram: 7310, psramMin: 7280 },
-            ota: { busy: false, bytes: 0, total: 0, newV: '', err: '', trial: false, trialS: 0, trialNeed: 60,
-              trialNote: '', passed: true },
+            ota,
             rollback: null, set, auth: { pin: !!pin, lockS: lockS() },
             diag: { boot: 42, reset: 'Software-Neustart', errors: 0, warnings: 2, logLines: 1834,
               crash: crashed ? { task: 'httpd', reason: 'LoadProhibited', v: '0.3.0' } : null },

@@ -7,14 +7,14 @@ set(PIXELIA_CHANGELOG_BLOCK "${CMAKE_CURRENT_BINARY_DIR}/changelog_block.cpp")
 
 idf_component_register(
     SRCS "main.cpp" "sysinfo.cpp" "hwtest.cpp" "gfx.cpp" "perf.cpp" "console.cpp"
-         "settings.cpp" "wifi.cpp" "captive_dns.cpp" "timesync.cpp" "web.cpp" "web_diag.cpp" "web_info.cpp" "ota.cpp"
+         "settings.cpp" "wifi.cpp" "captive_dns.cpp" "timesync.cpp" "web.cpp" "web_diag.cpp" "web_info.cpp" "ota.cpp" "github.cpp"
          "input.cpp" "logbuf.cpp" "diag.cpp" "json.cpp" "auth.cpp" "${PIXELIA_WEB_ASSETS}" "${PIXELIA_CHANGELOG_BLOCK}"
     INCLUDE_DIRS "."
     EMBED_TXTFILES "web/setup.html"
     REQUIRES board engine
     PRIV_REQUIRES esp_driver_uart esp_driver_i2c esp_psram esp_timer spi_flash app_update esp_app_format
                   espcoredump esp_partition bootloader_support esp_bootloader_format nvs_flash esp_wifi esp_netif
-                  esp_event esp_http_server lwip esp_mm hal esp_driver_tsens mbedtls)
+                  esp_event esp_http_server lwip esp_mm hal esp_driver_tsens mbedtls esp_http_client)
 
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)
 file(GLOB_RECURSE _web_src CONFIGURE_DEPENDS "${PIXELIA_WEB_DIR}/src/*")

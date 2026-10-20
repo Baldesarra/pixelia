@@ -20,6 +20,7 @@
 #include "freertos/task.h"
 #include "logbuf.h"
 #include "net.h"
+#include "github.h"
 #include "ota.h"
 #include "settings.h"
 #include "web.h"
@@ -38,6 +39,7 @@ extern "C" void app_main() {
     app::settings::init();
     app::auth::init();
     app::ota::init();
+    app::github::init();
     app::diag::init();
     app::sysinfo::log_heap_step("Einstellungen");
 

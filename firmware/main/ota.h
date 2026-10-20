@@ -24,6 +24,7 @@ struct Status {
     char running[8];   // laufende Partition (ota_0/ota_1)
     // Upload
     bool busy;
+    char source[8];  // „upload“ (Browser) oder „github“ (Download vom Gerät, github.h)
     uint32_t bytes;
     uint32_t total;
     char new_version[32];
@@ -50,8 +51,9 @@ void ack_rollback();    // Hinweis auf den Rückfall gelesen
 inline constexpr size_t kHeaderBytes = 24 + 8 + sizeof(esp_app_desc_t);
 bool check_header(const uint8_t* head, size_t len, esp_app_desc_t* desc, char* error, size_t error_len);
 
-// Upload in Stücken (vom Webserver); begin() bekommt die ersten kHeaderBytes
-esp_err_t begin(const uint8_t* head, size_t len, size_t total, char* error, size_t error_len);
+// Update in Stücken (Upload vom Webserver oder Download von GitHub); begin() bekommt die ersten kHeaderBytes
+esp_err_t begin(const uint8_t* head, size_t len, size_t total, char* error, size_t error_len,
+                const char* source = "upload");
 esp_err_t write(const uint8_t* data, size_t len);
 esp_err_t finish(char* error, size_t error_len);
 void cancel(const char* why);

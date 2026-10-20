@@ -16,9 +16,10 @@
   } from '../lib/m3';
   import { device } from '../lib/status.svelte';
   import { auth } from '../lib/auth.svelte';
-  import { post, type Backup, type Reply } from '../lib/api';
+  import { onMount } from 'svelte';
+  import { get, post, type Backup, type GhState, type Reply } from '../lib/api';
   import { HEADER_BYTES, parseHeader, upload } from '../lib/firmware';
-  import { cmpVersion, installedEntry, logFromBin, parseFw, type ChangeEntry as Entry } from '../lib/changelog';
+  import { cmpVersion, dateDe, entryFromNotes, installedEntry, logFromBin, parseFw, type ChangeEntry as Entry } from '../lib/changelog';
   import ChangeEntry from '../lib/ChangeEntry.svelte';
   import { duration, num } from '../lib/format';
 
@@ -34,6 +35,7 @@
   let upMsg = $state<{ ok: boolean | null; text: string } | null>(null);
   let waitingFor = $state('');
   let cancel = $state<(() => void) | null>(null);
+  let via = $state<'file' | 'github'>('file'); // woher das laufende Update kommt (Fortschritt im passenden Abschnitt)
 
   async function pickFile() {
     const f = fileInput?.files?.[0] ?? null;
@@ -82,6 +84,7 @@
   async function start() {
     if (!file) return;
     if (!(await auth.ensure('Updates sind mit einem PIN geschützt.'))) return;
+    via = 'file';
     sending = true;
     sent = 0;
     total = file.size;
@@ -113,6 +116,7 @@
       else {
         upMsg = { ok: true, text: `Update auf ${s.v} erfolgreich, Selbsttest bestanden.` };
         waitingFor = '';
+        void loadGh(); // nach dem Neustart: Ergebnis der alten Prüfung ist weg
         sending = false;
         file = null;
         fileInfo = null;
@@ -126,6 +130,92 @@
     }
   });
   const offline = $derived(device.link === 'getrennt');
+
+  // --- Update von GitHub (seit 0.4.1) ------------------------------------------------------------------------
+  // Das Gerät fragt die Releases ab (nur auf Knopfdruck: ohne Token 60 Abfragen pro Stunde) und lädt die .bin selbst.
+  // Fortschritt kommt über den Status (ota.src = github), danach dieselben Schritte wie beim Upload (waitingFor).
+  let gh = $state<GhState | null>(null);
+  let ghChecking = $state(false);
+  let ghMsg = $state<string | null>(null);
+  let chLocal = $state<GhState['ch'] | null>(null);
+  const ghCh = $derived(chLocal ?? gh?.ch ?? 'stable');
+  const ghFresh = $derived(!!gh && gh.checkedS >= 0 && gh.checkedCh === ghCh);
+  const ghTarget = $derived(ghFresh ? (gh?.rel[0] ?? null) : null);
+  const ghEntries = $derived(ghFresh && gh ? gh.rel.map((r) => entryFromNotes(r.v, r.notes, r.date)) : []);
+  const noNet = $derived(!s ? '' : s.wifi.ap ? 'Im Setup-Modus hat Pixelia kein Internet. Erst das WLAN einrichten, dann nach Updates suchen.' : s.wifi.state !== 'verbunden' ? 'Pixelia ist gerade nicht mit dem WLAN verbunden.' : '');
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  let ghAt = 0; // Zeitpunkt der letzten Antwort, damit „zuletzt gesucht vor …“ weiterläuft
+  let tick = $state(0);
+  const ghAgo = $derived(gh && gh.checkedS >= 0 ? (void tick, gh.checkedS + Math.round((Date.now() - ghAt) / 1000)) : -1);
+  async function loadGh() {
+    const st = await get<GhState>('/api/update').catch(() => null);
+    if (st) [gh, ghAt] = [st, Date.now()];
+  }
+  onMount(() => {
+    void loadGh();
+    const id = setInterval(() => tick++, 15000);
+    return () => clearInterval(id);
+  });
+
+  async function setChannel(ch: GhState['ch']) {
+    chLocal = ch;
+    const r = await post('/api/update/channel', { ch }).catch(() => null);
+    if (r?.ok) await loadGh();
+    chLocal = null;
+  }
+
+  async function checkGh() {
+    ghMsg = null;
+    const r = await post('/api/update/check').catch(() => null);
+    if (!r?.ok) return (ghMsg = r?.msg ?? 'Pixelia antwortet nicht');
+    ghChecking = true;
+    for (let i = 0; i < 60; i++) {
+      await sleep(i < 5 ? 600 : 1000);
+      await loadGh();
+      if (gh && gh.job !== 'check') break;
+    }
+    ghChecking = false;
+    if (gh?.err) ghMsg = gh.err;
+  }
+
+  async function installGh() {
+    const t = ghTarget;
+    if (!t) return;
+    const ok = await confirmDialog({
+      title: `Pixelia ${t.v} installieren?`,
+      text: `Pixelia lädt die Datei (${num(t.size / 1024)} KB) direkt von GitHub, prüft sie und startet neu. Danach folgt der Probelauf mit Selbsttest; scheitert er, kehrt Pixelia zu ${s?.v} zurück.`,
+      ok: 'Installieren',
+      icon: 'system_update_alt',
+    });
+    if (!ok) return;
+    ghMsg = null;
+    const r = await post('/api/update/install', { v: t.v }).catch(() => null);
+    if (!r?.ok) return (ghMsg = r?.msg ?? 'Pixelia antwortet nicht');
+    via = 'github';
+    sending = true;
+    waitingFor = t.v;
+    upMsg = { ok: null, text: 'Verbinde mit GitHub …' };
+    // Fehler vor dem Neustart (Download, Prüfung) meldet /api/update; startet Pixelia neu, antwortet es kurz nicht
+    for (let i = 0; i < 600; i++) {
+      await sleep(1000);
+      const st = await get<GhState>('/api/update').catch(() => null);
+      if (!st || st.job === 'install') continue;
+      if (st.err) {
+        [gh, ghAt] = [st, Date.now()];
+        upMsg = { ok: false, text: st.err };
+        waitingFor = '';
+        sending = false;
+      }
+      if (st.err || s?.v === t.v || !waitingFor) break;
+    }
+  }
+
+  // Download-Fortschritt (Status jede Sekunde)
+  $effect(() => {
+    if (!s || !waitingFor || !(s.ota.busy && s.ota.src === 'github')) return;
+    const pct = s.ota.total ? Math.round((s.ota.bytes * 100) / s.ota.total) : 0;
+    upMsg = { ok: null, text: `Lade von GitHub: ${pct} % (${num(s.ota.bytes / 1024)} von ${num(s.ota.total / 1024)} KB)` };
+  });
 
   // --- Anzeige ----------------------------------------------------------------------------------------------
   let bright = $state(80);
@@ -314,6 +404,23 @@
   }
 </script>
 
+{#snippet progress()}
+  {#if sending && !waitingFor}
+    <WavyProgress value={total ? sent / total : undefined} label="Übertragung" />
+  {:else if waitingFor}
+    {#if s?.ota.busy && s.ota.src === 'github'}
+      <WavyProgress value={s.ota.total ? s.ota.bytes / s.ota.total : undefined} label="Download von GitHub" />
+    {:else}
+      <WavyProgress value={s?.v === waitingFor && s.ota.trial ? s.ota.trialS / s.ota.trialNeed : undefined} tone="tertiary" label="Neustart und Probelauf" />
+    {/if}
+  {/if}
+  {#if upMsg}
+    <p class={upMsg.ok === false ? 'err-text' : upMsg.ok ? 'ok-text' : ''}>
+      {offline && waitingFor ? 'Pixelia startet neu …' : upMsg.text}
+    </p>
+  {/if}
+{/snippet}
+
 {#if !s}
   <div class="waiting"><LoadingIndicator size={64} label="Lade" /></div>
 {:else}
@@ -340,9 +447,60 @@
         <p>Probelauf von {s.v}: Selbsttest läuft ({s.ota.trialS} von {s.ota.trialNeed} s{s.ota.trialNote ? `, ${s.ota.trialNote}` : ''}).</p>
         <WavyProgress value={s.ota.trialS / s.ota.trialNeed} tone="tertiary" label="Probelauf" />
       {:else if s.ota.busy && !sending}
-        <p>Ein Update auf {s.ota.newV} wird gerade von einem anderen Browser installiert …</p>
+        <p>Ein Update auf {s.ota.newV} wird gerade {s.ota.src === 'github' ? 'von GitHub geladen' : 'von einem anderen Browser installiert'} …</p>
         <WavyProgress value={s.ota.total ? s.ota.bytes / s.ota.total : undefined} label="Update" />
       {:else}
+        <h3 class="sub"><Icon name="cloud_download" size={18} />Von GitHub</h3>
+        <div class="actions">
+          <ButtonGroup
+            label="Kanal"
+            options={[
+              { value: 'stable', label: 'Stabil' },
+              { value: 'preview', label: 'Vorschau', icon: 'science' },
+            ]}
+            bind:value={() => ghCh, setChannel}
+          />
+          <Button variant="tonal" icon="refresh" disabled={!!noNet || ghChecking || sending} onclick={checkGh}>
+            {ghChecking ? 'Suche …' : 'Nach Updates suchen'}
+          </Button>
+        </div>
+        {#if via === 'github' && (sending || waitingFor)}
+          {@render progress()}
+        {:else if noNet}
+          <p class="muted">{noNet}</p>
+        {:else if ghChecking}
+          <WavyProgress label="Suche auf GitHub" />
+        {:else if ghMsg}
+          <p class="err-text">{ghMsg}</p>
+        {:else if ghTarget}
+          <p class="ok-text">
+            Neu auf GitHub: <b>Pixelia {ghTarget.v}</b>{ghTarget.pre ? ' (Vorschau)' : ''} vom {dateDe(ghTarget.date)} · {num(ghTarget.size / 1024)} KB{ghEntries.length > 1 ? ` · ${ghEntries.length} Versionen neuer als ${s.v}` : ''}
+          </p>
+          <div class="preview">
+            {#each ghEntries as e, k (e.v)}
+              <ChangeEntry entry={e} toggle open={k === 0} />
+            {/each}
+          </div>
+          <div class="actions">
+            <Button icon="system_update_alt" disabled={sending} onclick={installGh}>{ghTarget.v} installieren</Button>
+          </div>
+        {:else if ghFresh}
+          <p>
+            Pixelia ist aktuell. {!gh?.latest ? 'In diesem Kanal gibt es auf GitHub noch keine Version.' : cmpVersion(parseFw(s.v).base, gh.latest) > 0 ? `Installiert ist ${s.v}, neuer als die neueste ${ghCh === 'stable' ? 'stabile ' : ''}Version auf GitHub (${gh.latest}).` : `Neueste ${ghCh === 'stable' ? 'stabile ' : ''}Version auf GitHub: ${gh.latest}.`}
+          </p>
+        {:else}
+          <p class="muted">
+            <b>Stabil</b>: nur fertige Versionen. <b>Vorschau</b>: auch Vorabversionen (beta) zum Ausprobieren. Pixelia sucht
+            nur auf Knopfdruck.
+          </p>
+        {/if}
+        {#if gh && ghAgo >= 0 && !ghChecking && !noNet}
+          <p class="muted small">
+            Zuletzt gesucht vor {duration(ghAgo)}{gh.rate.limit > 0 ? ` · freie GitHub-Abfragen: ${gh.rate.left} von ${gh.rate.limit} pro Stunde` : ''}
+          </p>
+        {/if}
+
+        <h3 class="sub"><Icon name="upload_file" size={18} />Aus Datei</h3>
         <p class="muted">
           Neue Version als <b>.bin</b> wählen, z. B. <i>pixelia-v0.4.0.bin</i> von GitHub (nicht das Factory-Image). Die Datei
           wird vor dem Hochladen geprüft, nach dem Neustart folgt ein Probelauf mit Selbsttest; scheitert er, kehrt Pixelia
@@ -366,16 +524,10 @@
             </div>
           {/if}
         {/if}
-        {#if sending && !waitingFor}
-          <WavyProgress value={total ? sent / total : undefined} label="Übertragung" />
-        {:else if waitingFor}
-          <WavyProgress value={s.v === waitingFor && s.ota.trial ? s.ota.trialS / s.ota.trialNeed : undefined} tone="tertiary" label="Neustart und Probelauf" />
+        {#if via === 'file'}
+          {@render progress()}
         {/if}
-        {#if upMsg}
-          <p class={upMsg.ok === false ? 'err-text' : upMsg.ok ? 'ok-text' : ''}>
-            {offline && waitingFor ? 'Pixelia startet neu …' : upMsg.text}
-          </p>
-        {:else if s.ota.passed}
+        {#if !upMsg && s.ota.passed}
           <p class="ok-text">Letztes Update auf {s.v} erfolgreich, Selbsttest bestanden.</p>
         {/if}
       {/if}
@@ -516,6 +668,24 @@
   p + :global(.wp),
   .actions + :global(.wp) {
     margin-top: 12px;
+  }
+  /* Abschnitte der Update-Karte: von GitHub, aus Datei */
+  .sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 24px 0 12px;
+    font: var(--md-sys-typescale-title-small);
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .card-title + .sub {
+    margin-top: 0;
+  }
+  .sub + p {
+    margin-top: 0;
+  }
+  .small {
+    font: var(--md-sys-typescale-body-small);
   }
   .alert {
     display: flex;

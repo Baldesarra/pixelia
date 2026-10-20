@@ -7,12 +7,12 @@
 
 | | |
 |---|---|
-| **Phase** | 0.4.x Updates & Diagnose: 0.4.0 „Versionsverlauf und Diagnose“ fertig und am Gerät geprüft (eingebetteter Changelog, Versionsverlauf, Änderungsvorschau aus der .bin, Seite Diagnose) |
-| **Letzte Version** | 0.3.2 „System und Schutz“ (2026-10-19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.3.2); 0.4.0 folgt nach dem Merge |
+| **Phase** | 0.4.x Updates & Diagnose: 0.4.1 „Update von GitHub“ fertig und am Gerät geprüft (Prüfung der Releases, Kanal Stabil/Vorschau, Installation per HTTPS, PR #19); Vorschau v0.4.1-beta.1 veröffentlicht |
+| **Letzte Version** | 0.4.1 „Update von GitHub“ (2026-10-20, PR #19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.4.1); davor Vorschau v0.4.1-beta.1 und 0.4.0 „Versionsverlauf und Diagnose“ (PR #17, #18). Zweiter echter Durchlauf (Kanal Stabil, beta.1 → 0.4.1) folgt nach dem Release, Werte trägt die Sitzung 0.4.2 nach |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
-| **Nächster Schritt** | 0.4.1 Update von GitHub (Prüfung, Kanal Stabil/Vorschau, Installation per HTTPS), frische Arbeits-Sitzung, Denkstufe Hoch |
-| **Offen** | Captive Portal unter iOS einmal ansehen (Android und Windows geprüft); Screenshot-Läufe schreiben die Standard-Farbwahl aufs Gerät, solange es noch keine hat (harmlos); Geräteliste: kopflose Screenshot-Läufe legen jedes Mal ein neues Gerät an (harmlos, älteste fallen raus); Planungs-Chat: Hauptwelt vor 0.6.0 festlegen; Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
+| **Nächster Schritt** | 0.4.2 Experimentell, Live-Vorschau, Leistung, frische Arbeits-Sitzung, Denkstufe Hoch |
+| **Offen** | Planungs-Chat (Update von GitHub): automatisch installieren ohne Nachfrage? Prüfung im Hintergrund (z. B. täglich, Hinweis auf dem Display)? Ältere Version (Downgrade) von GitHub erlauben? Abbrechen eines laufenden Downloads? Rückfall mit einem von GitHub geladenen kaputten Image nicht eigens geprüft (gleicher Weg wie beim Upload, dort geprüft; ein absichtlich kaputtes Release wäre für alle im Kanal Vorschau sichtbar); Captive Portal unter iOS einmal ansehen (Android und Windows geprüft); Screenshot-Läufe schreiben die Standard-Farbwahl aufs Gerät, solange es noch keine hat (harmlos); Geräteliste: kopflose Screenshot-Läufe legen jedes Mal ein neues Gerät an (harmlos, älteste fallen raus); Planungs-Chat: Hauptwelt vor 0.6.0 festlegen; Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
 | **Aktualisiert** | 2026-10-20 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
@@ -175,8 +175,9 @@ In drei Patches (Entscheidung 2026-10-20, eine Arbeits-Sitzung pro Patch):
 
 **0.4.1 Update von GitHub**
 
-- [ ] Prüfung auf neue Versionen (GitHub-Releases), Kanal Stabil/Vorschau, Installation per HTTPS mit Rollback
-- [ ] Änderungsvorschau auch für die Version auf GitHub (Release-Notes bzw. Block aus der .bin)
+- [x] Prüfung auf neue Versionen (GitHub-Releases), Kanal Stabil/Vorschau, Installation per HTTPS mit Rollback
+- [x] Änderungsvorschau auch für die Version auf GitHub (Release-Notes aller neueren Versionen, ohne die .bin zu laden)
+- [x] Echter Durchlauf: 0.4.0-1 → v0.4.1-beta.1 im Kanal Vorschau (1521 KB in 16,6 s, 29,8 fps, RAM ≥ 90 KB)
 
 **0.4.2 Experimentell, Live-Vorschau, Leistung**
 

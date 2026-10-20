@@ -55,7 +55,8 @@ Webserver → Selbsttest (nur im Probelauf).
 | `wifi.cpp`, `net.h` | WLAN-Manager (5 Netze), Setup-Modus mit AP, mDNS; `for_each_secret` für den Filter |
 | `captive_dns.cpp` | Mini-DNS fürs Captive Portal (nur im Setup-WLAN) |
 | `timesync.cpp` | Zeitzone Europa/Berlin, NTP |
-| `ota.cpp/.h` | Update-Upload mit Prüfung, Probelauf mit Selbsttest, Rückfall-Erkennung, Testvarianten (`PIXELIA_TEST`) |
+| `ota.cpp/.h` | Update in Stücken (Upload oder GitHub, `Status.source`) mit Prüfung, Probelauf mit Selbsttest, Rückfall-Erkennung, Testvarianten (`PIXELIA_TEST`) |
+| `github.cpp/.h` | Update von GitHub (seit 0.4.1): Releases-API (`per_page=10`, Antwort im PSRAM, eigener JSON-Leser), Kanal Stabil/Vorschau (NVS `pixelia/upd_ch`), Versionsvergleich wie `version_key`, Download per HTTPS (`esp_http_client`, Weiterleitungen, `esp_crt_bundle`) in `ota::begin/write/finish`; Task `github` |
 | `web.cpp` | Webserver: Oberfläche (`/`, auch im Setup-Modus; Dateien aus `web_assets.h`, ETag), Einrichtungsseite (`/setup`), Status-JSON, WLAN, Einstellungen, Update, Captive Portal, WebSocket `/ws` (empfängt Geräte-Anmeldungen), Prüfstelle `authorized()`, Anmeldung, PIN, Werksreset, Sicherung |
 | `web_info.cpp` | `/api/system` (Hardware, Netz, Partitionen, Temperatur), `/api/clients` + `/api/clients/name` (verbundene Geräte, NVS `clients`), `client_message()` für `/ws` |
 | `web_assets.h` | Tabelle der eingebetteten Oberflächen-Dateien; `web_assets.cpp` erzeugt `tools/web_embed.py` beim Build im Build-Ordner. Dazu `kChangelog` (Versionsverlauf, gzip): `changelog_block.cpp` erzeugt `tools/release_notes.py --embed` aus `CHANGELOG.json`, Block mit Marker `PIXELIA:CHLOG:v1` + Länge + CRC-32 (auch aus der .bin lesbar) |
@@ -71,13 +72,13 @@ Zähler für Interrupt-Last und Aussetzer), `touch_gt911.*`, `backlight.*` (LEDC
 
 Build: `npm run build` → `web/dist` (feste Namen `index.html`, `app.js`, `app.css`, Schrift). Der Firmware-Build ruft
 `tools/web_embed.py` auf: baut bei Bedarf neu, gzip, erzeugt `web_assets.cpp`. Entwicklung: `npm run dev` (Proxy aufs
-Gerät, `PIXELIA_TARGET`), `npm run mock` (ohne Gerät, Beispielwerte; `PIXELIA_MOCK=setup`, `PIXELIA_MOCK_PIN=1234`, `PIXELIA_MOCK_CRASH=0`), `npm run check` (Typen, läuft in der CI).
+Gerät, `PIXELIA_TARGET`), `npm run mock` (ohne Gerät, Beispielwerte; `PIXELIA_MOCK=setup`, `PIXELIA_MOCK_PIN=1234`, `PIXELIA_MOCK_CRASH=0`, `PIXELIA_MOCK_GH=limit|fail` für das Update von GitHub), `npm run check` (Typen, läuft in der CI).
 
 | Datei | Aufgabe |
 |---|---|
 | `src/main.ts`, `src/App.svelte` | Start, Rahmen: Navigation (Handy 5 Ziele + „Mehr“, Schiene alle), obere Leiste, Hash-Routen, Setup-Modus → `#/wlan` |
-| `src/pages/` | `Overview` (Übersicht), `Wifi` (`#/wlan`), `System` (Update mit Änderungsvorschau), `Log`, `Info`, `Hardware`, `Devices` (`#/geraete`), `Appearance` (`#/darstellung`), `Versions` (`#/versionen`, Timeline), `Diagnostics` (`#/diagnose`, Absturzbericht, Reset-Historie), `More` (`#/mehr`) |
-| `src/lib/changelog.ts`, `ChangeEntry.svelte` | Versionsverlauf: `/api/changelog`, Block aus einer .bin lesen (`logFromBin`: Marker, CRC, `DecompressionStream`), Versionsvergleich (`cmpVersion`, `parseFw`, `installedEntry`); Anzeige eines Eintrags mit allen Abschnitten |
+| `src/pages/` | `Overview` (Übersicht), `Wifi` (`#/wlan`), `System` (Update von GitHub und aus Datei, je mit Änderungsvorschau), `Log`, `Info`, `Hardware`, `Devices` (`#/geraete`), `Appearance` (`#/darstellung`), `Versions` (`#/versionen`, Timeline), `Diagnostics` (`#/diagnose`, Absturzbericht, Reset-Historie), `More` (`#/mehr`) |
+| `src/lib/changelog.ts`, `ChangeEntry.svelte` | Versionsverlauf: `/api/changelog`, Block aus einer .bin lesen (`logFromBin`: Marker, CRC, `DecompressionStream`), Release-Notes von GitHub als Eintrag (`entryFromNotes`), Versionsvergleich (`cmpVersion`, `parseFw`, `installedEntry`); Anzeige eines Eintrags mit allen Abschnitten |
 | `src/lib/status.svelte.ts` | Live-Status: WebSocket `/ws`, Rückfall auf `/api/status`, Typ `Status` (= `status_json()` in web.cpp); meldet Geräte-ID und Seite |
 | `src/lib/api.ts` | `get`/`post` (Formulardaten; bei 401 einmal PIN abfragen und wiederholen, `quiet` ohne Abfrage) und Antworttypen der API (`SystemInfo`, `ClientList`, `Backup` …) |
 | `src/lib/auth.svelte.ts` | Anmeldung: Token im localStorage (Kopf `X-Pixelia-Token`), PIN-Dialog, `ensure()` vor Uploads |
@@ -101,6 +102,7 @@ Gerät, `PIXELIA_TARGET`), `npm run mock` (ohne Gerät, Beispielwerte; `PIXELIA_
 | `console` | 0 | 4 | serielle Befehle und Befehle aus `/api/cmd` |
 | `dns` | 0 | 4 | nur im Setup-Modus |
 | `selbsttest` | 0 | 3 | nur im Probelauf, beendet sich danach |
+| `github` | 0 | 3 | nur während Prüfung oder Download von GitHub (8 KB Stack), beendet sich danach |
 | `perf`, `webstatus`, `logpush` | 0 | 2 | Leistung alle 2 s, Status-WebSocket 1/s, Live-Log 5/s |
 
 Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTOS-Kernel-Sperre lange hält (z. B.
@@ -109,7 +111,7 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
 ## Speicher
 
 - Flash: `partitions.csv` – nvs 24 KB, otadata, ota_0/ota_1 je 6 MB, storage (LittleFS, noch ungenutzt), coredump 64 KB.
-- NVS-Namensräume: `pixelia` (Einstellungen inkl. `ui`), `wifi` (Netze, Setup-Passwort, Hinweise), `auth` (Salz und Hash des PINs), `ota` (Rückfall-Grund),
+- NVS-Namensräume: `pixelia` (Einstellungen inkl. `ui`, Update-Kanal `upd_ch`), `wifi` (Netze, Setup-Passwort, Hinweise), `auth` (Salz und Hash des PINs), `ota` (Rückfall-Grund),
   `diag` (Startzähler `boot`, Reset-Historie `r00`–`r15`), `clients` (Blob `list`: bis 12 Browser, je 92 Byte).
 - PSRAM No-Init: Log-Puffer (Lage hängt an der Codegröße). RTC-Speicher No-Init: Log-Sicherung 6 KB, Herzschlag.
 
@@ -121,6 +123,10 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
 - **Schutz** (`web.cpp`, seit 0.3.2): `/api/auth`, `/api/login`, `/api/logout`, `/api/pin`, `/api/factory-reset`,
   `/api/backup`. Werksreset löscht `pixelia`, `wifi`, `clients`, `auth`; `diag` und `ota` bleiben.
 - **Info** (`web_info.cpp`): `/api/system`, `/api/clients`, `/api/clients/name`.
+- **Update von GitHub** (`web.cpp` → `github.h`, seit 0.4.1): `GET /api/update`, `POST /api/update/check` (ohne PIN),
+  `/api/update/channel`, `/api/update/install` (mit PIN); Fortschritt im Status (`ota.src = github`).
+- **Ausgehend:** `https://api.github.com/repos/Baldesarra/pixelia/releases`, Dateien über `github.com/…/releases/download/`
+  → `release-assets.githubusercontent.com`. Ohne Token: 60 Abfragen pro Stunde und IP.
 - **Fernwartung** (`web_diag.cpp`): siehe HARDWARE.md „Fernwartung per WLAN“.
 - WebSocket-Anmeldung über `ws_post_handshake_cb` (ESP-IDF 6.1 ruft beim Handschlag keinen Handler auf).
 
