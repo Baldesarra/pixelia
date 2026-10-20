@@ -58,7 +58,7 @@ Webserver → Selbsttest (nur im Probelauf).
 | `ota.cpp/.h` | Update-Upload mit Prüfung, Probelauf mit Selbsttest, Rückfall-Erkennung, Testvarianten (`PIXELIA_TEST`) |
 | `web.cpp` | Webserver: Oberfläche (`/`, auch im Setup-Modus; Dateien aus `web_assets.h`, ETag), Einrichtungsseite (`/setup`), Status-JSON, WLAN, Einstellungen, Update, Captive Portal, WebSocket `/ws` (empfängt Geräte-Anmeldungen), Prüfstelle `authorized()`, Anmeldung, PIN, Werksreset, Sicherung |
 | `web_info.cpp` | `/api/system` (Hardware, Netz, Partitionen, Temperatur), `/api/clients` + `/api/clients/name` (verbundene Geräte, NVS `clients`), `client_message()` für `/ws` |
-| `web_assets.h` | Tabelle der eingebetteten Oberflächen-Dateien; `web_assets.cpp` erzeugt `tools/web_embed.py` beim Build im Build-Ordner |
+| `web_assets.h` | Tabelle der eingebetteten Oberflächen-Dateien; `web_assets.cpp` erzeugt `tools/web_embed.py` beim Build im Build-Ordner. Dazu `kChangelog` (Versionsverlauf, gzip): `changelog_block.cpp` erzeugt `tools/release_notes.py --embed` aus `CHANGELOG.json`, Block mit Marker `PIXELIA:CHLOG:v1` + Länge + CRC-32 (auch aus der .bin lesbar) |
 | `web_diag.cpp` | Fernwartung: `/api/log`, `/ws/log`, `/api/cmd`, `/api/perf`, `/api/resets`, `/api/coredump*`, `/api/diag` |
 | `web_internal.h` | gemeinsame Web-Hilfen (`send_json`, `form_value`, `authorized` = PIN-Prüfstelle, `deny` = 401/429) |
 | `json.cpp/.h` | kleiner JSON-Schreiber (bewusst nicht inline: Codegröße) |
@@ -71,12 +71,13 @@ Zähler für Interrupt-Last und Aussetzer), `touch_gt911.*`, `backlight.*` (LEDC
 
 Build: `npm run build` → `web/dist` (feste Namen `index.html`, `app.js`, `app.css`, Schrift). Der Firmware-Build ruft
 `tools/web_embed.py` auf: baut bei Bedarf neu, gzip, erzeugt `web_assets.cpp`. Entwicklung: `npm run dev` (Proxy aufs
-Gerät, `PIXELIA_TARGET`), `npm run mock` (ohne Gerät, Beispielwerte), `npm run check` (Typen, läuft in der CI).
+Gerät, `PIXELIA_TARGET`), `npm run mock` (ohne Gerät, Beispielwerte; `PIXELIA_MOCK=setup`, `PIXELIA_MOCK_PIN=1234`, `PIXELIA_MOCK_CRASH=0`), `npm run check` (Typen, läuft in der CI).
 
 | Datei | Aufgabe |
 |---|---|
 | `src/main.ts`, `src/App.svelte` | Start, Rahmen: Navigation (Handy 5 Ziele + „Mehr“, Schiene alle), obere Leiste, Hash-Routen, Setup-Modus → `#/wlan` |
-| `src/pages/` | `Overview` (Übersicht), `Wifi` (`#/wlan`), `System`, `Log`, `Info`, `Hardware`, `Devices` (`#/geraete`), `Appearance` (`#/darstellung`), `More` (`#/mehr`) |
+| `src/pages/` | `Overview` (Übersicht), `Wifi` (`#/wlan`), `System` (Update mit Änderungsvorschau), `Log`, `Info`, `Hardware`, `Devices` (`#/geraete`), `Appearance` (`#/darstellung`), `Versions` (`#/versionen`, Timeline), `Diagnostics` (`#/diagnose`, Absturzbericht, Reset-Historie), `More` (`#/mehr`) |
+| `src/lib/changelog.ts`, `ChangeEntry.svelte` | Versionsverlauf: `/api/changelog`, Block aus einer .bin lesen (`logFromBin`: Marker, CRC, `DecompressionStream`), Versionsvergleich (`cmpVersion`, `parseFw`, `installedEntry`); Anzeige eines Eintrags mit allen Abschnitten |
 | `src/lib/status.svelte.ts` | Live-Status: WebSocket `/ws`, Rückfall auf `/api/status`, Typ `Status` (= `status_json()` in web.cpp); meldet Geräte-ID und Seite |
 | `src/lib/api.ts` | `get`/`post` (Formulardaten; bei 401 einmal PIN abfragen und wiederholen, `quiet` ohne Abfrage) und Antworttypen der API (`SystemInfo`, `ClientList`, `Backup` …) |
 | `src/lib/auth.svelte.ts` | Anmeldung: Token im localStorage (Kopf `X-Pixelia-Token`), PIN-Dialog, `ensure()` vor Uploads |
@@ -115,7 +116,7 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
 ## Schnittstellen
 
 - **Konsole** (seriell 115200 und `/api/cmd`): `help` listet alles; Übersicht in HARDWARE.md „Diagnose-Schnittstelle“.
-- **HTTP/JSON** (`web.cpp`): `/api/status`, `/api/wifi`, `/api/wifi/scan|add|remove`, `/api/settings`, `/api/ota`,
+- **HTTP/JSON** (`web.cpp`): `/api/status`, `/api/changelog` (seit 0.4.0, gzip mit ETag), `/api/wifi`, `/api/wifi/scan|add|remove`, `/api/settings`, `/api/ota`,
   `/api/ota/ack`, `/api/reboot`, `/api/speedtest`; WebSocket `/ws` (Status 1/s; vom Browser `hello=<id>&ua=…&page=…`).
 - **Schutz** (`web.cpp`, seit 0.3.2): `/api/auth`, `/api/login`, `/api/logout`, `/api/pin`, `/api/factory-reset`,
   `/api/backup`. Werksreset löscht `pixelia`, `wifi`, `clients`, `auth`; `diag` und `ota` bleiben.
@@ -138,7 +139,7 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
 | `crash.ps1` | Absturzbericht per WLAN oder aus Diagnosepaket holen und dekodieren |
 | `flash.ps1`, `monitor.ps1` (+ `serial_log.py`) | USB: Erstinstallation, serielles Log |
 | `sim.ps1` | Simulator bauen und starten (`-Headless`) |
-| `release_notes.py` | CHANGELOG.json prüfen (`--check`) und Release-Notes erzeugen |
+| `release_notes.py` | CHANGELOG.json prüfen (`--check`), Release-Notes erzeugen, Changelog-Block für die Firmware (`--embed`, läuft im Firmware-Build) |
 | `web_embed.py` | Oberfläche für die Firmware einbetten (läuft im Firmware-Build) |
 | `web_screens.mjs` | Screenshots der Oberfläche (Handy/Desktop, hell/dunkel) per Edge kopflos, `--url http://pixelia` fürs Gerät |
 | `font_subset.py` | Roboto Flex reduzieren (nur bei neuen Zeichen, braucht `pip install fonttools brotli`) |

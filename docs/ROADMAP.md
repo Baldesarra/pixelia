@@ -7,13 +7,13 @@
 
 | | |
 |---|---|
-| **Phase** | 0.3.x Weboberfläche abgeschlossen: 0.3.2 „System und Schutz“ veröffentlicht und am Gerät geprüft (30 fps, RAM ≥ 97 KB auch im Setup-Modus) |
-| **Letzte Version** | 0.3.2 „System und Schutz“ (2026-10-19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.3.2) |
+| **Phase** | 0.4.x Updates & Diagnose: 0.4.0 „Versionsverlauf und Diagnose“ fertig und am Gerät geprüft (eingebetteter Changelog, Versionsverlauf, Änderungsvorschau aus der .bin, Seite Diagnose) |
+| **Letzte Version** | 0.3.2 „System und Schutz“ (2026-10-19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.3.2); 0.4.0 folgt nach dem Merge |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
-| **Nächster Schritt** | 0.4.0 Updates & Diagnose (eingebetteter Changelog, Versionsverlauf, Absturzberichte und Reset-Historie in der Oberfläche), frische Arbeits-Sitzung, Denkstufe Hoch |
+| **Nächster Schritt** | 0.4.1 Update von GitHub (Prüfung, Kanal Stabil/Vorschau, Installation per HTTPS), frische Arbeits-Sitzung, Denkstufe Hoch |
 | **Offen** | Captive Portal unter iOS einmal ansehen (Android und Windows geprüft); Screenshot-Läufe schreiben die Standard-Farbwahl aufs Gerät, solange es noch keine hat (harmlos); Geräteliste: kopflose Screenshot-Läufe legen jedes Mal ein neues Gerät an (harmlos, älteste fallen raus); Planungs-Chat: Hauptwelt vor 0.6.0 festlegen; Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
-| **Aktualisiert** | 2026-10-19 |
+| **Aktualisiert** | 2026-10-20 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
 4,0 ms pro Bild, Hochskalier-Interrupt 20 %, keine Aussetzer, auch mit WLAN, Webserver, während Updates und unter Last
@@ -161,12 +161,25 @@ Aufgeteilt in drei Patches, je eine Arbeits-Sitzung (siehe [ARBEITSWEISE.md](ARB
 
 ## 0.4.x – Updates & Diagnose
 
-- [ ] `CHANGELOG.json` → eingebetteter Block in der Firmware (Release-Notes-Generator steht seit 0.1.0/0.2.1)
+In drei Patches (Entscheidung 2026-10-20, eine Arbeits-Sitzung pro Patch):
+
 - [x] Release-Workflow: Tag → GitHub-Release mit `.bin` und Factory-Image (seit 0.1.0)
-- [ ] Update von GitHub: Prüfung, Kanal Stabil/Vorschau, Installation per HTTPS
-- [ ] Versionsverlauf-Timeline mit **allen Feldern** (Neu, Verbessert, Behoben, Entfernt, Geprüft, Hinweise, verlinkte
-      Pull Requests), Markierung „Installiert“, Änderungsvorschau aus gewählter `.bin`
-- [ ] Absturzberichte und Reset-Historie in der Oberfläche anzeigen (Daten, Schnittstellen und Werkzeuge seit 0.2.2)
+
+**0.4.0 Versionsverlauf und Diagnose**
+
+- [x] `CHANGELOG.json` → eingebetteter gzip-Block mit Marker in der Firmware (`tools/release_notes.py --embed`),
+      `GET /api/changelog`
+- [x] Versionsverlauf-Timeline mit **allen Feldern** (Neu, Verbessert, Behoben, Entfernt, Geprüft, Hinweise, verlinkte
+      Pull Requests), Markierung „Installiert“, Änderungsvorschau aus gewählter `.bin` (Seite System, vor dem Hochladen)
+- [x] Absturzberichte und Reset-Historie in der Oberfläche anzeigen (Seite Diagnose; Daten und Schnittstellen seit 0.2.2)
+
+**0.4.1 Update von GitHub**
+
+- [ ] Prüfung auf neue Versionen (GitHub-Releases), Kanal Stabil/Vorschau, Installation per HTTPS mit Rollback
+- [ ] Änderungsvorschau auch für die Version auf GitHub (Release-Notes bzw. Block aus der .bin)
+
+**0.4.2 Experimentell, Live-Vorschau, Leistung**
+
 - [ ] Experimentell-Seite: Touch-Test, Displaytests, Stromsparmodus, Panel-Timing, Experimentell-Schalter
 - [ ] Live-Vorschau und Screenshot (PNG)
 - [ ] Leistungsanzeige (FPS, Frame-Zeiten, CPU pro Kern, Tasks, Heap/PSRAM) über `/api/perf`; die Task-Liste nur auf
