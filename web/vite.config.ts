@@ -46,6 +46,8 @@ function mockDevice(): Plugin {
   const set = { rot: 0, bright: 80, lp: 3000, ui: '' };
   const names: Record<string, string> = { a1b2c3d4e5f6: 'Handy Wohnzimmer' };
   let pin = process.env.PIXELIA_MOCK_PIN ?? '';
+  // Absturzbericht vorhanden (PIXELIA_MOCK_CRASH=0: keiner); „Bericht löschen“ entfernt ihn
+  let crashed = process.env.PIXELIA_MOCK_CRASH !== '0';
   let fails = 0;
   let lockedUntil = 0;
   const tokens = new Set<string>();
@@ -132,6 +134,7 @@ function mockDevice(): Plugin {
         server.middlewares.use(p, async (req, res) => {
           const f = await form(req);
           if (!authorized(req, f)) return deny(res);
+          if (p === '/api/coredump/erase') crashed = false;
           if (p === '/api/factory-reset') {
             pin = '';
             tokens.clear();
@@ -211,7 +214,24 @@ function mockDevice(): Plugin {
           ],
         });
       });
-      server.middlewares.use('/api/coredump/summary', (_req, res) => json(res, { present: false }));
+      server.middlewares.use('/api/coredump/summary', (_req, res) =>
+        json(res, crashed ? {
+          present: true, valid: true, size: 25732, addr: '0xfe0000', task: 'httpd', pc: '0x42012345',
+          reason: 'LoadProhibited', excCause: 28, excVaddr: '0x00000004',
+          backtrace: ['0x42012342', '0x42011e8b', '0x4200f7a1', '0x4037c2d5'], btCorrupted: false,
+          elfSha: '9f3c2a7d51e04b6c8a1f0e2d3c4b5a69', version: '0.3.0', part: 'ota_1',
+        } : { present: false }),
+      );
+      // erst nach /summary, sonst fängt der Präfix-Abgleich auch diese Anfragen
+      server.middlewares.use('/api/coredump', (_req, res) => {
+        res.setHeader('Content-Disposition', 'attachment; filename="pixelia-coredump-mock.bin"');
+        res.end(Buffer.alloc(crashed ? 1024 : 0));
+      });
+      // Versionsverlauf wie in der Firmware: CHANGELOG.json aus dem Repo
+      server.middlewares.use('/api/changelog', (_req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(readFileSync(fileURLToPath(new URL('../CHANGELOG.json', import.meta.url))));
+      });
       server.middlewares.use('/api/log', (req, res) => {
         const u = new URL(req.url ?? '', 'http://x');
         const since = Number(u.searchParams.get('since') ?? -1);
@@ -242,7 +262,7 @@ function mockDevice(): Plugin {
         res.setHeader('Content-Type', 'application/json');
         res.end(
           JSON.stringify({
-            v: '0.3.1', built: 'Oct 19 2026 18:02:11', idf: 'v6.1', part: 'ota_0', uptime: up, host: 'pixelia',
+            v: '0.3.2', built: 'Oct 19 2026 18:02:11', idf: 'v6.1', part: 'ota_0', uptime: up, host: 'pixelia',
             wifi: setup
               ? { state: 'setup', ssid: '', rssi: 0, ch: 1, ip: '', ap: true, apClients: 1, retry: 87, err: 'Kein gespeichertes Netz', saved: 0 }
               : { state: 'verbunden', ssid: 'FRITZ!Box 7590', rssi: -58, ch: 6, ip: '192.168.178.74', ap: false,
@@ -253,7 +273,8 @@ function mockDevice(): Plugin {
             ota: { busy: false, bytes: 0, total: 0, newV: '', err: '', trial: false, trialS: 0, trialNeed: 60,
               trialNote: '', passed: true },
             rollback: null, set, auth: { pin: !!pin, lockS: lockS() },
-            diag: { boot: 42, reset: 'Software-Neustart', errors: 0, warnings: 2, logLines: 1834, crash: null },
+            diag: { boot: 42, reset: 'Software-Neustart', errors: 0, warnings: 2, logLines: 1834,
+              crash: crashed ? { task: 'httpd', reason: 'LoadProhibited', v: '0.3.0' } : null },
           }),
         );
       });

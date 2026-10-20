@@ -6,14 +6,28 @@ Aufruf:
   python tools/release_notes.py 0.2.0           Markdown-Text der Release-Notes
   python tools/release_notes.py 0.2.0 --title   nur der Titel („Pixelia 0.2.0 – Vernetzt“)
   python tools/release_notes.py --check         Format aller Einträge prüfen (läuft in der CI)
+  python tools/release_notes.py --embed OUT.cpp Changelog-Block für die Firmware erzeugen (läuft im Firmware-Build)
 
 Exit 1, wenn die Version fehlt, unvollständig ist (Datum, Titel, Untertitel) oder die Prüfung scheitert.
+
+Changelog-Block (seit 0.4.0): CHANGELOG.json ohne Leerraum, gzip, mit festem Kopf als ein konstantes Feld in der
+Firmware. Es landet im Flash-Segment für Konstanten (DROM) und steht damit am Stück in der .bin. So kann die
+Weboberfläche den Verlauf einer gewählten Update-Datei vor dem Hochladen lesen (web/src/lib/changelog.ts), und
+/api/changelog liefert die gzip-Daten direkt aus (Content-Encoding: gzip). Kopf, 24 Byte:
+  0  16  Marker „PIXELIA:CHLOG:v1“ (ASCII)
+  16  4  Länge der gzip-Daten (uint32, little endian)
+  20  4  CRC-32 der gzip-Daten (uint32, little endian; schützt die Suche vor zufälligen Treffern)
+  24  …  gzip-Daten (JSON-Liste wie CHANGELOG.json)
 """
 
+import gzip
+import hashlib
 import json
 import pathlib
 import re
+import struct
 import sys
+import zlib
 
 REPO_URL = "https://github.com/Baldesarra/pixelia"
 
@@ -129,6 +143,37 @@ def notes(entry, version):
     return title, "\n".join(lines)
 
 
+EMBED_MAGIC = b"PIXELIA:CHLOG:v1"
+
+
+def embed(entries, out):
+    """C++-Quelle mit dem Changelog-Block schreiben (Aufbau siehe oben); nur bei Änderung, damit nichts neu baut."""
+    compact = json.dumps(entries, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    packed = gzip.compress(compact, 9, mtime=0)
+    block = EMBED_MAGIC + struct.pack("<II", len(packed), zlib.crc32(packed)) + packed
+    etag = hashlib.sha1(packed).hexdigest()[:12]
+    body = ",".join(str(b) for b in block)
+    text = "\n".join([
+        "// Erzeugt von tools/release_notes.py --embed aus CHANGELOG.json, nicht von Hand ändern.",
+        '#include "web_assets.h"',
+        "namespace app::web::assets {",
+        "namespace {",
+        # used: der Block muss auch dann in der .bin bleiben, wenn der Linker ungenutzte Daten entfernt
+        f"__attribute__((used)) alignas(4) const uint8_t kBlock[] = {{{body}}};",
+        "}  // namespace",
+        f'const Asset kChangelog = {{"/api/changelog", "application/json", kBlock + {len(block) - len(packed)}, '
+        f'{len(packed)}, true, "\\"{etag}\\""}};',
+        "}  // namespace app::web::assets",
+        "",
+    ])
+    out = pathlib.Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if not out.exists() or out.read_text(encoding="utf-8") != text:
+        out.write_text(text, encoding="utf-8")
+    print(f"release_notes: Changelog {len(entries)} Versionen, {len(compact) // 1024} KB -> "
+          f"{len(packed) // 1024} KB eingebettet")
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -137,6 +182,13 @@ def main():
         print(__doc__)
         return 2
     entries = load_entries()
+
+    if args[0] == "--embed" and len(args) == 2:
+        # Formfehler halten den Firmware-Build nicht auf (die CI prüft mit --check), sie werden nur gemeldet
+        for error in check(entries):
+            print(f"release_notes: Warnung: {error}", file=sys.stderr)
+        embed(entries, args[1])
+        return 0
 
     if args[0] == "--check":
         errors = check(entries)

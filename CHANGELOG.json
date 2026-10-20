@@ -1,5 +1,27 @@
 [
   {
+    "v": "0.4.0",
+    "d": "2026-10-20",
+    "t": "Versionsverlauf und Diagnose",
+    "s": "Changelog in der Firmware, Timeline aller Versionen, Vorschau vor dem Update und Absturzberichte in der Oberfläche",
+    "n": [
+      "Update: CHANGELOG.json steckt als gzip-Block mit festem Marker in der Firmware (tools/release_notes.py --embed, 10 KB), GET /api/changelog liefert ihn aus",
+      "Web: Seite Versionsverlauf als Timeline mit allen Feldern (Neu, Verbessert, Behoben, Entfernt, Geprüft, Hinweise, Pull Requests), installierte Version markiert",
+      "Web: Änderungsvorschau auf der Seite System: liest den Verlauf schon vor dem Hochladen aus der gewählten .bin und zeigt, was neu ist bzw. bei älteren Dateien, was fehlt",
+      "Web: Seite Diagnose mit Absturzbericht (Grund, Task, PC, Ausnahme, Backtrace, Rohdaten, Löschen mit PIN), Bilanz und Reset-Historie der letzten 16 Starts"
+    ],
+    "i": [
+      "Web: Seite System zeigt die Diagnose nur noch kurz und verweist auf die neue Seite; Mock mit Versionsverlauf und Absturzbericht (PIXELIA_MOCK_CRASH=0: keiner)",
+      "Doku: Roadmap 0.4.x in drei Patches geteilt: 0.4.0 Versionsverlauf und Diagnose, 0.4.1 Update von GitHub, 0.4.2 Experimentell, Live-Vorschau, Leistung"
+    ],
+    "g": [
+      "Gerät: /api/changelog 10,7 KB gzip in 80 ms, ETag → 304; Marker genau einmal in der .bin, CRC stimmt; 29,8 fps, interner RAM 113 KB frei (Tiefstwert 110 KB)",
+      "Web: Vorschau mit der Build-.bin (1 neue Version) und der Release-.bin 0.3.2 (kein Verlauf); Absturzbericht löschen fragt im Mock den PIN ab",
+      "Web: Bundle gzip 127 KB (app.js 91 KB, CSS 8 KB, Schrift 33 KB), Ziel ≤ 150 KB; Firmware 1340 KB = 21,8 % der Partition"
+    ],
+    "pr": [17]
+  },
+  {
     "v": "0.3.2",
     "d": "2026-10-19",
     "t": "System und Schutz",

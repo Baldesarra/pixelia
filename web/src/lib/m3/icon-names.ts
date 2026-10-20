@@ -73,6 +73,14 @@ export const ICONS = [
   'upload',
   'delete_forever',
   'shield_lock',
+  // Versionsverlauf und Diagnose (0.4.0)
+  'monitor_heart',
+  'monitor_heart-fill',
+  'keyboard_arrow_down',
+  'arrow_upward',
+  'remove',
+  'power_settings_new',
+  'refresh',
 ] as const;
 
 export type IconName = (typeof ICONS)[number];
