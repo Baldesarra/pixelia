@@ -12,7 +12,7 @@
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
 | **Nächster Schritt** | 0.5.x Engine: erst Aufteilung in Patches vorschlagen und vom User bestätigen lassen, dann 0.5.0; frische Arbeits-Sitzung, Denkstufe Extra Hoch (xhigh) |
-| **Offen** | Sichtprüfung am Display durch den User: Stromsparmodus (Panel 30 Hz: flimmert es?), Touch-Test, Displaytests; Rückfall mit einem von GitHub geladenen kaputten Image nicht eigens geprüft (gleicher Weg wie beim Upload, dort geprüft; ein absichtlich kaputtes Release wäre für alle im Kanal Vorschau sichtbar); Captive Portal unter iOS einmal ansehen (Android und Windows geprüft); Screenshot-Läufe schreiben die Standard-Farbwahl aufs Gerät, solange es noch keine hat (harmlos); Geräteliste: kopflose Screenshot-Läufe legen jedes Mal ein neues Gerät an (harmlos, älteste fallen raus); Planungs-Chat: Hauptwelt vor 0.6.0 festlegen; Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
+| **Offen** | Sichtprüfung am Display durch den User: Stromsparmodus (Panel 30 Hz: flimmert es?), Touch-Test, Displaytests; Rückfall mit einem von GitHub geladenen kaputten Image nicht eigens geprüft (gleicher Weg wie beim Upload, dort geprüft; ein absichtlich kaputtes Release wäre für alle im Kanal Vorschau sichtbar); Captive Portal unter iOS einmal ansehen (Android und Windows geprüft); Screenshot-Läufe schreiben die Standard-Farbwahl aufs Gerät, solange es noch keine hat (harmlos); Geräteliste: kopflose Screenshot-Läufe legen jedes Mal ein neues Gerät an (harmlos, älteste fallen raus); Planungs-Chat: gemeinsames Setting ausarbeiten (vor Modul-Schnittstelle in 0.5.x); Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
 | **Aktualisiert** | 2026-10-20 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
@@ -193,6 +193,11 @@ In drei Patches (Entscheidung 2026-10-20, eine Arbeits-Sitzung pro Patch):
 
 ## 0.5.x – Engine
 
+Reihenfolge: Settingunabhängige Engine-Teile kommen zuerst (Sprites, Tilemaps, Kamera, Paletten, Licht, Wetter,
+Partikel, Schrift, Asset-Pipeline, Dienste, Simulator, Langzeit-Test). Modul-Schnittstelle, Regie und gemeinsamer
+Weltzustand (Figuren über Orte hinweg, Hintergrund-Simulation inaktiver Orte) kommen in die letzten Patches, erst nach
+der Setting-Entscheidung (Backlog 2026-10-20).
+
 - [ ] Sprites, Animationen, Tilemaps, Kamera, Parallax
 - [ ] Paletten, Tag/Nacht, Farbrotation, Lichttabellen, Transparenztabellen, Rastereffekte
 - [ ] Partikel und Wetter (Regen, Schnee, Nebel, Blitz)
@@ -314,6 +319,8 @@ Neue Wünsche des Users landen hier (mit Datum) und werden einer Version zugeord
 | 2026-10-19 | **Inselwelt: Lagerübersicht in der Weboberfläche** – welche Waren und Gegenstände der Bewohner hat, wie viele, wo sie gelagert sind (Lagerplatz, Kapazität). Genaue Ausarbeitung folgt gemeinsam (Idee des Users). In [welten/inselwelt-konzept.md](welten/inselwelt-konzept.md) vermerkt | Inselwelt (Welt-Seite in der Oberfläche) |
 | 2026-10-19 | **Kürzere Changelogs:** technisch, aber höchstens 220 Zeichen pro Stichpunkt und 24 pro Version, Details in die PR-Beschreibung; 0.2.1 und 0.2.2 gekürzt (Wunsch des Users) | ✅ 0.3.0 (Regel, `--check`) |
 | 2026-10-19 | **Arbeitsweise mit Sitzung pro Version** und Übergabe übers Repo, damit eine Version nicht das ganze Nutzungslimit braucht ([ARBEITSWEISE.md](ARBEITSWEISE.md)) | ✅ 0.3.0 |
+| 2026-10-20 | **Gemeinsames Setting** (Idee des Users): statt getrennter Welten eine große gemeinsame Welt. Zugfahrt, Dungeon usw. sind Module bzw. Orte, die später nachgereicht werden. Figuren wechseln zwischen den Orten (z. B. eine Person geht in den Dungeon, dort sieht man die Idle-Dungeon-Ansicht). Immer nur ein Ort sichtbar und voll simuliert, die anderen laufen vereinfacht („inaktiv“) im Hintergrund weiter. Wird im Planungs-Chat ausgearbeitet und ersetzt dann die Frage „Hauptwelt vor 0.6.0 festlegen“ | Planungs-Chat, vor Modul-Schnittstelle in 0.5.x |
+| 2026-10-20 | **Erste Phase von 0.5.x nachprüfen** (ausdrücklicher Wunsch des Users): Alles, was in der ersten Phase von 0.5.x gebaut wird, wird erneut geprüft und an das Setting angepasst, sobald dieses feststeht | nach der Setting-Entscheidung |
 | 2026-10-20 | **Hinweis auf eine neue Version auch auf dem Display** (gefunden von der Prüfung im Hintergrund), Entscheidung des Planungs-Chats | 0.5.x (mit den Overlays) |
 | 2026-10-20 | Automatische Installation neuer Versionen ohne Nachfrage | ❌ entschieden: nicht, auch nicht als Option; Hinweis reicht (Entscheidung des Users) |
 | 2026-10-19 | Log-Zeilen der WLAN-Bibliothek, die in zwei Teilen kommen (z. B. „wifi:“ + „<ba-add>…“), im Log-Puffer zu einer Zeile zusammenfügen | offen (Kleinigkeit) |
