@@ -40,6 +40,15 @@ void flash_stress(int seconds);
 void backlight_cycle(bool on);
 // Touch-Controller für die Hardware-Seite: false ohne GT911; touches = Berührungen seit dem Start
 bool touch_info(board::touch::Info* info, uint32_t* touches);
+// Touch-Test (Seite Experimentell): letzter Punkt in Bildausrichtung (800×480), getroffene Ecken (Bit 0–3)
+struct TouchLive {
+    bool ok;    // GT911 gefunden
+    bool down;  // gerade berührt
+    int x, y;   // letzter Punkt, -1 = noch keiner
+    uint8_t corners;
+    uint32_t touches;
+};
+TouchLive touch_live();
 }  // namespace hwtest
 
 namespace gfx {
@@ -70,6 +79,19 @@ float speed();
 void set_real_time(bool on);
 bool real_time();
 EngineStats engine_stats(bool reset_max);
+
+// Live-Vorschau (seit 0.4.2): Kopie des fertigen Bildes (400×240 Paletten-Indizes) und der Palette (256 × RGB888),
+// gemacht im Grafik-Task direkt vor dem Puffertausch, also nie halb gezeichnet. Nur aus einer Task gleichzeitig
+// aufrufen (Webserver). Liegt die letzte Kopie weniger als min_age_ms zurück, kommt sie noch einmal (Bremse).
+// false = kein Bild (Testbild aktiv, Engine nicht bereit oder Zeitüberschreitung).
+struct Frame {
+    const uint8_t* pixels;
+    const uint8_t* palette;
+    uint32_t number;   // laufende Bildnummer der Engine
+    uint32_t copy_us;  // Dauer der Kopie im Grafik-Task
+    bool fresh;        // neu kopiert (false = wiederholt wegen min_age_ms)
+};
+bool grab(Frame* out, int timeout_ms, int min_age_ms);
 }  // namespace gfx
 
 namespace perf {

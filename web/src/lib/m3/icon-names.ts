@@ -83,6 +83,18 @@ export const ICONS = [
   'refresh',
   'cloud_download',
   'science',
+  // Experimentell, Live-Vorschau, Leistung (0.4.2)
+  'science-fill',
+  'monitoring',
+  'monitoring-fill',
+  'photo_camera',
+  'tune',
+  'energy_savings_leaf',
+  'undo',
+  'list',
+  'videocam',
+  'crop_square',
+  'motion_photos_on',
 ] as const;
 
 export type IconName = (typeof ICONS)[number];

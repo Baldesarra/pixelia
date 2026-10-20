@@ -56,7 +56,8 @@ esp_err_t begin(const uint8_t* head, size_t len, size_t total, char* error, size
                 const char* source = "upload");
 esp_err_t write(const uint8_t* data, size_t len);
 esp_err_t finish(char* error, size_t error_len);
-void cancel(const char* why);
+// by_user: abgebrochen auf Wunsch (Knopf „Abbrechen“): kurze Meldung statt Fehleranzeige auf dem Display
+void cancel(const char* why, bool by_user = false);
 
 // Neustart nach ms Millisekunden (Antwort an den Browser kann noch raus)
 void restart_soon(int ms);

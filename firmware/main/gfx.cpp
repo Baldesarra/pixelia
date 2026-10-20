@@ -77,6 +77,15 @@ UiState s_ui_local;
 pixelia::ui::SetupScreen s_setup_screen;
 pixelia::ui::InfoCard s_info_card;
 uint16_t s_ui_pal565[16];
+// Live-Vorschau: 0 = nichts angefordert, 1 = angefordert (Grafik-Task kopiert), 2 = Kopie fertig
+std::atomic<int> s_snap_state{0};
+uint8_t* s_snap_px = nullptr;  // PSRAM, beim ersten Abruf angelegt
+uint8_t s_snap_pal[256 * 3];
+uint32_t s_snap_frame = 0;
+uint32_t s_snap_us = 0;
+int64_t s_snap_at = 0;
+pixelia::Palette s_ui_pal{};
+
 // Halte-Anzeige in Promille, -1 = aus. Eigener Wert statt UiState: ändert sich bei jedem Touch-Abfrage-Takt
 std::atomic<int> s_hold_permille{-1};
 
@@ -183,9 +192,8 @@ void gfx_task(void* arg) {
     ESP_ERROR_CHECK(board::display::init(*timing));
     delete timing;
 
-    pixelia::Palette ui_pal{};
-    pixelia::ui::apply_palette(ui_pal);
-    for (int i = 0; i < 16; ++i) s_ui_pal565[i] = pixelia::to_rgb565(ui_pal[pixelia::ui::kFirstIndex + i]);
+    pixelia::ui::apply_palette(s_ui_pal);
+    for (int i = 0; i < 16; ++i) s_ui_pal565[i] = pixelia::to_rgb565(s_ui_pal[pixelia::ui::kFirstIndex + i]);
 
     uint32_t last_frames = board::display::frame_count();
     uint32_t frame_rem = 0;
@@ -286,6 +294,19 @@ void gfx_task(void* arg) {
         for (int i = 0; i < pixelia::ui::kFirstIndex; ++i) s_pal565[i] = pixelia::to_rgb565(pal[i]);
         std::memcpy(&s_pal565[pixelia::ui::kFirstIndex], s_ui_pal565, sizeof(s_ui_pal565));
         int64_t t2 = esp_timer_get_time();
+        // Live-Vorschau: fertiges Bild kopieren, bevor es getauscht wird (~1 ms PSRAM → PSRAM)
+        if (s_snap_state.load(std::memory_order_acquire) == 1) {
+            std::memcpy(s_snap_px, back, kBufBytes);
+            for (int i = 0; i < 256; ++i) {
+                const pixelia::Color c = i < pixelia::ui::kFirstIndex ? pal[i] : s_ui_pal[i];
+                s_snap_pal[i * 3] = c.r;
+                s_snap_pal[i * 3 + 1] = c.g;
+                s_snap_pal[i * 3 + 2] = c.b;
+            }
+            s_snap_frame = s_stats.frames;
+            s_snap_us = static_cast<uint32_t>(esp_timer_get_time() - t2);
+            s_snap_state.store(2, std::memory_order_release);
+        }
         board::display::present(s_pal565);
 
         uint32_t render_us = static_cast<uint32_t>(t2 - t1);
@@ -347,6 +368,29 @@ EngineStats engine_stats(bool reset_max) {
     s.buffers_ready = s_buf[0] != nullptr;
     s.sprites = s_sprites;
     return s;
+}
+
+bool grab(Frame* out, int timeout_ms, int min_age_ms) {
+    if (!s_snap_px) {
+        s_snap_px = static_cast<uint8_t*>(heap_caps_malloc(kBufBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+        if (!s_snap_px) return false;
+    }
+    const int64_t now = esp_timer_get_time();
+    bool fresh = false;
+    if (s_snap_state.load(std::memory_order_acquire) != 2 || now - s_snap_at >= min_age_ms * 1000LL) {
+        s_snap_state.store(1, std::memory_order_release);
+        for (int waited = 0; s_snap_state.load(std::memory_order_acquire) != 2; waited += 5) {
+            if (waited >= timeout_ms) {
+                s_snap_state.store(0, std::memory_order_release);
+                return false;
+            }
+            vTaskDelay(pdMS_TO_TICKS(5));
+        }
+        s_snap_at = esp_timer_get_time();
+        fresh = true;
+    }
+    *out = Frame{s_snap_px, s_snap_pal, s_snap_frame, s_snap_us, fresh};
+    return true;
 }
 
 }  // namespace app::gfx

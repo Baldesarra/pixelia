@@ -7,6 +7,7 @@ export { default as CircularProgress } from './CircularProgress.svelte';
 export { default as Dialog, confirmDialog, promptDialog } from './Dialog.svelte';
 export { default as Icon } from './Icon.svelte';
 export { default as Slider } from './Slider.svelte';
+export { default as Switch } from './Switch.svelte';
 export { default as TextField } from './TextField.svelte';
 export { default as IconButton } from './IconButton.svelte';
 export { default as LoadingIndicator } from './LoadingIndicator.svelte';

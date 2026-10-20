@@ -20,6 +20,7 @@
 #include "freertos/task.h"
 #include "logbuf.h"
 #include "net.h"
+#include "exper.h"
 #include "github.h"
 #include "ota.h"
 #include "settings.h"
@@ -37,6 +38,7 @@ extern "C" void app_main() {
     app::log::init();
     app::sysinfo::log_all();
     app::settings::init();
+    app::exper::init();
     app::auth::init();
     app::ota::init();
     app::github::init();
@@ -52,10 +54,11 @@ extern "C" void app_main() {
     ESP_LOGI("bl", "Hintergrundbeleuchtung: PWM %lu Hz, 12 Bit, %d %%",
              static_cast<unsigned long>(board::backlight::frequency()), board::backlight::percent());
 
-    // Geprüfte Werte aus docs/HARDWARE.md: Panel 60 Hz, jedes Engine-Bild zweimal zeigen = 30 fps
-    board::display::Timing timing;
+    // Geprüfte Werte aus docs/HARDWARE.md: Panel 60 Hz, jedes Engine-Bild zweimal zeigen = 30 fps.
+    // Eigene Werte von der Seite Experimentell nur, wenn bestätigt gespeichert (exper.h)
+    const board::display::Timing timing = app::exper::boot_timing();
     board::display::set_rotation180(set.rotate180);
-    board::display::set_swap_interval(2);
+    board::display::set_swap_interval(app::exper::boot_swap());
     board::display::set_mode(board::display::Mode::Engine);
     app::gfx::start(timing);
 

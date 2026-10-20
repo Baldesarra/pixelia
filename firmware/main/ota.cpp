@@ -406,7 +406,7 @@ esp_err_t finish(char* error, size_t error_len) {
     return ESP_OK;
 }
 
-void cancel(const char* why) {
+void cancel(const char* why, bool by_user) {
     if (s_handle) esp_ota_abort(s_handle);
     s_handle = 0;
     set_error(why);
@@ -416,6 +416,11 @@ void cancel(const char* why) {
         s_status.busy = false;
     }
     ESP_LOGE(TAG, "Update abgebrochen: %s", why);
+    if (by_user) {
+        ui::hide_update();
+        ui::toast("Update abgebrochen", pixelia::ui::Tone::Info, 5);
+        return;
+    }
     show_progress(UpdateInfo::Phase::Failed, why);
 }
 

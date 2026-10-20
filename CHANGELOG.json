@@ -1,5 +1,39 @@
 [
   {
+    "v": "0.4.2",
+    "d": "2026-10-20",
+    "t": "Experimentell, Live-Vorschau, Leistung",
+    "s": "Bild des Displays im Browser mit Screenshot, Leistung als Verläufe, Seite Experimentell mit Probelauf; Update abbrechen und täglich im Hintergrund suchen",
+    "n": [
+      "Web: Seite Live mit Live-Vorschau des Displays (≤ 3 Bilder/s) und Screenshot als PNG in 800 × 480; der Browser malt das Bild ins Canvas und erzeugt das PNG selbst",
+      "Display: GET /api/screen liefert das 400×240-Bild als Paletten-Indizes plus Palette, PackBits-gepackt (~68 KB), kopiert im Grafik-Task vor dem Puffertausch (kein Reißen)",
+      "Web: Leistungsanzeige mit Verläufen über 2 min (fps, Zeichenzeit, CPU pro Kern, RAM) aus /api/perf alle 2 s; Task-Liste nur auf Knopfdruck mit Hinweis auf den Display-Aussetzer",
+      "Web: Seite Experimentell mit Schalter (Standard aus, im NVS): Touch-Test mit Punkt und Ecken, Displaytests (Farbbalken, Rahmen, Bewegung, 60 s), Panel-Timing, Stromsparmodus",
+      "Display: Panel-Timing und Stromsparmodus nur auf Probe: ohne Bestätigung nach 15 s zurück, gespeichert erst nach „Behalten“; GET/POST /api/exp",
+      "Display: Fluchtweg ohne Browser: zwei Starts mit eigenen Werten, die keine 60 s laufen, und der nächste Start nimmt die Standardwerte",
+      "Display: Stromsparmodus (Vorschau): halber Pixeltakt, Panel 30 statt 60 Hz, jedes Engine-Bild einmal gezeigt; Welt bleibt bei 30 fps, Hochskalier-Interrupt 20 → 10 %",
+      "Update: Laufenden Download von GitHub abbrechen (POST /api/update/cancel, Knopf „Abbrechen“): die neue Partition bleibt ungültig, kein Neustart",
+      "Update: Prüfung im Hintergrund höchstens einmal täglich (Standard an, Schalter auf der Seite System); nur ein Punkt an „System“, installiert nie von selbst",
+      "Update: Ältere Version ab 0.4.0 von GitHub installieren, nur auf der Seite Experimentell mit Warnung (Einstellungen, vor 0.4.1 kein Update von GitHub)"
+    ],
+    "i": [
+      "Web: Seite System lädt den Stand von /api/update neu, wenn die Seite wieder sichtbar wird oder ein anderer Browser gesucht hat (Zähler ota.ghSeq im Status)",
+      "Web: M3-Schalter (Switch) und kleiner Punkt (Badge) an Navigationszielen; neue Ziele Live und Experimentell auch unter „Mehr“",
+      "Web: Mock spielt Vorschau, Leistung, Experimentell, Abbrechen und ältere Versionen (PIXELIA_MOCK_EXP=1, PIXELIA_MOCK_V=0.4.1)",
+      "Doku: tools/web_screens.mjs kann Varianten wählen, nach dem Laden Skript ausführen (--eval) und Seitentext ausgeben (--text), meldet Skriptfehler"
+    ],
+    "g": [
+      "Gerät: mit Live-Vorschau (2,9 Bilder/s, 120 ms pro Bild) 29,7–30,3 fps, RAM 115 KB frei, 0 Aussetzer; Kopie 3,9 ms auf Kern 1, Packen 10,7 ms auf Kern 0",
+      "Gerät: Stromsparmodus 29,8–30,3 fps bei 30 Hz Panel, Interrupt 10,1 %; Rückfall nach 15 s ohne Bestätigung, Start mit gespeicherten Werten und Fluchtweg geprüft",
+      "Gerät: Download 0.4.0 nach 932 KB abgebrochen, kein Neustart, nächster Start bleibt ota_0; Hintergrundprüfung lief nach 301 s und nicht erneut nach Neustart",
+      "Web: Bundle gzip 141 KB (Ziel ≤ 150 KB); Firmware 1553 KB = 25,3 % der Partition"
+    ],
+    "h": [
+      "Update: Keine automatische Installation ohne Nachfrage, auch nicht als Option (Entscheidung des Users); ein Hinweis auf dem Display kommt mit den Overlays in 0.5.x"
+    ],
+    "pr": [20]
+  },
+  {
     "v": "0.4.1",
     "d": "2026-10-20",
     "t": "Update von GitHub",

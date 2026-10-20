@@ -146,4 +146,56 @@ export type GhState = {
   latest: string; // neueste Version im Kanal (auch wenn nicht neuer)
   rel: GhRelease[]; // neuer als installiert, neueste zuerst
   rate: { left: number; limit: number; resetS: number };
+  // seit 0.4.2
+  cancelled?: boolean; // letzter Download wurde abgebrochen
+  auto?: boolean; // Prüfung im Hintergrund (einmal täglich)
+  lastAuto?: boolean; // letzte Prüfung kam aus dem Hintergrund
+  lastT?: number; // Unix-Zeit der letzten Prüfung (auch über Neustarts), 0 = unbekannt
+  avail?: string;
+  seq?: number;
+  old?: { v: string; pre: boolean; date: string; size: number }[]; // ältere Versionen ab 0.4.0, neueste zuerst
+};
+
+/** GET /api/exp (seit 0.4.2): Seite Experimentell */
+export type PanelValues = {
+  pclk: number; // kHz, ohne Stromsparmodus
+  hp: number;
+  hb: number;
+  hf: number;
+  vp: number;
+  vb: number;
+  vf: number;
+  hlow: boolean;
+  vlow: boolean;
+  neg: boolean;
+  eco: boolean;
+  hz: number; // tatsächliche Bildwiederholung (mit Stromsparmodus)
+  swap: number; // Panel-Bilder pro Engine-Bild
+};
+export type ExpState = {
+  on: boolean;
+  safeBoot: boolean; // Fluchtweg hat gegriffen: Standardwerte trotz gespeicherter Werte
+  trialS: number; // Sekunden bis zum Rückfall, -1 = keine Probe
+  trialNeed: number;
+  panel: PanelValues;
+  saved: PanelValues;
+  std: PanelValues;
+  mode: 'black' | 'bars' | 'frame' | 'motion' | 'touch' | 'engine';
+  testS: number;
+  touch: { ok: boolean; down: boolean; x: number; y: number; corners: number; n: number };
+};
+
+/** GET /api/perf (seit 0.2.2): Leistung, Messung alle 2 s; Task-Liste nur mit ?tasks=1 */
+export type PerfData = {
+  uptime: number;
+  at: number;
+  mode: string;
+  lcd: { hz: number; pclk: number; isr: number; isrMaxUs: number; desync: number };
+  engine: { fps: number; render: number; renderMax: number; logic: number; ticks: number[]; sprites: number; buf: string } | null;
+  cpu: [number, number];
+  heap: { ram: number; ramMin: number; ramBlk: number; dma: number; psram: number; psramMin: number; psramBlk: number };
+  wifi: { state: string; rssi: number; ch: number };
+  taskWindowMs?: number;
+  taskQueryUs?: number;
+  tasks: { name: string; core: number; prio: number; stackFree: number; cpu: number; state: string }[] | null;
 };

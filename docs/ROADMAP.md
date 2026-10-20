@@ -7,12 +7,12 @@
 
 | | |
 |---|---|
-| **Phase** | 0.4.x Updates & Diagnose: 0.4.1 „Update von GitHub“ fertig und am Gerät geprüft (Prüfung der Releases, Kanal Stabil/Vorschau, Installation per HTTPS, PR #19); Vorschau v0.4.1-beta.1 veröffentlicht |
-| **Letzte Version** | 0.4.1 „Update von GitHub“ (2026-10-20, PR #19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.4.1); davor Vorschau v0.4.1-beta.1 und 0.4.0 „Versionsverlauf und Diagnose“ (PR #17, #18). Zweiter echter Durchlauf (Kanal Stabil, beta.1 → 0.4.1) folgt nach dem Release, Werte trägt die Sitzung 0.4.2 nach |
+| **Phase** | 0.4.x Updates & Diagnose **abgeschlossen** mit 0.4.2 „Experimentell, Live-Vorschau, Leistung“ (PR #20): Live-Vorschau mit Screenshot, Leistungsanzeige, Seite Experimentell mit Probelauf, Update abbrechen, Prüfung im Hintergrund, ältere Version |
+| **Letzte Version** | 0.4.2 „Experimentell, Live-Vorschau, Leistung“ (2026-10-20, PR #20), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.4.2). Am Gerät: mit Live-Vorschau 29,7–30,3 fps, RAM 115 KB, 0 Aussetzer; Stromsparmodus 30 Hz mit Rückfall nach 15 s; Download nach 932 KB abgebrochen ohne Neustart. Davor 0.4.1 „Update von GitHub“ (2026-10-20, PR #19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.4.1); davor Vorschau v0.4.1-beta.1 und 0.4.0 „Versionsverlauf und Diagnose“ (PR #17, #18). Zweiter echter Durchlauf im Kanal Stabil (0.4.1-beta.1 → 0.4.1 über GitHub): 1522 KB in 15,8 s (Verbindung 3,2 s, 121 KB/s), 30,0–30,2 fps, RAM-Tiefstwert 91 KB; Probelauf bestanden, danach 30,3 fps, RAM 117/111 KB |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
-| **Nächster Schritt** | 0.4.2 Experimentell, Live-Vorschau, Leistung, frische Arbeits-Sitzung, Denkstufe Hoch |
-| **Offen** | Planungs-Chat (Update von GitHub): automatisch installieren ohne Nachfrage? Prüfung im Hintergrund (z. B. täglich, Hinweis auf dem Display)? Ältere Version (Downgrade) von GitHub erlauben? Abbrechen eines laufenden Downloads? Rückfall mit einem von GitHub geladenen kaputten Image nicht eigens geprüft (gleicher Weg wie beim Upload, dort geprüft; ein absichtlich kaputtes Release wäre für alle im Kanal Vorschau sichtbar); Captive Portal unter iOS einmal ansehen (Android und Windows geprüft); Screenshot-Läufe schreiben die Standard-Farbwahl aufs Gerät, solange es noch keine hat (harmlos); Geräteliste: kopflose Screenshot-Läufe legen jedes Mal ein neues Gerät an (harmlos, älteste fallen raus); Planungs-Chat: Hauptwelt vor 0.6.0 festlegen; Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
+| **Nächster Schritt** | 0.5.x Engine: erst Aufteilung in Patches vorschlagen und vom User bestätigen lassen, dann 0.5.0; frische Arbeits-Sitzung, Denkstufe Extra Hoch (xhigh) |
+| **Offen** | Sichtprüfung am Display durch den User: Stromsparmodus (Panel 30 Hz: flimmert es?), Touch-Test, Displaytests; Rückfall mit einem von GitHub geladenen kaputten Image nicht eigens geprüft (gleicher Weg wie beim Upload, dort geprüft; ein absichtlich kaputtes Release wäre für alle im Kanal Vorschau sichtbar); Captive Portal unter iOS einmal ansehen (Android und Windows geprüft); Screenshot-Läufe schreiben die Standard-Farbwahl aufs Gerät, solange es noch keine hat (harmlos); Geräteliste: kopflose Screenshot-Läufe legen jedes Mal ein neues Gerät an (harmlos, älteste fallen raus); Planungs-Chat: Hauptwelt vor 0.6.0 festlegen; Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
 | **Aktualisiert** | 2026-10-20 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
@@ -181,10 +181,15 @@ In drei Patches (Entscheidung 2026-10-20, eine Arbeits-Sitzung pro Patch):
 
 **0.4.2 Experimentell, Live-Vorschau, Leistung**
 
-- [ ] Experimentell-Seite: Touch-Test, Displaytests, Stromsparmodus, Panel-Timing, Experimentell-Schalter
-- [ ] Live-Vorschau und Screenshot (PNG)
-- [ ] Leistungsanzeige (FPS, Frame-Zeiten, CPU pro Kern, Tasks, Heap/PSRAM) über `/api/perf`; die Task-Liste nur auf
+- [x] Experimentell-Seite: Touch-Test, Displaytests, Stromsparmodus, Panel-Timing, Experimentell-Schalter; Panel-Werte
+      nur auf Probe (15 s), Fluchtweg über zwei kurze Starts
+- [x] Live-Vorschau und Screenshot (PNG), Seite Live (`/api/screen`, Paletten-Indizes PackBits-gepackt, ≤ 3 Bilder/s)
+- [x] Leistungsanzeige (FPS, Frame-Zeiten, CPU pro Kern, Tasks, Heap/PSRAM) über `/api/perf`; die Task-Liste nur auf
       Knopfdruck, nie regelmäßig (hält 1,1 ms die Kernel-Sperre, kostet einen Display-Aussetzer, [HARDWARE.md](HARDWARE.md))
+- [x] Update von GitHub: Abbrechen, Prüfung im Hintergrund (täglich, Punkt an „System“), ältere Version ab 0.4.0
+      (Seite Experimentell); Seite System lädt den Stand neu (sichtbar werden, Suche von anderem Browser)
+
+**0.4.x abgeschlossen (2026-10-20).**
 
 ## 0.5.x – Engine
 
@@ -285,7 +290,7 @@ Neue Wünsche des Users landen hier (mit Datum) und werden einer Version zugeord
 | 2026-10-18 | Weitere Welten später: Aquarium, Raumstation, Ameisenfarm, Leuchtturm, Bauernhof | nach 1.0.0 |
 | 2026-10-18 | Optional Lichtsensor BH1750 nachrüsten (lernende Auto-Helligkeit) | offen |
 | 2026-10-18 | Optional Ton über I²S-Verstärker nachrüsten. **Neu:** Board hat Lautsprecher-Anschluss „Speak“ (P6) mit Verstärker U4, prüfen | offen |
-| 2026-10-18 | Leistungsmonitor (FPS, Last, Speicher) in der Weboberfläche, Log per Schalter unter „Experimentell“ ein/aus (Idee des Users) | 0.4.x |
+| 2026-10-18 | Leistungsmonitor (FPS, Last, Speicher) in der Weboberfläche, Log per Schalter unter „Experimentell“ ein/aus (Idee des Users) | ✅ 0.4.2 (Seite Live); Log-Schalter offen |
 | 2026-10-18 | Display-Drehung 0°/180° als Systemeinstellung, Aufstellort steht noch nicht fest (Wunsch des Users) | ✅ 0.2.0 (NVS, Einrichtungsseite, `rot`), 0.3.x (richtige Oberfläche) |
 | 2026-10-18 | Engine: Bounce-Callback mit SIMD (PIE) beschleunigen oder intern rendern und ins PSRAM kopieren, falls Welten mehr Zeit brauchen | 0.5.x bei Bedarf |
 | 2026-10-18 | RAM: kurzer Einbruch von ~30 KB internem RAM beim Start und beim Anlegen der Engine untersuchen | ✅ 0.2.0 geklärt: DMA-Pool von ESP-IDF meldet Tiefstwert 0, kein echter Verbrauch ([HARDWARE.md](HARDWARE.md)) |
@@ -309,4 +314,6 @@ Neue Wünsche des Users landen hier (mit Datum) und werden einer Version zugeord
 | 2026-10-19 | **Inselwelt: Lagerübersicht in der Weboberfläche** – welche Waren und Gegenstände der Bewohner hat, wie viele, wo sie gelagert sind (Lagerplatz, Kapazität). Genaue Ausarbeitung folgt gemeinsam (Idee des Users). In [welten/inselwelt-konzept.md](welten/inselwelt-konzept.md) vermerkt | Inselwelt (Welt-Seite in der Oberfläche) |
 | 2026-10-19 | **Kürzere Changelogs:** technisch, aber höchstens 220 Zeichen pro Stichpunkt und 24 pro Version, Details in die PR-Beschreibung; 0.2.1 und 0.2.2 gekürzt (Wunsch des Users) | ✅ 0.3.0 (Regel, `--check`) |
 | 2026-10-19 | **Arbeitsweise mit Sitzung pro Version** und Übergabe übers Repo, damit eine Version nicht das ganze Nutzungslimit braucht ([ARBEITSWEISE.md](ARBEITSWEISE.md)) | ✅ 0.3.0 |
+| 2026-10-20 | **Hinweis auf eine neue Version auch auf dem Display** (gefunden von der Prüfung im Hintergrund), Entscheidung des Planungs-Chats | 0.5.x (mit den Overlays) |
+| 2026-10-20 | Automatische Installation neuer Versionen ohne Nachfrage | ❌ entschieden: nicht, auch nicht als Option; Hinweis reicht (Entscheidung des Users) |
 | 2026-10-19 | Log-Zeilen der WLAN-Bibliothek, die in zwei Teilen kommen (z. B. „wifi:“ + „<ba-add>…“), im Log-Puffer zu einer Zeile zusammenfügen | offen (Kleinigkeit) |

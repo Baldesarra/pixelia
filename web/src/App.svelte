@@ -16,12 +16,15 @@
   import More from './pages/More.svelte';
   import Versions from './pages/Versions.svelte';
   import Diagnostics from './pages/Diagnostics.svelte';
+  import Live from './pages/Live.svelte';
+  import Experimental from './pages/Experimental.svelte';
 
   // Handy-Leiste: höchstens fünf Ziele, der Rest steckt unter „Mehr“; die Schiene (ab 600 px) zeigt alles
-  const items: NavItem[] = [
+  // „System“ trägt einen Punkt, wenn die Prüfung (auch im Hintergrund) eine neuere Version gefunden hat
+  const items: NavItem[] = $derived([
     { id: 'uebersicht', label: 'Übersicht', icon: 'dashboard', iconActive: 'dashboard-fill', href: '#/' },
     { id: 'wlan', label: 'WLAN', icon: 'wifi', href: '#/wlan' },
-    { id: 'system', label: 'System', icon: 'settings', iconActive: 'settings-fill', href: '#/system' },
+    { id: 'system', label: 'System', icon: 'settings', iconActive: 'settings-fill', href: '#/system', badge: !!device.data?.ota.avail },
     { id: 'log', label: 'Log', icon: 'terminal', iconActive: 'terminal-fill', href: '#/log' },
     { id: 'info', label: 'Info', icon: 'info', iconActive: 'info-fill', href: '#/info', bar: false },
     { id: 'hardware', label: 'Hardware', icon: 'developer_board', iconActive: 'developer_board-fill', href: '#/hardware', bar: false },
@@ -29,8 +32,10 @@
     { id: 'darstellung', label: 'Darstellung', icon: 'palette', iconActive: 'palette-fill', href: '#/darstellung', bar: false },
     { id: 'versionen', label: 'Versionen', icon: 'history', href: '#/versionen', bar: false },
     { id: 'diagnose', label: 'Diagnose', icon: 'monitor_heart', iconActive: 'monitor_heart-fill', href: '#/diagnose', bar: false },
+    { id: 'live', label: 'Live', icon: 'monitoring', iconActive: 'monitoring-fill', href: '#/live', bar: false },
+    { id: 'experimentell', label: 'Experimentell', icon: 'science', iconActive: 'science-fill', href: '#/experimentell', bar: false },
     { id: 'mehr', label: 'Mehr', icon: 'apps', iconActive: 'apps-fill', href: '#/mehr', rail: false },
-  ];
+  ]);
   const pages: Record<string, { title: string; view: Component }> = {
     uebersicht: { title: 'Übersicht', view: Overview },
     wlan: { title: 'WLAN', view: Wifi },
@@ -42,9 +47,11 @@
     darstellung: { title: 'Darstellung', view: Appearance },
     versionen: { title: 'Versionsverlauf', view: Versions },
     diagnose: { title: 'Diagnose', view: Diagnostics },
+    live: { title: 'Live-Vorschau und Leistung', view: Live },
+    experimentell: { title: 'Experimentell', view: Experimental },
     mehr: { title: 'Mehr', view: More },
   };
-  const inMore = ['info', 'hardware', 'geraete', 'darstellung', 'versionen', 'diagnose'];
+  const inMore = ['info', 'hardware', 'geraete', 'darstellung', 'versionen', 'diagnose', 'live', 'experimentell'];
 
   const routeOf = () => (location.hash.replace(/^#\/?/, '') || 'uebersicht').split('/')[0];
   let route = $state(routeOf());
