@@ -53,6 +53,7 @@
 #include "json.h"
 #include "logbuf.h"
 #include "net.h"
+#include "exper.h"
 #include "ota.h"
 #include "settings.h"
 #include "web_assets.h"
@@ -110,6 +111,8 @@ std::string status_json() {
     j.boolean("busy", o.busy).str("src", o.source).num("bytes", o.bytes).num("total", o.total).str("newV", o.new_version);
     j.str("err", o.last_error).boolean("trial", o.trial).num("trialS", o.trial_elapsed_s);
     j.num("trialNeed", ota::kTrialSeconds).str("trialNote", o.trial_note).boolean("passed", o.trial_passed);
+    // Update von GitHub: gefundene neuere Version (Punkt an „System“), Zähler für neue Stände von /api/update
+    j.str("avail", github::available().c_str()).num("ghSeq", github::seq());
     j.end_obj();
 
     if (o.rollback) {
@@ -118,7 +121,7 @@ std::string status_json() {
         j.null("rollback");
     }
     j.obj("set").num("rot", set.rotate180 ? 180 : 0).num("bright", set.brightness).num("lp", set.long_press_ms);
-    j.str("ui", set.ui).end_obj();
+    j.str("ui", set.ui).boolean("exp", exper::enabled()).end_obj();
     j.obj("auth").boolean("pin", auth::enabled()).num("lockS", auth::lock_seconds()).end_obj();
 
     // Fernwartung (0.2.2): Startnummer, letzter Resetgrund, Absturzbericht, Fehler/Warnungen seit dem Start
@@ -644,11 +647,23 @@ esp_err_t update_channel_post(httpd_req_t* req) {
     std::string body, ch;
     read_body(req, &body, 256);
     if (!authorized(req, &body)) return deny(req);
-    if (!form_value(body, "ch", &ch) || (ch != "stable" && ch != "preview")) {
-        return reply(req, false, "Kanal fehlt (stable oder preview)");
+    std::string au;
+    const bool has_ch = form_value(body, "ch", &ch);
+    const bool has_auto = form_value(body, "auto", &au);
+    if ((!has_ch && !has_auto) || (has_ch && ch != "stable" && ch != "preview")) {
+        return reply(req, false, "Kanal (stable oder preview) oder auto=0/1 fehlt");
     }
-    github::set_channel(ch == "preview" ? github::Channel::Preview : github::Channel::Stable);
+    if (has_ch) github::set_channel(ch == "preview" ? github::Channel::Preview : github::Channel::Stable);
+    if (has_auto) github::set_auto(au == "1");
     return reply(req, true, "OK");
+}
+
+esp_err_t update_cancel_post(httpd_req_t* req) {
+    std::string body;
+    read_body(req, &body, 256);
+    if (!authorized(req, &body)) return deny(req);
+    if (!github::cancel_install()) return reply(req, false, "Es läuft kein Download von GitHub");
+    return reply(req, true, "Wird abgebrochen");
 }
 
 esp_err_t update_install_post(httpd_req_t* req) {
@@ -656,8 +671,12 @@ esp_err_t update_install_post(httpd_req_t* req) {
     read_body(req, &body, 256);
     if (!authorized(req, &body)) return deny(req);
     if (!form_value(body, "v", &v)) return reply(req, false, "Version fehlt");
+    // Ältere Version (Downgrade) nur mit eingeschaltetem Experimentell (Entscheidung 2026-10-20)
+    std::string old;
+    const bool older = form_value(body, "old", &old) && old == "1";
+    if (older && !exper::enabled()) return reply(req, false, "Ältere Versionen nur mit eingeschaltetem Experimentell");
     char error[160];
-    if (!github::start_install(v.c_str(), error, sizeof(error))) return reply(req, false, error);
+    if (!github::start_install(v.c_str(), older, error, sizeof(error))) return reply(req, false, error);
     return reply(req, true, "Download läuft");
 }
 
@@ -720,7 +739,7 @@ void start() {
     cfg.core_id = kSystemCore;
     cfg.stack_size = 8192;
     cfg.task_priority = 5;
-    cfg.max_uri_handlers = 56;  // 0.4.1: 49 belegt
+    cfg.max_uri_handlers = 60;  // 0.4.2: 53 belegt
     cfg.max_open_sockets = 7;
     cfg.lru_purge_enable = true;
     cfg.recv_wait_timeout = 10;
@@ -752,6 +771,7 @@ void start() {
     add("/api/update/check", HTTP_POST, update_check_post);
     add("/api/update/channel", HTTP_POST, update_channel_post);
     add("/api/update/install", HTTP_POST, update_install_post);
+    add("/api/update/cancel", HTTP_POST, update_cancel_post);
     add("/api/reboot", HTTP_POST, reboot_post);
     add("/api/auth", HTTP_GET, auth_get);
     add("/api/login", HTTP_POST, login_post);
@@ -763,6 +783,7 @@ void start() {
     add("/ws", HTTP_GET, ws_handler, true, ws_open);
     register_diag();
     register_info();
+    register_exp();
     for (const char* uri : {"/generate_204", "/gen_204", "/hotspot-detect.html", "/library/test/success.html",
                             "/connecttest.txt", "/ncsi.txt", "/redirect", "/canonical.html", "/success.txt"}) {
         add(uri, HTTP_GET, captive_check);

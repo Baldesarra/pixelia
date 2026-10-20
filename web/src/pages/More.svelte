@@ -9,6 +9,8 @@
     { href: '#/darstellung', icon: 'palette', title: 'Darstellung', text: 'Farben und Hell/Dunkel der Oberfläche' },
     { href: '#/versionen', icon: 'history', title: 'Versionsverlauf', text: 'Was sich in jeder Version geändert hat' },
     { href: '#/diagnose', icon: 'monitor_heart', title: 'Diagnose', text: 'Absturzberichte, Neustarts, Diagnosepaket' },
+    { href: '#/live', icon: 'monitoring', title: 'Live-Vorschau und Leistung', text: 'Bild des Displays, Screenshot, fps, CPU, Speicher' },
+    { href: '#/experimentell', icon: 'science', title: 'Experimentell', text: 'Touch-Test, Displaytests, Panel-Timing, ältere Version' },
     { href: '/setup', icon: 'build', title: 'Einfache Einrichtungsseite', text: 'Notfallseite ohne Extras (WLAN, Update, Diagnose)' },
   ];
 </script>

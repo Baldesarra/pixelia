@@ -12,6 +12,7 @@
     LoadingIndicator,
     promptDialog,
     Slider,
+    Switch,
     WavyProgress,
   } from '../lib/m3';
   import { device } from '../lib/status.svelte';
@@ -137,6 +138,7 @@
   let gh = $state<GhState | null>(null);
   let ghChecking = $state(false);
   let ghMsg = $state<string | null>(null);
+  let ghNote = $state(''); // Hinweis ohne Fehler (z. B. Download abgebrochen)
   let chLocal = $state<GhState['ch'] | null>(null);
   const ghCh = $derived(chLocal ?? gh?.ch ?? 'stable');
   const ghFresh = $derived(!!gh && gh.checkedS >= 0 && gh.checkedCh === ghCh);
@@ -151,11 +153,42 @@
     const st = await get<GhState>('/api/update').catch(() => null);
     if (st) [gh, ghAt] = [st, Date.now()];
   }
+  // Neu laden, wenn die Seite wieder sichtbar wird oder sich der Stand auf dem Gerät geändert hat (Suche von einem
+  // anderen Browser, Prüfung im Hintergrund, Kanal): der Status trägt dafür den Zähler ota.ghSeq
   onMount(() => {
     void loadGh();
     const id = setInterval(() => tick++, 15000);
-    return () => clearInterval(id);
+    const vis = () => !document.hidden && void loadGh();
+    document.addEventListener('visibilitychange', vis);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', vis);
+    };
   });
+  let seenSeq = -1;
+  $effect(() => {
+    const q = s?.ota.ghSeq;
+    if (q == null || q === seenSeq) return;
+    if (seenSeq >= 0 && !ghChecking) void loadGh();
+    seenSeq = q;
+  });
+
+  async function setAuto(on: boolean) {
+    const r = await post('/api/update/channel', { auto: on ? 1 : 0 }).catch(() => null);
+    if (!r?.ok) ghMsg = r?.msg ?? 'Pixelia antwortet nicht';
+    await loadGh();
+  }
+
+  // Laufenden Download von GitHub abbrechen: die neue Partition bleibt ungültig, kein Neustart
+  let cancelling = $state(false);
+  async function cancelGh() {
+    cancelling = true;
+    const r = await post('/api/update/cancel').catch(() => null);
+    if (!r?.ok) {
+      cancelling = false;
+      upMsg = { ok: false, text: r?.msg ?? 'Pixelia antwortet nicht' };
+    }
+  }
 
   async function setChannel(ch: GhState['ch']) {
     chLocal = ch;
@@ -166,6 +199,7 @@
 
   async function checkGh() {
     ghMsg = null;
+    ghNote = '';
     const r = await post('/api/update/check').catch(() => null);
     if (!r?.ok) return (ghMsg = r?.msg ?? 'Pixelia antwortet nicht');
     ghChecking = true;
@@ -189,6 +223,7 @@
     });
     if (!ok) return;
     ghMsg = null;
+    ghNote = '';
     const r = await post('/api/update/install', { v: t.v }).catch(() => null);
     if (!r?.ok) return (ghMsg = r?.msg ?? 'Pixelia antwortet nicht');
     via = 'github';
@@ -200,6 +235,15 @@
       await sleep(1000);
       const st = await get<GhState>('/api/update').catch(() => null);
       if (!st || st.job === 'install') continue;
+      if (st.cancelled) {
+        [gh, ghAt] = [st, Date.now()];
+        upMsg = null;
+        ghNote = `Download abgebrochen. Es läuft weiter ${s?.v}, nichts wurde geändert.`;
+        waitingFor = '';
+        sending = false;
+        cancelling = false;
+        break;
+      }
       if (st.err) {
         [gh, ghAt] = [st, Date.now()];
         upMsg = { ok: false, text: st.err };
@@ -410,6 +454,7 @@
   {:else if waitingFor}
     {#if s?.ota.busy && s.ota.src === 'github'}
       <WavyProgress value={s.ota.total ? s.ota.bytes / s.ota.total : undefined} label="Download von GitHub" />
+      <div class="actions"><Button variant="text" icon="close" disabled={cancelling} onclick={cancelGh}>Abbrechen</Button></div>
     {:else}
       <WavyProgress value={s?.v === waitingFor && s.ota.trial ? s.ota.trialS / s.ota.trialNeed : undefined} tone="tertiary" label="Neustart und Probelauf" />
     {/if}
@@ -449,6 +494,9 @@
       {:else if s.ota.busy && !sending}
         <p>Ein Update auf {s.ota.newV} wird gerade {s.ota.src === 'github' ? 'von GitHub geladen' : 'von einem anderen Browser installiert'} …</p>
         <WavyProgress value={s.ota.total ? s.ota.bytes / s.ota.total : undefined} label="Update" />
+        {#if s.ota.src === 'github'}
+          <div class="actions"><Button variant="text" icon="close" disabled={cancelling} onclick={cancelGh}>Abbrechen</Button></div>
+        {/if}
       {:else}
         <h3 class="sub"><Icon name="cloud_download" size={18} />Von GitHub</h3>
         <div class="actions">
@@ -490,14 +538,24 @@
           </p>
         {:else}
           <p class="muted">
-            <b>Stabil</b>: nur fertige Versionen. <b>Vorschau</b>: auch Vorabversionen (beta) zum Ausprobieren. Pixelia sucht
-            nur auf Knopfdruck.
+            <b>Stabil</b>: nur fertige Versionen. <b>Vorschau</b>: auch Vorabversionen (beta) zum Ausprobieren. Installiert
+            wird nur auf Knopfdruck.
           </p>
         {/if}
+        {#if ghNote && !(via === 'github' && (sending || waitingFor))}<p>{ghNote}</p>{/if}
         {#if gh && ghAgo >= 0 && !ghChecking && !noNet}
           <p class="muted small">
-            Zuletzt gesucht vor {duration(ghAgo)}{gh.rate.limit > 0 ? ` · freie GitHub-Abfragen: ${gh.rate.left} von ${gh.rate.limit} pro Stunde` : ''}
+            Zuletzt gesucht vor {duration(ghAgo)}{gh.lastAuto ? ' (im Hintergrund)' : ''}{gh.rate.limit > 0 ? ` · freie GitHub-Abfragen: ${gh.rate.left} von ${gh.rate.limit} pro Stunde` : ''}
           </p>
+        {/if}
+        {#if gh}
+          <div class="auto">
+            <Switch label="Täglich im Hintergrund suchen" checked={gh.auto !== false} onchange={setAuto} />
+            <span>
+              Einmal täglich im Hintergrund nach neuen Versionen suchen
+              <span class="muted small">Nur ein Hinweis (Punkt an „System“), installiert wird nie von selbst.</span>
+            </span>
+          </div>
         {/if}
 
         <h3 class="sub"><Icon name="upload_file" size={18} />Aus Datei</h3>
@@ -650,6 +708,16 @@
 {/if}
 
 <style>
+  .auto {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 12px;
+  }
+  .auto > span {
+    display: flex;
+    flex-direction: column;
+  }
   .waiting {
     display: grid;
     place-items: center;

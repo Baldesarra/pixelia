@@ -215,6 +215,7 @@ TLS-Handschlag) und lädt `pixelia-vX.Y.Z.bin` über die Weiterleitung auf `rele
 | Download 0.4.0-1-gf8d1acc → 0.4.1-beta.1 (1521 KB) | 16,6 s gesamt: Verbindung mit Weiterleitung 3,3 s, Löschen 4,5 s, ~114 KB/s |
 | Während des Downloads | 29,8–30,3 fps, interner RAM ≥ 90 KB frei (Tiefstwert seit Start 88 KB), Stack der Task 5,4 von 8 KB |
 | Danach | Neustart, Probelauf 60 s bestanden, 29,8 fps, RAM 117/111 KB |
+| Zweiter Durchlauf, Kanal Stabil: 0.4.1-beta.1 → 0.4.1 (1522 KB) | 15,8 s gesamt: Verbindung 3,2 s, 121 KB/s; dabei 30,0–30,2 fps, RAM-Tiefstwert 91 KB; Probelauf bestanden, danach 30,3 fps, RAM 117/111 KB |
 
 Ohne Token erlaubt GitHub 60 Abfragen pro Stunde je öffentlicher IP (geteilt mit allen Geräten im Heimnetz); der Download
 der Datei zählt nicht. Deshalb nur auf Knopfdruck.
@@ -329,6 +330,44 @@ Geführte Tests im Tempo des Users (Stufe = Zahl der weißen Quadrate oben links
 - `tour`: vier Ecken antippen → Szene → Helligkeitsstufen → Pixeltakt 30/36/40 MHz → Flash-Schreiben
   (`tour tap`: ohne Ecken, Start per Tippen)
 - `tour2`: Tippen → PWM-Frequenzen 200 Hz bis 10 kHz → Tippen → A/B-Vergleich normal gegen Flash-Schreiben
+
+## Experimentell, Live-Vorschau, Leistung (seit 0.4.2, gemessen 2026-10-20)
+
+**Live-Vorschau** (`GET /api/screen`, Seite Live): Der Grafik-Task kopiert das fertige Bild (400×240 Paletten-Indizes,
+PSRAM → PSRAM) samt Palette direkt vor dem Puffertausch, also nie halb gezeichnet; nur auf Anforderung und höchstens
+alle 200 ms ein neues Bild. Der Webserver packt es mit PackBits (Steuerbyte 0–127 = n+1 Bytes roh, 129–255 = nächstes
+Byte 257−n-mal) und schickt `"PXS1"`, Breite, Höhe, Bildnummer, Verfahren, Palette 256 × RGB888, Daten. Der Browser malt
+ins Canvas und erzeugt das PNG (800 × 480) selbst. Kopf `Server-Timing` nennt Kopier- und Packzeit.
+
+| Messung (Szene `scrolltest`, 60 s, Abfrage wie die Seite Live) | ohne Vorschau | mit Vorschau |
+|---|---|---|
+| Bildrate Engine | 29,8–30,3 fps | 29,7–30,3 fps |
+| Zeichnen, Maximum pro 2 s | 4,6–5,2 ms | 5,4–6,9 ms |
+| Interner RAM frei | 116 KB | 115–116 KB (Tiefstwert seit Start 108 KB) |
+| CPU Kern 0 / Kern 1 | 2 % / 14 % | 14 % / 15 % |
+| Aussetzer (desync) | 0 | 0 |
+| Vorschau | – | 2,9 Bilder/s, Ø 68,5 KB (von 96 KB), Ø 120 ms pro Bild |
+| Kopie im Grafik-Task (Kern 1) / Packen im Webserver (Kern 0) | – | 3,9 ms / 10,7 ms |
+
+**Stromsparmodus** (Seite Experimentell): halber Pixeltakt 12,3 MHz → Panel 29,8–30,3 Hz, jedes Engine-Bild einmal
+gezeigt. Gemessen 29,8–30,3 fps, Hochskalier-Interrupt 20,2 → 10,1 %, CPU Kern 1 13 → 12 %, ein Aussetzer beim
+Umschalten (Panel wird neu angelegt), danach 0. Sichtprüfung am Display (Flimmern?) steht noch aus.
+
+**Probe und Rückfall** (`exper.cpp`): Panel-Werte und Stromsparmodus gelten erst nach „Behalten“ im Browser; sonst nach
+15 s zurück (geprüft: Probe 30 Hz, nach 15 s wieder 60 Hz, ohne Neustart). Gespeichert als Blob `pixelia/panel`, Schalter
+`pixelia/exp`, Startzähler `pixelia/exp_boot`. Start mit gespeicherten Werten geprüft (Log `lcd: … Pixeltakt 12.30 MHz …
+30.00 Hz`, nach 60 s `exp: Eigene Panel-Werte laufen seit 60 s stabil`). Fluchtweg geprüft: drei Neustarts im Abstand
+von ~15 s, der dritte startet mit Standardwerten (`safeBoot`). Grenzen der Eingabe: Pixeltakt 8–32 MHz, Austastwerte
+1–200, Ergebnis 24–75 Hz.
+
+**Update von GitHub abbrechen:** Download 0.4.0 über die Seite Experimentell (ältere Version) gestartet, nach 932 KB
+abgebrochen (15,5 s nach dem Start, Löschen der Partition 4,3 s): kein Neustart, `ota_0` bleibt Startpartition; im
+abgebrochenen `ota_1` steht noch der Kopf von 0.4.0, die Partition ist aber ungültig.
+
+**Prüfung im Hintergrund:** Zeitgeber alle 5 min; prüft, wenn eingeschaltet (`pixelia/upd_auto`, Standard an), Uhrzeit
+bekannt, WLAN verbunden, kein Update oder Probelauf und die letzte Prüfung (`pixelia/upd_last`, Unix-Zeit) mindestens
+24 h her ist. Gefundene Version in `pixelia/upd_new` (Punkt an „System“, auch nach Neustart). Geprüft: erste Prüfung nach
+301 s Laufzeit, im nächsten Start keine weitere.
 
 ## Prüfplan (Phase 0.1.0) – erledigt
 

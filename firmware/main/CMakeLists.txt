@@ -7,7 +7,7 @@ set(PIXELIA_CHANGELOG_BLOCK "${CMAKE_CURRENT_BINARY_DIR}/changelog_block.cpp")
 
 idf_component_register(
     SRCS "main.cpp" "sysinfo.cpp" "hwtest.cpp" "gfx.cpp" "perf.cpp" "console.cpp"
-         "settings.cpp" "wifi.cpp" "captive_dns.cpp" "timesync.cpp" "web.cpp" "web_diag.cpp" "web_info.cpp" "ota.cpp" "github.cpp"
+         "settings.cpp" "wifi.cpp" "captive_dns.cpp" "timesync.cpp" "web.cpp" "web_diag.cpp" "web_info.cpp" "web_exp.cpp" "exper.cpp" "ota.cpp" "github.cpp"
          "input.cpp" "logbuf.cpp" "diag.cpp" "json.cpp" "auth.cpp" "${PIXELIA_WEB_ASSETS}" "${PIXELIA_CHANGELOG_BLOCK}"
     INCLUDE_DIRS "."
     EMBED_TXTFILES "web/setup.html"

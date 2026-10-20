@@ -37,6 +37,7 @@ struct TouchRecord {
     int last_x = -1, last_y = -1;
 };
 TouchRecord s_rec;
+volatile bool s_down = false;  // gerade berührt (für den Touch-Test der Weboberfläche)
 constexpr const char* kCornerNames[] = {"oben links", "oben rechts", "unten links", "unten rechts"};
 
 bool probe(uint8_t addr) { return i2c_master_probe(s_bus, addr, 20) == ESP_OK; }
@@ -87,6 +88,7 @@ void touch_task(void*) {
             if (down) {
                 ESP_LOGI(TAG_TOUCH, "los bei x=%d y=%d", last_x, last_y);
                 down = false;
+                s_down = false;
                 board::display::set_touch_marker(-1, -1);
                 input::on_touch(0, last_x, last_y);
             }
@@ -99,6 +101,7 @@ void touch_task(void*) {
             ESP_LOGI(TAG_TOUCH, "berührt x=%d y=%d (roh %u/%u, Größe %u, Finger %d)", x, y, pts[0].x, pts[0].y,
                      pts[0].size, n);
             down = true;
+            s_down = true;
             last_move_log = xTaskGetTickCount();
             s_rec.touches++;
             // Eckfelder 100×100 px
@@ -347,6 +350,10 @@ void start_tour(bool with_corners) {
 }
 
 void start_touch_task() { xTaskCreatePinnedToCore(touch_task, "touch", 4096, nullptr, 5, nullptr, kSystemCore); }
+
+TouchLive touch_live() {
+    return TouchLive{s_touch_ok, s_down, s_rec.last_x, s_rec.last_y, s_corners, s_rec.touches};
+}
 
 void reset_corner_hits() {
     s_corners = 0;

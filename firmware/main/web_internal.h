@@ -39,6 +39,9 @@ bool is_log_client(int fd);
 // Endpunkte der Fernwartung anmelden (web_diag.cpp)
 void register_diag();
 
+// Seite Experimentell und Live-Vorschau (web_exp.cpp)
+void register_exp();
+
 // Info, Hardware, verbundene Geräte (web_info.cpp): Endpunkte anmelden; Nachricht eines Browsers über /ws
 void register_info();
 void client_message(httpd_req_t* req, const std::string& msg);

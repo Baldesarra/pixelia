@@ -37,6 +37,8 @@ constexpr int kPerPage = 10;                 // reicht für einige Vorschauen zw
 constexpr size_t kMaxResponse = 384 * 1024;  // Antwort der API (PSRAM); gemessen ~8 KB pro Release
 constexpr size_t kMaxNotes = 12 * 1024;      // Release-Notes pro Version für die Vorschau
 constexpr size_t kChunk = 4096;              // Download in Stücken wie beim Upload
+constexpr uint32_t kAutoEvery = 24 * 3600;   // Prüfung im Hintergrund höchstens einmal täglich
+constexpr uint64_t kAutoTimerUs = 5ULL * 60 * 1000000;  // so oft schaut der Zeitgeber nach, ob es so weit ist
 
 // --- Versionen ----------------------------------------------------------------------------------------------
 
@@ -215,6 +217,8 @@ enum class Job : unsigned char { None, Check, Install };
 
 struct Target {
     char v[32] = "";
+    char date[11] = "";
+    Ver ver;
     bool pre = false;
     uint32_t size = 0;
     std::string url;
@@ -230,6 +234,19 @@ Channel s_checked_channel = Channel::Stable;
 char s_latest[32] = "";        // neueste Version im Kanal (auch wenn nicht neuer als installiert)
 std::string s_releases = "[]";  // neuere Versionen als JSON-Array (bei Bedarf im PSRAM)
 Target s_target;                // neueste Version im Kanal, wenn neuer als installiert
+// Ältere Versionen ab 0.4.0 (Seite Experimentell, „Ältere Version installieren“), ohne Release-Notes
+std::vector<Target> s_older;
+std::string s_older_json = "[]";
+// Abbrechen (Knopf in der Oberfläche) und Ergebnis
+std::atomic<bool> s_cancel{false};
+bool s_cancelled = false;
+// Prüfung im Hintergrund (NVS upd_auto, upd_last = Unix-Zeit der letzten Prüfung, upd_new = gefundene Version)
+bool s_auto = true;
+uint32_t s_last_unix = 0;
+bool s_last_auto = false;        // letzte Prüfung kam aus dem Hintergrund
+char s_avail[32] = "";           // neueste neuere Version (bleibt über Neustarts), leer = keine
+std::atomic<uint32_t> s_seq{0};  // ändert sich mit jedem neuen Stand (Oberfläche lädt /api/update dann neu)
+esp_timer_handle_t s_auto_timer = nullptr;
 // Limit der API (aus der letzten Antwort)
 int s_rate_left = -1, s_rate_limit = -1;
 long s_rate_reset = 0;  // Unix-Zeit
@@ -239,6 +256,17 @@ const char* channel_name(Channel c) { return c == Channel::Preview ? "preview" :
 void set_error(const char* text) {
     std::lock_guard<std::mutex> g(s_lock);
     std::snprintf(s_error, sizeof(s_error), "%s", text);
+    ++s_seq;
+}
+
+void nvs_save(const char* key, const char* str, int u8 = -1, uint32_t u32 = 0) {
+    nvs_handle_t h;
+    if (nvs_open(kNvs, NVS_READWRITE, &h) != ESP_OK) return;
+    if (str) nvs_set_str(h, key, str);
+    else if (u8 >= 0) nvs_set_u8(h, key, static_cast<uint8_t>(u8));
+    else nvs_set_u32(h, key, u32);
+    nvs_commit(h);
+    nvs_close(h);
 }
 
 unsigned internal_free_kb() { return heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024; }
@@ -494,6 +522,7 @@ void check_job() {
 
     // Lesen: Notizen und Schlüssel in Puffern ≥ 16 KB, damit sie im PSRAM liegen (SPIRAM_MALLOC_ALWAYSINTERNAL)
     std::vector<Release> found;
+    std::vector<Target> older;
     std::string key, text;
     text.reserve(64);
     Reader r(buf, n);
@@ -514,7 +543,20 @@ void check_job() {
                 latest_ver = v;
                 std::snprintf(latest, sizeof(latest), "%s", rel.v);
             }
-            if (known && compare(v, installed) <= 0) continue;
+            if (known && compare(v, installed) <= 0) {
+                // Ältere Version ab 0.4.0 (kann über GitHub zurück); die installierte selbst nicht
+                if (compare(v, installed) < 0 && compare(v, Ver{0, 4, 0}) >= 0) {
+                    Target t;
+                    std::snprintf(t.v, sizeof(t.v), "%s", rel.v);
+                    std::snprintf(t.date, sizeof(t.date), "%s", rel.date);
+                    t.pre = rel.pre;
+                    t.size = rel.size;
+                    t.url = rel.url;
+                    t.ver = v;
+                    older.push_back(std::move(t));
+                }
+                continue;
+            }
             trim_notes(&rel.notes);
             found.push_back(std::move(rel));
         } while (r.eat(','));
@@ -531,8 +573,19 @@ void check_job() {
         j.str_n("notes", rel.notes.data(), rel.notes.size()).end_obj();
     }
     j.end_arr();
+    std::sort(older.begin(), older.end(), [](const Target& a, const Target& b) { return compare(a.ver, b.ver) > 0; });
+    Json jo;
+    jo.arr();
+    for (const Target& t : older) jo.obj().str("v", t.v).boolean("pre", t.pre).str("date", t.date).num("size", t.size).end_obj();
+    jo.end_arr();
+    const uint32_t now_unix = timesync::valid() ? static_cast<uint32_t>(time(nullptr)) : 0;
     {
         std::lock_guard<std::mutex> g(s_lock);
+        s_older = std::move(older);
+        s_older_json = std::move(jo.text());
+        if (now_unix) s_last_unix = now_unix;
+        std::snprintf(s_avail, sizeof(s_avail), "%s", found.empty() ? "" : found[0].v);
+        ++s_seq;
         s_releases = std::move(j.text());
         s_checked_us = esp_timer_get_time();
         s_checked_channel = ch;
@@ -546,9 +599,11 @@ void check_job() {
         }
         s_error[0] = 0;
     }
-    ESP_LOGI(TAG, "Prüfung (%s): %d Releases, %u KB Antwort in %lld ms, neueste %s, %d neuer als %s; Limit %d/%d; "
+    if (now_unix) nvs_save("upd_last", nullptr, -1, now_unix);
+    nvs_save("upd_new", found.empty() ? "" : found[0].v);
+    ESP_LOGI(TAG, "Prüfung (%s%s): %d Releases, %u KB Antwort in %lld ms, neueste %s, %d neuer als %s; Limit %d/%d; "
              "RAM %u → %u KB mit TLS",
-             channel_name(ch), total, static_cast<unsigned>(n / 1024), (esp_timer_get_time() - t0) / 1000,
+             channel_name(ch), s_last_auto ? ", Hintergrund" : "", total, static_cast<unsigned>(n / 1024), (esp_timer_get_time() - t0) / 1000,
              latest[0] ? latest : "–", static_cast<int>(found.size()), me, x.rate_left, x.rate_limit, ram_before, ram_tls);
 }
 
@@ -566,6 +621,11 @@ void install_job(Target target) {
     int64_t len = 0;
     int status = open(x, target.url.c_str(), false, &len, error, sizeof(error));
     if (status < 0) return set_error(error);
+    if (s_cancel) {
+        s_cancelled = true;
+        ESP_LOGW(TAG, "Update von GitHub vor dem Download abgebrochen");
+        return set_error("");
+    }
     if (status != 200) {
         std::snprintf(error, sizeof(error), "Download von GitHub fehlgeschlagen (HTTP %d)", status);
         return set_error(error);
@@ -582,6 +642,10 @@ void install_job(Target target) {
     bool started = false;
     int64_t last_sample = 0;
     while (got < target.size) {
+        if (s_cancel) {
+            std::snprintf(error, sizeof(error), "abgebrochen nach %u KB", static_cast<unsigned>(got / 1024));
+            break;
+        }
         const size_t want = std::min(kChunk - filled, static_cast<size_t>(target.size - got));
         int r = read_some(x, reinterpret_cast<char*>(buf + filled), static_cast<int>(want));
         if (r <= 0) {
@@ -620,6 +684,12 @@ void install_job(Target target) {
         }
     }
     heap_caps_free(buf);
+    if (s_cancel) {
+        if (started) ota::cancel(error, true);
+        ESP_LOGW(TAG, "Update von GitHub %s, die laufende Version bleibt (%.1f s)", error, (esp_timer_get_time() - t0) / 1e6);
+        s_cancelled = true;
+        return set_error("");
+    }
     if (error[0] || !started) {
         if (started) ota::cancel(error[0] ? error : "Download unvollständig");
         set_error(error[0] ? error : "Download unvollständig");
@@ -650,6 +720,7 @@ void job_task(void*) {
         install_job(std::move(t));
     }
     s_job = Job::None;
+    ++s_seq;
     vTaskDelete(nullptr);
 }
 
@@ -667,6 +738,9 @@ bool launch(Job job, char* error, size_t error_len) {
         return false;
     }
     set_error("");
+    s_cancel = false;
+    s_cancelled = false;
+    if (job == Job::Check) s_last_auto = false;
     // 8 KB Stack für TLS (Handschlag mit Zertifikatsprüfung); Puffer von mbedTLS liegen im PSRAM (sdkconfig)
     if (xTaskCreatePinnedToCore(job_task, "github", 8192, nullptr, 3, nullptr, kSystemCore) != pdPASS) {
         s_job = Job::None;
@@ -675,18 +749,76 @@ bool launch(Job job, char* error, size_t error_len) {
     }
     return true;
 }
+// Zeitgeber alle 5 min: im Hintergrund prüfen, wenn eingeschaltet, mit dem Internet verbunden, Uhrzeit bekannt und die
+// letzte Prüfung mindestens einen Tag her ist. Nie während eines Updates oder Probelaufs. Installiert nichts.
+void auto_tick(void*) {
+    if (esp_timer_get_time() < 120LL * 1000000 || !timesync::valid()) return;
+    {
+        std::lock_guard<std::mutex> g(s_lock);
+        if (!s_auto || static_cast<uint32_t>(time(nullptr)) - s_last_unix < kAutoEvery) return;
+    }
+    const ota::Status o = ota::status();
+    if (o.busy || o.trial) return;
+    char error[160];
+    if (launch(Job::Check, error, sizeof(error))) {
+        s_last_auto = true;
+        ESP_LOGI(TAG, "Prüfung im Hintergrund (einmal täglich)");
+    }
+}
 }  // namespace
 
 void init() {
     nvs_handle_t h;
-    uint8_t v = 0;
+    uint8_t v = 0, au = 1;
+    uint32_t last = 0;
+    char avail[32] = "";
+    size_t len = sizeof(avail);
     if (nvs_open(kNvs, NVS_READONLY, &h) == ESP_OK) {
         nvs_get_u8(h, kNvsKey, &v);
+        nvs_get_u8(h, "upd_auto", &au);
+        nvs_get_u32(h, "upd_last", &last);
+        if (nvs_get_str(h, "upd_new", avail, &len) != ESP_OK) avail[0] = 0;
         nvs_close(h);
     }
-    std::lock_guard<std::mutex> g(s_lock);
-    s_channel = v == 1 ? Channel::Preview : Channel::Stable;
+    // Gefundene Version nur merken, wenn sie noch neuer ist als die laufende (sonst wurde sie inzwischen installiert)
+    Ver a, me;
+    if (avail[0] && (!parse_version(avail, &a) || !parse_version(esp_app_get_description()->version, &me, true) ||
+                     compare(a, me) <= 0)) {
+        avail[0] = 0;
+    }
+    {
+        std::lock_guard<std::mutex> g(s_lock);
+        s_channel = v == 1 ? Channel::Preview : Channel::Stable;
+        s_auto = au != 0;
+        s_last_unix = last;
+        std::snprintf(s_avail, sizeof(s_avail), "%s", avail);
+    }
+    esp_timer_create_args_t args{};
+    args.callback = auto_tick;
+    args.name = "upd-auto";
+    if (esp_timer_create(&args, &s_auto_timer) == ESP_OK) esp_timer_start_periodic(s_auto_timer, kAutoTimerUs);
 }
+
+void set_auto(bool on) {
+    nvs_save("upd_auto", nullptr, on ? 1 : 0);
+    std::lock_guard<std::mutex> g(s_lock);
+    if (s_auto != on) ESP_LOGI(TAG, "Prüfung im Hintergrund %s", on ? "an" : "aus");
+    s_auto = on;
+    ++s_seq;
+}
+
+bool cancel_install() {
+    if (s_job != Job::Install) return false;
+    s_cancel = true;
+    return true;
+}
+
+std::string available() {
+    std::lock_guard<std::mutex> g(s_lock);
+    return s_avail;
+}
+
+uint32_t seq() { return s_seq; }
 
 Channel channel() {
     std::lock_guard<std::mutex> g(s_lock);
@@ -701,21 +833,31 @@ void set_channel(Channel c) {
         nvs_close(h);
     }
     std::lock_guard<std::mutex> g(s_lock);
-    if (s_channel != c) ESP_LOGI(TAG, "Kanal: %s", channel_name(c));
+    if (s_channel != c) {
+        ESP_LOGI(TAG, "Kanal: %s", channel_name(c));
+        s_avail[0] = 0;  // gilt für den alten Kanal; die nächste Prüfung sucht neu
+        ++s_seq;
+    }
     s_channel = c;
 }
 
 bool start_check(char* error, size_t error_len) { return launch(Job::Check, error, error_len); }
 
-bool start_install(const char* version, char* error, size_t error_len) {
+bool start_install(const char* version, bool older, char* error, size_t error_len) {
     {
         std::lock_guard<std::mutex> g(s_lock);
-        if (!s_target.v[0] || std::strcmp(s_target.v, version) != 0) {
+        const Target* t = nullptr;
+        if (!older && s_target.v[0] && std::strcmp(s_target.v, version) == 0) t = &s_target;
+        for (const Target& o : s_older) {
+            if (older && std::strcmp(o.v, version) == 0) t = &o;
+        }
+        if (!t) {
             std::snprintf(error, error_len, "Version %.31s ist nicht das Ergebnis der letzten Prüfung, bitte neu suchen", version);
             return false;
         }
-        s_install_target = s_target;
+        s_install_target = *t;
     }
+    if (older) ESP_LOGW(TAG, "Ältere Version %s angefordert (Seite Experimentell)", version);
     const ota::Status o = ota::status();
     if (o.busy || o.trial) {
         std::snprintf(error, error_len, "%s", o.busy ? "Es läuft bereits ein Update" : "Der Probelauf der aktuellen Version läuft noch, bitte kurz warten");
@@ -731,10 +873,13 @@ std::string state_json() {
     j.text().reserve(s_releases.size() + 512);
     const Job job = s_job;
     j.obj().str("ch", channel_name(s_channel)).str("job", job == Job::Check ? "check" : job == Job::Install ? "install" : "");
-    j.str("err", s_error).boolean("net", !w.ap_active && w.state == wifi::State::Connected);
+    j.str("err", s_error).boolean("cancelled", s_cancelled).boolean("net", !w.ap_active && w.state == wifi::State::Connected);
+    j.boolean("auto", s_auto).boolean("lastAuto", s_last_auto).num("lastT", s_last_unix).str("avail", s_avail);
+    j.num("seq", s_seq.load());
     j.num("checkedS", s_checked_us < 0 ? -1 : static_cast<double>((esp_timer_get_time() - s_checked_us) / 1000000));
     j.str("checkedCh", channel_name(s_checked_channel)).str("latest", s_latest);
     j.raw("rel", s_releases);
+    j.raw("old", s_older_json);
     j.obj("rate").num("left", s_rate_left).num("limit", s_rate_limit);
     long reset_s = -1;
     if (s_rate_reset > 0 && timesync::valid()) reset_s = std::max(0L, s_rate_reset - static_cast<long>(time(nullptr)));

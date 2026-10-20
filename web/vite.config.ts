@@ -54,10 +54,92 @@ function mockDevice(): Plugin {
   // Update von GitHub (0.4.1): gespielte Releases aus CHANGELOG.json (Release-Notes wie tools/release_notes.py), dazu
   // eine Vorabversion des offenen Eintrags. PIXELIA_MOCK_GH=limit spielt das Limit der API, =fail einen Abbruch.
   const ghMode = process.env.PIXELIA_MOCK_GH ?? '';
-  let installedV = '0.3.2';
+  let installedV = process.env.PIXELIA_MOCK_V ?? '0.3.2'; // z. B. 0.4.1: dann gibt es ältere Versionen ab 0.4.0
   const ota = { busy: false, src: 'upload', bytes: 0, total: 0, newV: '', err: '', trial: false, trialS: 0, trialNeed: 60, trialNote: '', passed: true };
   const gh = { ch: 'stable', job: '', err: '', checkedAt: 0, checkedCh: 'stable', latest: '', rel: [] as unknown[], left: 60 };
   let downUntil = 0; // simulierter Neustart
+  // 0.4.2: Hintergrundprüfung, Abbrechen, ältere Versionen; Experimentell (PIXELIA_MOCK_EXP=1 startet eingeschaltet)
+  Object.assign(gh, { auto: true, lastAuto: false, lastT: 0, avail: '', seq: 0, cancelled: false, old: [] as unknown[] });
+  let ghCancel = false;
+  const std = { pclk: 24600, hp: 4, hb: 8, hf: 8, vp: 4, vb: 8, vf: 8, hlow: true, vlow: true, neg: true, eco: false, hz: 60, swap: 2 };
+  const exp = {
+    on: process.env.PIXELIA_MOCK_EXP === '1', safeBoot: false, trialS: -1, trialNeed: 15,
+    panel: { ...std }, saved: { ...std }, std, mode: 'engine', testS: -1,
+    touch: { ok: true, down: false, x: -1, y: -1, corners: 0, n: 312 },
+  };
+  let prevPanel = { ...std };
+  let expTimer: ReturnType<typeof setInterval> | undefined;
+  const panelOf = (f: URLSearchParams) => {
+    const p = { ...exp.panel } as Record<string, number | boolean>;
+    for (const k of ['pclk', 'hp', 'hb', 'hf', 'vp', 'vb', 'vf']) if (f.has(k)) p[k] = Number(f.get(k));
+    for (const k of ['hlow', 'vlow', 'neg', 'eco']) if (f.has(k)) p[k] = f.get(k) === '1';
+    const ht = 800 + (p.hp as number) + (p.hb as number) + (p.hf as number);
+    const vt = 480 + (p.vp as number) + (p.vb as number) + (p.vf as number);
+    p.hz = Math.round(((p.pclk as number) * 1000) / (ht * vt) / (p.eco ? 2 : 1) * 100) / 100;
+    p.swap = Math.max(1, Math.round((p.hz as number) / 30));
+    return p as typeof std;
+  };
+  // Takt für Probe, Testbild und Touch-Test (Finger wandert über das Display)
+  const expTick = () => {
+    if (exp.trialS > 0 && --exp.trialS === 0) Object.assign(exp, { trialS: -1, panel: { ...prevPanel } });
+    if (exp.testS > 0 && --exp.testS === 0) Object.assign(exp, { testS: -1, mode: 'engine' });
+    if (exp.mode === 'touch') {
+      const t = Date.now() / 1000;
+      Object.assign(exp.touch, { down: Math.sin(t * 2) > -0.3, x: Math.round(400 + 360 * Math.sin(t * 0.7)), y: Math.round(240 + 200 * Math.cos(t * 1.1)) });
+      if (exp.touch.x < 100 && exp.touch.y < 100) exp.touch.corners |= 1;
+      if (exp.touch.x >= 700 && exp.touch.y >= 380) exp.touch.corners |= 8;
+    }
+    if (exp.trialS < 0 && exp.testS < 0) (clearInterval(expTimer), (expTimer = undefined));
+  };
+  const expRun = () => (expTimer ??= setInterval(expTick, 1000));
+  // Vorschaubild wie /api/screen: Himmel mit Verlauf, Sonne, Hügel, Wolke; PackBits wie web_exp.cpp
+  const packbits = (src: Uint8Array) => {
+    const out: number[] = [];
+    let i = 0;
+    while (i < src.length) {
+      let run = 1;
+      while (i + run < src.length && run < 128 && src[i + run] === src[i]) run++;
+      if (run >= 3) {
+        out.push(257 - run, src[i]);
+        i += run;
+        continue;
+      }
+      let lit = 0;
+      while (i + lit < src.length && lit < 128) {
+        if (i + lit + 2 < src.length && src[i + lit] === src[i + lit + 1] && src[i + lit] === src[i + lit + 2]) break;
+        lit++;
+      }
+      out.push(lit - 1, ...src.subarray(i, i + lit));
+      i += lit;
+    }
+    return Buffer.from(out);
+  };
+  let frameNo = 0;
+  const screen = () => {
+    const w = 400, h = 240, px = new Uint8Array(w * h), pal = Buffer.alloc(768);
+    for (let i = 0; i < 64; i++) pal.set([40 + i, 90 + i, 160 + i * 1.4], i * 3); // Himmel
+    pal.set([255, 214, 90], 64 * 3); // Sonne
+    pal.set([250, 250, 255], 65 * 3); // Wolke
+    pal.set([70, 140, 60], 66 * 3); // Hügel
+    pal.set([50, 110, 45], 67 * 3);
+    const t = Date.now() / 1000, sx = 80 + ((t * 8) % 260), cx = (t * 14) % 480 - 80;
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
+        let c = Math.min(63, Math.floor(y / 3));
+        if ((x - sx) ** 2 + (y - 60) ** 2 < 400) c = 64;
+        if (Math.abs(x - cx) < 40 && Math.abs(y - 50) < 8 + Math.cos((x - cx) / 13) * 5) c = 65;
+        const hill = 170 + 18 * Math.sin(x / 37) + 9 * Math.sin(x / 11);
+        if (y > hill) c = y > hill + 30 ? 67 : 66;
+        px[y * w + x] = c;
+      }
+    const head = Buffer.alloc(16);
+    head.write('PXS1');
+    head.writeUInt16LE(w, 4);
+    head.writeUInt16LE(h, 6);
+    head.writeUInt32LE(++frameNo, 8);
+    head[12] = 1;
+    return Buffer.concat([head, pal, packbits(px)]);
+  };
   const cmpV = (a: string, b: string) => {
     const p = (v: string) => { const m = /^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?/.exec(v) ?? []; return [+m[1], +m[2], +m[3], m[4] ? 0 : 1, +(m[4] ?? 0)]; };
     const x = p(a), y = p(b);
@@ -86,6 +168,9 @@ function mockDevice(): Plugin {
     const inCh = all.filter((r) => gh.ch === 'preview' || !r.pre).sort((a, b) => cmpV(b.v, a.v));
     gh.latest = inCh[0]?.v ?? '';
     gh.rel = inCh.filter((r) => cmpV(r.v, installedV) > 0);
+    (gh as Record<string, unknown>).old = inCh
+      .filter((r) => cmpV(r.v, installedV) < 0 && cmpV(r.v, '0.4.0') >= 0)
+      .map(({ v, pre, date, size }) => ({ v, pre, date, size }));
     gh.checkedAt = Date.now();
     gh.checkedCh = gh.ch;
     gh.left = Math.max(0, gh.left - 1);
@@ -284,21 +369,105 @@ function mockDevice(): Plugin {
       server.middlewares.use('/api/update/channel', async (req, res) => {
         const f = await form(req);
         if (!authorized(req, f)) return deny(res);
-        gh.ch = f.get('ch') === 'preview' ? 'preview' : 'stable';
+        if (f.has('ch')) gh.ch = f.get('ch') === 'preview' ? 'preview' : 'stable';
+        if (f.has('auto')) (gh as Record<string, unknown>).auto = f.get('auto') === '1';
         json(res, { ok: true, msg: 'OK' });
+      });
+      server.middlewares.use('/api/update/cancel', async (req, res) => {
+        const f = await form(req);
+        if (!authorized(req, f)) return deny(res);
+        if (gh.job !== 'install') return json(res, { ok: false, msg: 'Es läuft kein Download von GitHub' });
+        ghCancel = true;
+        json(res, { ok: true, msg: 'Wird abgebrochen' });
+      });
+      server.middlewares.use('/api/exp', async (req, res) => {
+        if (req.method !== 'POST') return json(res, exp);
+        const f = await form(req);
+        const a = f.get('a');
+        if (a !== 'revert' && !authorized(req, f)) return deny(res);
+        const ok = (msg = 'OK') => json(res, { ok: true, msg });
+        if (a === 'on' || a === 'off') {
+          exp.on = a === 'on';
+          if (!exp.on) Object.assign(exp, { trialS: -1, testS: -1, mode: 'engine', panel: { ...std }, saved: { ...std } });
+          return ok();
+        }
+        if (!exp.on) return json(res, { ok: false, msg: 'Experimentell ist aus' });
+        if (a === 'panel') {
+          const p = panelOf(f);
+          if (p.hz < 24 || p.hz > 75) return json(res, { ok: false, msg: 'Bildwiederholung muss zwischen 24 und 75 Hz liegen' });
+          if (exp.trialS < 0) prevPanel = { ...exp.panel };
+          Object.assign(exp, { panel: p, trialS: exp.trialNeed, mode: 'engine', testS: -1 });
+          expRun();
+          return ok('Probe läuft');
+        }
+        if (a === 'confirm') {
+          if (exp.trialS < 0) return json(res, { ok: false, msg: 'Keine Probe aktiv (schon zurückgesetzt?)' });
+          Object.assign(exp, { trialS: -1, saved: { ...exp.panel } });
+          return ok('Gespeichert');
+        }
+        if (a === 'revert') return (exp.trialS >= 0 && Object.assign(exp, { trialS: -1, panel: { ...prevPanel } }), ok());
+        if (a === 'reset') return (Object.assign(exp, { trialS: -1, safeBoot: false, panel: { ...std }, saved: { ...std } }), ok());
+        if (a === 'test') {
+          const m = f.get('mode') ?? '';
+          if (m === 'engine') return (Object.assign(exp, { mode: 'engine', testS: -1 }), ok());
+          if (exp.trialS >= 0) return json(res, { ok: false, msg: 'Erst die Probe der Panel-Werte abschließen' });
+          if (m === 'touch') exp.touch.corners = 0;
+          Object.assign(exp, { mode: m, testS: 60 });
+          expRun();
+          return ok();
+        }
+        json(res, { ok: false, msg: 'Aktion unbekannt' });
+      });
+      server.middlewares.use('/api/screen', (_req, res) => {
+        if (exp.mode !== 'engine') return ((res.statusCode = 503), json(res, { ok: false, msg: 'Kein Bild (Testbild aktiv?)' }));
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.end(screen());
+      });
+      server.middlewares.use('/api/perf', (req, res) => {
+        const j = (x: number, d = 0.4) => Math.round((x + Math.random() * d - d / 2) * 100) / 100;
+        const withTasks = (req.url ?? '').includes('tasks=1');
+        const eco = exp.panel.eco;
+        json(res, {
+          uptime: Math.floor((Date.now() - t0) / 1000), at: Math.floor((Date.now() - t0) / 2000) * 2, mode: 'engine',
+          lcd: { hz: exp.panel.hz, pclk: exp.panel.pclk / 1000 / (eco ? 2 : 1), isr: eco ? j(10.1) : j(20.2), isrMaxUs: 66, desync: 0 },
+          engine: { fps: j(30.1, 0.3), render: j(4.3), renderMax: j(4.9), logic: 0.08, ticks: [0, 61, 0], sprites: 48, buf: 'psram' },
+          cpu: [Math.round(j(4, 4)), Math.round(eco ? j(8, 2) : j(13, 2))],
+          heap: { ram: Math.round(j(116, 3)), ramMin: 94, ramBlk: 31, dma: 110, psram: 6012, psramMin: 5690, psramBlk: 5920 },
+          wifi: { state: 'verbunden', rssi: -61, ch: 1 },
+          ...(withTasks
+            ? {
+                taskWindowMs: 2000, taskQueryUs: 1105,
+                tasks: [
+                  ['gfx', 1, 10, 3120, 12.9, 'bereit'], ['IDLE1', 1, 0, 812, 87.1, 'bereit'], ['IDLE0', 0, 0, 760, 95.2, 'bereit'],
+                  ['httpd', 0, 5, 4180, 2.1, 'blockiert'], ['wifi', 0, 23, 2900, 1.4, 'blockiert'], ['touch', 0, 5, 1720, 0.6, 'blockiert'],
+                  ['perf', 0, 2, 1980, 0.1, 'blockiert'], ['webstatus', 0, 2, 2210, 0.3, 'blockiert'], ['logpush', 0, 2, 1460, 0.1, 'blockiert'],
+                ].map(([name, core, prio, stackFree, cpu, state]) => ({ name, core, prio, stackFree, cpu, state })),
+              }
+            : { tasks: null }),
+        });
       });
       server.middlewares.use('/api/update/install', async (req, res) => {
         const f = await form(req);
         if (!authorized(req, f)) return deny(res);
-        const r = gh.rel[0] as { v: string; size: number } | undefined;
-        if (!r || r.v !== f.get('v')) return json(res, { ok: false, msg: 'Version ist nicht das Ergebnis der letzten Prüfung, bitte neu suchen' });
+        const list = (f.get('old') === '1' ? (gh as Record<string, unknown>).old : gh.rel) as { v: string; size: number }[];
+        const r = list.find((x) => x.v === f.get('v'));
+        if (!r) return json(res, { ok: false, msg: 'Version ist nicht das Ergebnis der letzten Prüfung, bitte neu suchen' });
+        if (f.get('old') === '1' && !exp.on) return json(res, { ok: false, msg: 'Ältere Versionen nur mit eingeschaltetem Experimentell' });
         gh.job = 'install';
         gh.err = '';
+        Object.assign(gh, { cancelled: false });
+        ghCancel = false;
         json(res, { ok: true, msg: 'Download läuft' });
         setTimeout(() => {
           Object.assign(ota, { busy: true, src: 'github', bytes: 0, total: r.size, newV: r.v });
           const timer = setInterval(() => {
             ota.bytes = Math.min(r.size, ota.bytes + Math.round(r.size / 16));
+            if (ghCancel) {
+              clearInterval(timer);
+              Object.assign(ota, { busy: false });
+              Object.assign(gh, { job: '', cancelled: true });
+              return;
+            }
             if (ghMode === 'fail' && ota.bytes > r.size / 3) {
               clearInterval(timer);
               Object.assign(ota, { busy: false });
@@ -328,6 +497,9 @@ function mockDevice(): Plugin {
         json(res, {
           ch: gh.ch, job: gh.job, err: gh.err, net: !setup, checkedS: gh.checkedAt ? Math.floor((Date.now() - gh.checkedAt) / 1000) : -1,
           checkedCh: gh.checkedCh, latest: gh.latest, rel: gh.rel, rate: { left: gh.left, limit: 60, resetS: 1380 },
+          cancelled: (gh as Record<string, unknown>).cancelled, auto: (gh as Record<string, unknown>).auto,
+          lastAuto: false, lastT: gh.checkedAt ? Math.floor(gh.checkedAt / 1000) : 0, avail: (gh.rel[0] as { v?: string })?.v ?? '',
+          seq: gh.checkedAt, old: (gh as Record<string, unknown>).old,
         });
       });
       // Versionsverlauf wie in der Firmware: CHANGELOG.json aus dem Repo
@@ -374,8 +546,8 @@ function mockDevice(): Plugin {
             time: { valid: !setup, local: setup ? '' : new Date().toLocaleString('de-DE').replace(',', '') },
             perf: { fps: 30, render: j(4.0), isr: j(20), lcd: 60.02, cpu0: Math.round(j(9)), cpu1: Math.round(j(34)),
               desync: 0, ram: 117, ramMin: 107, ramBlk: 92, psram: 7310, psramMin: 7280 },
-            ota,
-            rollback: null, set, auth: { pin: !!pin, lockS: lockS() },
+            ota: { ...ota, avail: (gh.rel[0] as { v?: string })?.v ?? '', ghSeq: gh.checkedAt },
+            rollback: null, set: { ...set, exp: exp.on }, auth: { pin: !!pin, lockS: lockS() },
             diag: { boot: 42, reset: 'Software-Neustart', errors: 0, warnings: 2, logLines: 1834,
               crash: crashed ? { task: 'httpd', reason: 'LoadProhibited', v: '0.3.0' } : null },
           }),

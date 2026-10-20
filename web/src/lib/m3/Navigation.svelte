@@ -10,6 +10,7 @@
     href: string;
     bar?: boolean;
     rail?: boolean;
+    badge?: boolean; // kleiner Punkt am Symbol (z. B. neue Version)
   };
 </script>
 
@@ -35,7 +36,9 @@
       {@const on = it.id === active || (it.rail === false && it.id === activeBar)}
       <li class:no-bar={it.bar === false} class:no-rail={it.rail === false}>
         <a href={it.href} class:on aria-current={on ? 'page' : undefined}>
-          <span class="pill"><Icon name={on && it.iconActive ? it.iconActive : it.icon} /></span>
+          <span class="pill"
+            ><Icon name={on && it.iconActive ? it.iconActive : it.icon} />{#if it.badge}<span class="badge"></span>{/if}</span
+          >
           <span class="label">{it.label}</span>
         </a>
       </li>
@@ -101,6 +104,15 @@
     transition:
       transform var(--m3-spatial-fast),
       opacity var(--m3-effects-fast);
+  }
+  .badge {
+    position: absolute;
+    top: 4px;
+    right: 14px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--md-sys-color-error);
   }
   a:hover .pill::before {
     opacity: 0.5;

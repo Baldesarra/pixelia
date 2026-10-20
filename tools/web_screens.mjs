@@ -3,6 +3,9 @@
 //
 //   node tools/web_screens.mjs                                  # Entwicklungsserver (npm run mock) auf :5173
 //   node tools/web_screens.mjs --url http://pixelia --out .logs/screens --pages "#/,#/darstellung"
+//   --variants handy-hell,desktop-dunkel   nur diese Varianten
+//   --eval "document.querySelector('button').click()"   nach dem Laden ausführen (z. B. klicken), danach --wait2 ms
+//   --text 1                                Text der Seite ausgeben (Prüfung ohne Bild); Skriptfehler stehen immer da
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -16,6 +19,10 @@ const base = arg('url', 'http://localhost:5173').replace(/\/$/, '');
 const out = arg('out', '.logs/screens');
 const pages = arg('pages', '#/,#/darstellung').split(',');
 const wait = Number(arg('wait', '4000'));
+const evalJs = arg('eval', '');
+const wait2 = Number(arg('wait2', '1500'));
+const printText = arg('text', '') === '1';
+const only = arg('variants', '');
 
 const browsers = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
@@ -27,12 +34,13 @@ const browsers = [
 const exe = arg('browser', browsers.find((b) => existsSync(b)));
 if (!exe) throw new Error('Kein Edge/Chrome gefunden (--browser <Pfad>)');
 
-const variants = [
+const allVariants = [
   { name: 'handy-hell', width: 390, height: 844, mobile: true, dpr: 2, scheme: 'light' },
   { name: 'handy-dunkel', width: 390, height: 844, mobile: true, dpr: 2, scheme: 'dark' },
   { name: 'desktop-hell', width: 1280, height: 860, mobile: false, dpr: 1, scheme: 'light' },
   { name: 'desktop-dunkel', width: 1280, height: 860, mobile: false, dpr: 1, scheme: 'dark' },
 ];
+const variants = only ? allVariants.filter((v) => only.split(',').includes(v.name)) : allVariants;
 
 const port = 9300 + Math.floor(Math.random() * 500);
 const profile = mkdtempSync(join(tmpdir(), 'pixelia-screens-'));
@@ -55,6 +63,10 @@ let seq = 0;
 const pending = new Map();
 ws.onmessage = (e) => {
   const m = JSON.parse(e.data);
+  if (m.method === 'Runtime.exceptionThrown') {
+    const d = m.params.exceptionDetails;
+    console.log(`Skriptfehler: ${d.exception?.description ?? d.text}`);
+  }
   if (m.id && pending.has(m.id)) {
     pending.get(m.id)(m);
     pending.delete(m.id);
@@ -68,6 +80,7 @@ const send = (method, params = {}) =>
   });
 
 mkdirSync(out, { recursive: true });
+await send('Runtime.enable');
 try {
   for (const v of variants) {
     await send('Emulation.setDeviceMetricsOverride', {
@@ -77,6 +90,16 @@ try {
     for (const p of pages) {
       await send('Page.navigate', { url: `${base}/${p}` });
       await sleep(wait);
+      if (evalJs) {
+        const r = await send('Runtime.evaluate', { expression: evalJs, awaitPromise: true, returnByValue: true });
+        if (r.exceptionDetails) console.log(`--eval: ${r.exceptionDetails.exception?.description ?? r.exceptionDetails.text}`);
+        await sleep(wait2);
+      }
+      if (printText) {
+        const r = await send('Runtime.evaluate', { expression: "document.querySelector('main')?.innerText ?? document.body.innerText", returnByValue: true });
+        console.log(`--- ${p} (${v.name}) ---`);
+        console.log(String(r.result.value).replace(/\n{2,}/g, '\n').trim());
+      }
       const { cssContentSize } = await send('Page.getLayoutMetrics');
       // Viewport auf die volle Seitenhöhe, damit feste Elemente (Navigationsleiste) unten im Bild landen
       const height = Math.max(v.height, Math.ceil(cssContentSize.height));

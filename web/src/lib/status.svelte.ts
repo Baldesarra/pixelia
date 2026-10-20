@@ -50,9 +50,11 @@ export type Status = {
     trialNeed: number;
     trialNote: string;
     passed: boolean;
+    avail?: string; // seit 0.4.2: neuere Version auf GitHub (Prüfung im Hintergrund), leer = keine
+    ghSeq?: number; // seit 0.4.2: ändert sich mit jedem neuen Stand von /api/update
   };
   rollback: { v: string; why: string } | null;
-  set: { rot: number; bright: number; lp: number; ui?: string };
+  set: { rot: number; bright: number; lp: number; ui?: string; exp?: boolean };
   auth?: { pin: boolean; lockS: number };
   diag: {
     boot: number;
