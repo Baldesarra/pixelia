@@ -7,6 +7,8 @@
     { href: '#/hardware', icon: 'developer_board', title: 'Hardware', text: 'Board, Panel, Touch, Chip, Pins, Partitionen' },
     { href: '#/geraete', icon: 'devices', title: 'Verbundene Geräte', text: 'Welche Browser auf Pixelia zugreifen' },
     { href: '#/darstellung', icon: 'palette', title: 'Darstellung', text: 'Farben und Hell/Dunkel der Oberfläche' },
+    { href: '#/versionen', icon: 'history', title: 'Versionsverlauf', text: 'Was sich in jeder Version geändert hat' },
+    { href: '#/diagnose', icon: 'monitor_heart', title: 'Diagnose', text: 'Absturzberichte, Neustarts, Diagnosepaket' },
     { href: '/setup', icon: 'build', title: 'Einfache Einrichtungsseite', text: 'Notfallseite ohne Extras (WLAN, Update, Diagnose)' },
   ];
 </script>

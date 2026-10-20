@@ -1,6 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "web-mock", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "web", "run", "mock", "--", "--port", "5173", "--strictPort"], "port": 5173 }
+    { "name": "web-mock", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "web", "run", "mock", "--", "--port", "5173", "--strictPort"], "port": 5173 },
+    { "name": "web-mock-pin", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "web", "run", "mock", "--", "--port", "5174", "--strictPort"], "port": 5174, "env": { "PIXELIA_MOCK_PIN": "1234" } }
   ]
 }

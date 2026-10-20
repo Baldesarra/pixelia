@@ -1,7 +1,7 @@
 <script lang="ts">
-  // Seite „System“: Update hochladen, Anzeige (Drehung, Helligkeit, langer Druck), Schutz (PIN), Sicherung
-  // (Export/Import), Diagnose (Paket, Absturzbericht), Neustart-Historie, Neustart und Werksreset.
-  import { onMount } from 'svelte';
+  // Seite „System“: Update hochladen (mit Änderungsvorschau aus der gewählten .bin), Anzeige (Drehung, Helligkeit,
+  // langer Druck), Schutz (PIN), Sicherung (Export/Import), Diagnose (Kurzfassung, Details auf #/diagnose),
+  // Neustart und Werksreset.
   import {
     Button,
     ButtonGroup,
@@ -16,8 +16,10 @@
   } from '../lib/m3';
   import { device } from '../lib/status.svelte';
   import { auth } from '../lib/auth.svelte';
-  import { get, post, type Backup, type CrashSummary, type Reply, type ResetList } from '../lib/api';
+  import { post, type Backup, type Reply } from '../lib/api';
   import { HEADER_BYTES, parseHeader, upload } from '../lib/firmware';
+  import { cmpVersion, installedEntry, logFromBin, parseFw, type ChangeEntry as Entry } from '../lib/changelog';
+  import ChangeEntry from '../lib/ChangeEntry.svelte';
   import { duration, num } from '../lib/format';
 
   const s = $derived(device.data);
@@ -37,11 +39,44 @@
     const f = fileInput?.files?.[0] ?? null;
     file = null;
     upMsg = null;
+    preview = null;
     if (!f) return (fileInfo = null);
     const h = parseHeader(await f.slice(0, HEADER_BYTES).arrayBuffer());
     if ('err' in h) return (fileInfo = { ok: false, text: h.err });
     file = f;
     fileInfo = { ok: true, text: `Pixelia ${h.v} · gebaut ${h.date} ${h.time} · ${num(f.size / 1024)} KB` };
+    preview = await makePreview(f, h.v);
+  }
+
+  // Änderungsvorschau: Verlauf aus der Datei lesen (Block mit Marker, lib/changelog.ts) und mit der installierten
+  // Version vergleichen. Neuer → die Einträge dazwischen; älter → welche Versionen danach fehlen
+  let preview = $state<{ tone: 'ok' | 'warn' | 'muted'; text: string; entries: Entry[] } | null>(null);
+  async function makePreview(f: File, fileV: string): Promise<typeof preview> {
+    const r = await logFromBin(f).catch(() => ({ ok: false, why: 'broken' }) as const);
+    if (!r.ok) {
+      const why = {
+        none: 'Diese Datei enthält noch keinen Versionsverlauf (Versionen vor 0.4.0).',
+        browser: 'Dieser Browser kann den Versionsverlauf der Datei nicht lesen.',
+        broken: 'Der Versionsverlauf in der Datei ist beschädigt.',
+      };
+      return { tone: 'muted', text: why[r.why], entries: [] };
+    }
+    const from = s?.v ?? '';
+    const inst = installedEntry(r.log, from) || parseFw(from).base;
+    const target = installedEntry(r.log, fileV) || parseFw(fileV).base;
+    const c = cmpVersion(target, inst);
+    if (c === 0) return { tone: 'muted', text: `Gleiche Version wie installiert (${from}).`, entries: [] };
+    if (c > 0) {
+      const entries = r.log.filter((e) => cmpVersion(e.v, inst) > 0 && cmpVersion(e.v, target) <= 0);
+      const n = entries.length;
+      return { tone: 'ok', text: `Neu gegenüber ${from}: ${n} Version${n === 1 ? '' : 'en'}.`, entries };
+    }
+    const lost = r.log.filter((e) => cmpVersion(e.v, target) > 0 && cmpVersion(e.v, inst) <= 0).map((e) => e.v);
+    return {
+      tone: 'warn',
+      text: `Ältere Version als installiert (${from}). Nach dem Update fehlen die Änderungen aus ${lost.join(', ') || inst}.`,
+      entries: [],
+    };
   }
 
   async function start() {
@@ -81,6 +116,7 @@
         sending = false;
         file = null;
         fileInfo = null;
+        preview = null;
         if (fileInput) fileInput.value = '';
       }
     } else if (s.rollback?.v === waitingFor) {
@@ -119,39 +155,7 @@
       .finally(() => setTimeout(() => (rotLocal = null), 2500));
   }
 
-  // --- Diagnose und Neustarts -------------------------------------------------------------------------------
-  let crash = $state<CrashSummary | null>(null);
-  let resets = $state<ResetList | null>(null);
-  async function loadDiag() {
-    [crash, resets] = await Promise.all([
-      get<CrashSummary>('/api/coredump/summary').catch(() => null),
-      get<ResetList>('/api/resets').catch(() => null),
-    ]);
-  }
-  onMount(() => void loadDiag());
-  // Neuer Absturzbericht (z. B. nach einem Neustart): neu laden
-  let crashSeen = '';
-  $effect(() => {
-    const k = s?.diag.crash ? `${s.diag.crash.task}/${s.diag.crash.v}` : '-';
-    if (k !== crashSeen) {
-      crashSeen = k;
-      void loadDiag();
-    }
-  });
-
-  async function eraseCrash() {
-    const ok = await confirmDialog({
-      title: 'Absturzbericht löschen?',
-      text: 'Vorher am besten das Diagnosepaket herunterladen: Es enthält den Bericht zum Auswerten.',
-      ok: 'Löschen',
-      icon: 'delete',
-      danger: true,
-    });
-    if (!ok) return;
-    await post('/api/coredump/erase').catch(() => null);
-    void loadDiag();
-  }
-
+  // --- Neustart --------------------------------------------------------------------------------------------
   async function reboot() {
     const ok = await confirmDialog({
       title: 'Pixelia neu starten?',
@@ -340,7 +344,7 @@
         <WavyProgress value={s.ota.total ? s.ota.bytes / s.ota.total : undefined} label="Update" />
       {:else}
         <p class="muted">
-          Neue Version als <b>.bin</b> wählen, z. B. <i>pixelia-v0.3.1.bin</i> von GitHub (nicht das Factory-Image). Die Datei
+          Neue Version als <b>.bin</b> wählen, z. B. <i>pixelia-v0.4.0.bin</i> von GitHub (nicht das Factory-Image). Die Datei
           wird vor dem Hochladen geprüft, nach dem Neustart folgt ein Probelauf mit Selbsttest; scheitert er, kehrt Pixelia
           zur alten Version zurück.
         </p>
@@ -349,8 +353,19 @@
           <Button variant="tonal" icon="upload_file" disabled={sending} onclick={() => fileInput?.click()}>Datei wählen</Button>
           <Button icon="system_update_alt" disabled={!file || sending} onclick={start}>Update installieren</Button>
           {#if cancel}<Button variant="text" onclick={() => cancel?.()}>Abbrechen</Button>{/if}
+          {#if !file && !sending}<Button variant="text" icon="history" href="#/versionen">Versionsverlauf</Button>{/if}
         </div>
         {#if fileInfo}<p class={fileInfo.ok ? '' : 'err-text'}>{fileInfo.text}</p>{/if}
+        {#if preview && !waitingFor}
+          <p class={preview.tone === 'ok' ? 'ok-text' : preview.tone === 'warn' ? 'err-text' : 'muted'}>{preview.text}</p>
+          {#if preview.entries.length}
+            <div class="preview">
+              {#each preview.entries as e, k (e.v)}
+                <ChangeEntry entry={e} toggle open={k === 0} />
+              {/each}
+            </div>
+          {/if}
+        {/if}
         {#if sending && !waitingFor}
           <WavyProgress value={total ? sent / total : undefined} label="Übertragung" />
         {:else if waitingFor}
@@ -437,56 +452,24 @@
     </Card>
 
     <Card>
-      <h2 class="card-title"><Icon name="bug_report" size={20} />Diagnose</h2>
+      <h2 class="card-title">
+        <Icon name="monitor_heart" size={20} />Diagnose
+        {#if s.diag.crash}<span class="end"><Chip tone="error" icon="bug_report">Absturzbericht</Chip></span>{/if}
+      </h2>
       <dl class="kv">
         <dt>Start</dt>
         <dd class="tnum">Nr. {s.diag.boot} · {s.diag.reset}</dd>
         <dt>Seit dem Start</dt>
         <dd class="tnum">{s.diag.errors} Fehler · {s.diag.warnings} Warnungen</dd>
-        <dt>Log-Puffer</dt>
-        <dd class="tnum">{num(s.diag.logLines)} Zeilen</dd>
         <dt>Absturzbericht</dt>
-        <dd class={crash?.present ? 'err-text' : ''}>
-          {#if crash?.present}vorhanden: Task „{crash.task}“{crash.version ? ` · ${crash.version}` : ''}{:else}keiner{/if}
+        <dd class={s.diag.crash ? 'err-text' : ''}>
+          {#if s.diag.crash}vorhanden: Task „{s.diag.crash.task}“{s.diag.crash.v ? ` · ${s.diag.crash.v}` : ''}{:else}keiner{/if}
         </dd>
-        {#if crash?.present && crash.reason}
-          <dt>Grund</dt>
-          <dd>{crash.reason}</dd>
-        {/if}
       </dl>
       <div class="actions">
-        <Button icon="download" href="/api/diag" download>Diagnosepaket</Button>
-        {#if crash?.present}<Button variant="text" class="danger" icon="delete" onclick={eraseCrash}>Bericht löschen</Button>{/if}
+        <Button variant="tonal" icon="monitor_heart" href="#/diagnose">Abstürze und Neustarts</Button>
+        <Button variant="text" icon="download" href="/api/diag" download>Diagnosepaket</Button>
       </div>
-      <p class="muted small">
-        Eine Datei mit Status, Versionen, Einstellungen, Neustarts, Log und Absturzbericht, ohne Passwörter. Auf dem Handy
-        landet sie unter „Downloads“.
-        {#if s.wifi.ap}Im Setup-Fenster des Handys klappt das Herunterladen oft nicht; dann im normalen Browser
-          <a href="http://192.168.4.1/">http://192.168.4.1</a> öffnen.{/if}
-      </p>
-    </Card>
-
-    <Card>
-      <h2 class="card-title"><Icon name="history" size={20} />Letzte Starts</h2>
-      {#if resets?.entries.length}
-        <ul class="list">
-          {#each resets.entries.slice(0, 8) as r (r.boot)}
-            <li class="list-item">
-              <span class="lead" class:bad={!!r.crash || r.rollback}>
-                <Icon name={r.crash ? 'bug_report' : r.rollback ? 'error' : 'restart_alt'} size={20} />
-              </span>
-              <span class="text">
-                <span class="headline">Nr. {r.boot} · {r.reasonText}</span>
-                <span class="supporting tnum">
-                  {r.v}{r.time ? ` · ${r.time}` : ''}{r.prevUptime !== null ? ` · lief davor ${duration(r.prevUptime)}` : ''}{r.trial ? ' · Probelauf' : ''}{r.crash ? ` · Absturz in ${r.crash.task}` : ''}
-                </span>
-              </span>
-            </li>
-          {/each}
-        </ul>
-      {:else}
-        <p class="muted">{resets ? 'Keine Einträge.' : 'Lade …'}</p>
-      {/if}
     </Card>
 
     <Card>
@@ -559,8 +542,15 @@
     display: flex;
     justify-content: space-between;
   }
-  .lead.bad {
-    background: var(--md-sys-color-error-container);
-    color: var(--md-sys-color-on-error-container);
+  /* Änderungsvorschau: Einträge der neueren Versionen, scrollt bei vielen */
+  .preview {
+    display: grid;
+    gap: 16px;
+    max-height: 440px;
+    margin-top: 12px;
+    padding: 16px;
+    overflow-y: auto;
+    border-radius: var(--md-sys-shape-corner-large);
+    background: var(--md-sys-color-surface-container-low);
   }
 </style>

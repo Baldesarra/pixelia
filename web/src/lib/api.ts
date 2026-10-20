@@ -101,14 +101,22 @@ export type ResetList = {
   }[];
 };
 
+/** GET /api/coredump/summary (diag::crash_json); die Felder gibt es nur mit present */
 export type CrashSummary = {
   present: boolean;
   valid?: boolean;
+  size?: number;
+  addr?: string;
   task?: string;
   pc?: string;
   reason?: string;
+  excCause?: number;
+  excVaddr?: string;
   backtrace?: string[];
+  btCorrupted?: boolean;
+  elfSha?: string;
   version?: string;
+  part?: string;
 };
 
 export type LogLine = { n: number; b: number; t: number; u: number; l: string; m: string; cut?: boolean };

@@ -9,7 +9,7 @@
 
   const PAGES: Record<string, string> = {
     uebersicht: 'Übersicht', wlan: 'WLAN', system: 'System', log: 'Live-Log', info: 'Info', hardware: 'Hardware',
-    geraete: 'Geräte', darstellung: 'Darstellung', mehr: 'Mehr',
+    geraete: 'Geräte', darstellung: 'Darstellung', versionen: 'Versionen', diagnose: 'Diagnose', mehr: 'Mehr',
   };
 
   let data = $state<ClientList | null>(null);

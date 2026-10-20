@@ -19,4 +19,9 @@ extern const Asset kAssets[];
 extern const size_t kCount;
 extern const size_t kBytes;  // Summe der eingebetteten Bytes
 
+// Versionsverlauf (CHANGELOG.json, gzip) für GET /api/changelog; erzeugt tools/release_notes.py --embed als
+// changelog_block.cpp. Die Daten liegen hinter einem festen Kopf mit Marker, damit die Oberfläche sie auch aus
+// einer .bin-Datei lesen kann (Aufbau in release_notes.py).
+extern const Asset kChangelog;
+
 }  // namespace app::web::assets

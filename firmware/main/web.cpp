@@ -5,6 +5,7 @@
 //
 // API (alle Antworten JSON, Eingaben als Formulardaten application/x-www-form-urlencoded):
 //   GET  /api/status          Gesamtstatus (auch per WebSocket /ws jede Sekunde)
+//   GET  /api/changelog       Versionsverlauf dieser Firmware (CHANGELOG.json, gzip; seit 0.4.0)
 //   GET  /api/wifi            gespeicherte Netze (nur Namen) und letzter Scan
 //   POST /api/wifi/scan       neu scannen
 //   POST /api/wifi/add        ssid, pass: speichern und verbinden
@@ -350,6 +351,9 @@ esp_err_t asset_get(httpd_req_t* req) {
     return send_asset(req, *a);
 }
 
+// Versionsverlauf dieser Firmware (CHANGELOG.json, gzip wie die Oberfläche, ETag = Inhalts-Hash)
+esp_err_t changelog_get(httpd_req_t* req) { return send_asset(req, assets::kChangelog); }
+
 // Startseite: die Oberfläche, auch im Setup-Modus (sie startet dann auf der WLAN-Seite, seit 0.3.1).
 // Ohne eingebettete Oberfläche die einfache Einrichtungsseite, die außerdem immer unter /setup erreichbar bleibt.
 esp_err_t root_get(httpd_req_t* req) {
@@ -675,7 +679,7 @@ void start() {
     cfg.core_id = kSystemCore;
     cfg.stack_size = 8192;
     cfg.task_priority = 5;
-    cfg.max_uri_handlers = 56;  // 0.3.2: 44 belegt
+    cfg.max_uri_handlers = 56;  // 0.4.0: 45 belegt
     cfg.max_open_sockets = 7;
     cfg.lru_purge_enable = true;
     cfg.recv_wait_timeout = 10;
@@ -695,6 +699,7 @@ void start() {
     add("/setup", HTTP_GET, setup_get);
     for (size_t i = 0; i < assets::kCount; ++i) add(assets::kAssets[i].path, HTTP_GET, asset_get);
     add("/api/status", HTTP_GET, status_get);
+    add("/api/changelog", HTTP_GET, changelog_get);
     add("/api/wifi", HTTP_GET, wifi_get);
     add("/api/wifi/scan", HTTP_POST, wifi_scan_post);
     add("/api/wifi/add", HTTP_POST, wifi_add_post);
