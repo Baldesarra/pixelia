@@ -3,7 +3,7 @@
 Wegwerf-Skizzen aus der Planung, aufbewahrt als Zeugnis, wie Pixelia entstanden ist. Später sollen sie als
 „Easter Egg“ über einen Knopf in der Weboberfläche erreichbar sein (siehe ROADMAP, Backlog).
 
-Beide Seiten sind eigenständige HTML-Dateien ohne Abhängigkeiten: Doppelklick genügt, sie laufen offline. Die Bilder
+Alle Seiten sind eigenständige HTML-Dateien ohne Abhängigkeiten: Doppelklick genügt, sie laufen offline. Die Bilder
 werden im Browser prozedural in echten 400 × 240 Pixeln mit 8-Bit-Palette gezeichnet und ohne Glättung verdoppelt,
 so wie auf dem 5″-Display. Es ist kein Engine- oder Firmware-Code.
 
@@ -16,5 +16,5 @@ so wie auf dem 5″-Display. Es ist kein Engine- oder Firmware-Code.
 Die Zahlen unter den Bildern (Farben, Schreibzugriffe, sortierte Objekte, geänderte Pixel) zählt die Skizze selbst
 im Browser. Sie sind Anhaltspunkte, keine Messungen am ESP32-S3.
 
-Hinweise für die spätere Einbindung in die Weboberfläche: Die Dateien zusammen sind etwa 480 KB groß, gzip-gepackt
+Hinweise für die spätere Einbindung in die Weboberfläche: Die Dateien zusammen sind etwa 510 KB groß, gzip-gepackt
 deutlich weniger. Ohne Internet fallen die Schriften auf Systemschriften zurück; das ist gewollt (keine CDNs).
