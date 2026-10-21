@@ -297,6 +297,17 @@ bool setup_stage(const Options& opt, pixelia::Stage& stage) {
     stage.set_active(start);
     stage.init(opt.seed);
     if (opt.load >= 0) stage.set_load(opt.load);
+    stage.set_inspect(opt.inspect);
+    stage.set_follow(opt.follow);
+    for (size_t pos = 0; pos < opt.cmd.size();) {
+        size_t end = opt.cmd.find(',', pos);
+        if (end == std::string::npos) end = opt.cmd.size();
+        const std::string c = opt.cmd.substr(pos, end - pos);
+        if (!c.empty() && !stage.scene(start).command(c.c_str()))
+            std::fprintf(stderr, "sim: Befehl \"%s\" kennt der Ort %s nicht\n", c.c_str(),
+                         opt.scene.c_str());
+        pos = end + 1;
+    }
     return true;
 }
 

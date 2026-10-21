@@ -12,6 +12,28 @@
 
 namespace pixelia {
 
+// Übergang beim Ortswechsel (Bühne, stage.h); hier, weil auch Ausgänge eines Ortes ihn tragen
+enum class Transition : uint8_t {
+    Cut,       // Schnitt: sofort
+    Dissolve,  // Überblendung: grobe Bildpunkte wechseln in zufälliger Reihenfolge
+    Pattern,   // Raster: wie Überblendung, in einem festen 4×4-Muster
+    Fade,      // Abblenden über Schwarz
+};
+inline constexpr int kTransitionKinds = 4;
+// Standard beim Ortswechsel: Abblenden (Entscheidung des Users 2026-10-21)
+inline constexpr Transition kDefaultTransition = Transition::Fade;
+
+// Weg durch einen Ausgang in einen anderen Ort (seit 0.5.1). Die Bühne fragt jeden Ort nach jedem Schritt danach
+// und gibt den Reisenden im Zielort ab (arrive). Wer reist, legen die Orte fest (who); die Bühne reicht es durch.
+struct Travel {
+    const char* to = nullptr;  // Kennung des Zielortes
+    uint8_t entry = 0;         // Ausgang des Zielortes, an dem man ankommt
+    uint8_t from_exit = 0;     // benutzter Ausgang (kommt zurück, wenn es den Zielort nicht gibt)
+    Transition transition = kDefaultTransition;
+    bool follow = false;       // Blick folgt: ist der Ort gerade zu sehen, wechselt die Bühne mit
+    uint16_t who = 0;
+};
+
 class Scene {
 public:
     virtual ~Scene() = default;
@@ -31,6 +53,18 @@ public:
     virtual int colors() const { return kSceneColors; }
     // Feine Einblendungen der Szene (Text, Markierungen) in 400×240, nach dem Verdoppeln gezeichnet
     virtual void render_overlay(Canvas& /*fine*/) const {}
+    // Wird sichtbar bzw. ist nicht mehr zu sehen (seit 0.5.1; z. B. Hintergrundbild vorzeichnen und freigeben).
+    // Während eines Übergangs sind beide Orte „betreten“.
+    virtual void enter() {}
+    virtual void leave() {}
+    // Reisende abgeben: true, solange noch jemand durch einen Ausgang geht (die Bühne fragt nach jedem Schritt)
+    virtual bool take_travel(Travel* /*out*/) { return false; }
+    // Jemand kommt an: t.entry ist der Ausgang dieses Ortes, an dem er auftaucht
+    virtual void arrive(const Travel& /*t*/) {}
+    // Prüfansicht: Stellflächen, Benutzungspunkte, Ausgänge einblenden (Seite Experimentell)
+    virtual void set_inspect(bool /*on*/) {}
+    // Kurzer Befehl für Prüfungen (Konsole, Seite Experimentell), z. B. „ausbau“, „baustelle“; false = unbekannt
+    virtual bool command(const char* /*cmd*/) { return false; }
 };
 
 // Szene nach Namen anlegen; nullptr, wenn es sie nicht gibt

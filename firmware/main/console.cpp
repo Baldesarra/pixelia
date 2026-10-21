@@ -13,6 +13,7 @@
 #include <string>
 
 #include "app.h"
+#include "pixelia/engine/stage.h"
 #include "board/backlight.h"
 #include "diag.h"
 #include "input.h"
@@ -110,6 +111,8 @@ void print_help() {
     ESP_LOGI(TAG, "  swap <n> | sprites <n> | buf <int|psram>       Engine-Prototyp");
     ESP_LOGI(TAG, "  buf grob <int|psram>                           grober Puffer der Orte (Messung)");
     ESP_LOGI(TAG, "  ort [<Nr|Kennung> [Übergang]] | ort rundgang <s> | ort figuren <n>   Orte der Bühne");
+    ESP_LOGI(TAG, "  ort ausbau | ort baustelle | ort folgen 0/1 | ort pruefen 0/1   Testorte (Raum-Baukasten)");
+    ESP_LOGI(TAG, "  bench   Zeichnen messen: Verdoppeln und Kopie des Hintergrunds im PSRAM");
     ESP_LOGI(TAG, "  time <HH:MM|real> | speed <Faktor>             Weltzeit stellen (real = echte Uhrzeit), Zeitraffer");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
 }
@@ -369,6 +372,12 @@ bool handle(char* line) {
             gfx::set_tour(std::atoi(argv[2]));
         } else if (argc >= 3 && std::strcmp(argv[1], "figuren") == 0) {
             gfx::set_figures(std::atoi(argv[2]));
+        } else if (argc >= 3 && std::strcmp(argv[1], "folgen") == 0) {
+            gfx::set_follow(std::atoi(argv[2]) != 0);
+        } else if (argc >= 3 && std::strcmp(argv[1], "pruefen") == 0) {
+            gfx::set_inspect(std::atoi(argv[2]) != 0);
+        } else if (argc >= 2 && (std::strcmp(argv[1], "ausbau") == 0 || std::strcmp(argv[1], "baustelle") == 0)) {
+            gfx::place_command(argv[1]);
         } else if (argc >= 2) {
             int n = gfx::find_place(argv[1]);
             if (n < 0 && argv[1][0] >= '0' && argv[1][0] <= '9') n = std::atoi(argv[1]);
@@ -379,14 +388,40 @@ bool handle(char* line) {
         }
         for (int i = 0; i < gfx::place_count(); ++i)
             ESP_LOGI(TAG, "%c %d %s (%s)", i == gfx::place() ? '*' : ' ', i, gfx::place_id(i), gfx::place_title(i));
-        ESP_LOGI(TAG, "Übergang %s, Rundgang %d s, Figuren %d (0 = Standard)",
-                 pixelia::transition_name(gfx::transition()), gfx::tour(), gfx::figures());
+        ESP_LOGI(TAG, "Übergang %s, Rundgang %d s, Figuren %d (0 = Standard), Blick folgt %d, Prüfansicht %d",
+                 pixelia::transition_name(gfx::transition()), gfx::tour(), gfx::figures(), gfx::follow(),
+                 gfx::inspect());
     } else if (is("buf") && argc >= 3 && std::strcmp(argv[1], "grob") == 0) {
         gfx::request_coarse(std::strcmp(argv[2], "psram") == 0);
     } else if (is("buf") && argc >= 2) {
         bool psram = std::strcmp(argv[1], "psram") == 0;
         gfx::request_buffers(psram);
         ESP_LOGI(TAG, "Engine-Puffer: %s", psram ? "PSRAM" : "intern");
+    } else if (is("bench")) {
+        // Messung fürs Zeichnen (seit 0.5.1, Grundlage für 0.5.2): Verdoppeln 200×120 → 400×240 und Kopie des
+        // Hintergrundbilds (24 KB), beides PSRAM → PSRAM wie auf der Grafik-Task. Läuft auf Kern 0, die Grafik läuft
+        // weiter (gleicher Speicherverkehr durch das Display).
+        constexpr int kRuns = 50;
+        auto* coarse = static_cast<uint8_t*>(heap_caps_malloc(pixelia::kCoarsePixels, MALLOC_CAP_SPIRAM));
+        auto* bg = static_cast<uint8_t*>(heap_caps_malloc(pixelia::kCoarsePixels, MALLOC_CAP_SPIRAM));
+        auto* fine = static_cast<uint8_t*>(heap_caps_malloc(pixelia::kScreenPixels, MALLOC_CAP_SPIRAM));
+        if (coarse && bg && fine) {
+            for (int i = 0; i < pixelia::kCoarsePixels; ++i) coarse[i] = bg[i] = static_cast<uint8_t>(i * 7);
+            pixelia::Canvas c(fine, pixelia::kScreenWidth, pixelia::kScreenHeight);
+            int64_t t0 = esp_timer_get_time();
+            for (int i = 0; i < kRuns; ++i) pixelia::upscale2x(coarse, c);
+            const int64_t up = esp_timer_get_time() - t0;
+            t0 = esp_timer_get_time();
+            for (int i = 0; i < kRuns; ++i) std::memcpy(coarse, bg, pixelia::kCoarsePixels);
+            const int64_t cp = esp_timer_get_time() - t0;
+            ESP_LOGI(TAG, "Verdoppeln 200×120 → 400×240: %" PRId64 " µs, Hintergrund kopieren (24 KB): %" PRId64
+                          " µs (je Bild, PSRAM, Mittel aus %d)", up / kRuns, cp / kRuns, kRuns);
+        } else {
+            ESP_LOGW(TAG, "bench: kein PSRAM frei");
+        }
+        heap_caps_free(coarse);
+        heap_caps_free(bg);
+        heap_caps_free(fine);
     } else if (is("perf") && argc >= 2) {
         perf::set_interval(std::strcmp(argv[1], "off") == 0 ? 0 : std::atoi(argv[1]));
         ESP_LOGI(TAG, "Leistungsmonitor: %s", perf::interval() ? "an" : "aus");

@@ -25,6 +25,11 @@ Seit 0.5.0 läuft im Simulator dieselbe Bühne wie am Gerät mit den Orten `scro
 (`--every`, `--count`), z. B. für Übergänge und Animationen. `--load N` setzt die Figuren der Testorte bzw. die Vögel
 der Landschaft.
 
+Seit 0.5.1 gibt es dazu `testort-platz`; die Testorte sind aus Kacheln und Möbel-Teilen gebaut und über Tür und Bildrand
+verbunden. `--cmd ausbau,baustelle` schickt Befehle an den Startort (Ausbaustufe, „im Bau“), `--inspect` blendet
+Stellflächen, Benutzungspunkte und Ausgänge ein, `--no-follow` lässt den Blick am Startort (sonst folgt er der
+Begleiterin durch die Ausgänge). Bildschirmfotos vom echten Display: `python tools/screen.py DATEI.png`.
+
 `--screen NAME` zeichnet eine Systemanzeige mit Beispieldaten (Setup-Modus, Update, Meldung, Kurzmeldung), mit
 demselben Code wie auf dem Gerät: `setup`, `setup-leer`, `setup-fehler`, `update`, `update-fertig`, `failed`,
 `message`, `toast`, `toast-lang`, `toast-ip` (Kurzmeldung nach dem Verbinden), `info`, `info-setup`, `info-offline`

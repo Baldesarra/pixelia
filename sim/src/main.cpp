@@ -27,6 +27,9 @@ void print_help() {
         "  --go ORT[:ÜBERGANG]     nach dem Vorspulen wechseln; Übergang schnitt, ueberblendung, raster,\n"
         "                          abblenden (Standard)\n"
         "  --after N               N Logik-Schritte nach dem Wechsel (dann Screenshot)\n"
+        "  --cmd A,B               Befehle an den Startort, z. B. ausbau, baustelle (Testraum)\n"
+        "  --inspect               Prüfansicht: Stellflächen, Benutzungspunkte, Ausgänge\n"
+        "  --no-follow             Blick folgt der Begleiterin nicht durch Türen und Bildränder\n"
         "  --sequence DATEI        Bildfolge als PNG (kopflos), z. B. für Übergänge und Animationen\n"
         "  --every K               Abstand der Bilder in Logik-Schritten (Standard 3)\n"
         "  --count N               Zahl der Bilder (Standard 8)\n"
@@ -124,6 +127,12 @@ int main(int argc, char** argv) {
             opt.count = std::atoi(next());
         } else if (a == "--run-seconds") {
             opt.run_seconds = std::atof(next());
+        } else if (a == "--cmd") {
+            opt.cmd = next();
+        } else if (a == "--inspect") {
+            opt.inspect = true;
+        } else if (a == "--no-follow") {
+            opt.follow = false;
         } else if (a == "--test") {
             return sim::run_tests(next());
         } else {

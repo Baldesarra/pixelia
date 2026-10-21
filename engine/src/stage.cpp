@@ -75,6 +75,24 @@ void Stage::init(uint64_t seed) {
     pending_ = -1;
     step_ = 0;
     transitions_ = 0;
+    travels_ = 0;
+    entered_ = 0;
+    sync_entered();
+}
+
+void Stage::sync_entered() {
+    for (int i = 0; i < count_; ++i) {
+        const bool want = i == active_ || i == from_;
+        const bool have = entered_ & (1u << i);
+        if (want == have) continue;
+        if (want) {
+            scenes_[i]->enter();
+            entered_ |= 1u << i;
+        } else {
+            scenes_[i]->leave();
+            entered_ &= ~(1u << i);
+        }
+    }
 }
 
 int Stage::find(std::string_view name) const {
@@ -88,6 +106,7 @@ void Stage::set_active(int index) {
     active_ = index;
     from_ = -1;
     pending_ = -1;
+    sync_entered();
 }
 
 void Stage::go(int index, Transition t) {
@@ -97,6 +116,11 @@ void Stage::go(int index, Transition t) {
 }
 
 void Stage::set_transition_ticks(int ticks) { ticks_ = std::clamp(ticks, 1, 300); }
+
+void Stage::set_inspect(bool on) {
+    inspect_ = on;
+    for (int i = 0; i < count_; ++i) scenes_[i]->set_inspect(on);
+}
 
 void Stage::set_load(int load) {
     if (count_) scenes_[active_]->set_load(load);
@@ -108,15 +132,35 @@ void Stage::start_transition(int to, Transition t) {
     ++transitions_;
     if (t == Transition::Cut || ticks_ < 2) {
         active_ = to;
+        sync_entered();
         return;
     }
     from_ = active_;
     active_ = to;
     step_ = 0;
     trans_ = t;
+    sync_entered();  // vor merge_palettes: ein Ort darf seine Palette beim Betreten setzen
     if (t != Transition::Fade) {
         const bool both_fine = scenes_[from_]->scale() != kCoarseScale && scenes_[to]->scale() != kCoarseScale;
         if (both_fine || !merge_palettes()) trans_ = Transition::Fade;
+    }
+}
+
+void Stage::deliver_travels() {
+    // Reihenfolge der Orte fest: gehört zum deterministischen Ablauf
+    for (int i = 0; i < count_; ++i) {
+        Travel t;
+        for (int n = 0; n < 16 && scenes_[i]->take_travel(&t); ++n) {
+            const int to = t.to ? find(t.to) : -1;
+            if (to < 0) {
+                t.entry = t.from_exit;
+                scenes_[i]->arrive(t);
+                continue;
+            }
+            ++travels_;
+            scenes_[to]->arrive(t);
+            if (t.follow && follow_ && i == active_ && from_ < 0 && pending_ < 0) start_transition(to, t.transition);
+        }
     }
 }
 
@@ -177,7 +221,10 @@ void Stage::tick(const WorldClock& clock) {
         start_transition(to, pending_trans_);
     }
     for (int i = 0; i < count_; ++i) scenes_[i]->tick(clock);
+    const bool was = from_ >= 0;
     if (from_ >= 0 && ++step_ >= ticks_) from_ = -1;
+    deliver_travels();
+    if (was && from_ < 0) sync_entered();
     if (from_ >= 0) update_palette();
 }
 

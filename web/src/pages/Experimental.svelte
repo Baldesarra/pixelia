@@ -242,9 +242,10 @@
         <Card class="wide">
           <h2 class="card-title"><Icon name="map" size={20} />Orte (Vorschau)</h2>
           <p class="muted">
-            Die Testorte sind neutrale Platzhalter im groben Raster (200 × 120, am Display 4 × 4 Pixel je Bildpunkt):
-            Jede Figur ist einmal gezeichnet und bekommt ihre Farbe aus einer Farbreihe. Die Landschaft ist das bisherige
-            Bild. Beim Ausschalten von Experimentell kehrt das Display zur Landschaft zurück.
+            Die Testorte sind neutrale Test-Grafiken im groben Raster (200 × 120, am Display 4 × 4 Pixel je Bildpunkt),
+            gebaut aus Kacheln und Möbel-Teilen. Wiese, Raum und Platz hängen über eine Tür und einen Bildrand zusammen;
+            die Figuren wechseln dort den Ort. Der weiße Pfeil zeigt die Begleiterin, der das Bild folgt. Die Landschaft
+            ist das bisherige Bild. Beim Ausschalten von Experimentell kehrt das Display zur Landschaft zurück.
           </p>
           <div class="setting">
             <span>Ort</span>
@@ -266,6 +267,19 @@
             <span class="row"><span>Figuren je Testort</span><span class="tnum">{ex.figures ? ex.figures : 'Standard'}</span></span>
             <Slider label="Figuren je Testort" min={1} max={64} value={ex.figures || 6} onchange={(v) => act({ a: 'figures', n: v })} />
           </div>
+          <div class="actions">
+            <span class="pol"><Switch label="Blick folgt" checked={ex.follow !== false} disabled={busy} onchange={(v) => act({ a: 'follow', v: v ? 1 : 0 })} />Blick folgt der Begleiterin</span>
+            <span class="pol"><Switch label="Prüfansicht" checked={!!ex.inspect} disabled={busy} onchange={(v) => act({ a: 'inspect', v: v ? 1 : 0 })} />Prüfansicht</span>
+          </div>
+          <div class="actions">
+            <Button variant="tonal" icon="upgrade" disabled={busy} onclick={() => act({ a: 'cmd', v: 'ausbau' })}>Ausbau</Button>
+            <Button variant="tonal" icon="construction" disabled={busy} onclick={() => act({ a: 'cmd', v: 'baustelle' })}>Im Bau</Button>
+          </div>
+          <p class="muted small">
+            Ausbau: nächste Ausbaustufe im sichtbaren Testort (Lager ↔ Bett, Kisten ↔ Tisch). Im Bau: Möbel werden zur
+            Baustelle (halbfertiges Bett, sonst Bretterstapel) und wieder fertig. Prüfansicht: Stellflächen (lila),
+            Benutzungspunkte (grün), Ausgänge (gelb), versperrte Kacheln (Punkte).
+          </p>
           <div class="actions">
             <span class="pol"><Switch label="Rundgang" checked={!!ex.tour} disabled={busy} onchange={(v) => act({ a: 'tour', s: v ? 20 : 0 })} />Rundgang: alle 20 s der nächste Ort</span>
             {#if ex.figures}<Button variant="text" icon="restart_alt" onclick={() => act({ a: 'figures', n: 0 })}>Figuren: Standard</Button>{/if}

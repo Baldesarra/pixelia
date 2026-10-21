@@ -58,6 +58,10 @@ std::atomic<int> s_figures{0};     // Figuren der Testorte, 0 = Standard
 int s_sprites_applied = -1;
 int s_figures_applied = -1;
 uint32_t s_tour_ticks = 0;
+std::atomic<int> s_req_cmd{0};     // Befehl an den sichtbaren Ort: 1 = ausbau, 2 = baustelle
+std::atomic<bool> s_follow{true};  // Blick folgt der Begleiterin (Bühne, seit 0.5.1)
+std::atomic<bool> s_inspect{false};
+int s_shown_place = -1;            // zuletzt gemeldeter Ort (Wechsel durch Ausgänge ins Log)
 std::atomic<int> s_req_coarse{-1};  // grober Puffer umziehen: 0 = intern, 1 = PSRAM (Messung, Befehl „buf grob“)
 
 void move_coarse(bool psram) {
@@ -252,8 +256,21 @@ bool ensure_engine_ready(bool psram) {
     return true;
 }
 
-// Anfragen anderer Tasks zwischen den Logik-Schritten übernehmen: Ortswechsel, Rundgang, Lastregler
+// Anfragen anderer Tasks zwischen den Logik-Schritten übernehmen: Ortswechsel, Rundgang, Lastregler, Befehle
 void apply_place_requests(int ticks) {
+    if (s_stage.active() != s_shown_place) {
+        if (s_shown_place >= 0 && !s_stage.transitioning())
+            ESP_LOGI(TAG, "Ort %s (Wechsel %u, Reisen %u)", s_stage.scene(s_stage.active()).name(),
+                     static_cast<unsigned>(s_stage.transitions()), static_cast<unsigned>(s_stage.travels()));
+        if (!s_stage.transitioning()) s_shown_place = s_stage.active();
+    }
+    if (const bool f = s_follow.load(std::memory_order_relaxed); f != s_stage.follow()) s_stage.set_follow(f);
+    if (const bool v = s_inspect.load(std::memory_order_relaxed); v != s_stage.inspect()) s_stage.set_inspect(v);
+    if (const int c = s_req_cmd.exchange(0); c > 0) {
+        const char* cmd = c == 1 ? "ausbau" : "baustelle";
+        const bool ok = s_stage.scene(s_stage.active()).command(cmd);
+        ESP_LOGI(TAG, "Befehl %s an %s: %s", cmd, s_stage.scene(s_stage.active()).name(), ok ? "ok" : "unbekannt");
+    }
     const auto t = static_cast<pixelia::Transition>(s_transition.load(std::memory_order_relaxed));
     const int req = s_req_place.exchange(-1);
     int to = -1;
@@ -467,9 +484,20 @@ void set_tour(int seconds) { s_tour_s.store(std::clamp(seconds, 0, 3600)); }
 int tour() { return s_tour_s.load(); }
 void set_figures(int n) { s_figures.store(std::clamp(n, 0, 64)); }
 int figures() { return s_figures.load(); }
+bool place_command(const char* cmd) {
+    const int c = std::strcmp(cmd, "ausbau") == 0 ? 1 : std::strcmp(cmd, "baustelle") == 0 ? 2 : 0;
+    if (c) s_req_cmd.store(c);
+    return c != 0;
+}
+void set_follow(bool on) { s_follow.store(on); }
+bool follow() { return s_follow.load(); }
+void set_inspect(bool on) { s_inspect.store(on); }
+bool inspect() { return s_inspect.load(); }
 void reset_places() {
     s_tour_s.store(0);
     s_figures.store(0);
+    s_follow.store(true);
+    s_inspect.store(false);
     s_transition.store(static_cast<int>(pixelia::kDefaultTransition));
     s_req_place.store(s_landscape);
 }
