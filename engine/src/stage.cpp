@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "pixelia/engine/light.h"
@@ -258,6 +259,12 @@ bool Stage::command(const char* cmd) {
         env_.weather.set_wind_dir(w == "links" ? -1 : 1);
         return true;
     }
+    if (std::sscanf(cmd, "blitzstil %15s", word) == 1) {
+        const std::string_view w(word);
+        if (w != "a" && w != "b" && w != "c") return false;
+        env_.weather.set_flash_style(w == "a" ? FlashStyle::Dimmed : w == "b" ? FlashStyle::Sheet : FlashStyle::Short);
+        return true;
+    }
     if (std::strcmp(cmd, "blitz") == 0) {
         env_.weather.strike();
         return true;
@@ -313,6 +320,16 @@ void Stage::deliver_travels() {
 }
 
 bool Stage::merge_palettes() {
+    // Erst exakt; reichen die 240 Farben nicht (nachts, drinnen ↔ draußen mit Wetter), ähnliche Farben zusammenlegen:
+    // für die 0,6 s der Überblendung unsichtbar, am Ende gilt wieder die eigene Palette (seit 0.5.3, vorher Abblenden)
+    constexpr int kTolerance[] = {0, 12, 30};
+    for (int t : kTolerance)
+        if (merge_palettes(t, false)) return true;
+    return merge_palettes(60, true);
+}
+
+// Ein Durchgang mit Toleranz (Summe der Abstände je Kanal); last: ist alles belegt, die nächste Farbe nehmen
+bool Stage::merge_palettes(int tolerance, bool last) {
     slots_ = 0;
     map_from_.fill(0);
     map_to_.fill(0);
@@ -322,20 +339,25 @@ bool Stage::merge_palettes() {
         const int n = std::clamp(s.colors(), 1, kSceneColors);
         for (int i = 0; i < n; ++i) {
             const Color c = p[i];
-            int slot = -1;
+            int slot = -1, best = 1 << 30;
             for (int k = 0; k < slots_; ++k) {
                 const Color m = palette_[k];
-                if (m.r == c.r && m.g == c.g && m.b == c.b) {
+                const int d = std::abs(m.r - c.r) + std::abs(m.g - c.g) + std::abs(m.b - c.b);
+                if (d < best) {
+                    best = d;
                     slot = k;
-                    break;
+                    if (d <= tolerance) break;  // erste passende reicht
                 }
             }
-            if (slot < 0) {
-                if (slots_ == kSceneColors) return false;
-                slot = slots_++;
-                palette_[slot] = c;
-                slot_scene_[slot] = static_cast<uint8_t>(si);
-                slot_index_[slot] = static_cast<uint8_t>(i);
+            if (best > tolerance) {
+                if (slots_ < kSceneColors) {
+                    slot = slots_++;
+                    palette_[slot] = c;
+                    slot_scene_[slot] = static_cast<uint8_t>(si);
+                    slot_index_[slot] = static_cast<uint8_t>(i);
+                } else if (!last) {
+                    return false;
+                }
             }
             map[i] = static_cast<uint8_t>(slot);
         }
@@ -476,7 +498,7 @@ void Stage::compose(Canvas& fine, const uint8_t* oc, const uint8_t* nc) const {
                 const uint8_t v = map[src[x]];
                 r0[fx] = r0[fx + 1] = r1[fx] = r1[fx + 1] = v;
             } else if (src) {
-                // mit Licht (selten: nachts reichen die Farben meist nicht, dann wird abgeblendet)
+                // mit Licht (abends und nachts)
                 const CoarseLayers& L = to_new ? layers_ : aux_layers_;
                 const uint8_t s = src[x];
                 const uint8_t lp = L.light && s && s < L.light_base ? L.light[y * kCoarseWidth + x] : 0;

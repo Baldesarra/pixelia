@@ -1152,6 +1152,12 @@ bool TestPlace::command(const char* cmd) {
         weather_.set_density(n);
         return true;
     }
+    if (std::sscanf(cmd, "nebelstil %11s", word) == 1) {
+        const std::string_view w(word);
+        if (w != "a" && w != "b" && w != "c") return false;
+        weather_.set_fog_style(w == "a" ? FogStyle::Drift : w == "b" ? FogStyle::Layers : FogStyle::Billow);
+        return true;
+    }
     if (std::sscanf(cmd, "nebelbaenke %d", &n) == 1) {
         weather_.set_fog_scale(n);
         return true;

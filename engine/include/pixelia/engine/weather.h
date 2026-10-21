@@ -32,6 +32,10 @@ const char* weather_name(WeatherKind k);   // Kennung: sonne, bewoelkt, regen, s
 const char* weather_title(WeatherKind k);  // sichtbarer Name
 bool parse_weather(std::string_view name, WeatherKind* out);
 
+// Aussehen zum Vergleichen (Befehle „blitzstil“ an der Bühne, „nebelstil“ am Ort; Entscheidung des Users)
+enum class FlashStyle : uint8_t { Dimmed, Sheet, Short };  // gedämpft, Wetterleuchten, kurz und heller
+enum class FogStyle : uint8_t { Drift, Layers, Billow };    // Schwaden von oben, mehrere Schleier, wabernd
+
 // Wetter gerade, je 0 … 255
 struct WeatherState {
     uint8_t cloud = 0;  // Bewölkung
@@ -59,6 +63,7 @@ public:
     int strength() const { return strength_; }
     void set_wind_dir(int dir) { s_.wind_dir = static_cast<int8_t>(dir < 0 ? -1 : 1); }
     void set_flash_seconds(int min_s, int max_s);
+    void set_flash_style(FlashStyle s) { flash_style_ = s; }
     void strike();  // Blitz sofort (Prüfungen)
 
     void tick();
@@ -87,6 +92,7 @@ private:
     int32_t flash_wait_ = -1;  // bis zum nächsten Blitz, Schritte × 255 (−1 = neu auslosen)
     int flash_step_ = -1;
     bool double_flash_ = false;
+    FlashStyle flash_style_ = FlashStyle::Dimmed;
     uint32_t flashes_ = 0;
     int64_t drift_ = 0;
     WeatherState s_{};
@@ -124,6 +130,7 @@ public:
     // Dichte in Prozent der Vorgabe (Vergleiche); Nebel: Anteil der Bänke
     void set_density(int percent) { density_ = percent < 10 ? 10 : percent > 300 ? 300 : percent; }
     void set_fog_scale(int percent) { fog_scale_ = percent < 0 ? 0 : percent > 200 ? 200 : percent; }
+    void set_fog_style(FogStyle s) { fog_style_ = s; }
 
     int particles() const { return pool_.size(); }
     int peak() const { return peak_; }
@@ -145,6 +152,7 @@ private:
     ParticlePool pool_;
     RainStyle rain_style_ = RainStyle::Streaks;
     SnowStyle snow_style_ = SnowStyle::Mixed;
+    FogStyle fog_style_ = FogStyle::Drift;
     int density_ = 100, fog_scale_ = 100;
     int32_t rain_acc_ = 0, snow_acc_ = 0, leaf_acc_ = 0;  // Bruchteile beim Entstehen, 8.8
     int peak_ = 0;

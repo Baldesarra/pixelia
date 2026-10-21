@@ -99,6 +99,7 @@ private:
     void sync_entered();  // enter/leave nach active_ und from_
     void deliver_travels();
     bool merge_palettes();
+    bool merge_palettes(int tolerance, bool last);
     void update_palette();
     int visible() const;
     void draw_scene(const Scene& s, Canvas& fine) const;

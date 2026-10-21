@@ -83,7 +83,7 @@ esp_err_t exp_post(httpd_req_t* req) {
     }
     // Orte (Vorschau, seit 0.5.0): nur mit Experimentell an
     if (a == "place" || a == "trans" || a == "tour" || a == "figures" || a == "cmd" || a == "follow" ||
-        a == "inspect" || a == "time" || a == "speed") {
+        a == "inspect" || a == "time" || a == "speed" || a == "weather") {
         if (!exper::enabled()) return reply(req, false, "Experimentell ist aus");
         if (a == "place") {
             const int n = field(body, "n", -1);

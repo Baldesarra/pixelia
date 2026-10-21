@@ -647,7 +647,7 @@ std::vector<Case> stage_cases() {
              if ((a.r + a.g + a.b) / 3 < pixelia::kDefaultNightFloor - 1) return std::string("Nacht unter der Grenze");
              return p.room().light_count() > 0 && p.room().light_map() ? std::string() : "keine Lichtkarte";
          }},
-        {"Überblendung mit wechselnden Paletten: Farben laufen weiter; nachts zu viele Farben, dann Abblenden",
+        {"Überblendung mit wechselnden Paletten: Farben laufen weiter; nachts ähnliche Farben zusammengelegt",
          [] {
              StageRun a(4, "testort-wiese"), n(4, "testort-wiese");
              a.clock.set_time_of_day(14, 0);
@@ -664,7 +664,20 @@ std::vector<Case> stage_cases() {
              const pixelia::Palette p2 = a.stage.palette();
              if (!a.stage.transitioning()) return std::string("Übergang schon vorbei");
              if (std::memcmp(p1.data(), p2.data(), sizeof(p1)) == 0) return std::string("Palette steht während des Übergangs");
-             return n.stage.transition() == Transition::Fade ? std::string() : "nachts nicht abgeblendet";
+             if (n.stage.transition() != Transition::Dissolve) return std::string("nachts abgeblendet");
+             // jede Farbe beider Orte hat in der gemeinsamen Palette eine nahe Farbe (Toleranz der Zusammenlegung)
+             const pixelia::Palette& m = n.stage.palette();
+             for (const pixelia::Palette* p : {&n.stage.scene(1).palette(), &n.stage.scene(2).palette()}) {  // Wiese → Raum
+                 for (int i = 0; i < pixelia::kSceneColors; ++i) {
+                     int best = 1 << 30;
+                     for (int k = 0; k < pixelia::kSceneColors; ++k) {
+                         const int d = std::abs(m[k].r - (*p)[i].r) + std::abs(m[k].g - (*p)[i].g) + std::abs(m[k].b - (*p)[i].b);
+                         best = std::min(best, d);
+                     }
+                     if (best > 60) return "Farbe " + std::to_string(i) + " fehlt in der gemeinsamen Palette";
+                 }
+             }
+             return std::string();
          }},
         {"Farbrotation, Farbtabellen (Schatten, Mischung) und Lichtstufen der Tabellen",
          [] {

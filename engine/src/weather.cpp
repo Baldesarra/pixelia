@@ -20,9 +20,23 @@ constexpr int kStormTicks = 8 * 30;
 constexpr int kWindTicks = 6 * 30;
 constexpr int32_t kFull = 255 << 8;
 
-// Blitz: Helligkeit je Logik-Schritt, einfach bzw. mit Nachblitz
-constexpr uint8_t kFlash[] = {255, 210, 110, 40};
-constexpr uint8_t kFlash2[] = {255, 170, 50, 0, 0, 235, 160, 70, 20};
+// Blitz: Verlauf je Logik-Schritt (einfach bzw. mit Nachblitz) und Spitze (0 … 256) je Stil
+struct FlashCurve {
+    const uint8_t* v;
+    int n;
+    int peak;
+};
+constexpr uint8_t kDimmed[] = {255, 210, 110, 40};
+constexpr uint8_t kDimmed2[] = {255, 170, 50, 0, 0, 235, 160, 70, 20};
+constexpr uint8_t kSheet[] = {70, 150, 110, 180, 120, 70, 40, 20};
+constexpr uint8_t kSheet2[] = {90, 160, 60, 30, 140, 220, 130, 80, 40, 20};
+constexpr uint8_t kShort[] = {255, 70};
+constexpr uint8_t kShort2[] = {255, 60, 0, 0, 220, 50};
+constexpr FlashCurve kFlashCurves[3][2] = {
+    {{kDimmed, sizeof kDimmed, 120}, {kDimmed2, sizeof kDimmed2, 120}},
+    {{kSheet, sizeof kSheet, 110}, {kSheet2, sizeof kSheet2, 110}},
+    {{kShort, sizeof kShort, 190}, {kShort2, sizeof kShort2, 190}},
+};
 
 int32_t approach(int32_t v, int32_t goal, int ticks) {
     const int32_t step = kFull / ticks;
@@ -203,10 +217,9 @@ void Weather::tick() {
 
     // Blitze: bei vollem Gewitter zufällig alle flash_min_ … flash_max_ Sekunden; die Wartezeit läuft mit der
     // Stärke des Gewitters ab (halbes Gewitter = doppelt so lange)
-    if (flash_step_ >= 0) {
-        const int n = double_flash_ ? static_cast<int>(sizeof kFlash2) : static_cast<int>(sizeof kFlash);
-        if (++flash_step_ >= n) flash_step_ = -1;
-    }
+    if (flash_step_ >= 0 &&
+        ++flash_step_ >= kFlashCurves[static_cast<int>(flash_style_)][double_flash_ ? 1 : 0].n)
+        flash_step_ = -1;
     if (cur_.storm > 0) {
         if (flash_wait_ < 0) flash_wait_ = rng_.range(flash_min_ * 30, flash_max_ * 30) * 255;
         flash_wait_ -= cur_.storm >> 8;
@@ -228,7 +241,8 @@ void Weather::publish() {
     s_.fog = static_cast<uint8_t>(cur_.fog >> 8);
     s_.storm = static_cast<uint8_t>(cur_.storm >> 8);
     s_.wind = ch((cur_.wind >> 8) * (gust_ >> 8) >> 8);
-    s_.flash = flash_step_ < 0 ? 0 : double_flash_ ? kFlash2[flash_step_] : kFlash[flash_step_];
+    const FlashCurve& fc = kFlashCurves[static_cast<int>(flash_style_)][double_flash_ ? 1 : 0];
+    s_.flash = flash_step_ < 0 ? 0 : static_cast<uint8_t>(fc.v[flash_step_] * fc.peak >> 8);
 }
 
 void Weather::apply(Ambient& a, bool outdoor) const {
@@ -251,21 +265,23 @@ void Weather::apply(Ambient& a, bool outdoor) const {
     const Color base = snow > fog ? Color{226, 230, 238} : Color{206, 210, 216};
     const Color hc{ch(base.r * a.r >> 8), ch(base.g * a.g >> 8), ch(base.b * a.b >> 8)};
     if (outdoor) {
-        a.haze = std::min(160, fog * 84 / 255 + rain * 26 / 255 + snow * 36 / 255);
+        a.haze = std::min(160, fog * 44 / 255 + rain * 26 / 255 + snow * 36 / 255);
         a.haze_color = hc;
     }
     const int sf = 210 * fog / 255;
     a.sky_top = lerp(a.sky_top, hc, sf);
     a.sky_bottom = lerp(a.sky_bottom, hc, sf);
-    // Blitz: draußen alles hell und kühl, drinnen schwächer, im Fenster voll
+    // Blitz: heller im Verhältnis zum Licht gerade (nachts nicht greller als tagsüber, kein weißes Bild; Wunsch des
+    // Users), leicht kühl; drinnen schwächer, im Fenster stärker
     if (s_.flash) {
-        const int f = s_.flash * (outdoor ? 256 : 80) >> 8;
-        a.r += (380 - a.r) * f >> 8;
-        a.g += (390 - a.g) * f >> 8;
-        a.b += (440 - a.b) * f >> 8;
-        a.sat = a.sat * (256 - (f >> 1)) >> 8;
-        a.sky_top = lerp(a.sky_top, {236, 240, 255}, s_.flash);
-        a.sky_bottom = lerp(a.sky_bottom, {244, 246, 255}, s_.flash);
+        const int f = s_.flash * (outdoor ? 256 : 96) >> 8;
+        a.r = std::min(330, a.r + (a.r * f >> 8));
+        a.g = std::min(330, a.g + (a.g * f >> 8));
+        a.b = std::min(360, a.b + (a.b * f * 9 >> 11));
+        a.sat = a.sat * (256 - (f >> 2)) >> 8;
+        const int sky = std::min(255, s_.flash * 3 / 2);
+        a.sky_top = lerp(a.sky_top, {236, 240, 255}, sky);
+        a.sky_bottom = lerp(a.sky_bottom, {244, 246, 255}, sky);
     }
 }
 
@@ -436,7 +452,7 @@ void PlaceWeather::layers(CoarseLayers& L, const Weather& w, uint64_t tick) cons
     constexpr int W = CoarseLayers::kVeilW, H = CoarseLayers::kVeilH;
     // Windversatz in 1/256 Zellen (eine Zelle = 8 feine Bildpunkte)
     const int64_t d = w.drift() / 8;
-    const int32_t t = static_cast<int32_t>(tick % 0x40000000u);
+    const int32_t t = static_cast<int32_t>(tick % (1u << 26));  // ×12 ohne Überlauf; Sprung alle 25 Tage
     uint8_t* g = grid_;
     if (top == shadow) {
         // Wolkenschatten ziehen mit dem Wind; je dichter die Wolken, desto mehr Fläche (höchstens gut die Hälfte:
@@ -446,13 +462,38 @@ void PlaceWeather::layers(CoarseLayers& L, const Weather& w, uint64_t tick) cons
             g[i] = static_cast<uint8_t>(std::clamp((std::min(c, 110) + 30 - g[i]) * 12 / 36, 0, 12) * shadow >> 8);
         L.veil_table = shadow_;
     } else if (top == fog) {
-        // Nebelbänke: zwei Lagen, langsam mit dem Wind
-        noise_grid(g, static_cast<int32_t>(-d / 44), t / 3, 256 / 11, 256 / 7, 0, 0xF06);
-        noise_grid(noise_, static_cast<int32_t>(-d / 12), 0, 256 / 4, 256 / 4, 0, 0xF07);
+        // Nebel: sichtbar ziehende Schleier, dazwischen lichtere Stellen (der gleichmäßige Dunst ist schwach)
         const int f = std::min(fog, 256);
-        for (int i = 0; i < W * H; ++i) {
-            const int n = (g[i] * 3 + noise_[i]) >> 2;
-            g[i] = static_cast<uint8_t>(std::min((f * (24 + n * 232 / 255) >> 8) * 11 >> 8, 11));
+        const int32_t wx = static_cast<int32_t>(-d / 44);  // langsam mit dem Wind
+        auto level = [f](int n, int lo, int top_level) {
+            return static_cast<uint8_t>((1 + std::clamp((n - lo) * top_level / (255 - lo), 0, top_level)) * f >> 8);
+        };
+        switch (fog_style_) {
+            case FogStyle::Drift:
+                // breite, flache Schwaden ziehen von oben nach unten (eine Zelle in 1,4 s)
+                noise_grid(g, wx, -t * 2, 256 / 14, 256 / 3, 0, 0xF06);
+                for (int i = 0; i < W * H; ++i) g[i] = level(g[i], 60, 14);
+                break;
+            case FogStyle::Layers:
+                // zwei Lagen: große Bänke langsam nach unten, kleinere Schleier schneller schräg darüber
+                noise_grid(g, wx, -t / 3, 256 / 12, 256 / 8, 0, 0xF06);
+                noise_grid(noise_, -t * s.wind_dir, -t * 3, 256 / 5, 256 / 3, 0, 0xF07);
+                for (int i = 0; i < W * H; ++i) {
+                    const int a = std::clamp((g[i] - 70) * 10 / 150, 0, 9), b = std::clamp((noise_[i] - 120) * 7 / 110, 0, 6);
+                    g[i] = static_cast<uint8_t>((1 + a + b) * f >> 8);
+                }
+                break;
+            case FogStyle::Billow: {
+                // wabernd: alle 3 s eine neue Lage, weich übergeblendet; dazu langsam nach unten
+                constexpr int kPeriod = 96;
+                const int k = t / kPeriod;
+                int fr = (t % kPeriod) * 256 / kPeriod;
+                fr = fr * fr * (768 - 2 * fr) >> 16;
+                noise_grid(g, wx, -t / 2, 256 / 9, 256 / 6, 0, 0xF06 + static_cast<uint32_t>(k) * 0x9E37u);
+                noise_grid(noise_, wx, -t / 2, 256 / 9, 256 / 6, 0, 0xF06 + static_cast<uint32_t>(k + 1) * 0x9E37u);
+                for (int i = 0; i < W * H; ++i) g[i] = level(g[i] + ((noise_[i] - g[i]) * fr >> 8), 70, 14);
+                break;
+            }
         }
         L.veil_table = fog_;
     } else {
