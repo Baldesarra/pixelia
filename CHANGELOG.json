@@ -10,7 +10,7 @@
       "Doku: docs/ZUSATZINHALTE.md mit „Vor 1.0.0 klären“ und Zusatzinhalten nach 1.0; frühere Welt-Ideen eingeordnet; README neu (Setting, Merkmale, getrennt nach „gibt es schon“ und „geplant“)",
       "Doku: freie Grafik-Pakete geprüft (Kenney, Tiny 16, Ninja Adventure, Zelda-like u. a.), keines übernommen; eigene Grafiken im Stil der Küche aus Skizze v4 (STIL.md)"
     ],
-    "pr": []
+    "pr": [31]
   },
   {
     "v": "0.5.3",
