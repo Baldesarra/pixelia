@@ -8,6 +8,9 @@
 > Kennzeichnung: **[entschieden]** = vom User bestätigt (steht auch in Kapitel 19). **[Vorschlag]** = Entwurf von
 > Claude, wartet auf das OK des Users. **[offen]** = noch zu klären.
 >
+> **Ausgelagert:** Die Wirtschaft (Waren, Kausalketten, Balancing, Protokoll, Prüfgrößen) steht in
+> [WIRTSCHAFT.md](WIRTSCHAFT.md).
+>
 > Verbindlich bleibt [LEBENDIGKEIT.md](LEBENDIGKEIT.md): Systeme statt Schleifen, Individuen, sichtbare Folgen,
 > zuverlässiges Gedächtnis (Regel 10).
 
@@ -17,7 +20,7 @@
 |---|---|---|
 | 1 | Ideen des Users: Grundidee, Ton, Hauptfiguren, Skript | entschieden; offen: Namen der Bewohner |
 | 2 | Gebiete, Figuren, Reihenfolge | entschieden bis auf die Reihenfolge Grube/Lok (Kapitel 18) |
-| 2a | Wirtschaft: Waren, Berufe, Lager, Werkzeuge, Wünsche, Dauer | Vorschlag in Kapitel 8 (2026-10-21) |
+| 2a | Wirtschaft: Waren, Berufe, Lager, Werkzeuge, Wünsche, Dauer, Protokoll | Grundsätze entschieden, Startwerte Vorschlag ([WIRTSCHAFT.md](WIRTSCHAFT.md), Kapitel 8) |
 | 3 | Modularer Aufbau, Regie, Kamera | entschieden (Kapitel 13 und 15) |
 | 4 | Hardware-Eignung mit Zahlen (inkl. SD-Karte, Baukasten) | entschieden (Kapitel 16) |
 | 5 | Rahmenbedingungen für Claude | entschieden (Kapitel 17) |
@@ -61,7 +64,7 @@ wird inhaltlich neu aufgezogen, gute Ideen aus den alten Konzepten werden weiter
 **Epoche [entschieden]: frühe Dampfzeit auf dem Land, um 1850**, in einem erfundenen Land:
 
 - Im Dorf ist der Alltag vorindustriell: Laternen in der Hand, Fackeln und Öllampen an den Häusern, Kerzen, Kamine,
-  Brunnen, Pferdekarren. **Schmiede und Tischlerei sind echte Handarbeit**, nichts ist automatisiert, die Bewohner
+  Brunnen, Schubkarren und Handkarren (später ein Ochsenkarren). **Schmiede und Tischlerei sind echte Handarbeit**, nichts ist automatisiert, die Bewohner
   arbeiten sichtbar.
 - Die Eisenbahn ist die einzige „moderne“ Technik und kommt von außen: Dampflok, Bahnwärterhaus, Signale.
 - Kein Strom, keine Fabriken im Ort. Licht kostet Brennstoff (Öl, Talg, Holz) und ist Teil der Wirtschaft.
@@ -95,12 +98,14 @@ damals schwerer war als Bleiben. Der Zug ist durch die fehlende Benutzung kaputt
 - **Hier beginnt das Spiel [entschieden]: einige Wochen nach dem Entschluss zu bleiben.** Es gibt den Bahnhof, den
   gestrandeten Zug, Marthas und Hannes' Hütten und die ersten halb fertigen Notunterkünfte auf der Lichtung. Die
   meisten schlafen noch provisorisch: in Abteilen, im Warteraum, im Gepäckwagen. Der **Speisewagen ist die erste Taverne**, der **Viehwagen der erste Stall** für Taylors Schafe, der
-  **Güterschuppen das erste Lager**. Jedes Haus, jede Werkstatt und Sykoras Hof müssen erst gebaut werden.
+  **Güterschuppen das erste Lager**. Darin liegt noch Fracht, die für die Bergdörfer bestimmt war und nie ankam (Mehl,
+  Kartoffeln, Salz, Lampenöl, Seile, Nägel, einfache Werkzeuge): der Restvorrat, der den ersten Frühling trägt
+  (WIRTSCHAFT.md Kapitel 12). Jedes Haus, jede Werkstatt und Sykoras Hof müssen erst gebaut werden.
 - **Warum der Zug wieder fahren soll:** Niemand will mehr weg. Die Lok wird repariert, damit Pixelia **angebunden**
   ist: Waren, Gäste, Briefe, neue Bewohner. Erst fährt sie bis zur nächsten Stadt hinter den zugewachsenen Gleisen,
   später (mit Updates) weiter; irgendwann wird vielleicht auch der Tunnel wieder frei.
 - **Verbindung nach außen bis dahin:** der Bergpass. Solange er offen ist, kommt die Händlerin regelmäßig mit ihrem
-  Maultier und bringt Post und Tauschware (Kapitel 8), selten ein Wanderer. Im Winter ist Pixelia ganz für sich.
+  Maultier und bringt Post und Tauschware ([WIRTSCHAFT.md](WIRTSCHAFT.md) Kapitel 11), selten ein Wanderer. Im Winter ist Pixelia ganz für sich.
 
 **Bogen über Monate [entschieden]**, keine feste Geschichte, sondern Meilensteine, deren Reihenfolge und Tempo aus der
 Simulation entstehen:
@@ -220,7 +225,7 @@ mit dem Jäger als Sohn; dazu ein Bauernpaar und ein Waldarbeiter (2026-10-21); 
 | Wilhelm, 66 | Bergmann a. D. | auf dem Weg zu seiner Schwester; erkennt die alte Grube am Berg | Abteil | Hütte am Hang | Grubenlampe, Erzbrocken auf dem Tisch |
 | Paul Brandt, 68 | Zimmermann im Ruhestand, schnitzt | mit Frau und Sohn unterwegs zu Verwandten | Abteil der Familie | Haus der Brandts | Schnitzbank, Holzfiguren auf dem Sims |
 | Lene Brandt, 66 | Weberin | wie Paul | Abteil der Familie | Haus der Brandts | Webstuhl, Garnkörbe |
-| Anton Brandt, 34 | Jäger | Sohn der Brandts; hat im Winter alle mit Wild versorgt | Abteil der Familie | Jagdhütte am Waldrand | Geweih an der Wand, Felle, Bogen bzw. Flinte |
+| Anton Brandt, 34 | Jäger | Sohn der Brandts; hat im Winter alle mit Wild versorgt | Abteil der Familie | Jagdhütte am Waldrand mit Räucherkammer | Geweih an der Wand, Felle, Flinte über dem Kamin, Fallen |
 | Martha, 72 | Kräuterfrau | **lebte schon hier**, half mit Kräutern durch den Winter | eigene Hütte am Waldrand | Kräutergarten, Pflanzenhaus | Kräuterbündel an der Decke, Mörser |
 | Hannes, 52 | Fischer, schneidet Schilf für Dächer | **lebte schon hier**, wortkarg, kennt jedes Wetter | eigene Hütte am See | Steg, Bootsschuppen, Räucherofen | Reusen, Netze zum Trocknen, Boot am Steg |
 | Bauer, ~40 (Name folgt) | Bauer: Felder, Hühner, später Mühle | Auswanderer auf dem Weg zum Hafen nach Amerika, Saatgut im Gepäck | Gepäckwagen | Bauernhof mit Scheune und Feldern | Saatgutkiste, Sense an der Wand |
@@ -285,9 +290,9 @@ Licht, Wasser und Gestein. Jedes Tor ist im Bild sichtbar, so wird die Grube üb
 | verschütteter Gang | Spitzhacke, Bergbau geübt | Konrad, Wilhelm bringt es bei |
 | harte Sohle ab dem zweiten Abschnitt | Grubenwerkzeug aus Stahl (die erste Spitzhacke reicht nur für Eingang und ersten Stollen) | Konrad, Stahl von der Händlerin |
 | brüchige Decke | Stützbalken | Jakob, Holz aus dem Wald |
-| senkrechter Schacht | Leiter, Seil | Jakob, Lene (Seil) |
-| abgesoffener Abschnitt | Pumpe mit Lederdichtungen | Konrad, Anton (Leder) |
-| schwere Funde | Lore auf Schienen | Konrad, Jakob |
+| senkrechter Schacht | Leiter, Seil | Jakob, Lene (Seil aus Hanf; anfangs Seile aus dem Restvorrat) |
+| abgesoffener Abschnitt | Pumpe mit Lederdichtungen | Konrad, Jakob, Anton (Leder) |
+| schwere Funde | Lore auf Holzschienen mit Eisenband | Konrad (Eisen), Jakob (Hartholz) |
 
 **Regel für Updates [entschieden]:** Jedes Projekt lässt sich mit dem vorhandenen Inhalt abschließen. Was auf ein Update
 wartet, ist in der Welt plausibel versperrt (z. B. „hinter dem Tunnel ist die Strecke verschüttet“). Die fertige Lok
@@ -364,234 +369,26 @@ Sammelertrag hängt von Ort, Jahreszeit, Ortszustand, Energie der Figur und Zufa
 
 **[entschieden]** Ein **Warenbuch für die ganze Welt**; alle Orte buchen nur darüber.
 
-### Grundsätze der Wirtschaft [entschieden, Wunsch des Users 2026-10-21]
+### Wirtschaft: ausgelagert nach [WIRTSCHAFT.md](WIRTSCHAFT.md)
 
-- **Kein Geld, auch nicht später mit der Bahn.** Falls doch einmal, dann als eigenes Update. Getauscht wird Ware gegen
-  Ware, im Dorf wird geteilt.
-- **Alles kommt aus echter Arbeit.** Jede verbrauchte Ware hat jemand gesammelt, angebaut, hergestellt oder
-  eingetauscht. Ein Kamin brennt nur mit Holz, das der Waldarbeiter wirklich geschlagen hat.
-- **Jedes Haus, jedes Bett und jede Mahlzeit verbraucht Waren.** Häuser brauchen Baustoffe und Brennholz, Betten Stroh
-  und Decken, Mahlzeiten Zutaten.
-- **Kausalkette:** Jeder Bewohner gewinnt die Waren seines Berufs und bringt sie in **sein eigenes Lager** (der
-  Waldarbeiter Holz und Äste in seine Holzfällerhütte, der Bauer Weizen in seine Scheune). **Wer etwas braucht, holt es
-  sich selbst** (die Bäckerin holt abends Weizen bzw. Mehl für den nächsten Tag oder früh am Morgen).
-- **Gleichgewicht:** Es darf nicht zu viel von einer Ware geben und gleichzeitig nichts von einer anderen. Die Logik
-  dafür steht unten.
-- **Niemand verhungert:** Fehlen die Zutaten, gibt es die **Standardsuppe**, mit Folgen für Laune und Kraft.
-- **Lager sichtbar:** In der Weboberfläche sieht der Betrachter jeden Lagerplatz mit seinem Inhalt.
+Die Wirtschaft ist so umfangreich geworden, dass sie eine eigene Datei hat (2026-10-21). Kurzfassung:
 
-### Waren und wer sie liefert [Vorschlag]
-
-Etwa 40 Waren in fünf Gruppen. „Ab“ sagt, wann die Ware ins Spiel kommt. Zuständig für die Liste und die Logik ist
-diese Werkstatt; **die genauen Zahlen** stellt die Arbeits-Sitzung der Dorf-Phase im Langzeit-Test ein (Kapitel 17).
-
-**Holz, Stein und Bau**
-
-| Ware | Wer liefert | Gelagert | Wofür (Beispiele) | Ab |
-|---|---|---|---|---|
-| Brennholz | Waldarbeiter; alle sammeln nebenbei Reisig | Holzstapel an der Holzfällerhütte, Holzlege an jedem Haus | Kamine, Herde, Backofen, Feuer am Platz | Start |
-| Bauholz (Stämme, Balken) | Waldarbeiter | Holzfällerhütte, Bauplatz | Hausbau, Dachstuhl, Stützbalken der Grube, Schwellen | Start |
-| Bretter | Jakob (sägt aus Stämmen) | Tischlerei | Möbel, Dielen, Türen, Fensterläden | Start |
-| Holzkohle | Waldarbeiter (Meiler: 2 Brennholz → 1 Holzkohle) | Meiler im Wald | Esse der Schmiede | Meiler gebaut (Woche 2–3) |
-| Bruchstein | Wilhelm im Steinbruch | Steinbruch | Fundamente, Kamine, Brunnen, Steinhaus | Start |
-| Lehm | alle (Lehmgrube am Bach) | am Bach | Fachwerk, Backofen, Kamine verputzen | Start |
-| Schilf (Reet) | Hannes am See | Bootsschuppen | Dächer der ersten Häuser | Start |
-| Kalk, Mörtel | Steinbruch + Kalkofen | Steinbruch | Steinhaus, Brunnen | Ausbau |
-| Ziegel | Ziegelei (Lehm + Brennholz) | Ziegelei | Ziegeldach, Ziegelhaus | Ausbau (Zuzug Ziegler) |
-| Glas | nur die Händlerin | Güterschuppen | Fensterscheiben, Laternen | Pass offen |
-
-**Nahrung**
-
-| Ware | Wer liefert | Gelagert | Wofür | Ab |
-|---|---|---|---|---|
-| Weizen | Bauer (Felder) | Scheune | Mehl; beim Dreschen fällt Stroh an | erste Ernte Ende des ersten Sommers; vorher Restvorrat aus dem Zug |
-| Mehl | Greta mit der Handmühle, später Wassermühle am Bauernhof | Bäckerei | Brot, Kuchen zum Fest | Start (Restvorrat) |
-| Brot | Greta | Bäckerei, Brotkorb im Haus | Frühstück, Proviant für Grube und Wald | Start |
-| Gemüse (Kartoffeln, Kohl, Rüben, Bohnen) | Bäuerin, Hausgärten | Erdkeller, Keller | Eintopf, Suppe | Gärten ab Sommer 1; Restvorrat |
-| Eier | Hühner am Bauernhof | Bauernhof | Mahlzeiten, Backen | Hühnerstall gebaut |
-| Milch, Käse | Taylor (Ziegen, Schafe) | Schäferhaus, Käse im Keller | Frühstück, Taverne, Tausch | Start (Milch), Käse ab Käsekammer |
-| Fleisch | Anton (Wild, Fallen) | Räucherkammer der Jagdhütte | Mahlzeiten; geräuchert oder gepökelt für den Winter | Start |
-| Fisch | Hannes | Räucherofen am See | Mahlzeiten (im Winter Eisfischen, weniger) | Start |
-| Kräuter, Pilze, Beeren | Martha; alle nebenbei | Marthas Hütte | Tee, Hustenmittel, Würze (Laune) | Start, nach Jahreszeit |
-| Honig | Emil (Bienen) | Emils Haus | Süßes (Laune), Tausch | Sommer 1 |
-| Salz | nur die Händlerin | Güterschuppen | Pökeln, Käse, Brot | Pass offen |
-| Bier | Gustav (Gerste vom Bauern) | Keller der Taverne | Abende in der Taverne | Ausbau |
-
-**Tiere, Stoffe und Licht**
-
-| Ware | Wer liefert | Gelagert | Wofür | Ab |
-|---|---|---|---|---|
-| Wolle | Taylor (Schur im Frühling) | Schäferhaus | Garn | Start |
-| Garn, Stoff | Lene (spinnt, webt) | Haus der Brandts | Decken, Vorhänge, Polster fürs Sofa, Kleidung | Start |
-| Stroh | Bauer (beim Dreschen) | Scheune | Strohsack, Tierstreu, Dach | anfangs Rest aus dem Viehwagen, dann ab Ernte |
-| Felle, Leder | Anton (gerbt) | Jagdhütte | Lederdichtungen (Pumpe, Lok), Riemen, Schuhe | Start |
-| Talg | Anton | Jagdhütte | Kerzen, Grubenlampe, Lok (Stopfbuchsen) | Start |
-| Wachs | Emil (Bienen) | Emils Haus | gute Kerzen, Holzpflege | Sommer 1 |
-| Kerzen | Martha zieht sie aus Talg oder Wachs | Marthas Hütte, dann in jedem Haus | Licht am Abend | Start |
-| Rüböl | Bäuerin (Raps) + Ölpresse | Bauernhof | Öllampen, Grubenlampe, Lok ölen | erste Rapsernte |
-| Hanf, Seil | Bauer (Hanf), Lene (dreht Seile) | Haus der Brandts | Schachtseil der Grube, Lok packen | Ausbau |
-
-**Metall und Werkzeug**
-
-| Ware | Wer liefert | Gelagert | Wofür | Ab |
-|---|---|---|---|---|
-| Eisen | anfangs **knapp**: Alteisen aus dem Güterwagen, den der Felssturz am Tunnel zerdrückt hat (reicht eine Weile); dann die Händlerin; später Konrad aus Erz der Grube | Schmiede | Werkzeuge, Nägel, Beschläge, Lok | Start |
-| Stahl | Händlerin; später Konrad selbst (Meister, mit Kohle) | Schmiede | Stahlwerkzeug, Grubenwerkzeug | Pass offen / Grube |
-| Nägel, Beschläge | Konrad | Schmiede | jeder Bau, Möbel, Schienennägel | Start |
-| Werkzeuge | Konrad, Stiel vom Tischler | beim Besitzer | jeder Beruf (unten) | Start |
-
-**Aus der Grube** (Kapitel 4): Erz (Eisen schmelzen, Weißmetall für die Radlager), Kohle (Lok, Schmiede; Kamine
-brauchen dann weniger Holz), Ton (Töpferware), Fundstücke (Rätsel der Grabstelle).
-
-Später mit Zuzug und Updates: Ziegler, Müller, Steinmetz, Köhler als eigener Beruf, Kuh und Ochse (Pflug), Gerste und
-Hopfen, Obstbäume, Waren aus der Stadt mit der Bahn.
-
-### Lager und Wege: wer bringt, wer holt [Vorschlag]
-
-- **Erzeugerlager** am Arbeitsplatz: Holzstapel an der Holzfällerhütte, Scheune am Bauernhof, Räucherkammer bei Anton.
-  Jedes hat eine Obergrenze und ist im Bild sichtbar (der Stapel wächst und schrumpft).
-- **Hausvorrat:** Holzlege (reicht etwa 2 Tage), Speisekammer, Brotkorb, Kerzenkiste.
-- **Gemeinschaftslager** im Güterschuppen, später in der Vorratsscheune: Wintervorrat, Tauschkiste für die Händlerin,
-  Ware von außen.
-- **Holen:** Fällt ein Hausvorrat unter etwa einen Tag, holt der Bewohner selbst Nachschub (Korb: 10 Einheiten, später
-  Schubkarre 30, Handkarren 60). Die Wege sind sichtbar und kosten auch im Hintergrund echte Zeit.
-- **Kochen:** Anfangs kocht Gustav für alle im Speisewagen. Wer eine eigene Küche hat, kocht zu Hause; abends isst man
-  oft in der Taverne.
-- **Weboberfläche „Lager“:** jeder Lagerplatz mit Inhalt und Füllstand, Zu- und Abgänge des Tages und **Reichweite**
-  („Brennholz reicht noch 3 Tage“); dazu eine Übersicht pro Ware über das ganze Dorf. Jede Bewegung steht in der Chronik
-  („08:40 Greta holt einen Sack Mehl an der Mühle“).
-
-### Verbrauch [Vorschlag, Startwerte]
-
-Einheit: **1 Holz = ein Armvoll Scheite = eine Stunde Feuer** (die Rechnung des Users).
-
-| Verbrauch pro Tag | Frühling | Sommer | Herbst | Winter |
-|---|---|---|---|---|
-| Kamin je Wohnhaus (abends ~6 h, im Winter auch morgens) | 5 | 1 | 6 | 9 |
-| Herd je Küche | 2 | 2 | 2 | 2 |
-| Backofen der Bäckerei | 6 | 6 | 6 | 6 |
-| Taverne (Herd und Kamin) | 8 | 5 | 8 | 10 |
-| Feuer am Dorfplatz (abends) | 3 | 3 | 3 | – |
-| Schmiede (4 Holzkohle = 8 Holz) | 8 | 8 | 8 | 8 |
-
-Ein Steinhaus braucht **ein Drittel weniger** für den Kamin, ein Kachelofen noch einmal weniger.
-
-| Verbrauch pro Person und Tag | Menge |
-|---|---|
-| Brot | ½ Laib |
-| Gemüse oder Kartoffeln | 2 Portionen |
-| Fleisch, Fisch, Eier oder Käse | 1 Portion |
-| Milch | ½ Krug |
-| Licht | 1 Kerze bzw. Lampenfüllung pro Haus und Abend, im Winter 2 |
-| Bett | Strohsack: 2 Stroh alle 14 Tage frisch stopfen; Decke hält etwa 8 Weltwochen |
-| Kleidung, Schuhe | etwa alle 4 Weltwochen ein Stück Stoff bzw. Leder |
-
-### Herstellung [Vorschlag, Startwerte]
-
-Leistung pro Arbeitstag (etwa 8 Stunden) bei Fähigkeit „geübt“ und gutem Werkzeug:
-
-| Beruf | Leistung | Faustregel |
-|---|---|---|
-| Waldarbeiter | 60 Brennholz **oder** 8 Stämme **oder** Meiler anlegen (2 Tage → 30 Holzkohle) | versorgt etwa 8 Wohnhäuser |
-| alle nebenbei | 1–3 Reisig pro Person und Tag | etwa ein Siebtel des Holzbedarfs |
-| Bauer und Bäuerin | 1 Acker Weizen ergibt 12 Säcke pro Ernte; das Paar bestellt 3 Äcker plus Gemüse und Raps | 1 Acker Weizen ≈ Brot für 8 Personen ein Weltjahr lang |
-| Greta | 1 Ofenladung = 20 Laibe; Handmühle 1 Sack Mehl (= 10 Laibe) in 3 Stunden | eine Bäckerin + Wassermühle ≈ 40 Personen |
-| Anton | im Schnitt 10 Portionen Fleisch, dazu Fell und Talg | |
-| Hannes | 8–15 Portionen Fisch (Winter 4–6) | |
-| Taylor | 8 Krüge Milch; einmal im Frühling Schur: 30 Wolle | |
-| Lene | 2 Garn oder 1 Stoff | |
-| Wilhelm | 6 Bruchstein (er ist 66; ein Steinmetz schafft später 12) | |
-| Konrad | 2 Werkzeuge **oder** 40 Nägel **oder** 6 Werkzeuge schärfen | |
-| Jakob | 1 Stamm → 6 Bretter in einer Stunde; Möbel siehe „Dauer“ | |
-
-Die Leistung ändert sich mit Fähigkeit (Anfänger 0,6 · geübt 1,0 · Meister 1,3), Werkzeug (stumpf 0,7 · gut 1,0 ·
-Stahl 1,3), Wetter (Regen bremst Feldarbeit auf 0,8; Holzfällen ist Winterarbeit und wird nicht gebremst) sowie Kraft
-und Laune. Helfer ohne den Beruf schaffen etwa 40 % eines Profis.
-
-### Gleichgewicht: wie das Dorf von selbst im Lot bleibt [Vorschlag]
-
-1. **Reichweite statt Menge:** Das Warenbuch rechnet für jede Ware aus, wie viele Tage der Vorrat beim jetzigen
-   Verbrauch noch reicht.
-2. **Sollbestand und Obergrenze** pro Ware, in Tagen (Brennholz: Soll 4, Obergrenze 10; im Herbst für den Winter Soll
-   10, Obergrenze 20). Liegt eine Ware unter dem Soll, macht der Erzeuger sie zuerst. Liegt sie über der Obergrenze,
-   macht er etwas anderes (zweite Ware, Werkzeug pflegen, beim Bau helfen, Freizeit). Weil jeder Erzeuger immer an
-   seiner knappsten Ware arbeitet, häuft sich nichts an und nichts bleibt leer.
-3. **Notbestand** (unter einem Tag): Die Ware kommt als Gemeinschaftsaufgabe ans Schwarze Brett. Wer frei hat, hilft
-   mit, z. B. bei einer sichtbaren „Holzaktion“.
-4. **Kapazität mit Luft:** Die Startwerte sind so gewählt, dass jeder Beruf etwa das 1,3- bis 1,5-Fache des Bedarfs
-   schafft. Die Luft ist Freizeit, Hilfe beim Bauen und Puffer für schlechtes Wetter.
-5. **Wachstum braucht Leute:** Jedes neue Haus erhöht den Bedarf. Deshalb schreiben wir die Liste der Zuzügler so, dass
-   mit dem Bedarf auch die Berufe wachsen (etwa ab 10 Häusern ein zweiter Waldarbeiter, dazu Müller, Steinmetz,
-   Ziegler). Ausbauten senken den Bedarf (Steinhaus, Kachelofen, Kohle aus der Grube) oder heben die Leistung
-   (Stahlwerkzeug, Wassermühle, Handkarren).
-6. **Jahreszeiten:** Weizen, Gemüse und Wolle haben Erntezeiten. Im Herbst steigen die Sollbestände für den Winter
-   (Holz machen, Einkellern, Räuchern). Ein schlechter Herbst zeigt sich im Winter durch mehr Standardsuppe und
-   kühlere Häuser, ist aber nie bedrohlich.
-7. **Prüfen statt raten:** Die Dorf-Sitzung lässt die Wirtschaft im PC-Simulator im Zeitraffer laufen (z. B. drei
-   Weltjahre in wenigen Minuten). Geprüft wird: Keine Ware bleibt länger als 2 Tage auf null (außer Ware von außen),
-   kein Lager ist dauerhaft voll, und die Standardsuppe gibt es nach dem ersten Frühling nur selten.
-
-**Rechenbeispiel Brennholz** (nach dem Muster des Users):
-
-- **Start im ersten Frühling:** Es brennen etwa 6 Feuerstellen (Warteraum, Ofen im Lokschuppen, zwei Notunterkünfte,
-  die Hütten von Martha und Hannes), also 6 × (5 + 2) = 42 Holz. Dazu kommen 8 für den Speisewagen und 3 fürs
-  Platzfeuer, zusammen etwa **53 Holz pro Tag**. Ein Waldarbeiter schafft 60, mit Reisig etwa 80. Das reicht mit Luft,
-  und die Luft geht ins Bauholz.
-- **Endausbau, 20 Häuser im Winter:** 20 × (9 + 2) = 220 Holz, dazu Backofen 6, Taverne 10 und Schmiede 8, zusammen
-  etwa **245 Holz pro Tag** (im Jahresmittel etwa 170). Zwei Waldarbeiter als Meister mit Stahlaxt schaffen etwa
-  2 × 60 × 1,3 × 1,3 ≈ 200, mit Reisig etwa 250. Im Winter ist das knapp, deshalb gibt es den Wintervorrat aus dem
-  Herbst, und Steinhäuser und Kohle aus der Grube entlasten.
-
-### Standardsuppe [entschieden, Wunsch des Users; Details Vorschlag]
-
-- Fehlen für eine Mahlzeit die Zutaten, gibt es die **Standardsuppe** (im Dorf heißt sie „Wassersuppe“: Wasser, eine
-  Handvoll Graupen und Kräuter). Sie ist immer verfügbar, **niemand hungert**.
-- **Folgen:** Sie sättigt nur halb, der Hunger kommt also früher. Kraft und Laune sinken, Arbeit geht etwas langsamer.
-  Einmal stört sie kaum, ab dem dritten Mal hintereinander deutlich. Dann erscheint der Gedanke „Schon wieder
-  Wassersuppe …“ und am Schwarzen Brett ein Zettel („Wir brauchen Brot!“), der eine Gemeinschaftsaufgabe anstößt.
-- In der Weboberfläche zeigt der **Anteil Standardsuppe** auf einen Blick, wie gut das Dorf versorgt ist.
-
-### Werkzeuge [entschieden, Wunsch des Users; Haltbarkeit Vorschlag]
-
-Jeder Beruf braucht Werkzeug vom Schmied (Eisen, Stiel vom Tischler). Ohne Werkzeug geht nur Handarbeit mit etwa 40 %
-Leistung (Reisig sammeln statt Bäume fällen).
-
-| Beruf | Werkzeug |
-|---|---|
-| Waldarbeiter | Axt, Säge, Spaltkeil |
-| Bauer, Bäuerin | Hacke, Sense, Dreschflegel, später Pflug (mit Zugtier) |
-| Bergmann, Steinbruch | Spitzhacke, Schlägel und Eisen, Brechstange |
-| Tischler | Säge, Hobel, Stemmeisen |
-| Bautrupp | Hammer, Maurerkelle, Nägel als Verbrauch |
-| Schmied | Hammer und Zange (repariert er selbst) |
-| Jäger | Messer, Fallen |
-| Fischer | Haken (Schmied), Netz (Lene) |
-| Schäferin | Schere, Melkeimer (Tischler) |
-| Bäckerin | Brotschieber, Teigtrog (Tischler; nutzen sich kaum ab) |
-
-- **Abnutzung:** Grundwerkzeug aus Eisen wird nach etwa 10 Arbeitstagen **stumpf** (Leistung 70 %). Konrad schärft es
-  kurz und ohne Material. Nach dem dritten Schärfen ist es verbraucht und muss neu geschmiedet werden (1 Eisen + 1
-  Stiel); ein Werkzeug hält also etwa 40 Arbeitstage.
-- **Stufen:** Grundwerkzeug (Eisen) → **Stahlwerkzeug** (Leistung 130 %, hält doppelt so lange; Stahl erst von der
-  Händlerin, später selbst gemacht) → **Grubenwerkzeug** (Stahl, nötig ab dem zweiten Abschnitt der Grube).
-- Werkzeuge sind Einzelstücke mit Besitzer und Zustand; die Info-Karte zeigt „Axt stumpf, morgen zum Schmied“.
-
-### Händlerin und Tausch [Vorschlag; beantwortet die Frage des Users nach dem Öl]
-
-- **Wann sie kommt:** Der Bergpass ist vom späten Frühling bis zum frühen Herbst offen (etwa 2 der 4 Weltwochen). In
-  dieser Zeit kommt sie **alle 3–4 Tage**, bleibt eine Nacht in der Taverne und zieht weiter. Das sind etwa vier Besuche
-  pro Weltjahr; bei Unwetter kommt sie einen Tag später.
-- **Tausch ohne Geld, aber sicher:** Es gibt eine feste **Tauschtafel** (z. B. 1 Käse = 2 Salz, 10 Wolle = 1 Glasscheibe,
-  2 Felle = 1 Stahl). Was über der Obergrenze liegt, legen die Bewohner in die Tauschkiste im Güterschuppen. Was das
-  Dorf von außen braucht, hängt als Bestellung am Schwarzen Brett. Die Händlerin tauscht **immer**, wenn die Bestellung
-  durch Ware gedeckt ist; das ist kein Zufall. Im Web sieht man Tauschkiste, Bestellungen und den nächsten Besuch.
-- **Sie bringt:** Salz, Glas, Stahl, Messing, Gewürze, Kaffee (selten, macht froh), Farbe (für Sykoras Haus), Saatgut,
-  Rüböl, **Post und Neuigkeiten**. **Sie nimmt:** Käse, Wolle, Stoff, Felle, Honig, Paul Brandts Schnitzfiguren,
-  Kräuter.
-- **Regel:** Nichts Lebenswichtiges hängt allein an ihr. **Das Grubenlicht kommt aus dem Dorf:** Grubenlampen brennen
-  Rüböl (Raps vom Bauernhof) oder Talg (Anton), wie die Unschlittlampen der Bergleute damals. Ihr Öl ist eine Ergänzung,
-  vor allem vor der ersten Rapsernte. Was nur sie bringt (Salz, Glas), muss vor dem Winter eingetauscht sein, und das
-  ist eine schöne Aufgabe für den Herbst.
+- **[entschieden, Wunsch des Users]** Kein Geld, auch nicht später mit der Bahn. Alles kommt aus echter Arbeit; jedes
+  Haus, jedes Bett und jede Mahlzeit verbraucht Waren. Jeder Beruf liefert in sein eigenes Lager, wer etwas braucht,
+  holt es selbst (Kausalkette). Gleichgewicht ohne Überfluss und ohne Leere. Niemand verhungert (Standardsuppe).
+  Werkzeuge vom Schmied nutzen sich ab. Lagerplätze mit Reichweite und Chronik in der Weboberfläche.
+- **[entschieden, Wunsch des Users]** **Sichtbare Bestände:** Was im Lager liegt, sieht man Stück für Stück im Bild,
+  **jeder Brotlaib einzeln in der Auslage der Bäckerei** (WIRTSCHAFT.md Kapitel 6).
+- **[entschieden, Wunsch des Users]** **Wirtschafts-Protokoll:** Bedarf, Verbrauch und Herstellung jeder Ware werden
+  mitgeschrieben, damit eine spätere Sitzung nach einigen Tagen das Balancing verbessern kann (WIRTSCHAFT.md
+  Kapitel 15).
+- **[entschieden, ausdrücklicher Wunsch des Users]** **Prüfen statt raten: Jede Wirtschaftsänderung wird im
+  PC-Simulator im Zeitraffer über mindestens drei Weltjahre geprüft; keine Ware länger als 2 Tage auf null (außer Ware
+  von außen), kein Lager dauerhaft voll, Standardsuppe nach dem ersten Frühling nur selten** (alle Prüfgrößen in
+  WIRTSCHAFT.md Kapitel 14).
+- **[Vorschlag]** Etwa 70 Waren mit Quelle und Zweck, Kausalketten, Verbrauch und Herstellung mit Startwerten,
+  Notlösungen statt Mangel, Händlerin mit fester Tauschtafel, Bilanz-Check für Start und Endausbau, Kipppunkte für die
+  Zuzugsliste.
 
 ### Wünsche am Schwarzen Brett [entschieden, Wunsch des Users; Details Vorschlag]
 
@@ -624,16 +421,16 @@ vom Jäger, Eisen vom Schmied.
 | Teilaufgabe | Braucht |
 |---|---|
 | Lokschuppen freischneiden, Tor gangbar machen | Werkzeug, Holzarbeit |
-| Rost abklopfen und Kessel ölen | Drahtbürsten (Konrad), Öl |
-| Kessel entkalken und Druckprobe | Essig, Wasser, Schmieden geübt |
-| Siederohre ersetzen | Eisen, Kohle, Konrad (Meister) |
-| Radlager neu ausgießen | Weißmetall aus Erz der Grube, Schmieden |
-| Kolben und Stopfbuchsen neu packen | Hanf, Talg |
-| Bremsklötze aus Hartholz | Eichenholz, Jakob |
-| Pfeife, Laternen, Manometer instand setzen | Messing, Reparieren |
-| Wasserkran am Bahnhof reparieren | Lederdichtungen (Anton), Pumpe |
+| Rost abklopfen und Kessel ölen | Drahtbürsten (Konrad), Rüböl (Bauernhof) |
+| Kessel entkalken und Druckprobe | Essig (Händlerin), Wasser, Schmieden geübt |
+| Siederohre ersetzen | Stahl, Kohle, Konrad (Meister) |
+| Radlager neu ausgießen | Weißmetall aus Blei (Grube) und Zinn (Händlerin), Schmieden |
+| Kolben und Stopfbuchsen neu packen | Hanf (Bauernhof, Lene), Talg (Anton) |
+| Bremsklötze aus Hartholz | Hartholz (Eiche vom Waldarbeiter), Jakob |
+| Pfeife, Laternen, Manometer instand setzen | Messing (Händlerin), Glas, Reparieren |
+| Wasserkran am Bahnhof reparieren | Leder (Anton), Pumpe (Konrad, Jakob) |
 | Kohle bunkern | Kohle aus der Grube |
-| Gleise freilegen, verfaulte Schwellen ersetzen | Eichenholz, Schienennägel (Konrad) |
+| Gleise freilegen, verfaulte Schwellen ersetzen | Hartholz, Teer aus dem Meiler, Schienennägel (Konrad) |
 | Weiche und Signal gangbar machen | Reparieren, Emil (Bahntechnik) |
 | Probefahrt im Bahnhof, dann bis zum Tunnel | alles oben |
 
@@ -676,6 +473,29 @@ mehrere Häuser parallel. **Pro Haus entsteht immer nur ein Raum zur Zeit.** Aus
   bereitstehen.
 - Beispiel Haus der Bäckerin: Notunterkunft 6 Tage, Backstube 10 Tage, Schlafkammer 8 Tage, Stube 10 Tage, also nach
   gut 5 Wochen fertig. Der Ausbau zum Steinhaus kommt später und dauert etwa 3 Wochen.
+- Material je Bauabschnitt: [WIRTSCHAFT.md](WIRTSCHAFT.md) Kapitel 7.
+
+**Geht das, wenn jeder auch seinen Beruf hat? [Vorschlag, Prüfung 2026-10-21]** Ja. Die Rechnung in Personentagen
+(ein Mensch, ein Arbeitstag):
+
+| Posten | Arbeit |
+|---|---|
+| Notunterkunft | ~12 Personentage (Bautrupp), keine Möbel vom Tischler nötig |
+| Raum: Rohbau | ~8 Personentage (Bautrupp) |
+| Raum: Möbel | ~3,5 Tischler-Tage plus ½ Tag Bretter sägen |
+| Bautrupp zum Start | Sykora (ganzer Tag), Paul (gut ½ Tag, er ist 68) und Helfer aus der **Luft der Berufe**: Weil jeder Beruf 1,2- bis 1,5-mal so viel schafft wie nötig, hat er Stunden übrig. Zusammen etwa **2,5–3 Personentage pro Tag** |
+| Tischler | Jakob, mit Paul für einfache Stücke: etwa ein eingerichteter Raum alle 3–4 Tage |
+
+- **Folge für ein Haus:** Notunterkunft in 4–5 Tagen, Rohbau eines Raums in ~3 Tagen, eingerichtet nach 7–10 Tagen. Die
+  Regeln (1 Tag, höchstens 14 Tage pro Raum, ein Raum pro Haus) sind einhaltbar.
+- **Gleichzeitig** laufen typisch ein Rohbau und ein bis zwei Räume beim Einrichten, in verschiedenen Häusern.
+- **Folge für das ganze Dorf:** Mit einem Bautrupp entsteht etwa **alle 4–5 Tage eine Notunterkunft oder ein Raum**.
+  Bis alle 16 Startbewohner ein fertiges Haus und ihre Werkstatt haben (etwa 17 Neubauten und 25 Räume), vergehen etwa
+  **4–5 Monate**. Danach kommen die Zuzügler, der Bautrupp wächst mit ihnen; der **Endausbau mit 20 Häusern ist nach
+  etwa 10–12 Monaten** erreicht. Es gibt also fast immer irgendwo eine Baustelle.
+- **Sichtbare Folge von Tipps:** Schickt der Betrachter Sykora in die Grube, fehlt er dem Bautrupp, und der Bau geht
+  langsamer. Grube und Lok kosten Arbeitskraft, die dann am Bau fehlt; die Reihenfolge der Wunschliste entscheidet mit.
+- Ob dieses Tempo passt, entscheidet der User (Kapitel 18).
 
 **Ausbaustufen im Dorf [übernommen aus dem Skript]:**
 
@@ -794,7 +614,8 @@ Material, Logbuch (vor allem was während der Abwesenheit passiert ist), Live-Vo
 
 [entschieden, Wunsch des Users 2026-10-21] Dazu: **Lager** (jeder Lagerplatz mit Füllstand, Zu- und Abgängen und
 Reichweite), **Wunschliste** mit Emils Rat, **Tagebuch des Dorfs** (wer hat was gemacht, z. B. „Konrad hat das Dach der
-Taverne geflickt“), Tauschkiste und nächster Besuch der Händlerin, Anteil Standardsuppe (Kapitel 8).
+Taverne geflickt“), Tauschkiste und nächster Besuch der Händlerin, Anteil Standardsuppe, unter Diagnose das
+**Wirtschafts-Protokoll** zum Herunterladen (WIRTSCHAFT.md Kapitel 15).
 
 Eingreifen: Tipps an Sykora, Bitten an andere (Kapitel 2), Wunschliste ordnen (ab der Wahl), Kamera umschalten
 (Kapitel 13), Namen vergeben, Sykoras Haus einrichten (Kapitel 8), eigene Möbel hochladen (falls machbar).
@@ -893,7 +714,9 @@ frei ~7,7 MB mit Engine; Flash-Schreiben während der Animation ohne Aussetzer; 
 | Möbel- und Teile-Atlas für alle Innenräume | 0,3–0,6 MB | einmal für alle Häuser; Farbvarianten per Palettentausch kosten nichts |
 | Zum Vergleich: jeder Raum als eigenes Bild | 20–40 KB gepackt pro Raum, 60 Räume ≈ 2 MB | im Flash knapp, auf SD egal; Baukasten bleibt besser wegen der Ausbaustufen |
 | Inaktiver Ort (nur Ortszustand) | 1–10 KB | 100 Orte < 1 MB |
-| Warenbuch (~40 Waren × ~40 Lagerplätze × 2 Byte) plus ~300 Einzelstücke (Werkzeuge, Möbel mit Zustand) | ~8 KB | vernachlässigbar |
+| Warenbuch (~70 Waren × ~40 Lagerplätze × 2 Byte) plus ~300 Einzelstücke (Werkzeuge, Möbel mit Zustand) | ~10 KB | vernachlässigbar |
+| Sichtbare Bestände (Stellplätze, z. B. 20–40 Brotlaibe als einzelne kleine Bilder) | wenige Sprites mehr pro Ort | vernachlässigbar (48 Sprites zusammen 4,1 ms) |
+| Wirtschafts-Protokoll (~1000 Bewegungen pro Welttag, gepackt ~25 KB) | 14 Tage Einzelbewegungen + 60 Tage Tageswerte ≈ 1,5 MB in LittleFS | passt; mit SD-Karte unbegrenzt |
 | Wirtschafts-Takt (Bedarf, Reichweite, Soll/Obergrenze, Aufgaben vergeben) einmal pro Weltminute | < 1 ms | vernachlässigbar |
 | Zeitraffer-Test der Wirtschaft im PC-Simulator (3 Weltjahre) | wenige Minuten | Balance prüfen ohne Gerät |
 | Logik voller Ort (bis 15 Figuren im Bild) | < 1 ms pro Bild | viel Luft |
@@ -957,6 +780,14 @@ Arbeits-Sitzungen **entscheiden selbst** (und begründen kurz im PR):
 - alles, was diesem Dokument widerspricht oder es ändert
 - Abweichung von LEBENDIGKEIT.md oder vom Hardware-Budget
 
+**Prüfen statt raten [entschieden, ausdrücklicher Wunsch des Users]:** **Jede Arbeits-Sitzung, die Wirtschaftswerte
+oder -logik einführt oder ändert, prüft sie im PC-Simulator im Zeitraffer (mindestens drei Weltjahre, mehrere Seeds)
+gegen die Prüfgrößen in WIRTSCHAFT.md Kapitel 14 und legt den Bericht in die PR-Beschreibung. Ohne grünen Bericht
+kein Merge.**
+
+**Lesen vor dem Bauen:** Arbeits-Sitzungen lesen vor der Umsetzung die betroffenen Kapitel dieses Dokuments und von
+[WIRTSCHAFT.md](WIRTSCHAFT.md) (gezielt über das Inhaltsverzeichnis, nicht alles am Stück).
+
 **Immer:** Inhalte als Daten, nicht im Code; Verbindungen zwischen Orten nur über den Weltzustand und den
 Ereignis-Bus; nur berichten, was gebaut und im Langzeit-Test geprüft ist; keine Technik nach 1850 außer der Bahn,
 keine Magie, kein Altern, kein Tod, kein Wegzug.
@@ -971,13 +802,15 @@ keine Magie, kein Altern, kein Tod, kein Wegzug.
 3. **Reihenfolge** (Kapitel 4): Grube vor Lok oder umgekehrt? Erste Region hinter der Strecke?
 4. **Greta in der Morgendämmerung** als Ausnahme vom Tagesgerüst? (Mit der Wirtschaft spricht viel dafür: Brot zum
    Frühstück.)
-5. **Wirtschaft** (Kapitel 8): Warenliste, Startwerte, Händlerin und Wunschliste sind Vorschläge und warten auf das
-   OK des Users.
+5. **Wirtschaft** ([WIRTSCHAFT.md](WIRTSCHAFT.md)): Warenliste, Startwerte, Händlerin, Kipppunkte, Startvorrat und
+   die Wunschliste (Kapitel 8) sind Vorschläge und warten auf das OK des Users.
 6. **Nachholen** nach dem Ausschalten: wie lange (Vorschlag: höchstens 24 h)?
 7. **Briefe und Gedanken** (Kapitel 12): Wer schreibt wem, wie oft, wie lang? Ansicht nach der Beispieldatei des
    Users (Pixelpfote-Vorschau). Vorgemerkt für die Themen Figuren, Gedächtnis, Wohnen und Besitz.
 8. **Charta:** Die Mindestziele für Zug, Dungeon, Liga und Inselwelt (LEBENDIGKEIT Kapitel 2) passen nicht mehr.
    Vorschlag: Dorf-Ziele bleiben (bis auf „Wegzug“), dazu neue Ziele für Hof, Grube, Lok und die Welt als Ganzes.
+9. **Bautempo** (Kapitel 8, „Dauer“): Startbewohner nach etwa 4–5 Monaten fertig, Endausbau nach etwa 10–12 Monaten.
+   Passt das Tempo?
 
 ## 19. Entscheidungen
 
@@ -1021,3 +854,7 @@ Fest beschlossene Punkte dieser Werkstatt. Am Ende als Zeilen ins Entscheidungsp
 | 2026-10-21 | **Emil** wird weise Vertrauensperson aller und bleibt nach der Wahl Ratgeber (Emils Rat in der Wunschliste); er ist weiter Lokführer und zusätzlich Imker | Wunsch des Users |
 | 2026-10-21 | **Eisen ist anfangs knapp** (Alteisen aus dem zerdrückten Güterwagen, dann Händlerin, dann Grube) | Entscheidung des Users |
 | 2026-10-21 | **Sykoras Schwäche:** Er vertraut Taylor an, dass ihm alles zu viel wird und er sich sorgt, was die anderen denken | Wunsch des Users |
+| 2026-10-21 | **Wirtschaft in eigener Datei** [WIRTSCHAFT.md](WIRTSCHAFT.md): Waren mit Quelle und Zweck, Kausalketten, Notlösungen, Bilanz-Check | Umfang (Claude, Technik) |
+| 2026-10-21 | **Sichtbare Bestände:** jedes Stück im Lager einzeln im Bild, z. B. jeder Brotlaib in der Auslage | Wunsch des Users |
+| 2026-10-21 | **Wirtschafts-Protokoll** für das Balancing: Bedarf, Verbrauch, Herstellung, Arbeitszeit, Versorgung, Bau als CSV, Auswertung per Bericht | Wunsch des Users |
+| 2026-10-21 | **Prüfen statt raten:** jede Wirtschaftsänderung im Zeitraffer gegen feste Prüfgrößen prüfen; ohne grünen Bericht kein Merge | ausdrücklicher Wunsch des Users |
