@@ -24,6 +24,13 @@ struct Color {
     uint8_t r, g, b;
 };
 
+// Rechteck in Bildpunkten (Beschneiden, Überlappung)
+struct Rect {
+    int x = 0, y = 0, w = 0, h = 0;
+    bool empty() const { return w <= 0 || h <= 0; }
+    bool overlaps(const Rect& o) const { return x < o.x + o.w && o.x < x + w && y < o.y + o.h && o.y < y + h; }
+};
+
 using Palette = std::array<Color, 256>;
 
 // Sprite mit Palettenindizes, Index 0 = durchsichtig
@@ -51,6 +58,8 @@ public:
     void vline(int x, int y0, int y1, uint8_t color);
     // remap: Farbreihe (256 Byte, Index → Index), nullptr = Farben wie gezeichnet
     void blit(const Sprite& s, int x, int y, bool flip_x = false, const uint8_t* remap = nullptr);
+    // wie blit, zeichnet aber nur innerhalb von clip (Tiefensortierung: Möbel vor einer Figur neu zeichnen)
+    void blit_clipped(const Sprite& s, int x, int y, bool flip_x, const uint8_t* remap, const Rect& clip);
 
 private:
     uint8_t* px_ = nullptr;

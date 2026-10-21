@@ -12,6 +12,11 @@
 // - Überblendung zweier Szenen mit verschiedenen Paletten: Während des Übergangs teilen sich beide eine gemeinsame
 //   Palette (gleiche Farben zusammengelegt, Farbwechsel der Szenen laufen weiter). Brauchen beide zusammen mehr als
 //   240 Farben oder sind beide fein, wird stattdessen über Schwarz geblendet.
+// - Betreten (seit 0.5.1): Die Bühne meldet jedem Ort, ob er zu sehen ist (enter/leave); während eines Übergangs
+//   sind beide Orte betreten. Räume zeichnen dabei ihr Hintergrundbild vor bzw. geben es frei.
+// - Ausgänge (seit 0.5.1): Nach jedem Schritt holt die Bühne die Reisenden aller Orte ab (take_travel) und gibt sie
+//   im Zielort ab (arrive). Folgt der Blick (follow) und ist der Ort gerade zu sehen, wechselt die Bühne mit dem
+//   Übergang des Ausgangs (Standard Abblenden). Gibt es den Zielort nicht, kommt der Reisende am selben Ausgang zurück.
 
 #include <array>
 #include <cstdint>
@@ -23,16 +28,6 @@
 #include "pixelia/engine/world_clock.h"
 
 namespace pixelia {
-
-enum class Transition : uint8_t {
-    Cut,       // Schnitt: sofort
-    Dissolve,  // Überblendung: grobe Bildpunkte wechseln in zufälliger Reihenfolge
-    Pattern,   // Raster: wie Überblendung, in einem festen 4×4-Muster
-    Fade,      // Abblenden über Schwarz
-};
-inline constexpr int kTransitionKinds = 4;
-// Standard beim Ortswechsel: Abblenden (Entscheidung des Users 2026-10-21)
-inline constexpr Transition kDefaultTransition = Transition::Fade;
 
 // Kennungen für Befehle und Weboberfläche: schnitt, ueberblendung, raster, abblenden
 const char* transition_name(Transition t);
@@ -68,6 +63,14 @@ public:
     int transition_step() const { return step_; }
     uint32_t transitions() const { return transitions_; }  // Wechsel seit init()
 
+    // Blick folgt Reisenden mit follow (Standard an); aus: Orte tauschen Figuren, das Bild bleibt
+    void set_follow(bool on) { follow_ = on; }
+    bool follow() const { return follow_; }
+    uint32_t travels() const { return travels_; }  // Reisen zwischen Orten seit init()
+    // Prüfansicht aller Orte (Stellflächen, Benutzungspunkte, Ausgänge)
+    void set_inspect(bool on);
+    bool inspect() const { return inspect_; }
+
     void tick(const WorldClock& clock);
     void set_load(int load);  // Lastregler der sichtbaren Szene
 
@@ -81,6 +84,8 @@ public:
 
 private:
     void start_transition(int to, Transition t);
+    void sync_entered();  // enter/leave nach active_ und from_
+    void deliver_travels();
     bool merge_palettes();
     void update_palette();
     int visible() const;
@@ -97,6 +102,10 @@ private:
     int step_ = 0;
     int ticks_ = kDefaultTransitionTicks;
     uint32_t transitions_ = 0;
+    uint32_t travels_ = 0;
+    uint32_t entered_ = 0;  // Bit je Ort: betreten
+    bool follow_ = true;
+    bool inspect_ = false;
     // Gemeinsame Palette während einer Überblendung: Index der Szene → Platz, Platz → Quelle (Szene, Index)
     std::array<uint8_t, 256> map_from_{};
     std::array<uint8_t, 256> map_to_{};
@@ -110,7 +119,8 @@ private:
     mutable std::array<uint8_t, kScreenWidth * 2> rows_{};  // zwei fertige Zeilen beim Zusammensetzen
 };
 
-// Szenen von Gerät und Simulator in fester Reihenfolge: scrolltest (Landschaft), testort-wiese, testort-raum
+// Szenen von Gerät und Simulator in fester Reihenfolge: scrolltest (Landschaft), testort-wiese, testort-raum,
+// testort-platz
 void add_standard_scenes(Stage& stage);
 
 }  // namespace pixelia

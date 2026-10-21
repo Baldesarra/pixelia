@@ -336,6 +336,7 @@ std::string state_json() {
     j.end_arr();
     j.num("place", gfx::place()).str("trans", pixelia::transition_name(gfx::transition()));
     j.num("tour", gfx::tour()).num("figures", gfx::figures());
+    j.boolean("follow", gfx::follow()).boolean("inspect", gfx::inspect());
     j.obj("touch").boolean("ok", tl.ok).boolean("down", tl.down).num("x", tl.x).num("y", tl.y);
     j.num("corners", tl.corners).num("n", tl.touches).end_obj();
     j.end_obj();

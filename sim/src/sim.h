@@ -28,6 +28,9 @@ struct Options {
     double run_seconds = 0;       // Fenster nach X Sekunden schließen (0 = offen lassen), für Tests
     std::string screen;           // Systemanzeige statt bzw. über der Szene: setup, update, info, toast …
     std::string go;               // Ortswechsel nach dem Vorspulen: ORT[:ÜBERGANG]
+    std::string cmd;              // Befehle an den Startort, durch Komma getrennt (z. B. ausbau,baustelle)
+    bool inspect = false;         // Prüfansicht (Stellflächen, Benutzungspunkte, Ausgänge)
+    bool follow = true;           // Blick folgt der Begleiterin durch die Ausgänge
     long after = 0;               // Logik-Schritte nach dem Wechsel (vor Screenshot)
     std::string sequence;         // PNG-Datei mit einer Bildfolge (kopflos)
     int every = 3;                // Abstand der Bilder in Logik-Schritten

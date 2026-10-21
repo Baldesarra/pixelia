@@ -2,6 +2,7 @@
 //   GET  /api/exp     Schalter, Panel-Werte (aktiv, gespeichert, Standard), Probe, Testbild, Touch-Test
 //   POST /api/exp     a=on|off|panel|confirm|revert|reset|test|picoff (mit PIN; revert ohne, macht nur sicherer);
 //                     Orte (seit 0.5.0): a=place&n=<Index>, a=trans&v=<Übergang>, a=tour&s=<Sekunden>, a=figures&n=
+//                     seit 0.5.1: a=cmd&v=ausbau|baustelle, a=follow&v=0|1, a=inspect&v=0|1
 //   GET  /api/screen  aktuelles Bild 400×240 als Paletten-Indizes, PackBits-gepackt (Aufbau siehe screen_get)
 //   POST /api/picture eigenes Testbild zeigen (seit 0.5.0, Aufbau siehe picture_post)
 
@@ -78,7 +79,8 @@ esp_err_t exp_post(httpd_req_t* req) {
         return reply(req, true, "Testbild beendet");
     }
     // Orte (Vorschau, seit 0.5.0): nur mit Experimentell an
-    if (a == "place" || a == "trans" || a == "tour" || a == "figures") {
+    if (a == "place" || a == "trans" || a == "tour" || a == "figures" || a == "cmd" || a == "follow" ||
+        a == "inspect") {
         if (!exper::enabled()) return reply(req, false, "Experimentell ist aus");
         if (a == "place") {
             const int n = field(body, "n", -1);
@@ -97,6 +99,20 @@ esp_err_t exp_post(httpd_req_t* req) {
         if (a == "tour") {
             gfx::set_tour(field(body, "s", 0));
             return reply(req, true, gfx::tour() ? "Rundgang an" : "Rundgang aus");
+        }
+        if (a == "cmd") {  // seit 0.5.1: ausbau, baustelle (Testraum)
+            std::string v;
+            if (!form_value(body, "v", &v) || !gfx::place_command(v.c_str()))
+                return reply(req, false, "Befehl unbekannt");
+            return reply(req, true, v == "ausbau" ? "Nächste Ausbaustufe" : "Im Bau umgeschaltet");
+        }
+        if (a == "follow") {
+            gfx::set_follow(field(body, "v", 1) != 0);
+            return reply(req, true, gfx::follow() ? "Blick folgt" : "Blick bleibt");
+        }
+        if (a == "inspect") {
+            gfx::set_inspect(field(body, "v", 0) != 0);
+            return reply(req, true, gfx::inspect() ? "Prüfansicht an" : "Prüfansicht aus");
         }
         gfx::set_figures(field(body, "n", 0));
         return reply(req, true, "Figuren gesetzt");

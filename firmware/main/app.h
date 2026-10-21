@@ -87,6 +87,12 @@ void set_tour(int seconds);  // automatischer Rundgang: alle n Sekunden der näc
 int tour();
 void set_figures(int n);  // Figuren der Testorte 1–64, 0 = Standard des Ortes
 int figures();
+// Testorte (seit 0.5.1): Befehl an den sichtbaren Ort („ausbau“, „baustelle“), wirkt im nächsten Logik-Schritt
+bool place_command(const char* cmd);  // false = unbekannter Befehl
+void set_follow(bool on);  // Blick folgt der Begleiterin durch Türen und Bildränder (Standard an)
+bool follow();
+void set_inspect(bool on);  // Prüfansicht: Stellflächen, Benutzungspunkte, Ausgänge
+bool inspect();
 void reset_places();  // Landschaft, Standard-Übergang, kein Rundgang, Standardfiguren (Experimentell aus)
 void request_coarse(bool psram);  // groben Puffer umziehen (Messung; Standard PSRAM)
 // Weltzeit: folgt der echten Uhrzeit (NTP), sobald sie bekannt ist; ohne Uhrzeit startet die Welt um 12:00.

@@ -1,18 +1,26 @@
 #pragma once
-// Testorte (seit 0.5.0): neutrale Platzhalter im groben Raster 200×120 zum Prüfen von Bühne, Überblendung,
-// Figuren, Animationen und Farbreihen. Kein Setting-Inhalt: Kacheln 8×8, Platzhalter-Figuren in den Chibi-Maßen
-// der Perspektive (Zelle 16×32, 28 Bildpunkte hoch, drei gezeichnete Ansichten, vier Richtungen), Kisten.
-// Figuren und Kisten sind einmal mit einer grauen Platzhalter-Rampe gezeichnet und bekommen ihre Farbe über
-// Farbreihen. Die Grafiken entstehen beim Start im Code (Asset-Pipeline folgt in 0.5.4).
+// Testorte (seit 0.5.0, seit 0.5.1 auf Kacheln und Raum-Baukasten): neutrale Platzhalter im groben Raster 200×120
+// zum Prüfen von Bühne, Übergängen, Figuren, Farbreihen, Tiefensortierung, Ausbaustufen und Ausgängen. Kein
+// Setting-Inhalt: Platzhalter-Figuren in den Chibi-Maßen der Perspektive (Zelle 16×32, 28 Bildpunkte hoch, drei
+// gezeichnete Ansichten, vier Richtungen) und einfache Möbel. Alles ist einmal mit einer grauen Platzhalter-Rampe
+// gezeichnet und bekommt seine Farbe über Farbreihen. Grafiken entstehen beim Start im Code (Asset-Quelle in 0.5.4),
+// die Orte selbst sind Daten (Kachelzeilen, Raumliste, Ausgänge).
 //
-// - testort-wiese: Feld mit Wegen, kühles Licht, 6 Figuren
-// - testort-raum: Raum mit Rückwand und Kisten, warmes Licht (andere Palette), 3 Figuren
-// Lastregler (set_load): Zahl der Figuren, 1–64; 0 = Standard des Ortes.
+// - testort-wiese: Wiese mit Hecke, Hauswand mit Tür (→ Raum) und Weg zum rechten Bildrand (→ Platz), kühles Licht
+// - testort-raum: Raum mit Tapete, Fenstern, Schrank, Bett, Tisch, Stühlen, Teppich, Lampe; Ausgang unten (→ Wiese),
+//   warmes Licht. Bett und Tisch haben zwei Ausbaustufen (Befehl „ausbau“), alle Möbel einen Zustand „im Bau“
+//   (Befehl „baustelle“: halbfertiges Bett bzw. Bretterstapel)
+// - testort-platz: gepflasterter Platz mit Bänken und Büschen, Ausgang am linken Bildrand (→ Wiese)
+// Figuren laufen auf dem Kachelraster (Breitensuche um Möbel herum), benutzen freie Benutzungspunkte und wechseln
+// über Ausgänge den Ort. Eine Figur ist die Begleiterin: Ihr folgt der Blick der Bühne durch Türen und Bildränder.
+// Lastregler (set_load): Zahl der Figuren am Ort, 1–64; 0 = Standard des Ortes.
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 
 #include "pixelia/engine/rng.h"
+#include "pixelia/engine/room.h"
 #include "pixelia/engine/scene.h"
 #include "pixelia/engine/sprite.h"
 
@@ -20,13 +28,16 @@ namespace pixelia {
 
 class TestPlace : public Scene {
 public:
-    enum class Kind : uint8_t { Field, Room };
+    enum class Kind : uint8_t { Field, Room, Square };
     static constexpr int kMaxFigures = 64;
-    static constexpr int kColors = 64;
+    static constexpr int kColors = 72;
 
     explicit TestPlace(Kind kind) : kind_(kind) {}
-    const char* name() const override { return kind_ == Kind::Field ? "testort-wiese" : "testort-raum"; }
-    const char* title() const override { return kind_ == Kind::Field ? "Testort Wiese" : "Testort Raum"; }
+    // Orte liegen im Grafik-Speicher (auf dem Gerät PSRAM): je ~2,5 KB Figuren, der interne RAM bleibt frei
+    static void* operator new(size_t bytes);
+    static void operator delete(void* p);
+    const char* name() const override;
+    const char* title() const override;
     void init(uint64_t seed) override;
     void tick(const WorldClock& clock) override;
     void render(Canvas& canvas) const override;
@@ -35,38 +46,61 @@ public:
     void set_load(int figures) override;
     int scale() const override { return kCoarseScale; }
     int colors() const override { return kColors; }
+    void enter() override { room_.enter(); }
+    void leave() override { room_.leave(); }
+    bool take_travel(Travel* out) override;
+    void arrive(const Travel& t) override;
+    void set_inspect(bool on) override { inspect_ = on; }
+    // „ausbau“: nächste Ausbaustufe aller Teile mit Stufen; „baustelle“: Möbel im Bau bzw. wieder fertig
+    bool command(const char* cmd) override;
+
     int figure_count() const { return count_; }
+    bool has_guide() const;
+    const Room& room() const { return room_; }
+    // Prüfung: zeichnet ohne Hintergrundbild (muss pixelgleich mit render() sein)
+    void render_direct(Canvas& canvas) const { draw(canvas, false); }
 
 private:
+    enum class Goal : uint8_t { None, Wander, Use, Exit };
     struct Figure {
         int32_t x, y;    // Fußpunkt in groben Bildpunkten, 8.8 Festkomma
-        int16_t tx, ty;  // Ziel in ganzen Bildpunkten
-        uint16_t wait;   // Schritte bis zum nächsten Weg
+        uint8_t cx, cy;  // Kachel, auf die die Figur gerade geht oder auf der sie steht
+        uint8_t gx, gy;  // Ziel-Kachel
+        uint16_t wait;   // Schritte bis zur nächsten Entscheidung
         uint8_t speed;   // 1/256 Bildpunkt pro Schritt
-        uint8_t row;     // Farbreihe
+        uint8_t row;     // Farbreihe (1–6)
+        Goal goal;
+        int8_t use_part, use_k, exit;
+        int8_t dz;       // Tiefenversatz (Benutzungspunkt)
+        bool guide;
+        bool busy;       // benutzt gerade etwas
+        uint16_t here;   // Schritte am Ort (die Begleiterin geht erst nach einer Weile weiter)
         Facing facing;
         Animator anim;
     };
-    struct Box {
-        int16_t x, y;  // Fußpunkt
-        uint8_t row;
-    };
 
     void build_palette();
-    void build_map();
-    void spawn(Figure& f);
-    void pick_target(Figure& f);
-    int area_top() const;
+    void build_room();
+    bool random_free_tile(int* tx, int* ty);
+    void spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide);
+    void decide(Figure& f);
+    bool use_taken(int part, int k, const Figure* self) const;
+    void reached(int i);  // Figur i steht auf ihrem Ziel
+    void remove_figure(int i);
+    void apply_load();
+    void draw(Canvas& c, bool with_background) const;
 
     Kind kind_;
     Rng rng_;
     Palette palette_{};
+    Room room_;
     std::array<Figure, kMaxFigures> figures_{};
-    std::array<Box, 6> boxes_{};
-    int boxes_count_ = 0;
     int count_ = 0;
     int wanted_ = 0;
-    uint8_t map_[kCoarseHeight / 8][kCoarseWidth / 8]{};  // Kachel-Nummern, 25 × 15
+    bool load_pending_ = false;
+    bool inspect_ = false;
+    std::array<Travel, 8> out_{};
+    int out_count_ = 0;
 };
 
 }  // namespace pixelia
