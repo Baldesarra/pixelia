@@ -15,7 +15,7 @@
 
 | Schritt | Thema | Stand |
 |---|---|---|
-| 1 | Ideen des Users: Grundidee, Ton, Hauptfiguren, Skript | weitgehend entschieden; offen: Romanze, Spielstart, Ideenliste, Gründungsgeschichte prüfen |
+| 1 | Ideen des Users: Grundidee, Ton, Hauptfiguren, Skript | weitgehend entschieden; offen: Ideenliste, Gründungsgeschichte und Herkunft prüfen |
 | 2 | Gebiete, Figuren, Reihenfolge | Vorschlag in Kapitel 3 und 4 |
 | 3 | Modularer Aufbau, Regie, Kamera | Vorschlag in Kapitel 13 und 15 |
 | 4 | Hardware-Eignung mit Zahlen (inkl. SD-Karte, Baukasten) | Vorschlag in Kapitel 16 |
@@ -89,9 +89,9 @@ damals schwerer war als Bleiben. Der Zug ist durch die fehlende Benutzung kaputt
   Tunnel verschüttet. Über den Bergpass kommt man nur zu Fuß, tagelang, und nur im Sommer. Am Abend nach der ersten
   warmen Nacht sitzen alle am Feuer vor dem Bahnhof und entscheiden: Wir bleiben. Das Schild am Bahnsteig gibt dem Dorf
   seinen Namen: **Pixelia**.
-- **Hier beginnt das Spiel [Vorschlag, siehe offene Fragen]:** im ersten Frühling. Es gibt nur den Bahnhof, den
-  gestrandeten Zug und Marthas und Hannes' Hütten. Alle anderen schlafen provisorisch: in Abteilen, im Warteraum, im
-  Gepäckwagen. Der **Speisewagen ist die erste Taverne**, der **Viehwagen der erste Stall** für Taylors Schafe, der
+- **Hier beginnt das Spiel [entschieden]: einige Wochen nach dem Entschluss zu bleiben.** Es gibt den Bahnhof, den
+  gestrandeten Zug, Marthas und Hannes' Hütten und die ersten halb fertigen Notunterkünfte auf der Lichtung. Die
+  meisten schlafen noch provisorisch: in Abteilen, im Warteraum, im Gepäckwagen. Der **Speisewagen ist die erste Taverne**, der **Viehwagen der erste Stall** für Taylors Schafe, der
   **Güterschuppen das erste Lager**. Jedes Haus, jede Werkstatt und Sykoras Hof müssen erst gebaut werden.
 - **Warum der Zug wieder fahren soll:** Niemand will mehr weg. Die Lok wird repariert, damit Pixelia **angebunden**
   ist: Waren, Gäste, Briefe, neue Bewohner. Erst fährt sie bis zur nächsten Stadt hinter den zugewachsenen Gleisen,
@@ -102,8 +102,8 @@ damals schwerer war als Bleiben. Der Zug ist durch die fehlende Benutzung kaputt
 **Bogen über Monate [Vorschlag]**, keine feste Geschichte, sondern Meilensteine, deren Reihenfolge und Tempo aus der
 Simulation entstehen:
 
-1. *Der erste Frühling:* Entschluss zu bleiben, Feuerstelle vor dem Bahnhof, Schlafplätze in Wagen und Warteraum,
-   erstes Holz, erster Garten. Die Katze taucht auf.
+1. *Der erste Frühling:* (Spielstart einige Wochen nach dem Entschluss) Feuerstelle vor dem Bahnhof, Schlafplätze in
+   Wagen und Warteraum, erste Notunterkünfte werden fertig, erster Garten. Die Katze taucht auf.
 2. *Die ersten Häuser:* Notunterkünfte entstehen, der Speisewagen wird zur Taverne, Schwarzes Brett am Bahnsteig,
    Werkstätten (Schmiede, Tischlerei, Backofen).
 3. *Die Wahl:* Sykora wird Bürgermeister (Kapitel 2).
@@ -138,7 +138,12 @@ Taylor ist neben Sykora die zweite Hauptfigur und bekommt deshalb das ausführli
 - **Frau, 30, blond, hübsch, freundlich, tierlieb.** Singt gerne in der Taverne und spielt dort ab und zu Gitarre.
 - **Beruf [entschieden]: Schäferin.** Hält Ziegen und Schafe am Dorfrand, liefert Milch und Wolle.
 - **Gefühle [entschieden]: Der Funke ist schon da.** Sie ist heimlich auch interessiert. Die Romanze ist ziemlich
-  sicher, offen sind Weg und Tempo. Wie sie zusammenkommen: [offen], Ideen in Kapitel 18.
+  sicher, offen sind Weg und Tempo.
+- **Wie sie zusammenkommen [entschieden]:** Grundlage ist eine **gemeinsame Wintererinnerung**: Sykora hat ihr in den
+  kalten Nächten im Viehwagen geholfen, die Schafe warmzuhalten; beide wissen es, keiner spricht darüber. Darauf bauen
+  zwei mögliche Meilensteine auf, die die Simulation je nach Beziehung auslöst: **das verlorene Lamm** (Sturmnacht, ein
+  Lamm fehlt, Sykora sucht und findet es; einzige Ausnahme von „nachts arbeitet niemand“) und **der erste Tanz** beim
+  ersten Dorffest (z. B. Jahrestag des Bleibens).
 - **Aussehen [entschieden]:** **immer langes, offenes blondes Haar, nie eine Kopfbedeckung.** [Vorschlag] Schürzenkleid
   in warmem Grün, Hirtenstab, Umhängetasche; abends in der Taverne ein Tuch um die Schultern.
 - [Vorschlag] **Charakter:** herzlich, geduldig mit Tieren und Kindern, lacht viel und laut. Eigensinnig, wenn es um
@@ -624,21 +629,17 @@ keine Magie, kein Altern, kein Tod, kein Wegzug.
 
 ## 18. Offene Fragen
 
-1. **Romanze** (Kapitel 2): Wie kommen Sykora und Taylor zusammen? Ideen: gemeinsame Wintererinnerung im Viehwagen,
-   Duett in der Taverne, das verlorene Lamm, Briefe im hohlen Baum, Tanz beim ersten Dorffest.
-2. **Spielstart** (Kapitel 1): im ersten Frühling direkt nach dem Winter, oder ein paar Wochen später mit ersten
-   Notunterkünften?
-3. **Ideenliste von Claude:** Katze als Kupplerin zwischen Sykora und Taylor; Taylors Lieder wachsen mit dem Dorf
+1. **Ideenliste von Claude:** Katze als Kupplerin zwischen Sykora und Taylor; Taylors Lieder wachsen mit dem Dorf
    (Lieder über echte Ereignisse, im Web lesbar); Vertrauen der Bewohner in Sykora (entscheidet die Wahl, spiegelt die
    Entscheidungen des Bürgermeisters); Lok taufen per Abstimmung am Schwarzen Brett.
-4. **Gründungsgeschichte und Herkunft der Bewohner** (Kapitel 1 und 3): passt der Entwurf?
-5. **Reihenfolge** (Kapitel 4): Grube vor Lok oder umgekehrt? Erste Region hinter der Strecke?
-6. **Greta in der Morgendämmerung** als Ausnahme vom Tagesgerüst?
-7. **Geld** (Kapitel 8): erst Tausch, Geld später?
-8. **Nachholen** nach dem Ausschalten: wie lange (Vorschlag: höchstens 24 h)?
-9. **Briefe und Gedanken** (Kapitel 12): Wer schreibt wem, wie oft, wie lang? Ansicht nach der Beispieldatei des
+2. **Gründungsgeschichte und Herkunft der Bewohner** (Kapitel 1 und 3): passt der Entwurf?
+3. **Reihenfolge** (Kapitel 4): Grube vor Lok oder umgekehrt? Erste Region hinter der Strecke?
+4. **Greta in der Morgendämmerung** als Ausnahme vom Tagesgerüst?
+5. **Geld** (Kapitel 8): erst Tausch, Geld später?
+6. **Nachholen** nach dem Ausschalten: wie lange (Vorschlag: höchstens 24 h)?
+7. **Briefe und Gedanken** (Kapitel 12): Wer schreibt wem, wie oft, wie lang? Ansicht nach der Beispieldatei des
    Users (Pixelpfote-Vorschau). Vorgemerkt für die Themen Figuren, Gedächtnis, Wohnen und Besitz.
-10. **Charta:** Die Mindestziele für Zug, Dungeon, Liga und Inselwelt (LEBENDIGKEIT Kapitel 2) passen nicht mehr.
+8. **Charta:** Die Mindestziele für Zug, Dungeon, Liga und Inselwelt (LEBENDIGKEIT Kapitel 2) passen nicht mehr.
    Vorschlag: Dorf-Ziele bleiben (bis auf „Wegzug“), dazu neue Ziele für Hof, Grube, Lok und die Welt als Ganzes.
 
 ## 19. Entscheidungen
@@ -668,3 +669,5 @@ Fest beschlossene Punkte dieser Werkstatt. Am Ende als Zeilen ins Entscheidungsp
 | 2026-10-21 | **Das Dorf startet klein:** provisorische Schlafplätze, nicht alle Gebäude von Anfang an | Entscheidung des Users |
 | 2026-10-21 | **Taylor:** immer langes, offenes blondes Haar, keine Kopfbedeckung | Entscheidung des Users |
 | 2026-10-21 | **Der Wirt ist ein Mann** (Gustav statt Hedwig) | Hinweis des Users |
+| 2026-10-21 | **Romanze:** gemeinsame Wintererinnerung als Grundlage, Meilensteine „das verlorene Lamm“ und „der erste Tanz“ | Entscheidung des Users |
+| 2026-10-21 | **Spielstart einige Wochen nach dem Entschluss zu bleiben**, erste Notunterkünfte halb fertig | Entscheidung des Users |
