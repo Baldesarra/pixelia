@@ -13,7 +13,7 @@
       "Doku: Perspektive vor Tilemaps und Kamera festlegen, Rückblick-Runde eingeplant (Lavendel, Versionskarte, Pixel-Uhr), Regel „Zwischenstände und Mitentscheiden“"
     ],
     "g": [
-      "Display: Testbild am Gerät pixelgenau (0 abweichende Pixel laut /api/screen), 30,3 fps ohne Aussetzer, RAM 114 KB; nach „Beenden“ wieder 4,0 ms Zeichenzeit und 96 KB PSRAM frei"
+      "Display: Testbild am Gerät pixelgenau (0 abweichende Pixel laut /api/screen), 30,3 fps ohne Aussetzer, RAM 114 KB; nach „Beenden“ wieder 4,0 ms Zeichenzeit und 96 KB PSRAM frei; Tippen beendet es (vom User geprüft)"
     ],
     "pr": [21]
   },
