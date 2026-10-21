@@ -236,6 +236,7 @@ void set_enabled(bool on) {
     ESP_LOGW(TAG, "Experimentell %s", on ? "an" : "aus");
     if (on) return;
     end_test_locked();
+    ui::hide_picture();
     s_trial_until = 0;
     esp_timer_stop(s_trial_timer);
     save_panel(Panel{});
@@ -326,6 +327,7 @@ std::string state_json() {
     const Mode m = board::display::mode();
     j.str("mode", board::display::mode_name(m));
     j.num("testS", s_test_until ? std::max<int64_t>(0, (s_test_until - now + 999999) / 1000000) : -1);
+    j.boolean("pic", ui::picture_visible());
     j.obj("touch").boolean("ok", tl.ok).boolean("down", tl.down).num("x", tl.x).num("y", tl.y);
     j.num("corners", tl.corners).num("n", tl.touches).end_obj();
     j.end_obj();

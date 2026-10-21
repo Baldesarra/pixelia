@@ -4,8 +4,16 @@
     "d": "",
     "t": "",
     "s": "",
+    "n": [
+      "Web: eigenes Testbild auf der Seite Experimentell: Bild wählen, Vorschau, „Auf dem Display zeigen“; der Browser dekodiert, passt pixelgenau auf 400 × 240 an und bildet auf ≤ 240 Farben ab",
+      "Display: POST /api/picture (96 000 Indizes + Palette) zeigt das Bild 2× statt der Welt, bis Tippen, „Beenden“ oder 30 min; Puffer nur im PSRAM (96 KB), nichts im Flash"
+    ],
     "i": [
-      "Doku: Roadmap mit der Idee „Gemeinsames Setting“ (eine Welt, Orte als Module) und der Reihenfolge in 0.5.x: settingunabhängige Engine-Teile zuerst"
+      "Doku: Roadmap mit der Idee „Gemeinsames Setting“ (eine Welt, Orte als Module) und der Reihenfolge in 0.5.x: settingunabhängige Engine-Teile zuerst",
+      "Doku: Perspektive vor Tilemaps und Kamera festlegen, Rückblick-Runde eingeplant (Lavendel, Versionskarte, Pixel-Uhr), Regel „Zwischenstände und Mitentscheiden“"
+    ],
+    "g": [
+      "Display: Testbild am Gerät pixelgenau (0 abweichende Pixel laut /api/screen), 30,3 fps ohne Aussetzer, RAM 114 KB; nach „Beenden“ wieder 4,0 ms Zeichenzeit und 96 KB PSRAM frei"
     ],
     "pr": [21]
   },

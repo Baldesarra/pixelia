@@ -148,6 +148,12 @@ void dispatch(const pixelia::gesture::Event& e) {
             ESP_LOGI(TAG, "Tippen bei %d/%d (%lu ms) → Info-Karte geschlossen", e.x, e.y,
                      static_cast<unsigned long>(e.duration_ms));
             infocard::hide();
+            return;
+        }
+        if (ui::picture_visible()) {
+            ESP_LOGI(TAG, "Tippen bei %d/%d → Testbild beendet", e.x, e.y);
+            ui::hide_picture();
+            return;
         }
         // Sonst gehört das Tippen später der Welt
     }

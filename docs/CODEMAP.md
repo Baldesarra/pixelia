@@ -44,7 +44,7 @@ Probelauf).
 |---|---|
 | `app.h` | gemeinsame Schnittstellen: `sysinfo`, `hwtest`, `gfx`, `perf`, `console`; Kerne `kGfxCore=1`, `kSystemCore=0` |
 | `gfx.cpp` | Grafik-Task (Kern 1): Panel anlegen, Szene ticken/rendern, Systemanzeigen darüber, Puffertausch; `grab()` kopiert für die Live-Vorschau das fertige Bild samt Palette vor dem Tausch (seit 0.4.2) |
-| `ui.h` (in `gfx.cpp`) | Systemanzeigen von jeder Task aus ein-/ausblenden (`toast`, `show_update`, `show_info` …) |
+| `ui.h` (in `gfx.cpp`) | Systemanzeigen von jeder Task aus ein-/ausblenden (`toast`, `show_update`, `show_info` …); seit 0.5.0 `show_picture`/`hide_picture` (eigenes Testbild, Anzeige 5, eigene Sperre `s_pic_lock`, die Welt rechnet weiter) |
 | `input.cpp/.h` | Touch → Gesten → Aktionen (Info-Karte), Daten der Info-Karte, Zurücksetzen am Gerät (Knopf 3 s halten: PIN entfernen, Werksreset) |
 | `hwtest.cpp` | I²C-Scan, Touch-Task (Polling alle 20 ms), geführte Tests `tour`, Flash-Last, Helligkeit; `touch_live()` für den Touch-Test |
 | `exper.cpp/.h` | Seite Experimentell (seit 0.4.2): Schalter (NVS `exp`), Panel-Timing und Stromsparmodus als Probe mit Rückfall nach 15 s (Zeitgeber `probe`), Speichern erst nach Bestätigung (Blob `panel`), Fluchtweg über Startzähler `exp_boot`, Testbilder mit Rückkehr nach 60 s |
@@ -63,7 +63,7 @@ Probelauf).
 | `web_info.cpp` | `/api/system` (Hardware, Netz, Partitionen, Temperatur), `/api/clients` + `/api/clients/name` (verbundene Geräte, NVS `clients`), `client_message()` für `/ws` |
 | `web_assets.h` | Tabelle der eingebetteten Oberflächen-Dateien; `web_assets.cpp` erzeugt `tools/web_embed.py` beim Build im Build-Ordner. Dazu `kChangelog` (Versionsverlauf, gzip): `changelog_block.cpp` erzeugt `tools/release_notes.py --embed` aus `CHANGELOG.json`, Block mit Marker `PIXELIA:CHLOG:v1` + Länge + CRC-32 (auch aus der .bin lesbar) |
 | `web_diag.cpp` | Fernwartung: `/api/log`, `/ws/log`, `/api/cmd`, `/api/perf`, `/api/resets`, `/api/coredump*`, `/api/diag` |
-| `web_exp.cpp` | Seite Experimentell (`/api/exp`) und Live-Vorschau (`/api/screen`, PackBits, Kopf `Server-Timing`), seit 0.4.2 |
+| `web_exp.cpp` | Seite Experimentell (`/api/exp`) und Live-Vorschau (`/api/screen`, PackBits, Kopf `Server-Timing`), seit 0.4.2; eigenes Testbild (`POST /api/picture`, 96 000 Indizes + Palette 240 × RGB, direkt ins PSRAM) seit 0.5.0 |
 | `web_internal.h` | gemeinsame Web-Hilfen (`send_json`, `form_value`, `authorized` = PIN-Prüfstelle, `deny` = 401/429) |
 | `json.cpp/.h` | kleiner JSON-Schreiber (bewusst nicht inline: Codegröße) |
 | `web/setup.html` | einfache Einrichtungsseite im M3-Look (eingebettet, ohne Build-Schritt, Notfallweg), Abfrage per WebSocket bzw. alle 2 s |
@@ -77,12 +77,13 @@ Build: `npm run build` → `web/dist` (feste Namen `index.html`, `app.js`, `app.
 `tools/web_embed.py` auf: baut bei Bedarf neu, gzip, erzeugt `web_assets.cpp`. Entwicklung: `npm run dev` (Proxy aufs
 Gerät, `PIXELIA_TARGET`), `npm run mock` (ohne Gerät, Beispielwerte; `PIXELIA_MOCK=setup`, `PIXELIA_MOCK_PIN=1234`, `PIXELIA_MOCK_CRASH=0`, `PIXELIA_MOCK_GH=limit|fail` für das Update von GitHub), `npm run check` (Typen, läuft in der CI). Seit 0.4.2 im Mock auch Vorschau, Leistung, Experimentell
 (`PIXELIA_MOCK_EXP=1` startet eingeschaltet) und ältere Versionen (`PIXELIA_MOCK_V=0.4.1` = installierte Version).
-Eine Datei `app.js` ohne Code-Splitting: jede Datei bräuchte einen eigenen URI-Handler (Grenze 60, belegt 53).
+Eine Datei `app.js` ohne Code-Splitting: jede Datei bräuchte einen eigenen URI-Handler (Grenze 60, belegt 54).
 
 | Datei | Aufgabe |
 |---|---|
 | `src/main.ts`, `src/App.svelte` | Start, Rahmen: Navigation (Handy 5 Ziele + „Mehr“, Schiene alle), obere Leiste, Hash-Routen, Setup-Modus → `#/wlan` |
 | `src/pages/` | `Overview` (Übersicht), `Wifi` (`#/wlan`), `System` (Update von GitHub mit Abbrechen und Hintergrundprüfung, aus Datei, je mit Änderungsvorschau), `Log`, `Info`, `Hardware`, `Devices` (`#/geraete`), `Appearance` (`#/darstellung`), `Versions` (`#/versionen`, Timeline), `Diagnostics` (`#/diagnose`, Absturzbericht, Reset-Historie), `Live` (`#/live`, Vorschau mit Screenshot, Leistung, Task-Liste auf Knopfdruck), `Experimental` (`#/experimentell`, Probe, Stromsparmodus, Displaytests, Touch-Test, Panel-Timing, ältere Version), `More` (`#/mehr`) |
+| `src/lib/picture.ts` | eigenes Testbild (seit 0.5.0): Bilddatei dekodieren, pixelgenau auf 400 × 240, Farbtiefe bis ≤ 240 Farben senken; `post()` schickt auch einen Blob |
 | `src/lib/Sparkline.svelte` | kleiner Verlauf als SVG (eine oder zwei Reihen, Grenzlinie), für die Leistungsanzeige |
 | `src/lib/changelog.ts`, `ChangeEntry.svelte` | Versionsverlauf: `/api/changelog`, Block aus einer .bin lesen (`logFromBin`: Marker, CRC, `DecompressionStream`), Release-Notes von GitHub als Eintrag (`entryFromNotes`), Versionsvergleich (`cmpVersion`, `parseFw`, `installedEntry`); Anzeige eines Eintrags mit allen Abschnitten |
 | `src/lib/status.svelte.ts` | Live-Status: WebSocket `/ws`, Rückfall auf `/api/status`, Typ `Status` (= `status_json()` in web.cpp); meldet Geräte-ID und Seite |
@@ -136,7 +137,8 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
   Versionen, nur mit Experimentell), `/api/update/cancel` (seit 0.4.2), alle mit PIN; Fortschritt im Status
   (`ota.src = github`), dazu `ota.avail` (neuere Version) und `ota.ghSeq` (neuer Stand von `/api/update`).
 - **Experimentell und Vorschau** (`web_exp.cpp`, seit 0.4.2): `GET /api/exp`, `POST /api/exp` (`a=on|off|panel|confirm|
-  revert|reset|test`, mit PIN außer `revert`), `GET /api/screen`; Status `set.exp`.
+  revert|reset|test|picoff`, mit PIN außer `revert`), `GET /api/screen`, `POST /api/picture` (seit 0.5.0, mit PIN, nur
+  mit Experimentell; `pic` in `/api/exp`); Status `set.exp`.
 - **Ausgehend:** `https://api.github.com/repos/Baldesarra/pixelia/releases`, Dateien über `github.com/…/releases/download/`
   → `release-assets.githubusercontent.com`. Ohne Token: 60 Abfragen pro Stunde und IP.
 - **Fernwartung** (`web_diag.cpp`): siehe HARDWARE.md „Fernwartung per WLAN“.

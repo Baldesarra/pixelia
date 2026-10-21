@@ -89,6 +89,44 @@ pixelia::Palette s_ui_pal{};
 // Halte-Anzeige in Promille, -1 = aus. Eigener Wert statt UiState: ändert sich bei jedem Touch-Abfrage-Takt
 std::atomic<int> s_hold_permille{-1};
 
+// Eigenes Testbild (ui::show_picture). Eigene Sperre statt s_ui_lock: Der Grafik-Task hält sie während der Kopie
+// (~1 ms), freigegeben wird ein Puffer nur unter dieser Sperre, also nie während der Kopie.
+std::mutex s_pic_lock;
+uint8_t* s_pic_px = nullptr;  // PSRAM, nullptr = kein Testbild
+pixelia::Palette s_pic_pal{};
+int64_t s_pic_until = 0;
+uint32_t s_pic_id = 0;          // zählt jedes neue Bild hoch (Schlüssel für die Puffer)
+pixelia::Palette s_pic_shown{};  // Palette des zuletzt gezeichneten Testbilds (nur Grafik-Task)
+
+// Testbild in den Hinterpuffer kopieren; false = keins (mehr) da
+bool draw_picture(pixelia::Canvas& canvas) {
+    std::lock_guard<std::mutex> g(s_pic_lock);
+    if (!s_pic_px) return false;
+    std::memcpy(canvas.pixels(), s_pic_px, kBufBytes);
+    s_pic_shown = s_pic_pal;
+    return true;
+}
+
+// Nummer des gültigen Testbilds (0 = keins); ein abgelaufenes wird hier freigegeben
+uint32_t current_picture(int64_t now) {
+    uint8_t* old = nullptr;
+    uint32_t id = 0;
+    {
+        std::lock_guard<std::mutex> g(s_pic_lock);
+        if (s_pic_px && now >= s_pic_until) {
+            old = s_pic_px;
+            s_pic_px = nullptr;
+        } else if (s_pic_px) {
+            id = s_pic_id;
+        }
+    }
+    if (old) {
+        heap_caps_free(old);
+        ESP_LOGI(TAG, "Testbild abgelaufen, zurück zur Welt");
+    }
+    return id;
+}
+
 // Echte Uhrzeit in die Weltzeit übernehmen: große Abweichung (erster Abgleich, Sommerzeit) springt,
 // kleine Gangunterschiede werden sanft nachgeführt, damit Bewegungen gleichmäßig bleiben
 void follow_real_time(int64_t now) {
@@ -108,12 +146,13 @@ void follow_real_time(int64_t now) {
 }
 
 // Ganzseitige Systemanzeige, die gerade gilt: 0 = keine (Welt läuft), 1 = Update, 2 = Meldung, 3 = Setup,
-// 4 = Zurücksetzen
-int active_screen(int64_t now) {
+// 4 = Zurücksetzen, 5 = eigenes Testbild
+int active_screen(int64_t now, bool picture) {
     const UiState& u = s_ui_local;
     if (u.update && (u.update_until == 0 || now < u.update_until)) return 1;
     if (u.reset && now < u.reset_until) return 4;
     if (u.message && now < u.message_until) return 2;
+    if (picture) return 5;
     if (u.setup) return 3;
     return 0;
 }
@@ -266,7 +305,8 @@ void gfx_task(void* arg) {
 
         int64_t t1 = esp_timer_get_time();
         pixelia::Canvas canvas(back, pixelia::kScreenWidth, pixelia::kScreenHeight);
-        const int screen = active_screen(t1);
+        const uint32_t pic = current_picture(t1);
+        const int screen = active_screen(t1, pic != 0);
         const int bi = back == s_buf[0] ? 0 : 1;
         const bool info = s_ui_local.info && t1 < s_ui_local.info_until;
         const int hold = s_hold_permille.load(std::memory_order_relaxed);
@@ -277,20 +317,23 @@ void gfx_task(void* arg) {
             draw_overlays(canvas, screen, info, hold);
             s_buf_key[bi] = 0;
         } else {
-            // Halte-Anzeige in 1-%-Schritten: so oft muss eine unbewegte Anzeige höchstens neu gezeichnet werden
+            // Halte-Anzeige in 1-%-Schritten: so oft muss eine unbewegte Anzeige höchstens neu gezeichnet werden.
+            // Beim Testbild geht dessen Nummer mit ein, damit ein neues Bild beide Puffer neu füllt.
+            const uint32_t version = s_ui_local.version + (screen == 5 ? pic * 0x9E3779B1u : 0);
             const uint64_t key = static_cast<uint64_t>(screen) << 40 |
                                  static_cast<uint64_t>(hold < 0 ? 0 : hold / 10 + 1) << 32 |
                                  static_cast<uint64_t>(info) << 31 | static_cast<uint64_t>(s_marks & 0x7F) << 24 |
-                                 (s_ui_local.version & 0x00FFFFFFu);
+                                 (version & 0x00FFFFFFu);
             if (s_buf_key[bi] != key) {
-                draw_screen(canvas, screen);
+                if (screen != 5) draw_screen(canvas, screen);
+                else if (!draw_picture(canvas)) canvas.clear(0);
                 draw_overlays(canvas, screen, info, hold);
                 s_buf_key[bi] = key;
             }
         }
         for (int i = 0; i < s_marks; ++i) canvas.fill_rect(4 + i * 10, 4, 6, 6, pixelia::ui::kWhite);
         // Indizes 240–255 gehören der System-Oberfläche (engine/system_ui.h)
-        const pixelia::Palette& pal = s_scene->palette();
+        const pixelia::Palette& pal = screen == 5 ? s_pic_shown : s_scene->palette();
         for (int i = 0; i < pixelia::ui::kFirstIndex; ++i) s_pal565[i] = pixelia::to_rgb565(pal[i]);
         std::memcpy(&s_pal565[pixelia::ui::kFirstIndex], s_ui_pal565, sizeof(s_ui_pal565));
         int64_t t2 = esp_timer_get_time();
@@ -509,6 +552,37 @@ bool update_visible() {
 
 void set_hold_progress(float progress) {
     gfx::s_hold_permille.store(progress < 0 ? -1 : static_cast<int>(progress * 1000.0f), std::memory_order_relaxed);
+}
+
+void show_picture(uint8_t* pixels, const pixelia::Color* palette240, int seconds) {
+    if (seconds < 1 || seconds > kPictureMaxSeconds) seconds = kPictureMaxSeconds;
+    uint8_t* old;
+    {
+        std::lock_guard<std::mutex> g(gfx::s_pic_lock);
+        old = gfx::s_pic_px;
+        gfx::s_pic_px = pixels;
+        // Indizes 240–255 gehören der System-Oberfläche und bleiben schwarz (das Bild benutzt sie nicht)
+        gfx::s_pic_pal = {};
+        std::memcpy(gfx::s_pic_pal.data(), palette240, pixelia::ui::kFirstIndex * sizeof(pixelia::Color));
+        gfx::s_pic_until = until(seconds);
+        if (++gfx::s_pic_id == 0) gfx::s_pic_id = 1;
+    }
+    heap_caps_free(old);
+}
+
+void hide_picture() {
+    uint8_t* old;
+    {
+        std::lock_guard<std::mutex> g(gfx::s_pic_lock);
+        old = gfx::s_pic_px;
+        gfx::s_pic_px = nullptr;
+    }
+    heap_caps_free(old);
+}
+
+bool picture_visible() {
+    std::lock_guard<std::mutex> g(gfx::s_pic_lock);
+    return gfx::s_pic_px != nullptr;
 }
 
 }  // namespace app::ui

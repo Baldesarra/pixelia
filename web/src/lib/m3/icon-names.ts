@@ -95,6 +95,8 @@ export const ICONS = [
   'videocam',
   'crop_square',
   'motion_photos_on',
+  // Eigenes Testbild (0.5.0)
+  'image',
 ] as const;
 
 export type IconName = (typeof ICONS)[number];

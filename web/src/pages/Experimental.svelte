@@ -7,6 +7,7 @@
   import { device } from '../lib/status.svelte';
   import { num } from '../lib/format';
   import { cmpVersion, dateDe, parseFw } from '../lib/changelog';
+  import { preparePicture, type Picture } from '../lib/picture';
 
   let ex = $state<ExpState | null>(null);
   let failed = $state(false);
@@ -109,6 +110,35 @@
     { mode: 'frame', label: 'Rahmen', icon: 'crop_square' },
     { mode: 'motion', label: 'Bewegung', icon: 'motion_photos_on' },
   ] as const;
+
+  // --- Eigenes Testbild (seit 0.5.0) ---------------------------------------------------------------------
+  let fileInput = $state<HTMLInputElement>();
+  let pic = $state<(Picture & { name: string }) | null>(null);
+  let picCanvas = $state<HTMLCanvasElement>();
+  let picErr = $state('');
+  async function choosePicture(e: Event) {
+    const f = (e.currentTarget as HTMLInputElement).files?.[0];
+    if (!f) return;
+    picErr = '';
+    try {
+      pic = { ...(await preparePicture(f)), name: f.name };
+    } catch {
+      pic = null;
+      picErr = 'Das Bild ließ sich nicht öffnen.';
+    }
+  }
+  $effect(() => {
+    if (pic && picCanvas) picCanvas.getContext('2d')!.putImageData(pic.rgba, 0, 0);
+  });
+  async function showPicture() {
+    if (!pic) return;
+    busy = true;
+    msg = null;
+    const r = await post('/api/picture', pic.body).catch(() => null);
+    busy = false;
+    msg = r?.ok ? { ok: true, text: 'Testbild auf dem Display. Tippen aufs Display beendet es.' } : { ok: false, text: r?.msg ?? 'Pixelia antwortet nicht' };
+    await load();
+  }
 
   // --- Ältere Version von GitHub ---------------------------------------------------------------------------
   let gh = $state<GhState | null>(null);
@@ -229,6 +259,34 @@
           {/if}
         </div>
         {#if ex.testS >= 0}<p class="muted small tnum">Testbild „{ex.mode}“ noch {ex.testS} s</p>{/if}
+      </Card>
+
+      <Card class="wide">
+        <h2 class="card-title">
+          <Icon name="image" size={20} />Eigenes Testbild (Vorschau)
+          {#if ex.pic}<span class="end"><Chip pulse tone="primary">auf dem Display</Chip></span>{/if}
+        </h2>
+        <p class="muted">
+          Ein Bild mit 400 × 240 Pixeln erscheint 2× vergrößert auf dem Display, bis du aufs Display tippst oder hier
+          „Beenden“ drückst (spätestens nach 30 min). Andere Größen werden pixelgenau angepasst. Das Bild bleibt nur im
+          Arbeitsspeicher, nichts wird gespeichert.
+        </p>
+        <input type="file" accept="image/*" hidden bind:this={fileInput} onchange={choosePicture} />
+        <div class="actions">
+          <Button variant="tonal" icon="upload_file" disabled={busy} onclick={() => fileInput?.click()}>Bild wählen</Button>
+          {#if pic}
+            <Button icon="monitor" disabled={busy || ex.trialS >= 0} onclick={showPicture}>Auf dem Display zeigen</Button>
+          {/if}
+          {#if ex.pic}<Button variant="text" icon="close" onclick={() => act({ a: 'picoff' })}>Beenden</Button>{/if}
+        </div>
+        {#if picErr}<p class="err-text">{picErr}</p>{/if}
+        {#if pic}
+          <canvas class="pic" width="400" height="240" bind:this={picCanvas}></canvas>
+          <p class="muted small tnum">
+            {pic.name} · {pic.srcW} × {pic.srcH}{pic.srcW !== 400 || pic.srcH !== 240 ? ' → angepasst auf 400 × 240' : ''} ·
+            {pic.colors} Farben{pic.srcColors > pic.colors ? ` (reduziert von ${num(pic.srcColors, 0)})` : ''}
+          </p>
+        {/if}
       </Card>
 
       <Card class="wide">
@@ -419,5 +477,15 @@
   }
   .finger.down {
     background: var(--md-sys-color-tertiary);
+  }
+  .pic {
+    display: block;
+    width: 100%;
+    max-width: 800px;
+    aspect-ratio: 5 / 3;
+    margin: 12px 0 4px;
+    border-radius: var(--md-sys-shape-corner-medium);
+    image-rendering: pixelated;
+    background: #000;
   }
 </style>
