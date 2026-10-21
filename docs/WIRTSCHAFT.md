@@ -180,7 +180,7 @@ und See ist keine Ware: Es ist unbegrenzt, aber das Holen mit Eimer oder Fass ko
 | Kerzen | Martha (1 Talg oder 1 Wachs + Docht → 4 Kerzen) | Licht am Abend | Start |
 | Raps, Rüböl | Bäuerin (Raps), Ölpresse | Öllampen, Grubenlampe, Lok ölen, Seife, Fensterleinen tränken | Ernte Sommer 1; vorher Restvorrat |
 | Seife | Martha (1 Krug Rüböl oder 2 Talg, dazu 2 Asche → 5 Seife) | Waschen (Hygiene) | Start |
-| Fackeln | alle (Holz + Pech) | Licht am Platz und vor der Taverne | Meiler gebaut |
+| Fackeln | alle (Holz + Pech) | Licht bei Festen (Sommerfeuer, Heimweg vom Lichterabend) | Meiler gebaut |
 
 **Metall und Grube**
 
@@ -214,7 +214,7 @@ Jede Kette ist im Bild zu sehen: Menschen gehen, tragen, arbeiten, und die Lager
   Kräuter → Küche (Herd braucht Holz) → Mahlzeit; anfangs kocht Gustav für alle.
 - **Milch und Käse:** Wiese → Heu → Taylors Tiere → Milch → Käse (Labkraut von Martha, für Hartkäse Salz) → Keller.
 - **Licht:** Kaminfeuer; Kienspan; Talg (Anton) oder Wachs (Emil) + Docht (Lene) → Kerzen (Martha); Raps → Ölpresse →
-  Rüböl → Lampe und Grubenlampe.
+  Rüböl → Lampe und Grubenlampe; Glas (Händlerin) → Laternen. Wann Licht brennt: [SETTING.md](SETTING.md) Kapitel 9.
 - **Sauberkeit:** Rüböl oder Talg + Asche → Seife (Martha) → Waschen; später das Badehaus (Holz, Wasser).
 - **Stoff:** Schur → Wolle → Garn (Taylor beim Hüten, Lene) → Stoff (Lene) → Kleidung, Decken, Polster, Vorhänge; Hanf
   → Seil und Leinen.
@@ -291,8 +291,9 @@ Gemüse, 1 Portion Fleisch, Fisch, Eier oder Käse, ½ Krug Milch.
 
 | Weiterer Verbrauch | Menge |
 |---|---|
-| Licht | 1 Lichtabend pro bewohntem Haus (Winter 2): Kerze oder Lampenfüllung, sonst Kienspan |
-| Rüböl | 1 Krug = 10 Lampenabende |
+| Licht | 1 Lichtabend = etwa 2½ Stunden Licht: 1 Kerze oder 1 Lampenfüllung, sonst Kienspan. Pro bewohntem Haus und Tag: Frühling 1½, Sommer ½, Herbst 1½, Winter 2½ (Schlafenszeit 23 Uhr, Abende in der Taverne abgezogen). Taverne 4 pro Abend (am Platz 7), Bahnsteiglaterne 1½, Dorfplatz-Laterne 2½ |
+| Rüböl | 1 Krug = 15 Lampenabende (eine Rüböllampe brennt sparsam; angehoben von 10 für die spätere Schlafenszeit) |
+| Feste | Sommerfeuer: Holzstoß aus Reisig, Ästen und Bauholz-Resten, dazu bis 60 Rundholz, nur solange die Reichweite des Brennholzes über dem Soll liegt (sonst ein kleineres Feuer); Lichterabend: 1 Kerze pro Haus; Jahreszeitenabend: Essen für alle aus der Taverne |
 | Seife | 1 Stück pro Person alle 14 Tage |
 | Bett | Strohsack: 1 Bund Stroh alle 14 Tage frisch stopfen; Decke hält etwa 8 Weltwochen |
 | Kleidung, Schuhe | etwa alle 4 Weltwochen 1 Stoff bzw. 1 Leder pro Person |
@@ -508,7 +509,7 @@ durch kleinere Hütten, Holznägel und höhere Erträge ausgeglichen.
 | Milch pro Tag | 8 → 10 | 20 → ~23 | Herde 14 Schafe und 6 Ziegen, eine Kuh |
 | Wolle pro Weltjahr | 62 → 96 (8 Schafe à 12) | 157 → 168 (14 Schafe) + Leinen aus Hanf | Lämmer, bis 14 Schafe |
 | Stoff pro Tag | 1,1 → 1,5 | 2,8 → 1,5 | Weberin oder Schneiderin |
-| Licht pro Weltjahr | 245 Abende → 264 Kerzen (Talg, Wachs) + 500 Lampenabende (1 Raps-Acker) | 700 → 264 + 1000 (2 Raps-Äcker), abzüglich Öl für Seife | zweiter Raps-Acker |
+| Licht pro Weltjahr | ~510 Lichtabende (8 Häuser, Taverne, Bahnsteiglaterne) → 264 Kerzen (Talg, Wachs) + 750 Lampenabende (1 Raps-Acker; bis zur ersten Ernte im Sommer der Restvorrat); Überschuss geht in Fensterleinen und an die Händlerin | ~1190 (20 Häuser, Taverne am Platz, Laternen) → 264 + 1500 (2 Raps-Äcker), abzüglich Öl für Seife | zweiter Raps-Acker |
 | Heu pro Weltjahr | 120 Bund → 1 Wiese = 160 | ~260 → 2 Wiesen = 320 | zweite Wiese |
 | Stroh pro Weltjahr | ~70 → 50 + Laubstreu | ~180 → 125 + Laubstreu | Laubstreu ist im Endausbau normal |
 | Bruchstein pro Tag | ~3 → 8 | ~12 (Steinhäuser) → 8 + Steinmetz 12 | Steinmetz |
@@ -527,7 +528,7 @@ Bauzeiten werden die Kipppunkte früher erreicht (in Monaten), aber bei denselbe
 | Otto und Ida mit Erntehilfe | 25 Menschen | Ochse und Pflug (bis ~35), danach eine zweite Bauernfamilie |
 | Lene und Taylor (Spinnen, Weben) | 20 Menschen | Weberin oder Schneiderin |
 | Anton, Hannes, Hühner | 30 Menschen | mehr Hühner, Käse, Fischer |
-| 1 Raps-Acker | 17 Häuser | zweiter Acker |
+| 1 Raps-Acker | 13 Häuser (Schlafenszeit 23 Uhr) | zweiter Acker |
 | Wilhelm | Bauen ohne Steinhäuser | Steinmetz |
 | Konrad mit Eisenwerkzeug | 35 Menschen | Stahlwerkzeug oder Lehrling (z. B. Sykora) |
 | Jakob | bestimmt das Bautempo (SETTING.md Kapitel 8) | zweiter Tischler macht den Ausbau schneller |

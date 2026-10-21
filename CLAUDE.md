@@ -63,7 +63,7 @@ den ganzen Verlauf neu (0.2.2: 634 Schritte, 740 K Kontext, ein komplettes 5-Stu
 - Hardware-Tests macht der User. Bei visuellen Änderungen Simulator-Screenshots liefern.
 - **Das Dorf ist das Herz der Welt und der Schwerpunkt** und soll besonders detailliert und lebendig werden.
 - **Lebendigkeit ist das oberste Qualitätskriterium:** [docs/LEBENDIGKEIT.md](docs/LEBENDIGKEIT.md) ist verbindlich
-  (Systeme statt Schleifen, Mindestziele pro Welt, Langzeit-Test). Nur berichten, was gebaut und geprüft ist; keine
+  (Systeme statt Schleifen, Mindestziele pro Kapitel, Langzeit-Test). Nur berichten, was gebaut und geprüft ist; keine
   Versprechen ohne Nachweis.
 - Bei GitHub-Aktionen, die der User ausführen muss (z. B. Merge), immer ausdrücklich sagen: was, wo, welcher Knopf.
 

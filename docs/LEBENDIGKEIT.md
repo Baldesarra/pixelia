@@ -48,12 +48,32 @@ Nicht ein paar gezeichnete Häuser und Menschen, sondern Welten mit Systemen, Ge
     - **Speichern ist sicher:** atomar, ohne Verdoppeln oder Verlieren, auch wenn der Strom mitten in einer Übergabe
       ausfällt. Nach dem Ausschalten wird nur begrenzt und plausibel nachgeholt.
 
-## 2. Mindestziele pro Welt
+## 2. Mindestziele pro Kapitel
 
 Gilt **zum Ende der jeweiligen Phase** (nach allen Patch-Iterationen). Der Fortschritt wird in jeder Version gezählt und
-in der Roadmap sowie im Release-Bericht offen ausgewiesen (Ist → Ziel).
+in der Roadmap sowie im Release-Bericht offen ausgewiesen (Ist → Ziel). Seit dem gemeinsamen Setting gibt es eine Welt
+mit Kapiteln statt getrennter Welten ([SETTING.md](SETTING.md)); die Ziele gelten je Kapitel.
 
-### 🏘️ Pixel-Dorf (Ende 0.7.x) – Schwerpunkt
+### 🚉 Kapitel 1 „Der erste Frühling“ (Ende 0.6.x) [entschieden 2026-10-21]
+
+| Kriterium | Mindestziel |
+|---|---|
+| Bewohner, jeder einzigartig (Aussehen, Name, Charakter, Gedächtnis) | alle 16 der Startbesetzung und die Katze |
+| Berufe mit eigenem Arbeitsplatz und Arbeitsrhythmus | ≥ 12, darunter die 9 Grundberufe ([ROADMAP.md](ROADMAP.md), 0.6.x) |
+| Orte und Innenräume mit eigener Funktion | ≥ 14 (Bahnhof 7, Umgebung 6, die erste Notunterkunft) |
+| Aktivitäten mit eigener Animation | ≥ 30 |
+| Ereignistypen | ≥ 35 (≥ 15 häufig, ≥ 10 gelegentlich, ≥ 7 selten, ≥ 3 legendär) |
+| Anlässe und Feste | ≥ 6, darunter die vier **Jahreszeitenabende** in großer Runde (Sommerfeuer, Lichterabend; [SETTING.md](SETTING.md) Kapitel 11) |
+| Gedanken- und Dialogvorlagen (situationsabhängig) | ≥ 120 |
+| Tierarten mit eigenem Verhalten | ≥ 6 |
+| Langzeit-Veränderung in 30 Tagen | ≥ 4 fertige Bauten (Notunterkünfte oder Räume), ≥ 3 Beziehungsänderungen, alle vier Jahreszeiten sichtbar |
+| Abende | in 30 Tagen keine zwei Abende in der Taverne mit gleicher Besetzung und gleichem Ablauf; zu jedem Jahreszeitenabend kommen ≥ 13 der 16 Bewohner |
+| Wirtschaft | Zeitraffer über ≥ 3 Weltjahre mit mehreren Startwerten, alle Prüfgrößen für Kapitel 1 grün ([WIRTSCHAFT.md](WIRTSCHAFT.md) Kapitel 14); Bilanz-Test ohne einen einzigen Fehler |
+| Licht | kein Fenster leuchtet ohne wache Person und Brennstoff dahinter (Ausnahmen mit Grund: [SETTING.md](SETTING.md) Kapitel 9); Kienspan ≤ 20 % der Lichtabende |
+| Blick-Test (siehe 3.) | tagsüber in ≥ 95 % der Stichproben ≥ 5 verschiedene Dinge gleichzeitig sichtbar, abends bis 23 Uhr ≥ 4, nachts ≥ 2 |
+| Wiederholung | keine zwei Tage mit gleicher Ereignisfolge; kein Bewohner mit zwei identischen Tagesabläufen hintereinander |
+
+### 🏘️ Kapitel 2 „Das Dorf wächst“ (Ende 0.7.x) – Schwerpunkt
 
 | Kriterium | Mindestziel |
 |---|---|
@@ -65,59 +85,19 @@ in der Roadmap sowie im Release-Bericht offen ausgewiesen (Ist → Ziel).
 | Gedanken- und Dialogvorlagen (situationsabhängig) | ≥ 300 |
 | Tierarten mit eigenem Verhalten | ≥ 10 |
 | Gebäude bzw. Innenräume mit eigener Funktion | ≥ 20 |
-| Langzeit-Veränderung in 30 Tagen | ≥ 1 Neubau, ≥ 3 Beziehungsänderungen, ≥ 1 Zu- oder Wegzug, sichtbarer Jahreszeitenwechsel |
+| Langzeit-Veränderung in 30 Tagen | ≥ 1 Neubau, ≥ 3 Beziehungsänderungen, ≥ 1 Zuzug, sichtbarer Jahreszeitenwechsel |
 | Blick-Test (siehe 3.) | tagsüber in ≥ 95 % der Stichproben ≥ 6 verschiedene Dinge gleichzeitig sichtbar, nachts ≥ 2 |
 | Wiederholung | keine zwei Tage mit gleicher Ereignisfolge; kein Bewohner mit zwei identischen Tagesabläufen hintereinander |
 
-### 🚂 Zugfenster (Ende 0.6.x)
+### Kapitel 3 „Die alte Grube“ (Ende 0.8.x), Kapitel 4 „Die Lok“ (Ende 0.9.x), die Welt als Ganzes (1.0.0)
 
-| Kriterium | Mindestziel |
-|---|---|
-| Regionen/Landschaftstypen mit eigenem Charakter | ≥ 10 |
-| Bahnhöfe/Städte, jeweils einzigartig gestaltet | ≥ 16 |
-| Landschaftsobjekte (Sorten) | ≥ 120 |
-| Ereignistypen | ≥ 35 |
-| Wetterarten am Fenster sichtbar | ≥ 8 |
-| Zugtypen/Abteile | ≥ 4 |
-| Wiederholung | 2 Stunden Fahrt ohne identische Landschaftsfolge |
+Die Ziele legt der User zu Beginn der jeweiligen Phase fest ([SETTING.md](SETTING.md) Kapitel 18, Punkt 6). Für die
+Welt als Ganzes ersetzen sie die früheren „Verbindungen zwischen Welten“.
 
-### ⚔️ Dungeon-Held (Ende 0.8.x)
-
-| Kriterium | Mindestziel |
-|---|---|
-| Dungeon-Themen mit eigener Optik, Gegnern und Fallen | ≥ 8 |
-| Gegnertypen mit eigenem Verhalten | ≥ 60 |
-| Bosse mit eigenen Mechaniken | ≥ 12 |
-| Gegenstände | ≥ 120 Grundtypen + Eigenschaften (tausende Kombinationen) |
-| Raum-, Fallen- und Ereignistypen im Dungeon | ≥ 30 |
-| Talente/Fähigkeiten | ≥ 30 |
-| Aktivitäten des Helden im Dorf | ≥ 8 |
-| Fortschritt | über Wochen sichtbar (Ausrüstung, Level, Trophäen, Ruf) |
-
-### ⚽ Pixel-Liga (Ende 0.9.x)
-
-| Kriterium | Mindestziel |
-|---|---|
-| Vereine mit eigenem Wappen, Farben, Stadion und Spielstil | ≥ 18 |
-| Spieler mit Werten, Charakter, Form und Entwicklung | ≥ 400 |
-| Spielereignis-Typen | ≥ 30 |
-| Animationen in der Live-Übertragung | ≥ 15 |
-| Saison-Geschichten (Serien, Rekorde, Derbys, Abstiegskampf, Comeback …) | ≥ 15 Erzählmuster |
-| Wettbewerbe | ≥ 2 (Liga, Pokal) |
-
-### 🏝️ Inselwelt (Position offen)
-
-Die Mindestziele werden bei der gemeinsamen Überarbeitung des Konzepts festgelegt
-([welten/inselwelt-konzept.md](welten/inselwelt-konzept.md)). Schon fest steht: Der Bilanz-Test (Kapitel 3) muss
-ohne einen einzigen Fehler bestehen, über Herstellung, Transport, Verarbeitung, Eigenverbrauch, Geschenk, Verkauf und
-Neustart hinweg. Außerdem muss jede Tätigkeit ohne Beschriftung verständlich sein, und der Bewohner muss regelmäßig
-freie Zeit haben (gemütlich statt Produktionskette).
-
-### Weltübergreifend (1.0.0)
-
-| Kriterium | Mindestziel |
-|---|---|
-| Verbindungen zwischen Welten (Held im Dorf, Heimspieltag, Zug am Dorfbahnhof …) | ≥ 15 |
+**Entfallen** mit den alten Welten (Entscheidung des Users 2026-10-20): die Ziele für Zugfenster, Dungeon-Held,
+Pixel-Liga und Inselwelt; sie stehen in der Git-Geschichte. Aus der Inselwelt bleibt: Der Bilanz-Test besteht ohne
+einen einzigen Fehler, jede Tätigkeit ist ohne Beschriftung verständlich, und die Bewohner haben regelmäßig freie Zeit
+(gemütlich statt Produktionskette).
 
 ## 3. Nachweis: Werkzeuge, die Tiefe messen
 
