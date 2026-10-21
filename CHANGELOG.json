@@ -1,5 +1,41 @@
 [
   {
+    "v": "0.5.1",
+    "d": "2026-10-21",
+    "t": "Raum und Baukasten",
+    "s": "Kacheln in drei Ebenen, Tiefensortierung, Räume als Datenliste mit Ausbaustufen und „im Bau“, Türen und Bildränder als Ausgänge; drei verbundene Testorte",
+    "n": [
+      "Engine: Kacheln 8 × 8 (25 × 15 je Ort) in drei Ebenen Boden, Wand, Deko; Orte kommen als Textzeilen mit Legende, jede Ebene mit eigener Farbreihe (Tapete, Boden)",
+      "Engine: Tiefensortierung nach Fußpunkt (depth.h) für Figuren, Möbel und Deko gemeinsam, mit Tiefenversatz (Sitzen vor der Lehne) und Schatten",
+      "Engine: Raum-Baukasten (room.h): ein Ort ist eine Datenliste aus Teilen mit Kachel-Lage, Ausbaustufe, Farbreihe, Besitzer und Spiegelung (7 Byte je Teil), zur Laufzeit änderbar",
+      "Engine: Möbel-Daten: Art, Ebene (Boden, Wand, stehend), Stellfläche, Benutzungspunkte mit Blickrichtung und Haltung; Erkennungsstück als Platzhalter, den der Katalog über den Besitzer auflöst",
+      "Engine: Ausbaustufen (mehrere Stufen-Bilder je Teil) und Zustand „im Bau“: Bau-Bild (z. B. halbfertiges Bett) oder Materialstapel, benutzbar sind nur Arbeitsplätze",
+      "Engine: Hintergrundbild: beim Betreten wird alles Unbewegte einmal vorgezeichnet (24 KB PSRAM), beim Verlassen freigegeben; pro Bild nur Kopie plus bewegte Teile, pixelgleich mit „alles zeichnen“",
+      "Engine: Ausgänge an Türen und Bildrändern: die Bühne gibt Reisende im Zielort ab und wechselt mit Abblenden mit, wenn der Blick der Figur folgt",
+      "Engine: Wege auf dem Kachelraster per Breitensuche um Stellflächen herum; versperrte Ziele wie ein Bett bleiben erreichbar",
+      "Engine: Testorte Wiese, Raum, Platz aus Kacheln und Möbel-Teilen, über Tür und Bildrand verbunden; Figuren benutzen Fenster, Tisch und Bänke, eine Begleiterin führt den Blick",
+      "Web: Karte „Orte“: Knöpfe „Ausbau“ und „Im Bau“, Schalter „Blick folgt“ und „Prüfansicht“ (Stellflächen, Benutzungspunkte, Ausgänge); WLAN-Befehle „ort ausbau|baustelle|folgen|pruefen“",
+      "Werkzeuge: tools/screen.py holt ein Bildschirmfoto vom Display per WLAN; Konsolenbefehl „bench“ misst Verdoppeln und Kopie des Hintergrunds im PSRAM",
+      "Simulator: --cmd, --inspect, --no-follow; Selbsttest „stage“ mit 18 Fällen (Kacheln, Tiefe, Gleichheit mit Hintergrundbild, Ausbau, Wege, Ausgänge ohne Verlust, Betreten)"
+    ],
+    "i": [
+      "Engine: Testorte samt Figuren liegen im Grafik-Speicher (PSRAM) statt im internen RAM: am Gerät 111 statt 102–106 KB frei",
+      "Engine: Übergang-Typ nach scene.h verschoben (Ausgänge tragen ihn); Canvas zeichnet beschnitten (blit_clipped)",
+      "Doku: Update von GitHub 0.4.2-dev → 0.5.0 am Gerät nachgetragen (1574 KB in 17,3 s, RAM-Tiefstwert 78 KB); Phase B startet erst nach Schritt 6 der Setting-Werkstatt"
+    ],
+    "g": [
+      "Gerät: alle Testorte 30,3 fps, Zeichnen 4,1–4,2 ms (max 4,4); Raum mit 64 Figuren 6,8 ms (max 7,4), Überblendung höchstens 14,6 ms, 0 Aussetzer",
+      "Gerät: RAM 111 KB frei (Tiefstwert 104 KB), PSRAM 5,96 MB frei; Firmware 1,56 MB (26 % der App-Partition)",
+      "Gerät: Verdoppeln 200 × 120 → 400 × 240 kostet 2,96 ms, Kopie des Hintergrunds 0,99 ms pro Bild (Messung „bench“, Ausgangswert für 0.5.2)",
+      "Simulator: 18/18 Bühnen-Tests; 400 s Reisen zwischen drei Orten ohne verlorene Figur, der Blick folgt der Begleiterin"
+    ],
+    "h": [
+      "Engine: Die Möbel der Testorte sind neutrale Test-Grafiken (Stil „Formen“), nur auf der Seite Experimentell zu sehen; echte Grafiken folgen nach Setting und Stil-Leitfaden",
+      "Engine: Ausgänge am Bildrand sind bewusst nicht markiert (Entscheidung des Users); die Prüfansicht zeigt sie"
+    ],
+    "pr": [26]
+  },
+  {
     "v": "0.5.0",
     "d": "2026-10-21",
     "t": "Bühne und Figuren",
