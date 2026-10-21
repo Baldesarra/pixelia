@@ -31,7 +31,7 @@
       "Engine: SIMD/PIE und DMA helfen beim Verdoppeln nicht, der Engpass ist das Schreiben in den PSRAM; großer Hebel wäre, dass das Display das grobe Bild selbst liest (Frage an den Planungs-Chat)",
       "Engine: Überblendung nur, wenn beide Paletten zusammen ≤ 240 Farben brauchen; nachts mit Lampen meist nicht, dann wird abgeblendet"
     ],
-    "pr": []
+    "pr": [27]
   },
   {
     "v": "0.5.1",
