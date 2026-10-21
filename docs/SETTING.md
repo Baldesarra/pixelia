@@ -15,7 +15,7 @@
 
 | Schritt | Thema | Stand |
 |---|---|---|
-| 1 | Ideen des Users: Grundidee, Ton, Hauptfiguren, Skript | weitgehend entschieden; offen: Vorgeschichte, Ideenliste, Taylors Profil prüfen |
+| 1 | Ideen des Users: Grundidee, Ton, Hauptfiguren, Skript | weitgehend entschieden; offen: Romanze, Spielstart, Ideenliste, Gründungsgeschichte prüfen |
 | 2 | Gebiete, Figuren, Reihenfolge | Vorschlag in Kapitel 3 und 4 |
 | 3 | Modularer Aufbau, Regie, Kamera | Vorschlag in Kapitel 13 und 15 |
 | 4 | Hardware-Eignung mit Zahlen (inkl. SD-Karte, Baukasten) | Vorschlag in Kapitel 16 |
@@ -69,31 +69,47 @@ wird inhaltlich neu aufgezogen, gute Ideen aus den alten Konzepten werden weiter
 
 **Das Dorf heißt Pixelia [entschieden].**
 
-**Ausgangslage [entschieden]:** Pixelia ist am Anfang fast leer, viele Häuser stehen leer und verfallen, die
-Nebenbahn ist stillgelegt, der Bahnhof überwuchert, im Lokschuppen steht eine alte Dampflok. Die Hauptfigur Sykora
-will das Dorf wieder nach vorne bringen.
+**Vorgeschichte [entschieden, Idee des Users]: „Der Winter, der nicht endete.“**
+Ein ungewöhnlich harter Winter zwang die Reisenden eines Zuges, im kleinen Bahnhof Pixelia zu bleiben. Als der
+Frühling kam, waren die Gleise hinter dem Dorf so zugewachsen, dass niemand mehr weiterkonnte. Sie blieben, weil Gehen
+damals schwerer war als Bleiben. Der Zug ist durch die fehlende Benutzung kaputt und verrostet.
 
-**Vorgeschichte [offen]:** Die erste Fassung (Wassereinbruch in der Grube) ist verworfen. Ideen zur Auswahl, auch
-gemischt:
+**Gründungsgeschichte [Vorschlag], wie aus Gestrandeten ein Dorf wird:**
 
-1. *Drei harte Winter:* Ernten fielen aus, viele gingen „nur für ein Jahr“ in die Stadt und blieben. Ohne Fahrgäste
-   wurde die Bahn eingestellt. Später kehren manche zurück (Zuzug mit Geschichte). (Empfehlung von Claude)
-2. *Die Bahn fuhr vorbei:* Neue Hauptstrecke im Nachbartal, Händler und Familien zogen dorthin.
-3. *Erschöpfte Grube:* Erzbahn ohne Erz; tiefer liegt mehr, aber das Werkzeug fehlte.
-4. *Von der Landkarte verschwunden:* bei der Vermessung vergessen, keine Post, kein Zug; Besuch des Landvermessers als
-   Meilenstein.
-5. *Landflucht* in die Fabrikstädte.
-6. *Neugründung* an einer nie eröffneten Strecke.
+- **Vor dem Winter** war Pixelia nur ein einsamer Haltepunkt an einer Nebenstrecke durchs Bergland: Bahnhofsgebäude
+  mit Warteraum, Wasserturm, Lokschuppen, ein Güterschuppen. Ringsum Wald, ein See, Wiesen, oben am Berg eine längst
+  aufgegebene Grube. Nur zwei Menschen lebten in der Nähe: Martha, die Kräuterfrau, in ihrer Hütte am Waldrand, und
+  Hannes, der Fischer, am See.
+- **Der Winter:** Ein Personenzug mit Abteilwagen, Speisewagen, Gepäckwagen und einem Viehwagen bleibt im Schnee
+  stecken. Hinter dem Haltepunkt verschüttet ein Felssturz den Tunnel, durch den der Zug gekommen ist; nach vorne
+  liegen die Gleise unter meterhohem Schnee. Die Reisenden überleben in den Wagen und im Warteraum. Gustav, der Koch
+  des Speisewagens, kocht für alle, Anton jagt, Martha kennt die Kräuter gegen Husten, Hannes hackt Löcher ins Eis.
+  Emil, der Lokführer, fühlt sich für alle verantwortlich und hält sie zusammen.
+- **Der Frühling:** Der Schnee taut, doch nach vorne sind die Gleise zugewachsen und unterspült, nach hinten bleibt der
+  Tunnel verschüttet. Über den Bergpass kommt man nur zu Fuß, tagelang, und nur im Sommer. Am Abend nach der ersten
+  warmen Nacht sitzen alle am Feuer vor dem Bahnhof und entscheiden: Wir bleiben. Das Schild am Bahnsteig gibt dem Dorf
+  seinen Namen: **Pixelia**.
+- **Hier beginnt das Spiel [Vorschlag, siehe offene Fragen]:** im ersten Frühling. Es gibt nur den Bahnhof, den
+  gestrandeten Zug und Marthas und Hannes' Hütten. Alle anderen schlafen provisorisch: in Abteilen, im Warteraum, im
+  Gepäckwagen. Der **Speisewagen ist die erste Taverne**, der **Viehwagen der erste Stall** für Taylors Schafe, der
+  **Güterschuppen das erste Lager**. Jedes Haus, jede Werkstatt und Sykoras Hof müssen erst gebaut werden.
+- **Warum der Zug wieder fahren soll:** Niemand will mehr weg. Die Lok wird repariert, damit Pixelia **angebunden**
+  ist: Waren, Gäste, Briefe, neue Bewohner. Erst fährt sie bis zur nächsten Stadt hinter den zugewachsenen Gleisen,
+  später (mit Updates) weiter; irgendwann wird vielleicht auch der Tunnel wieder frei.
+- **Verbindung nach außen bis dahin:** der Bergpass. Im Sommer kommt die Händlerin mit ihrem Maultier und bringt Post
+  und Tauschware, selten ein Wanderer. Im Winter ist Pixelia ganz für sich.
 
 **Bogen über Monate [Vorschlag]**, keine feste Geschichte, sondern Meilensteine, deren Reihenfolge und Tempo aus der
 Simulation entstehen:
 
-1. *Ankommen:* Sykoras Hof bewohnbar machen, Nachbarn, die Katze taucht auf.
-2. *Das Dorf erwacht:* Dorfplatz freilegen, Taverne ausbauen, Schwarzes Brett, erste Zuzüge.
+1. *Der erste Frühling:* Entschluss zu bleiben, Feuerstelle vor dem Bahnhof, Schlafplätze in Wagen und Warteraum,
+   erstes Holz, erster Garten. Die Katze taucht auf.
+2. *Die ersten Häuser:* Notunterkünfte entstehen, der Speisewagen wird zur Taverne, Schwarzes Brett am Bahnsteig,
+   Werkstätten (Schmiede, Tischlerei, Backofen).
 3. *Die Wahl:* Sykora wird Bürgermeister (Kapitel 2).
-4. *Die alte Grube:* mit Wilhelm wieder hinein, Stück für Stück tiefer (Kapitel 4).
-5. *Die Lok:* Instandsetzung in vielen Teilaufgaben (Kapitel 8), Strecke freilegen.
-6. *Hinaus:* die erste Fahrt in eine neue Region (kommt als Update).
+4. *Die alte Grube:* mit Wilhelm hinein, Stück für Stück tiefer (Kapitel 4).
+5. *Die Lok:* Instandsetzung in vielen Teilaufgaben (Kapitel 8), Gleise freilegen.
+6. *Hinaus:* die erste Fahrt bis zur nächsten Stadt (kommt als Update).
 
 **Leitsätze für alle Inhalte:**
 
@@ -110,8 +126,8 @@ Simulation entstehen:
 - Will die Zügel in die Hand nehmen und das Dorf nach vorne bringen; **bewirbt sich als Bürgermeister**.
 - **In Taylor verliebt.**
 - Eine Figur unter vielen: keine Sonderkräfte, keine Sonderwerte. Er muss lernen, helfen und Vertrauen gewinnen.
-- [Vorschlag] Wohnt auf dem Hof am Dorfrand, den er geerbt oder günstig übernommen hat (je nach Vorgeschichte).
-  Startfähigkeiten: Holzarbeit geübt, Tierpflege und Gärtnern Anfänger, Lesen und Schreiben geübt (wichtig fürs Amt).
+- [Vorschlag] War auf dem Weg in die Stadt, um dort Arbeit zu suchen, und saß im gestrandeten Zug. Schläft am Anfang
+  in einem Abteil; **sein eigener Hof am Dorfrand ist sein erstes großes Projekt**. Startfähigkeiten: Holzarbeit geübt, Tierpflege und Gärtnern Anfänger, Lesen und Schreiben geübt (wichtig fürs Amt).
   Führt ein Tagebuch, das sichtbar auf dem Tisch wächst. Schwäche: will zu viel auf einmal und vergisst dabei Pausen.
 - Erkennungsstücke: Tagebuch, Hut am Haken, später die Amtskette bzw. das Bürgermeisterbuch.
 
@@ -122,24 +138,25 @@ Taylor ist neben Sykora die zweite Hauptfigur und bekommt deshalb das ausführli
 - **Frau, 30, blond, hübsch, freundlich, tierlieb.** Singt gerne in der Taverne und spielt dort ab und zu Gitarre.
 - **Beruf [entschieden]: Schäferin.** Hält Ziegen und Schafe am Dorfrand, liefert Milch und Wolle.
 - **Gefühle [entschieden]: Der Funke ist schon da.** Sie ist heimlich auch interessiert. Die Romanze ist ziemlich
-  sicher, offen sind Weg und Tempo.
-- [Vorschlag] **Aussehen:** langes blondes Haar, meist zum Zopf geflochten, im Sommer mit Strohhut; Schürzenkleid in
-  warmem Grün, Hirtenstab, Umhängetasche. Abends in der Taverne Haar offen und ein Tuch um die Schultern.
+  sicher, offen sind Weg und Tempo. Wie sie zusammenkommen: [offen], Ideen in Kapitel 18.
+- **Aussehen [entschieden]:** **immer langes, offenes blondes Haar, nie eine Kopfbedeckung.** [Vorschlag] Schürzenkleid
+  in warmem Grün, Hirtenstab, Umhängetasche; abends in der Taverne ein Tuch um die Schultern.
 - [Vorschlag] **Charakter:** herzlich, geduldig mit Tieren und Kindern, lacht viel und laut. Eigensinnig, wenn es um
   ihre Tiere geht. Verträumt: vergisst beim Hüten oder Singen die Zeit. Etwas scheu, wenn es um eigene Gefühle geht,
   deshalb braucht die Romanze Zeit.
-- [Vorschlag] **Herkunft und Ziel:** Tochter des alten Schäfers von Pixelia, hat die Herde nach ihm übernommen. Ist
-  geblieben, als andere gingen, weil die Tiere hier zuhause sind. Wünscht sich, dass auf der Weide wieder Lämmer
-  spielen und dass in der Taverne wieder volle Abende sind.
+- [Vorschlag] **Herkunft und Ziel:** Schäferstochter aus den Bergdörfern. Sie war mit ihrer kleinen Herde im
+  Viehwagen unterwegs zum Markt in der Stadt und hat im Winter jedes Tier durchgebracht, Nacht für Nacht im kalten
+  Wagen. Der Viehwagen ist ihr erster Stall. Wünscht sich eine richtige Weide mit Stall, Lämmer im Frühling und volle
+  Abende in der Taverne.
 - [Vorschlag] **Fähigkeiten zum Start:** Tierpflege Meisterin, Melken geübt, Musizieren und Singen geübt, Spinnen geübt,
   Kräuterkunde Anfängerin (lernt bei Martha).
 - [Vorschlag] **Gewohnheiten:** singt beim Hüten, zählt abends ihre Tiere, bringt der Katze Milch, sitzt bei gutem
   Wetter auf dem Hügel über der Weide. Bei Gewitter geht sie zu den Tieren in den Stall.
 - [Vorschlag] **Die Gitarre:** hat sie einst dem Kesselflicker gegen einen Winter voll Wolle abgetauscht; der
   Kesselflicker erinnert sich daran, wenn er kommt.
-- [Vorschlag] **Beziehungen zum Start:** Hedwig ist wie eine Tante für sie, mit Martha teilt sie die Liebe zu
-  Pflanzen, mit Anton (Jäger) gibt es leise Reibung, weil er Tiere jagt.
-- **Wohnt:** Schäferhaus mit Stall am Dorfrand. Erkennungsstücke: Gitarre an der Wand, Hirtenstab an der Tür,
+- [Vorschlag] **Beziehungen zum Start:** Gustav (der Wirt) ist wie ein Onkel für sie, mit Martha teilt sie die Liebe
+  zu Pflanzen, mit Anton (Jäger) gibt es leise Reibung, weil er Tiere jagt.
+- **Wohnt:** am Anfang im Abteil neben dem Viehwagen; später Schäferhaus mit Stall am Dorfrand. Erkennungsstücke: Gitarre an der Wand, Hirtenstab an der Tür,
   Schafsglocke, Wollkorb, Trockenblumen am Fenster.
 
 ### Der Betrachter
@@ -148,7 +165,8 @@ Taylor ist neben Sykora die zweite Hauptfigur und bekommt deshalb das ausführli
 
 **Bürgermeister [entschieden]: Wahl als Meilenstein.**
 
-- Am Anfang führt Hedwig das Dorf kommissarisch.
+- Am Anfang führt Emil, der Lokführer, das Dorf kommissarisch, weil er die Reisenden durch den Winter gebracht hat.
+  Er will das Amt aber abgeben und sich um seine Lok kümmern.
 - Sykora sammelt Vertrauen, indem er hilft, baut und zuhört. Nach einigen Wochen ist Wahl auf dem Dorfplatz.
 - **Vor der Wahl:** Der Betrachter gibt Tipps an Sykora. **Nach der Wahl:** Der Betrachter entscheidet zusätzlich über
   Bauvorhaben (Bauvorschläge der Bewohner, Kapitel 8).
@@ -171,36 +189,37 @@ wohnt in einem festen Haus, und jedes Haus ist im Dorf sichtbar. **Niemand alter
 weg.** Alles bleibt, wie es ist; das Dorf wächst nur durch Zuzug.
 
 **Startbesetzung [entschieden: Sykora, Taylor, Tischler, Bäckerin, Fischer, Jäger, Familie Brandt als altes Ehepaar
-mit dem Jäger als Sohn; Rest Vorschlag].** 13 Menschen und eine Katze in 11 Häusern. Namen außer Sykora und Taylor
-sind Vorschläge und jederzeit änderbar.
+mit dem Jäger als Sohn; Rest Vorschlag].** 13 Menschen und eine Katze. Elf von ihnen sind Reisende aus dem
+gestrandeten Zug, zwei lebten schon vorher hier. Namen außer Sykora und Taylor sind Vorschläge und jederzeit änderbar.
 
-| Figur | Rolle | Wohnt | Herkunft und Ziel | Erkennungsstücke |
-|---|---|---|---|---|
-| **Sykora**, 30 | Hauptfigur, will Bürgermeister werden | Hof am Dorfrand | auf dem Land aufgewachsen, will das Dorf voranbringen | Tagebuch, Hut am Haken |
-| **Taylor**, 30 | Schäferin, Sängerin | Schäferhaus mit Stall | Tochter des alten Schäfers, blieb wegen der Tiere | Gitarre an der Wand, Hirtenstab, Schafsglocke |
-| Hedwig, 61 | Wirtin, kommissarische Dorfvorsteherin | Taverne am Platz (wohnt oben) | blieb, „weil einer das Licht anlassen muss“ | Zapfhahn aus Messing, Kreidetafel mit Tagesgericht |
-| Konrad, 56 | Schmied | Schmiede | ohne Aufträge, grantig und gutherzig | Amboss, Hufeisen über der Tür |
-| Jakob, 41 | Tischler | Tischlerei | kam als Wandergeselle und blieb hängen | Hobelbank, Späne am Boden, halbfertiger Stuhl |
-| Greta, 38 | Bäckerin | Bäckerei mit Backofen | backt für ein Dorf, das kaum noch Kunden hat | Brotschieber, Mehlsäcke, Brezel am Schild |
-| Hannes, 52 | Fischer | Fischerhütte am Teich | wortkarg, kennt jedes Wetter | Reusen, Netze zum Trocknen, Boot am Steg |
-| Anton Brandt, 34 | Jäger | Jagdhütte am Waldrand | Sohn der Brandts, lieber im Wald als im Dorf | Geweih an der Wand, Felle, Bogen bzw. Flinte |
-| Paul Brandt, 68 | Zimmermann im Ruhestand, schnitzt | Haus der Brandts | kennt jedes Haus, weil er es mitgebaut hat | Schnitzbank, Holzfiguren auf dem Sims |
-| Lene Brandt, 66 | Weberin | Haus der Brandts | strickt für das ganze Dorf | Webstuhl, Garnkörbe |
-| Martha, 72 | Kräuterfrau | Häuschen mit Garten | kennt jede Pflanze im Tal, hält eine Ziege | Kräuterbündel an der Decke, Mörser |
-| Wilhelm, 66 | Bergmann a. D. | Hütte am Hang | vermisst die Arbeit unter Tage | Grubenlampe, Erzbrocken auf dem Tisch |
-| Emil, 47 | Bahnwärter ohne Zug | Bahnwärterhaus | zieht jeden Tag die Bahnhofsuhr auf, träumt von der ersten Fahrt | Signallaterne, Fahrplan an der Wand |
-| Katze (Name vom Betrachter) | vollwertige Figur | streunt, später bei Sykora oder Taylor | erst scheu, wird zutraulich | Lieblingskissen, Gabenhaufen |
+| Figur | Rolle | Woher, warum im Zug | Schläft am Anfang | Baut sich später | Erkennungsstücke |
+|---|---|---|---|---|---|
+| **Sykora**, 30 | Hauptfigur, will Bürgermeister werden | vom Land, wollte in der Stadt Arbeit suchen | Abteil | eigenen Hof am Dorfrand | Tagebuch, Hut am Haken |
+| **Taylor**, 30 | Schäferin, Sängerin | Schäferstochter, mit ihrer Herde unterwegs zum Markt | Abteil neben dem Viehwagen | Schäferhaus mit Stall | Gitarre an der Wand, Hirtenstab, Schafsglocke |
+| Gustav, 58 | Wirt | Koch im Speisewagen, hat im Winter alle satt bekommen | Speisewagen (erste Taverne) | Taverne am Platz, wohnt oben | Kupferkessel, Kreidetafel mit Tagesgericht |
+| Emil, 47 | Lokführer, kommissarischer Dorfvorsteher | fuhr den Zug, fühlt sich für alle verantwortlich | Lokschuppen | Haus am Bahnhof | Signallaterne, Taschenuhr, Fahrplan an der Wand |
+| Konrad, 56 | Schmied | auf dem Weg zu einer neuen Stelle in einer Fabrik | Gepäckwagen | Schmiede mit Esse | Amboss, Hufeisen über der Tür |
+| Jakob, 41 | Tischler | Wandergeselle auf der Walz | Warteraum | Tischlerei | Hobelbank, Späne am Boden, halbfertiger Stuhl |
+| Greta, 38 | Bäckerin | wollte in der Stadt eine Backstube übernehmen | Warteraum | Bäckerei mit Backofen | Brotschieber, Mehlsäcke, Brezel am Schild |
+| Wilhelm, 66 | Bergmann a. D. | auf dem Weg zu seiner Schwester; erkennt die alte Grube am Berg | Abteil | Hütte am Hang | Grubenlampe, Erzbrocken auf dem Tisch |
+| Paul Brandt, 68 | Zimmermann im Ruhestand, schnitzt | mit Frau und Sohn unterwegs zu Verwandten | Abteil der Familie | Haus der Brandts | Schnitzbank, Holzfiguren auf dem Sims |
+| Lene Brandt, 66 | Weberin | wie Paul | Abteil der Familie | Haus der Brandts | Webstuhl, Garnkörbe |
+| Anton Brandt, 34 | Jäger | Sohn der Brandts; hat im Winter alle mit Wild versorgt | Abteil der Familie | Jagdhütte am Waldrand | Geweih an der Wand, Felle, Bogen bzw. Flinte |
+| Martha, 72 | Kräuterfrau | **lebte schon hier**, half mit Kräutern durch den Winter | eigene Hütte am Waldrand | Kräutergarten, Pflanzenhaus | Kräuterbündel an der Decke, Mörser |
+| Hannes, 52 | Fischer | **lebte schon hier**, wortkarg, kennt jedes Wetter | eigene Hütte am See | Steg, Bootsschuppen | Reusen, Netze zum Trocknen, Boot am Steg |
+| Katze (Name vom Betrachter) | vollwertige Figur | streunt im Bahnhof herum, niemand weiß woher | wo es warm ist | bleibt bei Sykora oder Taylor | Lieblingskissen, Gabenhaufen |
 
 Kinder gibt es zum Start nicht; Zugezogene können Kinder mitbringen, die Kinder bleiben.
 
-**Wiederkehrende Gäste [entschieden]**, alle mit Namen und Geschichte: die Händlerin mit ihrem Karren (alle paar
-Tage, Tausch), der Postbote aus dem Nachbardorf (Briefe am Schwarzen Brett), der Kesselflicker auf Wanderschaft
-(selten, erzählt in der Taverne). Später kommen Gäste mit dem Zug.
+**Wiederkehrende Gäste [entschieden]**, alle mit Namen und Geschichte: die Händlerin, die im Sommer mit ihrem Maultier
+über den Bergpass kommt (Tausch, Post, Neuigkeiten), der Kesselflicker auf Wanderschaft (selten, erzählt in der
+Taverne). Später kommen Gäste mit dem Zug.
 
 **Wachstum [entschieden]:** Endausbau **30–40 Bewohner in etwa 20 Häusern**, manche wohnen zu zweit (z. B. die
 Brandts). Neue Bewohner kommen erst, wenn ein neues Haus gebaut ist. Sie ziehen in eine **Notunterkunft** ein, danach
 wird Raum für Raum ausgebaut (Kapitel 8). Neue Figuren entstehen **einmal** (aus einer handgeschriebenen Liste oder aus
-Bausteinen mit Herkunft, Ziel und Charakter) und bleiben für immer.
+Bausteinen mit Herkunft, Ziel und Charakter) und bleiben für immer. [Vorschlag] Bis die Lok fährt, kommen Neue über
+den Bergpass (Wanderer, Leute aus den Bergdörfern, die von Pixelia gehört haben), danach mit dem Zug.
 
 ## 4. Gebiete und Kapitel der Welt
 
@@ -211,13 +230,13 @@ Rohstoffe-Sammeln, ohne Kampf. Neue Gebiete kommen mit Updates. Orte werden nach
 
 | Kapitel | Gebiet | Orte (je ein Bild) | Zugang | Zweck |
 |---|---|---|---|---|
-| Start | **Sykoras Hof** | Stube mit Kamin und Küche, Schlafkammer, Hofplatz, Garten, Weide, Bach mit Steg; später Werkstatt, Vorratskeller, Stall | ab Tag 1 | Zuhause, Selbstversorgung, Katze |
-| Start | **Dorf Pixelia** | Dorfplatz mit Brunnen, Kerbstein und Schwarzem Brett; mehrere Häuserzeilen; Taverne, Schmiede, Tischlerei, Bäckerei (innen); Schäferhaus und Weide; Vorratsscheune | ab Tag 1 | Gemeinschaft, Abende, Handwerk, Bauprojekte |
-| Start | **Umgebung** | Waldrand und Wald, Teich und Bach, Wiesen und Feld, Jagdhütte | ab Tag 1 | Holz, Pilze, Beeren, Wild, Wasser, Fisch, Lehm |
-| 2 | **Bahnhof** (überwuchert) | Bahnsteig, Bahnwärterhaus, Güterschuppen, Lokschuppen | sichtbar ab Tag 1, Ausbau ab Kapitel 2 | Lok-Bogen, später Handel und Reisen |
+| Start | **Bahnhof mit gestrandetem Zug** | Bahnsteig mit Feuerstelle, Warteraum, Abteilwagen (innen), Speisewagen als erste Taverne (innen), Viehwagen als Stall, Güterschuppen als Lager, Lokschuppen | ab Tag 1 | Keimzelle des Dorfs, Schlafplätze, Abende, später Lok-Bogen |
+| Start | **Umgebung** | Waldrand mit Marthas Hütte, Wald, See mit Hannes' Hütte, Wiesen, Lichtung für die ersten Häuser | ab Tag 1 | Holz, Pilze, Beeren, Kräuter, Wild, Wasser, Fisch, Lehm |
+| 1–2 | **Dorf Pixelia** (wächst) | Dorfplatz mit Brunnen und Schwarzem Brett, Häuserzeilen, Taverne, Schmiede, Tischlerei, Bäckerei (innen), Schäferhaus und Weide, Vorratsscheune | entsteht Haus für Haus | Gemeinschaft, Handwerk, Bauprojekte |
+| 1–2 | **Sykoras Hof** | Stube mit Kamin und Küche, Schlafkammer, Hofplatz, Garten, Weide, Bach; später Werkstatt, Vorratskeller, Stall | Sykoras erstes großes Projekt | Zuhause, Selbstversorgung, Katze |
 | 3 | **Die alte Grube** | Stolleneingang, mehrere Stollenabschnitte, Kohleflöz, tiefe Sohle | stufenweise über Werkzeug und Fähigkeiten | Kohle, Erz, Stein, Ton, Fundstücke |
 | 3 | **Berghang** | Steinbruch, Aussichtspunkt | mit Wilhelm | Stein, Ausflüge, Lieblingsort |
-| 4 | **Die Strecke** | zugewachsene Gleise, Brücke, Tunnel, Abteil im fahrenden Zug | nach der Lok | Zugfahrt |
+| 4 | **Die Strecke** | zugewachsene Gleise, Brücke, Abteil im fahrenden Zug; der verschüttete Tunnel nach hinten | nach der Lok | Zugfahrt |
 | 5+ | **Neue Regionen (Updates)** | z. B. Marktstadt, Küste, See, Bergdorf | mit dem Zug | wählt der User, wenn es soweit ist |
 
 **Sonderorte [Vorschlag], verstreut und selten:** die Grabstelle eines Unbekannten am Waldrand (langes Rätsel ohne
@@ -358,13 +377,13 @@ Waschkammer (Zuber → Bad).
 
 | Ort | Stufen | Was er verändert |
 |---|---|---|
-| Dorfplatz mit Kerbstein und Brunnen | verwildert, freigelegt, gepflastert, Marktplatz | Treffpunkt, Märkte, Feste |
-| Taverne | Bretterbude, Schenke, Gasthaus mit Zimmern | Abende, Erzählungen, Gäste übernachten |
-| Wohnhäuser (pro Haushalt) | Ruine bzw. Neubau, Notunterkunft, Räume ausgebaut, gemütlich, persönlich | Schlafqualität, Wärme, Zuzug |
+| Feuerstelle vor dem Bahnhof → Dorfplatz | Feuerstelle, Platz mit Brunnen, gepflastert, Marktplatz | Treffpunkt, Märkte, Feste |
+| Taverne | Speisewagen, Schenke am Platz, Gasthaus mit Zimmern | Abende, Erzählungen, Gäste übernachten |
+| Wohnhäuser (pro Haushalt) | Schlafplatz im Abteil oder Warteraum, Neubau als Notunterkunft, Räume ausgebaut, gemütlich, persönlich | Schlafqualität, Wärme, Zuzug |
 | Werkstatt, Schmiede | Werkzeugkiste, Werkbank, Esse | Reparaturen, Werkzeug, Ausrüstung für die Grube |
 | Pflanzenhaus | Frühbeetkasten, Glasanbau, Gewächshaus | Kräuter, Gemüse im Winter, Saatgut |
 | Vorratsscheune | offener Unterstand, Scheune, Keller | Lagerkapazität |
-| Bahnhof | überwuchert, Bahnsteig frei, Warteraum, Güterschuppen | Bahnverkehr, Handel |
+| Bahnhof | Notlager, aufgeräumt, Warteraum wieder Wartesaal, Güterschuppen als Umschlag | Bahnverkehr, Handel |
 | Badehaus (spät) | Waschzuber, Badehaus mit Ofen | Hygiene, Gesellschaft |
 | Schwarzes Brett | ein Brett, überdachte Tafel | Wünsche, Bauvorschläge, Briefe; Spiegel der Weboberfläche |
 
@@ -605,18 +624,21 @@ keine Magie, kein Altern, kein Tod, kein Wegzug.
 
 ## 18. Offene Fragen
 
-1. **Vorgeschichte** (Kapitel 1): welche der Ideen, oder eine Mischung?
-2. **Ideenliste von Claude:** Katze als Kupplerin zwischen Sykora und Taylor; Taylors Lieder wachsen mit dem Dorf
+1. **Romanze** (Kapitel 2): Wie kommen Sykora und Taylor zusammen? Ideen: gemeinsame Wintererinnerung im Viehwagen,
+   Duett in der Taverne, das verlorene Lamm, Briefe im hohlen Baum, Tanz beim ersten Dorffest.
+2. **Spielstart** (Kapitel 1): im ersten Frühling direkt nach dem Winter, oder ein paar Wochen später mit ersten
+   Notunterkünften?
+3. **Ideenliste von Claude:** Katze als Kupplerin zwischen Sykora und Taylor; Taylors Lieder wachsen mit dem Dorf
    (Lieder über echte Ereignisse, im Web lesbar); Vertrauen der Bewohner in Sykora (entscheidet die Wahl, spiegelt die
    Entscheidungen des Bürgermeisters); Lok taufen per Abstimmung am Schwarzen Brett.
-3. **Taylors Profil** (Kapitel 2): passt der Entwurf?
-4. **Reihenfolge** (Kapitel 4): Grube vor Lok oder umgekehrt? Erste Region hinter der Strecke?
-5. **Greta in der Morgendämmerung** als Ausnahme vom Tagesgerüst?
-6. **Geld** (Kapitel 8): erst Tausch, Geld später?
-7. **Nachholen** nach dem Ausschalten: wie lange (Vorschlag: höchstens 24 h)?
-8. **Briefe und Gedanken** (Kapitel 12): Wer schreibt wem, wie oft, wie lang? Ansicht nach der Beispieldatei des
+4. **Gründungsgeschichte und Herkunft der Bewohner** (Kapitel 1 und 3): passt der Entwurf?
+5. **Reihenfolge** (Kapitel 4): Grube vor Lok oder umgekehrt? Erste Region hinter der Strecke?
+6. **Greta in der Morgendämmerung** als Ausnahme vom Tagesgerüst?
+7. **Geld** (Kapitel 8): erst Tausch, Geld später?
+8. **Nachholen** nach dem Ausschalten: wie lange (Vorschlag: höchstens 24 h)?
+9. **Briefe und Gedanken** (Kapitel 12): Wer schreibt wem, wie oft, wie lang? Ansicht nach der Beispieldatei des
    Users (Pixelpfote-Vorschau). Vorgemerkt für die Themen Figuren, Gedächtnis, Wohnen und Besitz.
-9. **Charta:** Die Mindestziele für Zug, Dungeon, Liga und Inselwelt (LEBENDIGKEIT Kapitel 2) passen nicht mehr.
+10. **Charta:** Die Mindestziele für Zug, Dungeon, Liga und Inselwelt (LEBENDIGKEIT Kapitel 2) passen nicht mehr.
    Vorschlag: Dorf-Ziele bleiben (bis auf „Wegzug“), dazu neue Ziele für Hof, Grube, Lok und die Welt als Ganzes.
 
 ## 19. Entscheidungen
@@ -642,3 +664,7 @@ Fest beschlossene Punkte dieser Werkstatt. Am Ende als Zeilen ins Entscheidungsp
 | 2026-10-21 | **Innenräume und Möbel als Baukasten** mit Ausbaustufen, Farbvarianten und Erkennungsstücken; Sykoras Haus in der Weboberfläche anpassbar | Wunsch des Users |
 | 2026-10-21 | **Austauschbare Asset-Quelle:** erst ohne SD-Karte, später bei Bedarf alles auf die Karte, Laden beim Ortswechsel hinter einer Überblendung | Entscheidung des Users |
 | 2026-10-21 | **Perspektive größer, ein Bild pro Ort, kein Scrollen** (aus der Perspektiv-Sitzung) | Angabe des Users |
+| 2026-10-21 | **Vorgeschichte „Der Winter, der nicht endete“:** Reisende eines Zuges strandeten im harten Winter im Bahnhof Pixelia, die Gleise wuchsen zu, sie blieben; der Zug ist verrostet | Idee des Users |
+| 2026-10-21 | **Das Dorf startet klein:** provisorische Schlafplätze, nicht alle Gebäude von Anfang an | Entscheidung des Users |
+| 2026-10-21 | **Taylor:** immer langes, offenes blondes Haar, keine Kopfbedeckung | Entscheidung des Users |
+| 2026-10-21 | **Der Wirt ist ein Mann** (Gustav statt Hedwig) | Hinweis des Users |
