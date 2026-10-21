@@ -24,7 +24,7 @@
 | 3 | Modularer Aufbau, Regie, Kamera | entschieden (Kapitel 13 und 15) |
 | 4 | Hardware-Eignung mit Zahlen (inkl. SD-Karte, Baukasten) | entschieden (Kapitel 16) |
 | 5 | Rahmenbedingungen für Claude | entschieden (Kapitel 17) |
-| 6 | Planung: späte 0.5.x-Patches, Phasen ab 0.6.x, PR | offen |
+| 6 | Planung: späte 0.5.x-Patches, Phasen ab 0.6.x, PR | übernommen von der Neuplanung (PR #31) |
 
 ## Inhalt
 

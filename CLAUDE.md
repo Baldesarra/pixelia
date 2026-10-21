@@ -1,8 +1,9 @@
 # Pixelia – Arbeitsregeln für Claude
 
-Pixelia: lebendige Idle-Pixel-Welten (Zugfenster, Pixel-Dorf, Dungeon-Held, Pixel-Liga) auf einem
-**Sunton ESP32-8048S050C_I** (ESP32-S3 N16R8, 5" 800×480 RGB-Parallel, GT911-Touch) mit Weboberfläche im
-Material 3 Expressive Design und Updates über GitHub.
+Pixelia: eine lebendige Idle-Pixel-Welt um 1850 (das Dorf Pixelia mit Bahnhof, Umgebung, Grube und Strecke als
+Orte) auf einem **Sunton ESP32-8048S050C_I** (ESP32-S3 N16R8, 5" 800×480 RGB-Parallel, GT911-Touch) mit Weboberfläche
+im Material 3 Expressive Design und Updates über GitHub. Was bis 1.0 wann kommt: [docs/ROADMAP.md](docs/ROADMAP.md)
+„Systemplan“.
 
 ## Zuerst lesen
 
@@ -60,7 +61,7 @@ den ganzen Verlauf neu (0.2.2: 634 Schritte, 740 K Kontext, ein komplettes 5-Stu
   einbauen oder weglassen.
 - Der User hat keine GitHub-Erfahrung: Git-/GitHub-Schritte erklären und so weit wie möglich automatisieren.
 - Hardware-Tests macht der User. Bei visuellen Änderungen Simulator-Screenshots liefern.
-- **Das Pixel-Dorf ist der Schwerpunkt** und soll besonders detailliert und lebendig werden.
+- **Das Dorf ist das Herz der Welt und der Schwerpunkt** und soll besonders detailliert und lebendig werden.
 - **Lebendigkeit ist das oberste Qualitätskriterium:** [docs/LEBENDIGKEIT.md](docs/LEBENDIGKEIT.md) ist verbindlich
   (Systeme statt Schleifen, Mindestziele pro Welt, Langzeit-Test). Nur berichten, was gebaut und geprüft ist; keine
   Versprechen ohne Nachweis.
@@ -74,7 +75,9 @@ den ganzen Verlauf neu (0.2.2: 634 Schritte, 740 K Kontext, ein komplettes 5-Stu
   Kern 1 = Grafik/Welten, Kern 0 = WLAN/Web/Hintergrund-Simulation.
 - Engine und Welten sind plattformunabhängig (laufen auch im PC-/Browser-Simulator). Keine ESP-IDF-Header in
   `engine/` oder `worlds/`.
-- Welten sind Module mit fester Schnittstelle. Verbindungen zwischen Welten **nur über den Ereignis-Bus**.
+- Eine Welt mit gemeinsamem Weltzustand (Uhr, Wetter, Figuren, Warenbuch, Chronik, Aufgaben, Projekte). **Orte und
+  Gebiete sind Module** mit fester Schnittstelle; ein Ort greift nie direkt auf einen anderen zu, Verbindungen **nur
+  über den Weltzustand und den Ereignis-Bus** ([docs/SETTING.md](docs/SETTING.md) Kapitel 15).
 - Inhalte (Ereignisse, Berufe, Gegenstände …) datengetrieben in `assets/`, nicht im Code verstreut.
 - Zufall deterministisch mit Startwert.
 - Code-Bezeichner Englisch, Kommentare Deutsch.
@@ -103,8 +106,9 @@ Firmware ≤ 75 % der App-Partition (6 MB).
 
 ## Versionen und Changelog
 
-- Immer drei Stellen `MAJOR.MINOR.PATCH`. **MINOR = Phase/Welt** (0.6.x = Zug, 0.7.x = Dorf, …),
-  **PATCH = jede Iteration** (0.6.0 erste Zug-Version, 0.6.1 zweite …). Vorschau-Versionen: `X.Y.Z-beta.N`.
+- Immer drei Stellen `MAJOR.MINOR.PATCH`. **MINOR = Phase**, ab 0.6.x je ein Kapitel der Welt (0.6.x = Kapitel 1
+  „Der erste Frühling“, 0.7.x = Kapitel 2 „Das Dorf wächst“, …, siehe ROADMAP), **PATCH = jede Iteration** (0.6.0
+  erste Version von Kapitel 1, 0.6.1 zweite …). Vorschau-Versionen: `X.Y.Z-beta.N`.
 - Version kommt ausschließlich aus dem Git-Tag `vX.Y.Z`. Kein manuelles `FW_VERSION`.
 - **Changelog: technisch, aber knapp** (der User fand 0.2.2 mit 40 Stichpunkten zu lang). Er erscheint später im
   Versionsverlauf der Oberfläche; die ausführlichen Details (Ursachen, alle Messwerte) gehören in die PR-Beschreibung.
