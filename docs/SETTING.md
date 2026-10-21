@@ -475,7 +475,7 @@ mehrere Häuser parallel. **Pro Haus entsteht immer nur ein Raum zur Zeit.** Aus
   gut 5 Wochen fertig. Der Ausbau zum Steinhaus kommt später und dauert etwa 3 Wochen.
 - Material je Bauabschnitt: [WIRTSCHAFT.md](WIRTSCHAFT.md) Kapitel 7.
 
-**Geht das, wenn jeder auch seinen Beruf hat? [Vorschlag, Prüfung 2026-10-21]** Ja. Die Rechnung in Personentagen
+**Geht das, wenn jeder auch seinen Beruf hat? [Prüfung 2026-10-21, Tempo entschieden]** Ja. Die Rechnung in Personentagen
 (ein Mensch, ein Arbeitstag):
 
 | Posten | Arbeit |
@@ -495,7 +495,7 @@ mehrere Häuser parallel. **Pro Haus entsteht immer nur ein Raum zur Zeit.** Aus
   etwa 10–12 Monaten** erreicht. Es gibt also fast immer irgendwo eine Baustelle.
 - **Sichtbare Folge von Tipps:** Schickt der Betrachter Sykora in die Grube, fehlt er dem Bautrupp, und der Bau geht
   langsamer. Grube und Lok kosten Arbeitskraft, die dann am Bau fehlt; die Reihenfolge der Wunschliste entscheidet mit.
-- Ob dieses Tempo passt, entscheidet der User (Kapitel 18).
+- **[entschieden 2026-10-21]** Dieses Tempo bleibt so.
 
 **Ausbaustufen im Dorf [übernommen aus dem Skript]:**
 
@@ -809,8 +809,6 @@ keine Magie, kein Altern, kein Tod, kein Wegzug.
    Users (Pixelpfote-Vorschau). Vorgemerkt für die Themen Figuren, Gedächtnis, Wohnen und Besitz.
 8. **Charta:** Die Mindestziele für Zug, Dungeon, Liga und Inselwelt (LEBENDIGKEIT Kapitel 2) passen nicht mehr.
    Vorschlag: Dorf-Ziele bleiben (bis auf „Wegzug“), dazu neue Ziele für Hof, Grube, Lok und die Welt als Ganzes.
-9. **Bautempo** (Kapitel 8, „Dauer“): Startbewohner nach etwa 4–5 Monaten fertig, Endausbau nach etwa 10–12 Monaten.
-   Passt das Tempo?
 
 ## 19. Entscheidungen
 
@@ -857,4 +855,5 @@ Fest beschlossene Punkte dieser Werkstatt. Am Ende als Zeilen ins Entscheidungsp
 | 2026-10-21 | **Wirtschaft in eigener Datei** [WIRTSCHAFT.md](WIRTSCHAFT.md): Waren mit Quelle und Zweck, Kausalketten, Notlösungen, Bilanz-Check | Umfang (Claude, Technik) |
 | 2026-10-21 | **Sichtbare Bestände:** jedes Stück im Lager einzeln im Bild, z. B. jeder Brotlaib in der Auslage | Wunsch des Users |
 | 2026-10-21 | **Wirtschafts-Protokoll** für das Balancing: Bedarf, Verbrauch, Herstellung, Arbeitszeit, Versorgung, Bau als CSV, Auswertung per Bericht | Wunsch des Users |
+| 2026-10-21 | **Bautempo:** etwa alle 4–5 Tage eine Notunterkunft oder ein Raum; Startbewohner nach ~4–5 Monaten fertig, Endausbau nach ~10–12 Monaten | Entscheidung des Users |
 | 2026-10-21 | **Prüfen statt raten:** jede Wirtschaftsänderung im Zeitraffer gegen feste Prüfgrößen prüfen; ohne grünen Bericht kein Merge | ausdrücklicher Wunsch des Users |
