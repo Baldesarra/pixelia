@@ -195,6 +195,11 @@ export type ExpState = {
   minute?: number; // Testuhr (seit 0.5.2): Minute des Tages, Zeitraffer, echte Uhrzeit
   speed?: number;
   real?: boolean;
+  // Wetter (seit 0.5.3, Teststeuerung bis 0.5.6): Art, Stärke in %, Licht im Testraum, Partikel am sichtbaren Ort
+  weather?: 'sonne' | 'bewoelkt' | 'regen' | 'schnee' | 'nebel' | 'gewitter' | 'wind';
+  weatherPct?: number;
+  innen?: boolean;
+  particles?: number;
   touch:{ ok: boolean; down: boolean; x: number; y: number; corners: number; n: number };
 };
 

@@ -125,6 +125,16 @@
     { value: '60', label: '60×' },
     { value: '600', label: '600×' },
   ];
+  // Wetter (seit 0.5.3): Teststeuerung, bis die Wettersimulation kommt; Übergänge weich (Wolken ziehen auf …)
+  const weathers = [
+    { value: 'sonne', label: 'Sonne', icon: 'sunny' },
+    { value: 'bewoelkt', label: 'Bewölkt', icon: 'cloud' },
+    { value: 'regen', label: 'Regen', icon: 'rainy' },
+    { value: 'schnee', label: 'Schnee', icon: 'weather_snowy' },
+    { value: 'nebel', label: 'Nebel', icon: 'foggy' },
+    { value: 'gewitter', label: 'Gewitter', icon: 'thunderstorm' },
+    { value: 'wind', label: 'Wind', icon: 'air' },
+  ] as const;
   const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 
   // --- Eigenes Testbild (seit 0.5.0) ---------------------------------------------------------------------
@@ -287,6 +297,24 @@
               bind:value={() => (ex?.real ? '0' : String(ex?.speed ?? 1)), (v: string) => act(v === '0' ? { a: 'time', v: 'real' } : { a: 'speed', v: Number(v) })}
             />
           </div>
+          <div class="setting">
+            <span class="row"><span>Wetter</span><span class="tnum">{ex.particles ? `${ex.particles} Partikel` : ''}</span></span>
+            <div class="actions">
+              {#each weathers as w (w.value)}
+                <Button variant={ex.weather === w.value ? 'filled' : 'tonal'} icon={w.icon} disabled={busy}
+                  onclick={() => act({ a: 'weather', v: w.value, p: ex?.weatherPct ?? 100 })}>{w.label}</Button>
+              {/each}
+            </div>
+          </div>
+          <div class="setting">
+            <span class="row"><span>Stärke des Wetters</span><span class="tnum">{ex.weatherPct ?? 100} %</span></span>
+            <Slider label="Stärke des Wetters" min={10} max={100} step={10} value={ex.weatherPct ?? 100}
+              onchange={(v) => act({ a: 'weather', v: ex?.weather ?? 'sonne', p: v })} />
+          </div>
+          <div class="actions">
+            <span class="pol"><Switch label="Licht innen" checked={ex.innen !== false} disabled={busy} onchange={() => act({ a: 'cmd', v: 'innenlicht um' })} />Licht innen (Lampe im Testraum)</span>
+            <Button variant="tonal" icon="bolt" disabled={busy} onclick={() => act({ a: 'cmd', v: 'blitz' })}>Blitz</Button>
+          </div>
           <div class="actions">
             <span class="pol"><Switch label="Blick folgt" checked={ex.follow !== false} disabled={busy} onchange={(v) => act({ a: 'follow', v: v ? 1 : 0 })} />Blick folgt der Begleiterin</span>
             <span class="pol"><Switch label="Prüfansicht" checked={!!ex.inspect} disabled={busy} onchange={(v) => act({ a: 'inspect', v: v ? 1 : 0 })} />Prüfansicht</span>
@@ -300,6 +328,8 @@
             Baustelle (halbfertiges Bett, sonst Bretterstapel) und wieder fertig. Prüfansicht: Stellflächen (lila),
             Benutzungspunkte (grün), Ausgänge (gelb), versperrte Kacheln (Punkte). Tageszeit: Licht, Lampen, Fenster
             und Himmel der Orte folgen der Testuhr; Uhrzeit stellen oder Zeitraffer schaltet die echte Uhrzeit ab.
+            Wetter gilt für alle Orte und wechselt weich (erst Wolken, dann Regen). Licht innen: Ist die Lampe im
+            Testraum aus, bleiben nachts auch die Fenster der Wiese dunkel.
           </p>
           <div class="actions">
             <span class="pol"><Switch label="Rundgang" checked={!!ex.tour} disabled={busy} onchange={(v) => act({ a: 'tour', s: v ? 20 : 0 })} />Rundgang: alle 20 s der nächste Ort</span>

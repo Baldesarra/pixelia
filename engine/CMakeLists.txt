@@ -4,6 +4,7 @@ set(PIXELIA_ENGINE_SRCS
     src/canvas.cpp
     src/color.cpp
     src/depth.cpp
+    src/environment.cpp
     src/font.cpp
     src/gesture.cpp
     src/light.cpp
@@ -19,7 +20,8 @@ set(PIXELIA_ENGINE_SRCS
     src/system_ui.cpp
     src/test_places.cpp
     src/tiles.cpp
-    src/tiny_font.cpp)
+    src/tiny_font.cpp
+    src/weather.cpp)
 
 if(ESP_PLATFORM)
     idf_component_register(SRCS ${PIXELIA_ENGINE_SRCS}

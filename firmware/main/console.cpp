@@ -116,6 +116,8 @@ void print_help() {
     ESP_LOGI(TAG, "  ort ausbau | ort baustelle | ort folgen 0/1 | ort pruefen 0/1   Testorte (Raum-Baukasten)");
     ESP_LOGI(TAG, "  bench [mem]   Zeichnen messen: Verdoppeln, Kopie des Hintergrunds; mem: PSRAM-Durchsatz, DMA");
     ESP_LOGI(TAG, "  time <HH:MM|real> | speed <Faktor>             Weltzeit stellen (real = echte Uhrzeit), Zeitraffer");
+    ESP_LOGI(TAG, "  wetter [<Art> [%%] [sofort]] | wetter blitz | wetter wind links|rechts   Wetter (Art: sonne bewoelkt regen schnee nebel gewitter wind)");
+    ESP_LOGI(TAG, "  ort cmd <Befehl>   Befehl an Bühne/Ort, z. B. innenlicht um, regen fein, dichte 200, blitze 12 30");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
 }
 
@@ -289,6 +291,19 @@ bool handle(char* line) {
         hwtest::flash_stress(std::atoi(argv[1]));
     } else if (is("marks") && argc >= 2) {
         gfx::set_marks(std::atoi(argv[1]));
+    } else if (is("wetter")) {
+        if (argc == 1) {
+            const gfx::EngineStats s = gfx::engine_stats(false);
+            ESP_LOGI(TAG, "Wetter %s %d %%, Licht innen %s, %d Partikel",
+                     pixelia::weather_name(static_cast<pixelia::WeatherKind>(s.weather)), s.weather_pct,
+                     s.inner_light ? "an" : "aus", s.particles);
+        } else {
+            // „wetter blitz“ und „wetter wind links“ ohne Vorsilbe an die Bühne, sonst „wetter <Art> …“
+            const bool plain = std::strcmp(argv[1], "blitz") == 0 || std::strcmp(argv[1], "wind") == 0;
+            std::string cmd = plain ? "" : "wetter";
+            for (int i = 1; i < argc; ++i) cmd += (cmd.empty() ? "" : " ") + std::string(argv[i]);
+            if (!gfx::place_command(cmd.c_str())) ESP_LOGW(TAG, "Befehl nicht angenommen");
+        }
     } else if (is("time") && argc >= 2 && std::strcmp(argv[1], "real") == 0) {
         gfx::set_real_time(true);
         ESP_LOGI(TAG, "Weltzeit folgt der echten Uhrzeit%s", timesync::valid() ? "" : " (sobald sie bekannt ist)");
@@ -443,6 +458,10 @@ bool handle(char* line) {
             gfx::set_inspect(std::atoi(argv[2]) != 0);
         } else if (argc >= 2 && (std::strcmp(argv[1], "ausbau") == 0 || std::strcmp(argv[1], "baustelle") == 0)) {
             gfx::place_command(argv[1]);
+        } else if (argc >= 3 && std::strcmp(argv[1], "cmd") == 0) {
+            std::string cmd;
+            for (int i = 2; i < argc; ++i) cmd += (i > 2 ? " " : "") + std::string(argv[i]);
+            if (!gfx::place_command(cmd.c_str())) ESP_LOGW(TAG, "Befehl nicht angenommen");
         } else if (argc >= 2) {
             int n = gfx::find_place(argv[1]);
             if (n < 0 && argv[1][0] >= '0' && argv[1][0] <= '9') n = std::atoi(argv[1]);

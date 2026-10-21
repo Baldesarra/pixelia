@@ -1,6 +1,8 @@
 #include "pixelia/engine/stage.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "pixelia/engine/light.h"
@@ -81,6 +83,43 @@ void light_span(uint8_t* a, uint8_t* b, int y, int x0, int x1, const CoarseLayer
         if (p && s && s < base) lit4(s, p, off.data(), a + fx, b + fx);
     }
 }
+
+// Bitmuster des 4×4-Rasters für 8 feine Bildpunkte: kVeilMask[Anteil][Zeile & 3], Bit k = Bildpunkt k gesetzt
+struct VeilMasks {
+    uint8_t m[17][4];
+    constexpr VeilMasks() : m{} {
+        for (int lv = 0; lv <= 16; ++lv)
+            for (int r = 0; r < 4; ++r)
+                for (int k = 0; k < 8; ++k)
+                    if (kBayer4[r][k & 3] < lv) m[lv][r] |= static_cast<uint8_t>(1u << k);
+    }
+};
+constexpr VeilMasks kVeilMask{};
+
+// Schleier (Wetter, seit 0.5.3) auf die beiden feinen Zeilen der groben Zeile y: je Feld ein Anteil 0 … 16, fein
+// gerastert; nach dem Licht, die Farbtabelle behält die Lichtstufe
+void veil_rows(uint8_t* a, uint8_t* b, int y, const CoarseLayers& L) {
+    constexpr int kSpan = CoarseLayers::kVeilCell * kCoarseScale;  // 8 feine Bildpunkte je Feld
+    static_assert(kSpan == 8, "Bitmuster für 8 Bildpunkte");
+    const uint8_t* g = L.veil_grid + (y / CoarseLayers::kVeilCell) * CoarseLayers::kVeilW;
+    const uint8_t* t = L.veil_table;
+    const int ra = (2 * y) & 3, rb = (2 * y + 1) & 3;
+    for (int c = 0; c < CoarseLayers::kVeilW; ++c) {
+        const int lv = g[c] > 16 ? 16 : g[c];
+        if (!lv) continue;
+        uint8_t* pa = a + c * kSpan;
+        uint8_t* pb = b + c * kSpan;
+        // nur die gesetzten Bildpunkte: bei schwachem Schleier wenige
+        for (unsigned m = kVeilMask.m[lv][ra]; m; m &= m - 1) {
+            const int k = __builtin_ctz(m);
+            pa[k] = t[pa[k]];
+        }
+        for (unsigned m = kVeilMask.m[lv][rb]; m; m &= m - 1) {
+            const int k = __builtin_ctz(m);
+            pb[k] = t[pb[k]];
+        }
+    }
+}
 }  // namespace
 
 void upscale2x(const uint8_t* coarse, Canvas& fine, const CoarseLayers* layers) {
@@ -92,6 +131,8 @@ void upscale2x(const uint8_t* coarse, Canvas& fine, const CoarseLayers* layers) 
     auto* out = reinterpret_cast<uint32_t*>(row);
     const uint8_t* base = layers ? layers->base : nullptr;
     const bool light = layers && layers->light;
+    const bool veil = layers && layers->veil_table && layers->veil_grid;
+    bool veil_row = false;
     for (int y = 0; y < kCoarseHeight; ++y) {
         const uint8_t* src = coarse + y * kCoarseWidth;
         if (base) {
@@ -103,10 +144,18 @@ void upscale2x(const uint8_t* coarse, Canvas& fine, const CoarseLayers* layers) 
         } else {
             double_span(src, out, 0, kCoarseWidth);
         }
-        // Licht (light.h) erst hier: so kann das Raster fein sein (2 × 2 Displaypunkte)
-        if (light && layers->lx1[y] > layers->lx0[y]) {
+        // Licht (light.h) und Schleier (Wetter) erst hier: so kann das Raster fein sein (2 × 2 Displaypunkte)
+        const bool lit = light && layers->lx1[y] > layers->lx0[y];
+        if (veil && y % CoarseLayers::kVeilCell == 0) {
+            const uint8_t* g = layers->veil_grid + (y / CoarseLayers::kVeilCell) * CoarseLayers::kVeilW;
+            veil_row = false;  // Feldzeile ohne Schleier: der schnelle Weg
+            for (int c = 0; c < CoarseLayers::kVeilW && !veil_row; ++c) veil_row = g[c] != 0;
+        }
+        const bool veiled = veil && veil_row;
+        if (lit || veiled) {
             std::memcpy(row2, row, kScreenWidth);
-            light_span(row, row2, y, layers->lx0[y], layers->lx1[y], *layers);
+            if (lit) light_span(row, row2, y, layers->lx0[y], layers->lx1[y], *layers);
+            if (veiled) veil_rows(row, row2, y, *layers);
             std::memcpy(fine.row(2 * y), row, kScreenWidth);
             std::memcpy(fine.row(2 * y + 1), row2, kScreenWidth);
             continue;
@@ -129,10 +178,12 @@ void flatten_layers(uint8_t* coarse, const CoarseLayers& layers) {
 int Stage::add(std::unique_ptr<Scene> scene) {
     if (count_ >= kMaxScenes || !scene) return -1;
     scenes_[count_] = std::move(scene);
+    scenes_[count_]->set_environment(&env_);
     return count_++;
 }
 
 void Stage::init(uint64_t seed) {
+    env_.weather.init(seed);
     for (int i = 0; i < count_; ++i) scenes_[i]->init(seed + static_cast<uint64_t>(i) * 0x9E3779B97F4A7C15ULL);
     if (active_ >= count_) active_ = 0;
     from_ = -1;
@@ -186,6 +237,46 @@ void Stage::set_inspect(bool on) {
     for (int i = 0; i < count_; ++i) scenes_[i]->set_inspect(on);
 }
 
+bool Stage::command(const char* cmd) {
+    if (!cmd) return false;
+    char word[16] = {};
+    int n = 0;
+    if (std::sscanf(cmd, "wetter %15s", word) == 1) {
+        WeatherKind k;
+        if (!parse_weather(word, &k)) return false;
+        int pct = 100;
+        std::sscanf(cmd, "wetter %*s %d", &pct);
+        const int strength = std::clamp(pct, 0, 100) * 255 / 100;
+        if (std::strstr(cmd, "sofort"))
+            env_.weather.set_now(k, strength);
+        else
+            env_.weather.set(k, strength);
+        return true;
+    }
+    if (std::sscanf(cmd, "wind %15s", word) == 1) {
+        const std::string_view w(word);
+        if (w != "links" && w != "rechts") return false;
+        env_.weather.set_wind_dir(w == "links" ? -1 : 1);
+        return true;
+    }
+    if (std::sscanf(cmd, "blitzstil %15s", word) == 1) {
+        const std::string_view w(word);
+        if (w != "a" && w != "b" && w != "c") return false;
+        env_.weather.set_flash_style(w == "a" ? FlashStyle::Dimmed : w == "b" ? FlashStyle::Sheet : FlashStyle::Short);
+        return true;
+    }
+    if (std::strcmp(cmd, "blitz") == 0) {
+        env_.weather.strike();
+        return true;
+    }
+    int m = 0;
+    if (const int k = std::sscanf(cmd, "blitze %d %d", &n, &m); k >= 1) {
+        env_.weather.set_flash_seconds(n, k == 2 ? m : n);
+        return true;
+    }
+    return count_ > 0 && scenes_[active_]->command(cmd);
+}
+
 void Stage::set_load(int load) {
     if (count_) scenes_[active_]->set_load(load);
 }
@@ -229,6 +320,16 @@ void Stage::deliver_travels() {
 }
 
 bool Stage::merge_palettes() {
+    // Erst exakt; reichen die 240 Farben nicht (nachts, drinnen ↔ draußen mit Wetter), ähnliche Farben zusammenlegen:
+    // für die 0,6 s der Überblendung unsichtbar, am Ende gilt wieder die eigene Palette (seit 0.5.3, vorher Abblenden)
+    constexpr int kTolerance[] = {0, 12, 30};
+    for (int t : kTolerance)
+        if (merge_palettes(t, false)) return true;
+    return merge_palettes(60, true);
+}
+
+// Ein Durchgang mit Toleranz (Summe der Abstände je Kanal); last: ist alles belegt, die nächste Farbe nehmen
+bool Stage::merge_palettes(int tolerance, bool last) {
     slots_ = 0;
     map_from_.fill(0);
     map_to_.fill(0);
@@ -238,20 +339,25 @@ bool Stage::merge_palettes() {
         const int n = std::clamp(s.colors(), 1, kSceneColors);
         for (int i = 0; i < n; ++i) {
             const Color c = p[i];
-            int slot = -1;
+            int slot = -1, best = 1 << 30;
             for (int k = 0; k < slots_; ++k) {
                 const Color m = palette_[k];
-                if (m.r == c.r && m.g == c.g && m.b == c.b) {
+                const int d = std::abs(m.r - c.r) + std::abs(m.g - c.g) + std::abs(m.b - c.b);
+                if (d < best) {
+                    best = d;
                     slot = k;
-                    break;
+                    if (d <= tolerance) break;  // erste passende reicht
                 }
             }
-            if (slot < 0) {
-                if (slots_ == kSceneColors) return false;
-                slot = slots_++;
-                palette_[slot] = c;
-                slot_scene_[slot] = static_cast<uint8_t>(si);
-                slot_index_[slot] = static_cast<uint8_t>(i);
+            if (best > tolerance) {
+                if (slots_ < kSceneColors) {
+                    slot = slots_++;
+                    palette_[slot] = c;
+                    slot_scene_[slot] = static_cast<uint8_t>(si);
+                    slot_index_[slot] = static_cast<uint8_t>(i);
+                } else if (!last) {
+                    return false;
+                }
             }
             map[i] = static_cast<uint8_t>(slot);
         }
@@ -284,6 +390,7 @@ void Stage::tick(const WorldClock& clock) {
         pending_ = -1;
         start_transition(to, pending_trans_);
     }
+    env_.weather.tick();  // vor den Orten: alle sehen im selben Schritt dasselbe Wetter
     for (int i = 0; i < count_; ++i) scenes_[i]->tick(clock);
     const bool was = from_ >= 0;
     if (from_ >= 0 && ++step_ >= ticks_) from_ = -1;
@@ -317,8 +424,11 @@ void Stage::draw_scene(const Scene& s, Canvas& fine) const {
         return;
     }
     Canvas coarse(main_, kCoarseWidth, kCoarseHeight);
+    layers_.veil_table = nullptr;  // trägt nur ein Ort mit Wetter ein
+    layers_.veil_grid = nullptr;
     s.render_layers(coarse, layers_);
     upscale2x(main_, fine, &layers_);
+    s.render_fine(fine, layers_, nullptr);
 }
 
 void Stage::render(Canvas& fine) const {
@@ -356,6 +466,8 @@ void Stage::render(Canvas& fine) const {
         a.render(fine);
     }
     compose(fine, oc, nc);
+    // Wetter des Ziels über dem ganzen Bild (Schleier gibt es während der Überblendung nicht)
+    if (nc) b.render_fine(fine, layers_, map_to_.data());
 }
 
 void Stage::compose(Canvas& fine, const uint8_t* oc, const uint8_t* nc) const {
@@ -386,7 +498,7 @@ void Stage::compose(Canvas& fine, const uint8_t* oc, const uint8_t* nc) const {
                 const uint8_t v = map[src[x]];
                 r0[fx] = r0[fx + 1] = r1[fx] = r1[fx + 1] = v;
             } else if (src) {
-                // mit Licht (selten: nachts reichen die Farben meist nicht, dann wird abgeblendet)
+                // mit Licht (abends und nachts)
                 const CoarseLayers& L = to_new ? layers_ : aux_layers_;
                 const uint8_t s = src[x];
                 const uint8_t lp = L.light && s && s < L.light_base ? L.light[y * kCoarseWidth + x] : 0;

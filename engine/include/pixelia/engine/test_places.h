@@ -14,16 +14,21 @@
 // Figuren laufen auf dem Kachelraster (Breitensuche um Möbel herum), benutzen freie Benutzungspunkte und wechseln
 // über Ausgänge den Ort. Eine Figur ist die Begleiterin: Ihr folgt der Blick der Bühne durch Türen und Bildränder.
 // Lastregler (set_load): Zahl der Figuren am Ort, 1–64; 0 = Standard des Ortes.
+// Seit 0.5.3 Wetter (weather.h): Wiese und Platz draußen mit Partikeln und Schleiern, der Raum zeigt es in den
+// Fenstern. Lichtquellen in der Umgebung (environment.h): die Lampe des Raumes, die Laterne des Platzes; die Fenster
+// der Wiese gehören zum Raum und leuchten nachts nur, wenn dort Licht brennt (Befehl „innenlicht an|aus|um“).
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 
+#include "pixelia/engine/environment.h"
 #include "pixelia/engine/light.h"
 #include "pixelia/engine/rng.h"
 #include "pixelia/engine/room.h"
 #include "pixelia/engine/scene.h"
 #include "pixelia/engine/sprite.h"
+#include "pixelia/engine/weather.h"
 
 namespace pixelia {
 
@@ -42,22 +47,30 @@ public:
     void init(uint64_t seed) override;
     void tick(const WorldClock& clock) override;
     void render(Canvas& canvas) const override;
-    void render_layers(Canvas& work, CoarseLayers& out) const override { draw(work, true, &out); }
+    void render_layers(Canvas& work, CoarseLayers& out) const override;
+    void render_fine(Canvas& fine, const CoarseLayers& layers, const uint8_t* remap) const override;
     void render_overlay(Canvas& fine) const override;
+    void set_environment(Environment* env) override { env_ = env; }
     const Palette& palette() const override { return palette_; }
     void set_load(int figures) override;
     int scale() const override { return kCoarseScale; }
     int colors() const override { return pal_.used(); }
-    void enter() override { room_.enter(); }
-    void leave() override { room_.leave(); }
+    void enter() override;
+    void leave() override;
     bool take_travel(Travel* out) override;
     void arrive(const Travel& t) override;
     void set_inspect(bool on) override { inspect_ = on; }
     // „ausbau“: nächste Ausbaustufe aller Teile mit Stufen; „baustelle“: Möbel im Bau bzw. wieder fertig.
     // Seit 0.5.2 zum Vergleichen: „stimmung n“ (Grundstimmung 0–2), „tageslicht n“ (0–2), „nacht n“ (Mindest-
-    // helligkeit 0–256), „licht weich|hart“ (Ränder der Lichtkreise)
+    // helligkeit 0–256), „licht weich|hart“ (Ränder der Lichtkreise). Seit 0.5.3: „innenlicht an|aus|um“ (Lampe
+    // des Raumes, wirkt auf Raum und Fenster der Wiese), „regen striche|tropfen|fein“, „schnee gemischt|klein|gross“,
+    // „dichte <%>“ (Partikel), „nebelbaenke <%>“
     bool command(const char* cmd) override;
     const PlacePalette& place_palette() const { return pal_; }
+    const PlaceWeather& weather() const { return weather_; }
+    bool outdoor() const { return kind_ != Kind::Room; }
+    // Brennt das Licht dieses Ortes? Wiese: das Licht im Raum hinter den Fenstern
+    bool lights_on() const;
 
     int figure_count() const { return count_; }
     bool has_guide() const;
@@ -87,6 +100,7 @@ private:
     void build_palette();
     void build_room();
     void apply_lights();
+    void apply_glow();
     bool random_free_tile(int* tx, int* ty);
     void spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide);
     void decide(Figure& f);
@@ -113,6 +127,12 @@ private:
     bool inspect_ = false;
     std::array<Travel, 8> out_{};
     int out_count_ = 0;
+    Environment* env_ = nullptr;
+    PlaceWeather weather_;
+    uint32_t lights_version_ = 0;
+    uint64_t seed_ = 0;
+    uint32_t enters_ = 0;
+    uint64_t ticks_ = 0;
 };
 
 }  // namespace pixelia

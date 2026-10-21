@@ -99,6 +99,15 @@ export const ICONS = [
   'image',
   'map',
   'construction',
+  // Wetter (seit 0.5.3)
+  'sunny',
+  'cloud',
+  'rainy',
+  'weather_snowy',
+  'foggy',
+  'thunderstorm',
+  'air',
+  'bolt',
   'upgrade',
 ] as const;
 

@@ -647,7 +647,7 @@ std::vector<Case> stage_cases() {
              if ((a.r + a.g + a.b) / 3 < pixelia::kDefaultNightFloor - 1) return std::string("Nacht unter der Grenze");
              return p.room().light_count() > 0 && p.room().light_map() ? std::string() : "keine Lichtkarte";
          }},
-        {"Überblendung mit wechselnden Paletten: Farben laufen weiter; nachts zu viele Farben, dann Abblenden",
+        {"Überblendung mit wechselnden Paletten: Farben laufen weiter; nachts ähnliche Farben zusammengelegt",
          [] {
              StageRun a(4, "testort-wiese"), n(4, "testort-wiese");
              a.clock.set_time_of_day(14, 0);
@@ -664,7 +664,20 @@ std::vector<Case> stage_cases() {
              const pixelia::Palette p2 = a.stage.palette();
              if (!a.stage.transitioning()) return std::string("Übergang schon vorbei");
              if (std::memcmp(p1.data(), p2.data(), sizeof(p1)) == 0) return std::string("Palette steht während des Übergangs");
-             return n.stage.transition() == Transition::Fade ? std::string() : "nachts nicht abgeblendet";
+             if (n.stage.transition() != Transition::Dissolve) return std::string("nachts abgeblendet");
+             // jede Farbe beider Orte hat in der gemeinsamen Palette eine nahe Farbe (Toleranz der Zusammenlegung)
+             const pixelia::Palette& m = n.stage.palette();
+             for (const pixelia::Palette* p : {&n.stage.scene(1).palette(), &n.stage.scene(2).palette()}) {  // Wiese → Raum
+                 for (int i = 0; i < pixelia::kSceneColors; ++i) {
+                     int best = 1 << 30;
+                     for (int k = 0; k < pixelia::kSceneColors; ++k) {
+                         const int d = std::abs(m[k].r - (*p)[i].r) + std::abs(m[k].g - (*p)[i].g) + std::abs(m[k].b - (*p)[i].b);
+                         best = std::min(best, d);
+                     }
+                     if (best > 60) return "Farbe " + std::to_string(i) + " fehlt in der gemeinsamen Palette";
+                 }
+             }
+             return std::string();
          }},
         {"Farbrotation, Farbtabellen (Schatten, Mischung) und Lichtstufen der Tabellen",
          [] {
@@ -700,6 +713,109 @@ std::vector<Case> stage_cases() {
              r.run(30);
              if (bg(w) || !bg(p)) return std::string("nach dem Wechsel: alter Ort behält sein Bild");
              return std::string();
+         }},
+        // --- seit 0.5.3: Wetter und Partikel, Fensterlicht ---
+        {"Wetter: Determinismus mit Tageszeit, Gewitter und Ortswechsel (jeden Schritt gezeichnet vs. nur am Ende)",
+         [] {
+             StageRun a(9, "testort-wiese"), b(9, "testort-wiese"), c(9, "testort-wiese");
+             for (auto* r : {&a, &b, &c}) {
+                 r->clock.set_time_of_day(19, 30);
+                 r->clock.set_speed(60);
+                 r->stage.command("blitze 1 2");
+             }
+             a.stage.command("wetter gewitter");
+             b.stage.command("wetter gewitter");
+             c.stage.command("wetter schnee");
+             for (auto* r : {&a, &b, &c}) {
+                 r->run(700, r == &a);
+                 r->stage.go(r->stage.find("testort-raum"));
+                 r->run(60, r == &a);
+                 r->stage.go(r->stage.find("testort-wiese"));
+                 r->run(90, r == &a);
+             }
+             if (a.stage.weather().flashes() == 0) return std::string("kein Blitz");
+             if (a.frame() != b.frame()) return std::string("Zeichnen ändert den Ablauf");
+             return a.frame() != c.frame() ? std::string() : "Gewitter und Schnee gleich";
+         }},
+        {"Wetter: weiche Übergänge (erst Wolken, dann Regen; erst Regen weg, dann Wolken)",
+         [] {
+             pixelia::Weather w;
+             w.init(3);
+             w.set(pixelia::WeatherKind::Rain);
+             for (int i = 0; i < 60; ++i) w.tick();
+             if (w.state().rain != 0 || w.state().cloud < 70) return std::string("Regen vor den Wolken");
+             for (int i = 0; i < 2000; ++i) w.tick();
+             if (w.state().rain != 255 || !w.settled()) return std::string("Regen nicht voll");
+             w.set(pixelia::WeatherKind::Clear);
+             int guard = 0;
+             while (w.state().rain > 0 && ++guard < 3000) w.tick();
+             if (w.state().cloud < 200) return std::string("Wolken vor dem Regen weg");
+             for (int i = 0; i < 2000; ++i) w.tick();
+             return w.settled() && w.state().cloud < 60 ? std::string() : "nicht aufgeklart";
+         }},
+        {"Partikel: Obergrenze hält (Regen 300 %), Blitz ändert nur Szenenfarben, 240–255 unberührt",
+         [] {
+             StageRun r(4, "testort-wiese");
+             r.stage.command("dichte 300");
+             r.stage.command("wetter regen sofort");
+             r.run(120, true);
+             const auto& place = static_cast<pixelia::TestPlace&>(r.stage.scene(r.stage.active()));
+             if (place.weather().peak() != pixelia::PlaceWeather::kMaxParticles)
+                 return "Obergrenze nicht erreicht oder überschritten: " + std::to_string(place.weather().peak());
+             const pixelia::Palette before = r.stage.palette();
+             r.stage.command("blitz");
+             r.run(1);
+             const pixelia::Palette flash = r.stage.palette();
+             int brighter = 0;
+             for (int i = 1; i < pixelia::kSceneColors; ++i)
+                 brighter += flash[i].r + flash[i].g + flash[i].b > before[i].r + before[i].g + before[i].b;
+             for (int i = pixelia::kSceneColors; i < 256; ++i)
+                 if (flash[i].r || flash[i].g || flash[i].b) return "Systemfarbe " + std::to_string(i) + " verändert";
+             // Partikel allein auf eine einfarbige Fläche (die Einblendungen der Orte nutzen 240–255 mit Absicht)
+             std::vector<uint8_t> idx(pixelia::kScreenPixels, 5);
+             pixelia::Canvas cv(idx.data(), pixelia::kScreenWidth, pixelia::kScreenHeight);
+             place.weather().draw(cv, pixelia::CoarseLayers{}, nullptr);
+             int drawn = 0;
+             for (uint8_t v : idx) {
+                 if (v >= pixelia::kSceneColors) return std::string("Partikel in Systemfarben gezeichnet");
+                 drawn += v != 5;
+             }
+             if (drawn < 500) return std::string("kaum Partikel gezeichnet");
+             return brighter > 100 ? std::string() : "Blitz nicht hell genug";
+         }},
+        {"Fensterlicht: kein Licht innen = kein Fensterschein außen; Innen und Außen bleiben stimmig",
+         [] {
+             StageRun r(6, "testort-wiese");
+             r.stage.set_follow(false);
+             r.clock.set_time_of_day(22, 0);
+             r.run(2);
+             const int w = r.stage.find("testort-wiese"), raum = r.stage.find("testort-raum");
+             auto place = [&](int i) -> pixelia::TestPlace& { return static_cast<pixelia::TestPlace&>(r.stage.scene(i)); };
+             // beleuchtete Bildpunkte (Lichtstufe 1 oder 2) im Bild
+             auto lit = [&] {
+                 std::vector<uint8_t> idx(pixelia::kScreenPixels);
+                 pixelia::Canvas cv(idx.data(), pixelia::kScreenWidth, pixelia::kScreenHeight);
+                 r.stage.render(cv);
+                 const int base = place(r.stage.active()).place_palette().base();
+                 int n = 0;
+                 for (uint8_t v : idx) n += v >= base && v < pixelia::kSceneColors;
+                 return n;
+             };
+             if (lit() == 0 || place(w).room().light_count() != 2) return std::string("Fenster leuchten nicht");
+             r.stage.command("innenlicht aus");
+             r.run(1);
+             if (lit() != 0 || place(w).room().light_count() != 0) return std::string("Fensterschein trotz Licht aus");
+             if (place(raum).room().light_count() != 0 || place(raum).lights_on())
+                 return std::string("unsichtbarer Raum: Licht noch an");
+             r.stage.go(raum, pixelia::Transition::Cut);
+             r.run(2);
+             if (lit() != 0) return std::string("Raum hell trotz Licht aus");
+             r.stage.command("innenlicht an");
+             r.run(1);
+             if (lit() == 0) return std::string("Raum dunkel trotz Licht an");
+             r.stage.go(w, pixelia::Transition::Cut);
+             r.run(2);
+             return lit() > 0 && place(w).lights_on() ? std::string() : "Wiese: Fenster nach Wechsel dunkel";
          }},
     };
 }

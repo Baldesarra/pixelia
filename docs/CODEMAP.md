@@ -1,6 +1,6 @@
 # Pixelia – Code-Landkarte
 
-> Kurzer Wegweiser durch den Code (Stand 0.5.2). Wer neu einsteigt, liest hier, statt den halben Code zu öffnen.
+> Kurzer Wegweiser durch den Code (Stand 0.5.3). Wer neu einsteigt, liest hier, statt den halben Code zu öffnen.
 > Begründungen stehen in [PROJEKTPLAN.md](PROJEKTPLAN.md), Messwerte und Schnittstellen im Detail in
 > [HARDWARE.md](HARDWARE.md). Am Ende jeder Phase aktualisieren.
 
@@ -21,17 +21,20 @@
 
 | Datei | Aufgabe |
 |---|---|
-| `canvas.h` | Zeichenfläche 400×240, 1 Byte pro Pixel (Paletten-Index); grobes Raster `kCoarseWidth/Height` 200×120, `kSceneColors` 240; `blit` mit Spiegeln und Farbreihe, `blit_clipped` (seit 0.5.2 optional im Licht: `LightBlit`), `Rect`; `CoarseLayers` (seit 0.5.2: Hintergrund-Schicht, Bereiche der bewegten Teile je Zeile, Lichtkarte) |
+| `canvas.h` | Zeichenfläche 400×240, 1 Byte pro Pixel (Paletten-Index); grobes Raster `kCoarseWidth/Height` 200×120, `kSceneColors` 240; `blit` mit Spiegeln und Farbreihe, `blit_clipped` (seit 0.5.2 optional im Licht: `LightBlit`), `Rect`; `CoarseLayers` (seit 0.5.2: Hintergrund-Schicht, Bereiche der bewegten Teile je Zeile, Lichtkarte; seit 0.5.3 Schleier: Farbtabelle + Anteil je Feld 4 × 4, `kVeilW/H` 50 × 30) |
 | `color.h` | Palette RGB888 ↔ RGB565 |
 | `light.h` | Farbe und Licht (seit 0.5.2): `PlacePalette` (Grundfarben, drei Lichtstufen à 80, Rollen leuchtend/Himmel/fest, Farbrotation `ColorCycle`, Farbtabellen `tint_table`/`blend_table`), `Daylight` (Tageslicht und Himmel aus Stützpunkten, Mindesthelligkeit, Vorgaben `daylight_preset`), `LightCircle`, `build_light_map` (Stufen der vier feinen Bildpunkte je grobem, 2 Bit), `light_level_at`, `dither4`; Aufbau der Palette: docs/STIL.md |
-| `scene.h`, `scenes.cpp` | Schnittstelle `pixelia::Scene` (tick rechnet, render zeichnet nur; `scale()` 1 = fein, 2 = grob, `colors()`, `render_overlay()` fein; seit 0.5.1 `enter/leave`, `take_travel/arrive` mit `Travel`, `set_inspect`, `command`), `Transition`, `make_scene`, `add_standard_scenes` (scrolltest, testort-wiese, testort-raum, testort-platz) |
-| `stage.h` | Bühne (seit 0.5.0): mehrere Orte, alle rechnen, sichtbarer wird gezeichnet; `go()` mit Übergang (Abblenden Standard, Überblendung, Raster, Schnitt; gemeinsame Palette während der Überblendung), `upscale2x` (seit 0.5.2 mit `CoarseLayers`: direkt aus Hintergrund und bewegten Teilen, Licht fein gerastert; `compose` der Überblendung ebenso), `flatten_layers`; seit 0.5.1 Betreten/Verlassen, Reisende zwischen Orten (`travels()`), `set_follow`, `set_inspect` |
+| `weather.h` | Wetter (seit 0.5.3): `WeatherKind` (sonne … wind), `Weather` (Ziel, weiche Übergänge, Böen, Blitze 12–30 s, `drift`, `apply` aufs Umgebungslicht: Wolken, Dunst, Blitz), `PlaceWeather` je Ort (Partikel nur betreten, Vorlauf beim Betreten; Schleier Nebelbänke/Regenschleier/Wolkenschatten über `tint_table`, Rauschen je Feld; drinnen nur über Glasfarben), `WeatherLook`, Stile `RainStyle`/`SnowStyle`/`FogStyle`/`FlashStyle` (Vergleichsbefehle regen, schnee, nebelstil, blitzstil) |
+| `particles.h` | Partikel (seit 0.5.3): `Particle` (16 Byte), `ParticlePool` mit Obergrenze im Grafik-Speicher |
+| `environment.h` | Umgebung der Orte (seit 0.5.3): `Environment` (Wetter + Lichtquellen) hält die Bühne; `LightBoard` (an/aus je Ort und Quelle, `version()`), `WindowLight` (Fenster am Außenort → Raum dahinter) |
+| `scene.h`, `scenes.cpp` | Schnittstelle `pixelia::Scene` (tick rechnet, render zeichnet nur; `scale()` 1 = fein, 2 = grob, `colors()`, `render_overlay()` fein; seit 0.5.1 `enter/leave`, `take_travel/arrive` mit `Travel`, `set_inspect`, `command`; seit 0.5.3 `render_fine` (Partikel nach dem Verdoppeln), `set_environment`), `Transition`, `make_scene`, `add_standard_scenes` (scrolltest, testort-wiese, testort-raum, testort-platz) |
+| `stage.h` | Bühne (seit 0.5.0): mehrere Orte, alle rechnen, sichtbarer wird gezeichnet; `go()` mit Übergang (Abblenden Standard, Überblendung, Raster, Schnitt; gemeinsame Palette während der Überblendung, seit 0.5.3 mit Toleranz: ähnliche Farben zusammengelegt, statt abzublenden), `upscale2x` (seit 0.5.2 mit `CoarseLayers`: direkt aus Hintergrund und bewegten Teilen, Licht fein gerastert; `compose` der Überblendung ebenso), `flatten_layers`; seit 0.5.1 Betreten/Verlassen, Reisende zwischen Orten (`travels()`), `set_follow`, `set_inspect`; seit 0.5.3 `environment()`/`weather()` (Wetter rechnet vor den Orten), `command()` (wetter, wind, blitz, blitze, sonst an den Ort), Schleier in `upscale2x` (Bitmuster je Feld, Zeilen ohne Schleier im schnellen Weg) |
 | `tiles.h` | Kacheln (seit 0.5.1): `TileSet` (je 64 Byte, Eigenschaft `kTileBlocks`), `TileMap` mit drei Ebenen (Boden, Wand, Deko), `load()` aus Textzeilen mit Legende, `draw()` deckend oder mit Durchsicht, Farbreihe je Ebene |
 | `depth.h` | Tiefensortierung (seit 0.5.1): `DepthList` (192 Einträge) nach Fußpunkt, stabil, Tiefenversatz, Schatten; eingebackene Teile nur beschnitten über bewegten neu; seit 0.5.2 `use_layers` (Hintergrund nur unter bewegten Teilen kopieren), `use_light` (Figuren gleichmäßig nach dem Fußpunkt), `set_shadow_table` (durchscheinende Schatten) |
 | `room.h` | Raum-Baukasten (seit 0.5.1): `PartDef`/`PartStage`/`UsePoint`/`PartCatalog` (Art, Ebene, Ausbaustufen, Stellfläche, Benutzungspunkte, Bau-Bild, Materialstapel, Erkennungsstück), `RoomPart` (7 Byte), `Exit`, `RoomDef`; `Room`: Raumliste änderbar, `set_stage`, `set_building`, Hintergrundbild bei `enter()`, `begin()` → Tiefenliste, `step_toward()` (Breitensuche), `draw_inspect()`; Arbeitsspeicher ~8 KB im Grafik-Speicher; seit 0.5.2 `begin(…, layers)`, `set_lights` (Lichtkarte 24 KB, einmal je Änderung), `set_light_on` (tagsüber aus), `set_shadow_table` |
 | `sprite.h` | Bildstreifen mit Fußpunkt, `Facing`/`view_of` (4 Richtungen aus 3 Ansichten), `Animation`/`Animator` in Logik-Schritten, `Recolor` (Farbreihe, 256 Byte) |
 | `memory.h` | Speicher für Grafiken (`asset_alloc`), auf dem Gerät PSRAM |
-| `test_places.h` | Testorte Wiese, Raum, Platz (seit 0.5.1 aus Kacheln und Möbel-Teilen, Tür und Bildrand verbunden): Katalog mit 14 Teilen, Bau-Bilder, Farbreihen (sechs Figuren, Holz, Tapete), Figuren auf dem Kachelraster mit Benutzungspunkten und Reisen, Begleiterin; Befehle `ausbau`, `baustelle`; Objekte im Grafik-Speicher; seit 0.5.2 Palette mit Lichtstufen und Tageslicht (`tick` rechnet sie aus), Lampe als Lichtkreis, Fenster am Abend (Wiese) bzw. Himmel (Raum), Wasserbecken (Platz), Befehle `stimmung`, `tageslicht`, `nacht`, `licht fein|grob|hart [innen %]` |
+| `test_places.h` | Testorte Wiese, Raum, Platz (seit 0.5.1 aus Kacheln und Möbel-Teilen, Tür und Bildrand verbunden): Katalog mit 14 Teilen, Bau-Bilder, Farbreihen (sechs Figuren, Holz, Tapete), Figuren auf dem Kachelraster mit Benutzungspunkten und Reisen, Begleiterin; Befehle `ausbau`, `baustelle`; Objekte im Grafik-Speicher; seit 0.5.2 Palette mit Lichtstufen und Tageslicht (`tick` rechnet sie aus), Lampe als Lichtkreis, Fenster am Abend (Wiese) bzw. Himmel (Raum), Wasserbecken (Platz), Befehle `stimmung`, `tageslicht`, `nacht`, `licht fein|grob|hart [innen %]`; seit 0.5.3 Wetter je Ort (`PlaceWeather`, draußen Wiese/Platz, Raum in den Fenstern), Lampe und Laterne im `LightBoard`, Fenster der Wiese gehören zum Raum; Befehle `innenlicht an|aus|um`, `regen striche|tropfen|fein`, `schnee gemischt|klein|gross`, `dichte <%>`, `nebelbaenke <%>` |
 | `scroll_test.h` | Testszene „Landschaft“ mit Tag/Nacht, Wolken, Parallax, Vögeln (fein, Farben 0–79) |
 | `world_clock.h` | Weltzeit mit Zeitraffer (`kTicksPerSecond = 30`) |
 | `system_ui.h` | Systemanzeigen: Setup, Update, Meldung, Kurzmeldung, Info-Karte, Halte-Anzeige (Paletten 240–255) |
@@ -51,7 +54,7 @@ Probelauf).
 | Datei | Aufgabe |
 |---|---|
 | `app.h` | gemeinsame Schnittstellen: `sysinfo`, `hwtest`, `gfx`, `perf`, `console`; Kerne `kGfxCore=1`, `kSystemCore=0` |
-| `gfx.cpp` | Grafik-Task (Kern 1): Panel anlegen, Bühne ticken/rendern (seit 0.5.0; Orte, Übergang, Rundgang, Figuren als Anfragen anderer Tasks; grober Puffer und Grafiken im PSRAM), Systemanzeigen darüber, Puffertausch; `grab()` kopiert für die Live-Vorschau das fertige Bild samt Palette vor dem Tausch (seit 0.4.2) |
+| `gfx.cpp` | Grafik-Task (Kern 1): seit 0.5.3 Befehle an die Bühne als Warteschlange (4 × 47 Zeichen, `place_command`), Wetterstand in `EngineStats`; Panel anlegen, Bühne ticken/rendern (seit 0.5.0; Orte, Übergang, Rundgang, Figuren als Anfragen anderer Tasks; grober Puffer und Grafiken im PSRAM), Systemanzeigen darüber, Puffertausch; `grab()` kopiert für die Live-Vorschau das fertige Bild samt Palette vor dem Tausch (seit 0.4.2) |
 | `ui.h` (in `gfx.cpp`) | Systemanzeigen von jeder Task aus ein-/ausblenden (`toast`, `show_update`, `show_info` …); seit 0.5.0 `show_picture`/`hide_picture` (eigenes Testbild, Anzeige 5, eigene Sperre `s_pic_lock`, die Welt rechnet weiter) |
 | `input.cpp/.h` | Touch → Gesten → Aktionen (Info-Karte), Daten der Info-Karte, Zurücksetzen am Gerät (Knopf 3 s halten: PIN entfernen, Werksreset) |
 | `hwtest.cpp` | I²C-Scan, Touch-Task (Polling alle 20 ms), geführte Tests `tour`, Flash-Last, Helligkeit; `touch_live()` für den Touch-Test |
@@ -130,7 +133,7 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
 - NVS-Namensräume: `pixelia` (Einstellungen inkl. `ui`, Update-Kanal `upd_ch`, seit 0.4.2 `upd_auto`, `upd_last`,
   `upd_new`, Experimentell `exp`, Panel-Werte `panel`, Startzähler `exp_boot`), `wifi` (Netze, Setup-Passwort, Hinweise), `auth` (Salz und Hash des PINs), `ota` (Rückfall-Grund),
   `diag` (Startzähler `boot`, Reset-Historie `r00`–`r15`), `clients` (Blob `list`: bis 12 Browser, je 92 Byte).
-- PSRAM (seit 0.5.0): Engine-Puffer 2 × 96 KB, grober Puffer der Orte 2 × 24 KB, Grafiken über `asset_alloc`: Testorte-Grafiken ~16 KB, je Ort `Room` ~8 KB und Ort-Objekt ~4,5 KB (mit Palette), Hintergrundbild 24 KB je betretenem Ort (höchstens zwei), seit 0.5.2 Lichtkarte 24 KB je Ort mit Lichtern (drei Testorte).
+- PSRAM (seit 0.5.0): Engine-Puffer 2 × 96 KB, grober Puffer der Orte 2 × 24 KB, Grafiken über `asset_alloc`: Testorte-Grafiken ~16 KB, je Ort `Room` ~8 KB und Ort-Objekt ~4,5 KB (mit Palette), Hintergrundbild 24 KB je betretenem Ort (höchstens zwei), seit 0.5.2 Lichtkarte 24 KB je Ort mit Lichtern (drei Testorte); seit 0.5.3 Partikel 8 KB je betretenem Ort, Schleier-Felder 3 KB je Ort.
 - PSRAM No-Init: Log-Puffer (Lage hängt an der Codegröße). RTC-Speicher No-Init: Log-Sicherung 6 KB, Herzschlag.
 
 ## Schnittstellen
@@ -149,7 +152,7 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
   revert|reset|test|picoff`, mit PIN außer `revert`; seit 0.5.0 Orte `a=place&n`, `a=trans&v`, `a=tour&s`, `a=figures&n`,
   nur mit Experimentell; `places`, `place`, `trans`, `tour`, `figures` in `/api/exp`), `GET /api/screen`, `POST /api/picture`
   (seit 0.5.0, mit PIN, nur mit Experimentell; `pic` in `/api/exp`); Status `set.exp`.
-- **Konsole, Orte** (seit 0.5.0): `ort [Nr|Kennung] [Übergang]`, `ort rundgang <s>`, `ort figuren <n>`, `buf grob int|psram` (Messung); seit 0.5.1 `ort ausbau|baustelle`, `ort folgen 0|1`, `ort pruefen 0|1`, `bench` (Verdoppeln und Hintergrund-Kopie messen); `/api/exp` `a=cmd&v=…`, `a=follow&v=`, `a=inspect&v=`. Seit 0.5.2 `bench mem` (PSRAM schreiben/lesen, Kopie aus internem RAM, DMA per `esp_async_memcpy`), `time HH:MM|real`, `speed x`; `/api/exp` `a=time&v=<Minute>|real`, `a=speed&v=<1–3600>`, in GET `minute`, `speed`, `real`.
+- **Konsole, Orte** (seit 0.5.0): `ort [Nr|Kennung] [Übergang]`, `ort rundgang <s>`, `ort figuren <n>`, `buf grob int|psram` (Messung); seit 0.5.1 `ort ausbau|baustelle`, `ort folgen 0|1`, `ort pruefen 0|1`, `bench` (Verdoppeln und Hintergrund-Kopie messen); `/api/exp` `a=cmd&v=…`, `a=follow&v=`, `a=inspect&v=`. Seit 0.5.2 `bench mem` (PSRAM schreiben/lesen, Kopie aus internem RAM, DMA per `esp_async_memcpy`), `time HH:MM|real`, `speed x`; `/api/exp` `a=time&v=<Minute>|real`, `a=speed&v=<1–3600>`, in GET `minute`, `speed`, `real`. Seit 0.5.3 `wetter [Art [%] [sofort]]`, `wetter blitz`, `wetter wind links|rechts`, `ort cmd <Befehl>`; `/api/exp` `a=weather&v=<Art>&p=<%>`, `a=cmd&v=<Bühnenbefehl>`, in GET `weather`, `weatherPct`, `innen`, `particles`.
 - **Ausgehend:** `https://api.github.com/repos/Baldesarra/pixelia/releases`, Dateien über `github.com/…/releases/download/`
   → `release-assets.githubusercontent.com`. Ohne Token: 60 Abfragen pro Stunde und IP.
 - **Fernwartung** (`web_diag.cpp`): siehe HARDWARE.md „Fernwartung per WLAN“.
@@ -158,7 +161,7 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
 ## Simulator (`sim/src/`)
 
 `main.cpp` (Befehlszeile), `window.cpp` (SDL3, Maus = Touch, Tasten 1–9 Ort, U Übergang), `headless.cpp` (Bühne wie am
-Gerät, Screenshot, Zeitraffer, Kontaktbogen, `--go ORT[:ÜBERGANG]`, `--sequence` Bildfolge, `--screen` für Systemanzeigen; seit 0.5.1 `--cmd`, `--inspect`, `--no-follow`; seit 0.5.2 `--grid` mit `--cells`/`--cols` für beschriftete Vergleichsbilder),
+Gerät, Screenshot, Zeitraffer, Kontaktbogen, `--go ORT[:ÜBERGANG]`, `--sequence` Bildfolge, `--screen` für Systemanzeigen; seit 0.5.1 `--cmd`, `--inspect`, `--no-follow`; seit 0.5.2 `--grid` mit `--cells`/`--cols` für beschriftete Vergleichsbilder; seit 0.5.3 `--cmd` über `Stage::command`, `--frames` auch für `--grid`),
 `tests.cpp` (`--test gestures|redact|stage|all`, läuft in der CI).
 
 ## Werkzeuge (`tools/`, Windows)

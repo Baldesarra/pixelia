@@ -66,7 +66,7 @@ function mockDevice(): Plugin {
     on: process.env.PIXELIA_MOCK_EXP === '1', safeBoot: false, trialS: -1, trialNeed: 15,
     panel: { ...std }, saved: { ...std }, std, mode: 'engine', testS: -1, pic: false,
     places: [{ id: 'scrolltest', title: 'Landschaft' }, { id: 'testort-wiese', title: 'Testort Wiese' }, { id: 'testort-raum', title: 'Testort Raum' }, { id: 'testort-platz', title: 'Testort Platz' }],
-    place: 0, trans: 'abblenden', tour: 0, figures: 0, follow: true, inspect: false, minute: 720, speed: 1, real: true,
+    place: 0, trans: 'abblenden', tour: 0, figures: 0, follow: true, inspect: false, minute: 720, speed: 1, real: true, weather: 'sonne', weatherPct: 100, innen: true, particles: 0,
     touch: { ok: true, down: false, x: -1, y: -1, corners: 0, n: 312 },
   };
   let prevPanel = { ...std };
@@ -429,6 +429,9 @@ function mockDevice(): Plugin {
         if (a === 'tour') return ((exp.tour = Number(f.get('s') ?? 0)), ok(exp.tour ? 'Rundgang an' : 'Rundgang aus'));
         if (a === 'figures') return ((exp.figures = Number(f.get('n') ?? 0)), ok('Figuren gesetzt'));
         // Raum-Baukasten (seit 0.5.1)
+        if (a === 'weather') return ((exp.weather = f.get('v') as typeof exp.weather), (exp.weatherPct = Number(f.get('p') ?? 100)), ok('Wetter gesetzt'));
+        if (a === 'cmd' && f.get('v') === 'innenlicht um') return ((exp.innen = !exp.innen), ok(exp.innen ? 'Licht innen an' : 'Licht innen aus'));
+        if (a === 'cmd' && f.get('v') === 'blitz') return ok('Blitz');
         if (a === 'cmd') return f.get('v') === 'ausbau' ? ok('Nächste Ausbaustufe') : f.get('v') === 'baustelle' ? ok('Im Bau umgeschaltet') : json(res, { ok: false, msg: 'Befehl unbekannt' });
         if (a === 'follow') return ((exp.follow = f.get('v') !== '0'), ok(exp.follow ? 'Blick folgt' : 'Blick bleibt'));
         if (a === 'inspect') return ((exp.inspect = f.get('v') === '1'), ok(exp.inspect ? 'Prüfansicht an' : 'Prüfansicht aus'));
