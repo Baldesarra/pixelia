@@ -1,5 +1,16 @@
 [
   {
+    "v": "0.5.3",
+    "d": "",
+    "t": "",
+    "s": "",
+    "n": [
+      "Doku: docs/SETTING.md, Zwischenstand der Setting-Werkstatt: Vorgeschichte, 16 feste Bewohner, Emil als Ratgeber, Wunschliste statt 24-h-Regel, Bautempo (Raum 7–10 Tage, Endausbau ~1 Jahr)",
+      "Doku: docs/WIRTSCHAFT.md: ~70 Waren ohne Geld mit Kausalketten, Notlösungen, Bilanz-Check und Kipppunkten, Wirtschafts-Protokoll (CSV) und Prüfgrößen P1–P11 („Prüfen statt raten“)"
+    ],
+    "pr": [28]
+  },
+  {
     "v": "0.5.2",
     "d": "2026-10-21",
     "t": "Farbe und Licht",

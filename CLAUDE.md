@@ -12,6 +12,10 @@ Material 3 Expressive Design und Updates über GitHub.
   (Abschnitt „Aktueller Stand“, Häkchen, neue Wünsche des Users ins Backlog mit Datum).
 - [docs/CODEMAP.md](docs/CODEMAP.md): Code-Landkarte (Module, Tasks und Kerne, Speicher, Schnittstellen, Werkzeuge).
   Statt den Code zu durchsuchen zuerst hier nachsehen; am Ende jeder Phase aktualisieren.
+- [docs/SETTING.md](docs/SETTING.md) und [docs/WIRTSCHAFT.md](docs/WIRTSCHAFT.md): das Skript der Welt (Figuren, Orte,
+  Ereignisse, Bauen) und die Wirtschaft (Waren, Kausalketten, Protokoll, Prüfgrößen). Vor Arbeit an Welt-Inhalten
+  die betroffenen Kapitel gezielt lesen; **Wirtschaftsänderungen nur mit grünem Zeitraffer-Bericht** (WIRTSCHAFT.md
+  Kapitel 14).
 
 ## Sitzungen und Nutzungslimit
 
