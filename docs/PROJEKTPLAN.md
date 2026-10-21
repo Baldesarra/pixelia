@@ -26,9 +26,10 @@
 ## 1. Vision
 
 **Pixelia** verwandelt das 5"-Display in ein Fenster in eine lebendige Pixel-Welt. Das Gerät läuft nebenbei auf dem
-Schreibtisch. Man muss nicht aktiv spielen, aber jedes Mal, wenn man hinschaut, passiert etwas: Menschen gehen zum
-Bäcker, ein Held findet einen legendären Schatz, der Dorfverein schießt ein Tor, draußen vor dem Zugfenster zieht ein
-Gewitter auf.
+Schreibtisch. Man muss nicht aktiv spielen, aber jedes Mal, wenn man hinschaut, passiert etwas: Greta legt frische
+Laibe in die Auslage, Taylor treibt die Schafe heim, im Lokschuppen klopft Emil Rost von der alten Lok, und über dem
+Bahnhof zieht ein Gewitter auf. (Beispiele seit dem gemeinsamen Setting, 2026-10-21; vorher Held, Dorfverein und
+Zugfenster.)
 
 Leitlinien:
 
@@ -36,7 +37,7 @@ Leitlinien:
 - **Idle zuerst.** Alles läuft von allein. Eingreifen ist möglich (Weboberfläche, Touch), aber nie nötig.
 - **Liebe zum Detail.** Lieber eine Welt richtig gut als vier halb.
 - **Flüssig.** Ziel 30 fps, Minimum 25 fps, ohne Ruckler.
-- **Modular.** Neue Welten und Funktionen kommen per Update dazu, ohne den Rest umzubauen.
+- **Modular.** Neue Orte, Gebiete und Funktionen kommen per Update dazu, ohne den Rest umzubauen.
 - **Viele Infos.** Hardware, Speicher, WLAN, Leistung – alles einsehbar.
 
 ## 2. Ausgangslage: Wünsche und Rahmenbedingungen
@@ -248,6 +249,13 @@ Actions).
 
 ### 4.5 Modulare Welten
 
+> **Seit 2026-10-21 (gemeinsames Setting):** Module sind **Orte und Gebiete** einer gemeinsamen Welt, keine eigenen
+> Welten mehr (4.6, Kapitel 6). Die Tabelle unten ist der Arbeitsentwurf aus der Zeit getrennter Welten; die
+> Schnittstelle für Orte und Gebiete entsteht in 0.5.8 nach [SETTING.md](SETTING.md) Kapitel 15. Statt
+> `backgroundTick()` und `catchUp()` je Welt gibt es Stufen der Simulation für die ganze Welt (voll, grob, Nachholen).
+> Statt „Hintergrund- und Live-Simulation liefern dieselben Ergebnisse“ gilt „gleiche Wirkung, andere Darstellung“:
+> Waren, Bedürfnisse und Erinnerungen buchen in beiden Stufen identisch, die Bewegung nicht.
+
 Jede Welt ist ein Modul mit fester Schnittstelle (Arbeitsentwurf):
 
 | Funktion | Zweck |
@@ -273,9 +281,14 @@ Ergebnis auf Gerät und Simulator; Hintergrund- und Live-Simulation liefern dies
 
 ### 4.6 Gemeinsames Universum „Pixelia“
 
-**Entscheidung: Ja – lose gekoppelt.** Pixelia ist das Land, in dem alle Welten spielen. **Das Dorf ist das Herz.**
+**Entscheidung (2026-10-18): Ja – lose gekoppelt.** Pixelia ist das Land, in dem alle Welten spielen. **Das Dorf ist
+das Herz.**
 
-Verbindungen (Beispiele):
+**Neu gefasst am 2026-10-21 (gemeinsames Setting):** Pixelia ist **eine** Welt um 1850, das Dorf bleibt das Herz.
+Statt getrennter Welten gibt es Orte und Gebiete, die über Kapitel und Updates dazukommen ([SETTING.md](SETTING.md)
+Kapitel 4 und 15). Die Regeln unten ersetzen die früheren.
+
+Frühere Beispiele (getrennte Welten, bis 2026-10-20):
 
 - Der **Held wohnt im Dorf**. Ist er zu Hause, sieht man ihn im Dorf beim Händler, beim Schmied, in der Taverne. Seine
   Beute liegt am Marktstand aus.
@@ -286,13 +299,20 @@ Verbindungen (Beispiele):
 - **Gemeinsamer Kalender und gemeinsames Wetter:** Gewitter im Dorf = Gewitter vor dem Zugfenster.
 - **Kurzmeldungen** über Weltgrenzen hinweg („TOR für den FC Pixelia!“, während das Zugfenster läuft).
 
-Regeln, damit jede Welt einzigartig bleibt:
+Regeln seit dem gemeinsamen Setting (2026-10-21; ersetzen „jede Welt funktioniert allein, Verbindungen nur über den
+Ereignis-Bus, eigene Perspektive je Welt“):
 
-- **Jede Welt funktioniert komplett allein** und lässt sich einzeln abschalten. Verbindungen laufen nur über den
-  Ereignis-Bus, nie über direkte Aufrufe zwischen Welten. Ein Fehler in einer Welt bricht keine andere.
-- **Jede Welt hat eigene Perspektive, eigene Palette, eigene Mechanik und ein eigenes technisches Glanzstück**
-  (siehe Kapitel 6). Gemeinsam ist nur ein Stil-Leitfaden, damit Figuren wiedererkennbar sind.
-- Schalter „Welten verbinden“ in der Weboberfläche (Standard: an).
+- **Eine Welt, ein gemeinsamer Weltzustand:** Uhr, Wetter, Figuren, Warenbuch, Chronik, Verbindungen, Aufgaben und
+  Projekte gehören der Welt und werden als Ganzes gespeichert.
+- **Orte und Gebiete sind Module:** Ein Ort ist ein Bild mit Hintergrund, Baukasten-Einrichtung, Wegen,
+  Benutzungspunkten, Tätigkeiten, Ereignissen und Ortszustand; ein Gebiet (Bahnhof, Dorf, Grube) ist eine Gruppe von
+  Orten. Neues Gebiet = neuer Ordner, Daten, eine Zeile Registrierung; alte Speicherstände laden weiter.
+- **Ein Ort greift nie direkt auf einen anderen zu.** Verbindungen laufen über den Weltzustand (eine Figur oder Ware
+  wird in einem Schritt übergeben, nie kopiert) und über den Ereignis-Bus. Ein fehlerhaftes Ortsmodul darf Weltzustand
+  und Speicherstand nicht beschädigen.
+- **Eine Perspektive (3/4-Draufsicht) und ein Stil-Leitfaden für alle Orte**, Palette je Ort. Ein technisches
+  Glanzstück hat jedes Gebiet.
+- Der Schalter „Welten verbinden“ entfällt.
 
 Abwägung: Etwas mehr Planungsaufwand (Stil-Leitfaden, Ereignis-Katalog) und die Verbindungen entstehen erst, wenn
 beide beteiligten Welten existieren. Dafür wirkt alles zusammen deutlich lebendiger als vier getrennte
@@ -388,11 +408,12 @@ Die Oberfläche warnt, wenn die Partitionstabelle auf dem Gerät nicht zur Firmw
 
 **Versionsschema (Vorgabe des Users):** immer drei Stellen `MAJOR.MINOR.PATCH`.
 
-- **MINOR = Phase bzw. Welt**, z. B. 0.6.x = Zugfenster.
-- **PATCH = jede Iteration** innerhalb der Phase: 0.6.0 erste Zug-Version, 0.6.1 zweite, 0.6.2 dritte … bis zur
-  nächsten Phase (0.7.0).
-- Vor 1.0.0 sind alle Versionen Vorabversionen. 1.0.0 = alle vier Welten fertig und verbunden, Dauertest bestanden.
-- Nach 1.0.0 (Vorschlag): neue Welt oder großes Feature = neue MINOR, Iterationen = PATCH.
+- **MINOR = Phase**, ab 0.6.x je ein Kapitel der Welt, z. B. 0.6.x = Kapitel 1 „Der erste Frühling“ (bis
+  2026-10-21: je eine Welt, z. B. 0.6.x = Zugfenster).
+- **PATCH = jede Iteration** innerhalb der Phase: 0.6.0 erste Version von Kapitel 1, 0.6.1 zweite, 0.6.2 dritte …
+  bis zur nächsten Phase (0.7.0).
+- Vor 1.0.0 sind alle Versionen Vorabversionen. 1.0.0 = alle Kapitel fertig und verbunden, Dauertest bestanden.
+- Nach 1.0.0 (Vorschlag): neue Region oder großes Feature = neue MINOR, Iterationen = PATCH.
 - **Vorschau-Kanal:** Testversionen als `X.Y.Z-beta.N` (GitHub-Prerelease). Nur Geräte im Kanal „Vorschau“ bieten sie an.
 
 **Die Version kommt aus dem Git-Tag** (`v0.6.1`). Der Build schreibt sie automatisch in die Firmware (ESP-IDF
@@ -489,7 +510,7 @@ Format, ergänzt um ein Datum:
 | **Weltzeit** | Echtzeit per NTP, Zeitzone (Standard Europa/Berlin), Sonnenauf-/-untergang und Mondphase für den Standort, Jahreszeiten, deutsche Feiertage und Anlässe (Advent, Weihnachten, Silvester, Ostern, Halloween …) |
 | **Standort** | Stadt in den Einstellungen eintragen → Koordinaten über die kostenlose Geokodierung von **Open-Meteo** (kein Login, kein Schlüssel) |
 | **Wetter** | Wahlweise **echtes Wetter** (Open-Meteo, alle 30 min), **simuliert** (plausibel nach Jahreszeit) oder **fest**. Aktionen aus der Oberfläche überschreiben kurzfristig („Sturm jetzt“) |
-| **Ereignis-Bus** | Welten melden Ereignisse; andere Welten, Kurzmeldungen und Weboberfläche hören zu |
+| **Ereignis-Bus** | Orte und Systeme melden Ereignisse; Chronik, Regie, Kurzmeldungen und Weboberfläche hören zu (bis 2026-10-21: Welten untereinander) |
 | **Kurzmeldungen** | Kleine Einblendungen auf dem Display (abschaltbar, pro Welt filterbar) und in der Oberfläche |
 | **Regie** | Wiedergabeliste: Rotation nach Zeit, Zeitplan (z. B. abends Zugfenster), feste Welt; Live-Unterbrechung bei Spielen des FC Pixelia; Kamera-Regie innerhalb der Welten |
 | **Nachtmodus** | Zeitplan oder Sonnenstand: Display dimmen, Nachtszene oder aus; Touch weckt |
@@ -498,7 +519,23 @@ Format, ergänzt um ein Datum:
 | **Speichern** | Spielstände atomar in LittleFS, Einstellungen in NVS, Export/Import aller Einstellungen als Datei |
 | **Diagnose** | Leistungszähler (FPS, Frame-Zeit pro Stufe, CPU-Last pro Kern), Live-Log, Absturzberichte |
 
-## 6. Die Welten
+## 6. Die Welt und ihre Orte
+
+> **Neu gefasst am 2026-10-21 (gemeinsames Setting, Neuplanung):** Pixelia ist **eine** Welt um 1850 mit dem Dorf
+> Pixelia als Herz. Wer dort lebt und was passiert, steht in [SETTING.md](SETTING.md) (Figuren, Gebiete, Ereignisse,
+> Bauen) und [WIRTSCHAFT.md](WIRTSCHAFT.md). Die Welt wächst in Kapiteln, je Kapitel eine Phase:
+>
+> | Phase | Kapitel | Gebiete |
+> |---|---|---|
+> | 0.6.x | 1 „Der erste Frühling“ | Bahnhof mit gestrandetem Zug, Umgebung (Waldrand, Wald, See, Wiesen, Lichtung) |
+> | 0.7.x | 2 „Das Dorf wächst“ (Schwerpunkt) | Dorf Pixelia, Bauernhof, Sykoras Hof, Museum |
+> | 0.8.x | 3 „Die alte Grube“ | Grube, Berghang mit Steinbruch |
+> | 0.9.x | 4 „Die Lok“ | Lokschuppen, Strecke, Abteil im fahrenden Zug |
+> | nach 1.0 | Updates | neue Regionen mit dem Zug ([ZUSATZINHALTE.md](ZUSATZINHALTE.md)) |
+>
+> Orte und Gebiete sind Module (4.5, 4.6); Fahrplan und Systemplan stehen in [ROADMAP.md](ROADMAP.md). Die Abschnitte
+> 6.1 bis 6.5 sind die **früheren Welt-Konzepte** aus der Zeit getrennter Welten (bis 2026-10-20). Sie bleiben als
+> Ideenquelle stehen; was davon weiterlebt, steht in ROADMAP „Frühere Welt-Ideen“. Die Prinzipien in 6.0 gelten weiter.
 
 ### 6.0 Prinzipien gegen Langeweile
 
@@ -508,15 +545,16 @@ Format, ergänzt um ein Datum:
 - **Drei Zeitebenen:**
   - *Sekunden:* ständige Mikro-Animationen (Rauch, Vögel, blinzelnde Figuren, wehende Fahnen, Blätter, Glühwürmchen)
   - *Stunden:* Tagesablauf, Wetterwechsel, Ereignisse
-  - *Wochen:* Fortschritt (Dorf wächst, Held wird stärker, Saisons, Jahreszeiten)
+  - *Wochen:* Fortschritt (Dorf wächst, Grube wird tiefer, Lok wird fertig, Jahreszeiten)
 - **Ereignisse in Seltenheitsstufen:** häufig (mehrmals pro Stunde), gelegentlich (täglich), selten (wöchentlich),
   legendär (alle paar Monate). Man entdeckt auch nach Wochen noch Neues.
 - **Kamera-Regie:** Die Kamera schwenkt von selbst zu interessanten Momenten.
 - **Ausdrucksstarke Kleinigkeiten:** Sprechblasen-Icons (♥, Zzz, ♪, 🍞, !, ?), Gedanken auf Info-Karten.
-- **Echtzeitbezug:** Tageszeit, Jahreszeit, Wetter und Feiertage stimmen mit der echten Welt überein (abschaltbar).
-- **Jede Welt hat ein technisches Glanzstück**, das sie unverwechselbar macht.
+- **Echtzeitbezug:** Die Tageszeit ist die echte Uhrzeit. Jahreszeiten laufen gestaucht (7 echte Tage), das Wetter
+  wird passend dazu simuliert ([SETTING.md](SETTING.md) Kapitel 9; bis 2026-10-21: alles wie in der echten Welt).
+- **Jedes Gebiet hat ein technisches Glanzstück**, das es unverwechselbar macht (bis 2026-10-21: jede Welt).
 
-### 6.1 Zugfenster (0.6.x) – „Der ruhige Ausgleich“
+### 6.1 Früheres Konzept: Zugfenster – „Der ruhige Ausgleich“
 
 *Glanzstück: Parallax-Landschaft mit Rastereffekten (Himmelsverläufe pro Zeile, Wasserspiegelungen) und Regen auf der Scheibe.*
 
@@ -537,7 +575,7 @@ Format, ergänzt um ein Datum:
   Zugtyp (Regionalbahn, Schnellzug, Dampflok-Abteil, Nachtzug), Regen jetzt, Tunnel jetzt.
 - **Touch:** Fenster antippen → Info zur Region bzw. Stadt; Wischen → Zug beschleunigen/bremsen (optional).
 
-### 6.2 Pixel-Dorf (0.7.x) – „Das Herz von Pixelia“ (Schwerpunkt)
+### 6.2 Früheres Konzept: Pixel-Dorf – „Das Herz von Pixelia“
 
 *Glanzstück: Bewohner-Simulation mit Bedürfnissen, Beziehungen und Tagesplänen, dazu Licht bei Nacht (leuchtende
 Fenster, Laternen) und eine Dorfchronik.*
@@ -610,7 +648,7 @@ Bewohner X“, fest.
 Statistiken, Aktionen: Sturm/Gewitter, Schnee, Feuerwerk, Fest ausrufen, Regenbogen, neue Familie einladen, Bewohner
 umbenennen, **eigenen Bewohner erstellen**, geheime Aktion (UFO).
 
-### 6.3 Dungeon-Held (0.8.x) – „Das Abenteuer im Hintergrund“
+### 6.3 Früheres Konzept: Dungeon-Held – „Das Abenteuer im Hintergrund“
 
 *Glanzstück: prozedurale Dungeons mit Nebel des Krieges und Fackel-Lichtkegel (Lichttabellen).*
 
@@ -628,7 +666,7 @@ umbenennen, **eigenen Bewohner erstellen**, geheime Aktion (UFO).
   Aktionen: Heiltrank schicken, Segen (zeitweiser Bonus), Dungeon-Thema wählen, Held umbenennen.
 - **Touch:** Held antippen → Werte; Truhe antippen → Inhalt.
 
-### 6.4 Pixel-Liga (0.9.x) – „Mitfiebern“
+### 6.4 Früheres Konzept: Pixel-Liga – „Mitfiebern“
 
 *Glanzstück: Spielengine mit Taktik und Spielerwerten plus Live-Übertragung im Draufsicht-Stil mit Torwiederholung.*
 
@@ -646,7 +684,7 @@ umbenennen, **eigenen Bewohner erstellen**, geheime Aktion (UFO).
 - **Weboberfläche:** Tabelle, Spielplan, Ergebnisse, Liveticker, Kader und Statistiken, Historie.
 - **Touch:** Spieler antippen → Name und Werte; Scoreboard antippen → zum Spiel wechseln.
 
-### 6.5 Inselwelt (eingeplant, Position offen) – „Ein Zuhause, das eine Geschichte bekommt“
+### 6.5 Früheres Konzept: Inselwelt – „Ein Zuhause, das eine Geschichte bekommt“
 
 Aufgenommen am 18.10.2026 auf Wunsch des Users. Rohkonzept: [welten/inselwelt-konzept.md](welten/inselwelt-konzept.md).
 
@@ -667,7 +705,8 @@ Aufgenommen am 18.10.2026 auf Wunsch des Users. Rohkonzept: [welten/inselwelt-ko
 ### 6.6 Spätere Ideen (nicht eingeplant)
 
 Weitere Welten als Module: Aquarium, Raumstation, Ameisenfarm, Leuchtturm am Meer, Bauernhof, Wetterstation-Ansicht,
-Uhr/Kalender-Overlay. Sammelt sich in [ROADMAP.md](ROADMAP.md) im Backlog.
+Uhr/Kalender-Overlay. Sammelt sich in [ROADMAP.md](ROADMAP.md) im Backlog. Einordnung seit 2026-10-21: ROADMAP
+„Frühere Welt-Ideen“ und [ZUSATZINHALTE.md](ZUSATZINHALTE.md).
 
 ## 7. Weboberfläche
 
@@ -937,3 +976,12 @@ unsere Paletten um. Details: 4.7.
 | 2026-10-21 | **Blitz gedämpft, Nebel als Schwaden** (Entscheidungen des Users nach der ersten Sichtprüfung): Blitz hellt im Verhältnis zum Licht auf statt zu Weiß (nachts nicht greller als tagsüber), Nebel zieht in Schwaden von oben nach unten, gleichmäßiger Dunst schwächer | ein weißes Bild blendet im dunklen Zimmer; starrer Dunst wirkte wie zu helle Pixel statt Nebel |
 | 2026-10-21 | **Überblendung mit Toleranz** (0.5.3): reichen die 240 Farben beider Orte nicht, werden ähnliche Farben für die Dauer des Übergangs zusammengelegt, statt still abzublenden | der User wählte Überblendung und sah abends trotzdem Abblenden; die Abweichung ist für 0,6 s nicht sichtbar |
 | 2026-10-21 | **Fensterschein nur bei Licht innen** (Wunsch des Users, 0.5.3): Lichtquellen je Ort mit Zustand an/aus in der Umgebung der Bühne (`LightBoard`), gilt auch für unsichtbare Orte; Fenster am Außenort verweisen auf den Raum dahinter. Warum ein Licht aus ist, entscheidet später die Simulation (Neuplanung ordnet ein) | Außen- und Innenansicht lesen denselben Zustand; Licht als System (SETTING.md Kapitel 9) braucht genau diese Schnittstelle |
+| 2026-10-21 | **Neuplanung nach dem Setting: Phasen als Kapitel der Welt** (Entscheidung des Users): 0.5.x Engine bis 0.5.12, dann 0.6.x Kapitel 1 „Der erste Frühling“ (Bahnhof, Zug, Umgebung, 16 Bewohner, Grundwirtschaft), 0.7.x Kapitel 2 „Das Dorf wächst“ (Schwerpunkt), 0.8.x Kapitel 3 „Die alte Grube“, 0.9.x Kapitel 4 „Die Lok“, 1.0.0; Grube vor Lok. Zusammengeführt wird in 0.5.12 (Gesamtprobe im Testdorf), 0.6.0 (die echte Welt startet), in den Abnahmen am Ende jeder Phase und in 1.0.0. Systemplan mit Baustein, Inhalt, Nachweis und Denkstufe je System in [ROADMAP.md](ROADMAP.md) | erst die Bausteine mit Testinhalt, dann Inhaltswellen (LEBENDIGKEIT Kapitel 4); die Kernsysteme (Speicherstand, Warenbuch, Stufen der Simulation) lassen sich später kaum umbauen und brauchen den Bilanz-Test, bevor echte Wirtschaftswerte kommen; die Lok braucht Kohle und Blei aus der Grube; ersetzt die Phasen Zug, Dorf, Dungeon, Liga, Inselwelt |
+| 2026-10-21 | **0.5.x neu geschnitten:** 0.5.4 Weboberfläche aufräumen (fest, Wunsch des Users, erst im Kanal Vorschau), 0.5.5 Asset-Quelle und Grafik-Werkzeug (bisher 0.5.4), 0.5.6 Schrift, Einblendungen und Touch (bisher 0.5.5, Ereignis-Bus nach 0.5.8), 0.5.7 Weltzeit, Kalender und Wetter-Simulation (bisher 0.5.6 „Dienste“, ohne Standort und Open-Meteo), Phase B: 0.5.8 Orte und Gebiete mit Nachprüfung von Phase A, 0.5.9 Weltzustand, Figuren und Speicherstand, 0.5.10 Warenbuch, Aufgaben und Projekte, 0.5.11 Tagesgerüst, Entscheidung und Arbeitsrhythmus, 0.5.12 Nachweis und Gesamtprobe. Browser-Simulator auf GitHub Pages (bisher 0.5.7) wird eine Frage vor 1.0, Ereignis-Regisseur (bisher 0.5.10) kommt mit der ersten Ereigniswelle in 0.6.x | der frühere Patch „Gemeinsamer Weltzustand“ war für eine Sitzung unter 250 K zu groß; das Setting simuliert das Wetter passend zur gestauchten Jahreszeit (7 Tage), echtes Wetter passt nicht dazu; Kontaktbogen und Bericht im PR kommen aus dem kopflosen Simulator; der Regisseur wird mit echten Ereignissen besser entworfen |
+| 2026-10-21 | **Zeichenweg bleibt** (grob → 400 × 240 → 2× im Bounce-Callback). Der Vorschlag „Display liest das grobe Bild direkt (4× im Bounce-Callback), feine Einblendungen nur in ihren Zeilen“ wird nicht jetzt umgesetzt, sondern bleibt eine Reserve: Sie wird gezogen, wenn ein echter Ort im schlechtesten Fall mehr als 16 ms für Logik und Zeichnen braucht; gemessen wird in 0.5.12 | Der Gewinn von 2,4 ms fällt nur in Bildern ohne feine Teile an; nachts, bei Regen oder Nebel liegen Lichtraster, Schleier und Partikel in fast allen Zeilen, gerade im schlechtesten Fall bliebe also wenig übrig, außer Licht und Schleier wandern in den Interrupt, was Aussetzer riskiert. Heute liegt der schlechteste Fall bei 16 ms (64 Figuren mit Regen), die Logik einer echten Welt schätzt SETTING.md auf unter 1 ms; Live-Vorschau, Screenshot und Überblendung brauchen das 400 × 240-Bild |
+| 2026-10-21 | **Orte und Gebiete als Module einer gemeinsamen Welt** mit gemeinsamem Weltzustand; ein Ort greift nie direkt auf einen anderen zu, Verbindungen über Weltzustand und Ereignis-Bus; eine Perspektive für alle Orte; MINOR = Phase bzw. Kapitel der Welt. Angepasst: CLAUDE.md, PROJEKTPLAN 1, 4.5, 4.6, 4.11, 5 und Kapitel 6 (frühere Welt-Konzepte bleiben als Ideenquelle stehen) | ersetzt „jede Welt funktioniert allein, Verbindungen nur über den Ereignis-Bus“ und „MINOR = Phase/Welt“ aus der Zeit getrennter Welten ([SETTING.md](SETTING.md) Kapitel 15, Entscheidung des Users 2026-10-20) |
+| 2026-10-21 | **Echtzeitbezug:** Tageszeit ist die echte Uhrzeit, Jahreszeiten laufen gestaucht (7 Tage), das Wetter wird simuliert (PROJEKTPLAN 6.0 angepasst); ob echtes Wetter oder die echte Jahreszeit als Option kommt, steht in [ZUSATZINHALTE.md](ZUSATZINHALTE.md) | Setting-Entscheidung „Jahreszeit 7 echte Tage, Wetter simuliert“ (SETTING.md Kapitel 9) |
+| 2026-10-21 | **Museum komplett im Grundspiel** in 0.7.x mit mehr als den 45 Stücken der Startliste; wie viele realistisch sind, prüft die Museums-Sitzung (Entscheidung des Users) | der User wollte es zuerst als Zusatzinhalt, entschied sich dann fürs Grundspiel; neue Sammlungen aus neuen Gebieten kommen per Update |
+| 2026-10-21 | **Keine fremden Grafik-Pakete als Grundstock:** Kenney, Tiny 16, Ninja Adventure, Zelda-like u. a. geprüft (Tabelle in [STIL.md](STIL.md)), keines übernommen; eigene Grafiken, Referenz für den Look ist die Küche aus Skizze v4. Das Grafik-Format und das Werkzeug PNG → Paletten-Indizes (0.5.5) dienen eigenen Grafiken und den Möbeln des Users; die Regel CC0/CC-BY mit `assets/CREDITS.md` bleibt für Ausnahmen | Entscheidung des Users: die Pakete wirken zu „low-budget“; keines hat Figuren in unserer Größe (28 hoch, 4 Richtungen, Kleidung um 1850) |
+| 2026-10-21 | **Fensterlicht als System eingeordnet** (Wunsch des Users): `LightBoard` (0.5.3) bleibt die Schnittstelle; Lichtquellen-Arten und Ortszustand „Licht“ 0.5.8, Rituale (anzünden, löschen beim Schlafengehen) 0.5.11, Brennstoff-Kette 0.6.x. Offene Regeln (Kamin als Lichtquelle, Dauer eines Lichtabends, Außenlaternen, Fensterstufe) gehen an die Setting-Werkstatt (ROADMAP-Backlog) | WIRTSCHAFT.md deckt den Verbrauch ab (Lichtabend, Kienspan, P4), nicht aber, wann ein Licht brennt und wie stark es nach außen scheint |
+| 2026-10-21 | **Checkliste „Vor 1.0.0 klären“ und Zusatzinhalte nach 1.0** in eigener Datei [ZUSATZINHALTE.md](ZUSATZINHALTE.md); frühere Welt-Ideen in ROADMAP „Frühere Welt-Ideen“ eingeordnet statt gelöscht | Wunsch des Users; die ROADMAP bleibt der Fahrplan bis 1.0 |

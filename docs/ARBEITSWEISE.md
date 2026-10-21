@@ -85,7 +85,7 @@ Stand 2026-10-19. Anlass: Die Sitzung für 0.2.2 hat allein ein ganzes 5-Stunden
 - **Hoch** ist der Normalfall und sehr gründlich: Weboberfläche, Werkzeuge, Doku, normale Funktionen, kleine Fehler.
 - **Extra Hoch** nur, wenn Claude es **ausdrücklich ansagt**, zum Beispiel:
   - Engine-Grundgerüst (0.5.0),
-  - Design der Dorf-Simulation (0.7.0),
+  - Weltzustand, Warenbuch und Entscheidungslogik (0.5.8–0.5.11),
   - hartnäckige Abstürze, Timing- oder Speicherfehler.
 - Claude stellt die Denkstufe beim Anlegen der Sitzungs-Karte selbst ein. Startest du eine Sitzung von Hand, steht
   die empfohlene Stufe in der ersten Zeile des Auftrags.

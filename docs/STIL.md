@@ -1,7 +1,8 @@
 # Pixelia – Stil-Leitfaden (Entwurf)
 
 > Entwurf seit 0.5.2 („Farbe und Licht“). Grundlage für Farbreihen, eigene Möbel und die echten Grafiken nach dem
-> Setting. Ausgebaut wird er in 0.5.8 („Orte und Stil“: Format und Zeichenanleitung für eigene Möbel). Technik dazu:
+> Setting. Das Grafik-Format kommt mit 0.5.5 (Asset-Quelle), fertig ausgebaut wird er in 0.6.0 (Rampen je Ortsart,
+> Figuren-Aussehen, Format und Zeichenanleitung für eigene Möbel; Neuplanung 2026-10-21). Technik dazu:
 > `engine/include/pixelia/engine/light.h`, Entscheidungen: [PROJEKTPLAN.md](PROJEKTPLAN.md) Kapitel 14.
 
 ## 1. Grundstimmung
@@ -101,7 +102,33 @@ Streifen aus 4 Farben zeichnen, die Rotation lässt es fließen.
   Fenster nach draußen leuchten nachts nur, wenn im Raum dahinter Licht brennt. Glasfarben gelten je Farbe: Fenster
   zu verschiedenen Räumen brauchen eigene Glasfarben.
 
-## Offen (für 0.5.8)
+## 8. Referenz und Grafik-Quellen
 
-- Format und Zeichenanleitung für eigene Möbel (Maße im Raster, welche Rampen, Umriss).
+**Referenz für den Look:** die Küche aus [Skizze v4](skizzen/massstab-v4.html) („Maßstab Küche nah“). Der User nennt
+sie „sehr gelungen“ (2026-10-21): grobe Pixel, große Figuren, wenig Feinkram, dafür viele kleine Geschichten im Bild
+(der Topf dampft, ein Korb Kartoffeln, der Napf für die Katze, abends glüht der Ofen). Dinge der Moderne aus der
+Skizze (Kühlschrank, Plattenspieler) gibt es um 1850 nicht.
+
+**Eigene Grafiken statt fremder Pakete** (Entscheidung des Users 2026-10-21). Geprüft wurden frei verfügbare
+Pixel-Art-Pakete gegen unsere Vorgaben (3/4-Draufsicht, grobes Raster 200 × 120, Kachel 8 × 8, Figur 28 hoch in 4
+Richtungen, warme Palette mit Rampen). Ergebnis: Kein Paket hat Figuren in unserer Größe; alle setzen auf 16er-Figuren,
+und der Stil wirkt dem User zu „low-budget“. Übernommen wird keines. Die Regel für fremde Inhalte (nur CC0 oder CC-BY,
+Eintrag in `assets/CREDITS.md`) bleibt für Ausnahmen.
+
+| Quelle | Lizenz | Stil | Eignung | Aufwand beim Umwandeln |
+|---|---|---|---|---|
+| Kenney: Roguelike Indoors, Tiny Town, Roguelike/RPG | CC0, Nennung freiwillig | 16 × 16, flach, bunt, schlicht | Möbel und Innenräume als Vorlage; Figuren 16 hoch | mittel: umfärben, Kacheln teilen, 3/4-Sicht nachzeichnen |
+| Tiny 16: Basic (+ Buildings), Lanea Zimmerman (Sharm) | CC-BY 4.0 / 3.0, OGA-BY 3.0 | 16 × 16, DawnBringer-16-Palette, klassisches RPG-Dorf, Bodenecken in 8 × 8 | Außenkacheln, Bäume, Brücken; Figuren 16 hoch | mittel |
+| Ninja Adventure (Pixel-boy, AAA) | CC0 laut Autor (Lizenzdatei ungeprüft, die Seite verlangt eine Bot-Prüfung) | 16 × 16, asiatischer Einschlag, sehr umfangreich, auch Tiere und Töne | einzelne Tiere und Kisten; Thema passt nicht | hoch |
+| Zelda-like tilesets and sprites (ArMM1998) | CC0 | 16 × 16, kräftige Farben, außen, innen, Höhle | Höhle als Vorlage für die Grube | mittel bis hoch |
+| DawnLike (DragonDePlatino) | CC-BY 4.0 | 16 × 16, Rogue-like mit Monstern und Gegenständen | wenig Passendes (kein Kampf) | hoch |
+| Mini Farm (Jofra / Nikuman Studio) | CC0, aber Weitergabe der Dateien untersagt | 16 × 16, Hof mit Tieren | nicht verwendbar: das öffentliche Repo wäre eine Weitergabe | – |
+| LPC (Liberated Pixel Cup) | großteils CC-BY-SA 3.0 und GPL 3.0 | 32 × 32, Figuren im 64er-Rahmen | nicht erlaubt | – |
+| Sprout Lands, Time Fantasy, Mana Seed u. a. | eigene Lizenzen ohne Weitergabe bzw. kostenpflichtig | gemütlich, oft hübsch | nicht erlaubt | – |
+
+## Offen (für 0.6.0)
+
+- Format und Zeichenanleitung für eigene Möbel (Maße im Raster, welche Rampen, Umriss); das Grafik-Format selbst
+  legt 0.5.5 fest.
 - Feste Liste der Rampen je Ortsart nach dem Setting (Bahnhof, Hütte, Wald, See …).
+- Figuren-Aussehen: Ebenen des Figuren-Baukastens (0.5.9), Kleidung um 1850, Erkennungsmerkmale der 16 Startfiguren.

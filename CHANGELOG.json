@@ -1,5 +1,18 @@
 [
   {
+    "v": "0.5.4",
+    "d": "",
+    "t": "",
+    "s": "",
+    "n": [
+      "Doku: Neuplanung nach dem Setting: Phasen ab 0.6.x als Kapitel der Welt (Bahnhof, Dorf, Grube, Lok), 0.5.x neu geschnitten bis 0.5.12 Gesamtprobe, Systemplan mit Patch, Nachweis und Denkstufe je System",
+      "Doku: CLAUDE.md und PROJEKTPLAN (Vision, 4.5, 4.6, 4.11, Kapitel 6) an das gemeinsame Setting angepasst: Orte und Gebiete als Module, gemeinsamer Weltzustand, MINOR = Phase bzw. Kapitel",
+      "Doku: docs/ZUSATZINHALTE.md mit „Vor 1.0.0 klären“ und Zusatzinhalten nach 1.0; frühere Welt-Ideen eingeordnet; README neu (Setting, Merkmale, getrennt nach „gibt es schon“ und „geplant“)",
+      "Doku: freie Grafik-Pakete geprüft (Kenney, Tiny 16, Ninja Adventure, Zelda-like u. a.), keines übernommen; eigene Grafiken im Stil der Küche aus Skizze v4 (STIL.md)"
+    ],
+    "pr": []
+  },
+  {
     "v": "0.5.3",
     "d": "2026-10-21",
     "t": "Wetter und Partikel",
