@@ -97,6 +97,7 @@ export const ICONS = [
   'motion_photos_on',
   // Eigenes Testbild (0.5.0)
   'image',
+  'map',
 ] as const;
 
 export type IconName = (typeof ICONS)[number];

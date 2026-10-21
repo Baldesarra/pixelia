@@ -184,7 +184,13 @@ export type ExpState = {
   mode: 'black' | 'bars' | 'frame' | 'motion' | 'touch' | 'engine';
   testS: number;
   pic?: boolean; // eigenes Testbild auf dem Display (seit 0.5.0)
-  touch: { ok: boolean; down: boolean; x: number; y: number; corners: number; n: number };
+  // Orte der Bühne (seit 0.5.0): Liste, sichtbarer Ort, Übergang, Rundgang in s (0 = aus), Figuren (0 = Standard)
+  places?: { id: string; title: string }[];
+  place?: number;
+  trans?: 'schnitt' | 'ueberblendung' | 'raster' | 'abblenden';
+  tour?: number;
+  figures?: number;
+  touch:{ ok: boolean; down: boolean; x: number; y: number; corners: number; n: number };
 };
 
 /** GET /api/perf (seit 0.2.2): Leistung, Messung alle 2 s; Task-Liste nur mit ?tasks=1 */

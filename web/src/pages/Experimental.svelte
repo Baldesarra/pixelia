@@ -2,7 +2,7 @@
   // Seite „Experimentell“ (seit 0.4.2, exper.h): Schalter (Standard aus, auf dem Gerät gespeichert), Stromsparmodus und
   // Panel-Timing im Probelauf (ohne Bestätigung nach 15 s zurück), Displaytests, Touch-Test, ältere Version von GitHub.
   import { onMount } from 'svelte';
-  import { Button, Card, Chip, Icon, Switch, TextField, WavyProgress, confirmDialog } from '../lib/m3';
+  import { Button, ButtonGroup, Card, Chip, Icon, Slider, Switch, TextField, WavyProgress, confirmDialog } from '../lib/m3';
   import { get, post, type ExpState, type GhState, type PanelValues } from '../lib/api';
   import { device } from '../lib/status.svelte';
   import { num } from '../lib/format';
@@ -110,6 +110,14 @@
     { mode: 'frame', label: 'Rahmen', icon: 'crop_square' },
     { mode: 'motion', label: 'Bewegung', icon: 'motion_photos_on' },
   ] as const;
+
+  // --- Orte (seit 0.5.0) -----------------------------------------------------------------------------------
+  const transitions = [
+    { value: 'abblenden', label: 'Abblenden' },
+    { value: 'ueberblendung', label: 'Überblendung' },
+    { value: 'raster', label: 'Raster' },
+    { value: 'schnitt', label: 'Schnitt' },
+  ];
 
   // --- Eigenes Testbild (seit 0.5.0) ---------------------------------------------------------------------
   let fileInput = $state<HTMLInputElement>();
@@ -230,6 +238,41 @@
     {/if}
 
     {#if ex.on}
+      {#if ex.places?.length}
+        <Card class="wide">
+          <h2 class="card-title"><Icon name="map" size={20} />Orte (Vorschau)</h2>
+          <p class="muted">
+            Die Testorte sind neutrale Platzhalter im groben Raster (200 × 120, am Display 4 × 4 Pixel je Bildpunkt):
+            Jede Figur ist einmal gezeichnet und bekommt ihre Farbe aus einer Farbreihe. Die Landschaft ist das bisherige
+            Bild. Beim Ausschalten von Experimentell kehrt das Display zur Landschaft zurück.
+          </p>
+          <div class="setting">
+            <span>Ort</span>
+            <ButtonGroup
+              label="Ort"
+              options={ex.places.map((p, i) => ({ value: String(i), label: p.title }))}
+              bind:value={() => String(ex?.place ?? 0), (v: string) => act({ a: 'place', n: Number(v) })}
+            />
+          </div>
+          <div class="setting">
+            <span>Übergang beim Wechsel</span>
+            <ButtonGroup
+              label="Übergang"
+              options={transitions}
+              bind:value={() => ex?.trans ?? 'abblenden', (v: string) => act({ a: 'trans', v })}
+            />
+          </div>
+          <div class="setting">
+            <span class="row"><span>Figuren je Testort</span><span class="tnum">{ex.figures ? ex.figures : 'Standard'}</span></span>
+            <Slider label="Figuren je Testort" min={1} max={64} value={ex.figures || 6} onchange={(v) => act({ a: 'figures', n: v })} />
+          </div>
+          <div class="actions">
+            <span class="pol"><Switch label="Rundgang" checked={!!ex.tour} disabled={busy} onchange={(v) => act({ a: 'tour', s: v ? 20 : 0 })} />Rundgang: alle 20 s der nächste Ort</span>
+            {#if ex.figures}<Button variant="text" icon="restart_alt" onclick={() => act({ a: 'figures', n: 0 })}>Figuren: Standard</Button>{/if}
+          </div>
+        </Card>
+      {/if}
+
       <Card>
         <div class="head">
           <Icon name="energy_savings_leaf" size={24} />
@@ -425,6 +468,17 @@
     display: inline-flex;
     align-items: center;
     gap: 10px;
+  }
+  /* Orte: Beschriftung über Knopfgruppe bzw. Regler (wie auf der Seite System) */
+  .setting {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 20px;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
   }
   .touch {
     position: relative;

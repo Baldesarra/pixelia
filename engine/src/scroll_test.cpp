@@ -236,7 +236,7 @@ void ScrollTest::apply_daylight(double hours) {
     for (int i = kFar; i < kLitEnd; ++i) {
         Color base = base_palette_[i];
         if (i >= kWater && i < kWater + 16) base = base_palette_[kWater + ((i - kWater + rot) & 15)];
-        palette_[i] = scale(base, lr, lg, lb);
+        palette_[i] = pixelia::scale(base, lr, lg, lb);  // nicht Scene::scale()
     }
     // Nacht: 0 bei vollem Tageslicht, 255 bei tiefer Nacht
     float night = std::clamp((0.85f - lg) / 0.5f, 0.0f, 1.0f);

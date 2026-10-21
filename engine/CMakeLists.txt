@@ -5,12 +5,16 @@ set(PIXELIA_ENGINE_SRCS
     src/color.cpp
     src/font.cpp
     src/gesture.cpp
+    src/memory.cpp
     src/png.cpp
     src/qr.cpp
     src/redact.cpp
     src/scenes.cpp
     src/scroll_test.cpp
+    src/sprite.cpp
+    src/stage.cpp
     src/system_ui.cpp
+    src/test_places.cpp
     src/tiny_font.cpp)
 
 if(ESP_PLATFORM)

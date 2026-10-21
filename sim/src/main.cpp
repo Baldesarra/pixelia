@@ -1,5 +1,6 @@
 // Pixelia-Simulator: Einstieg und Befehlszeile
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -22,7 +23,13 @@ void print_help() {
         "\n"
         "Aufruf: pixelia-sim [Optionen]\n"
         "  --headless              ohne Fenster (CI, Langzeit-Tests)\n"
-        "  --scene NAME            Szene (%s)\n"
+        "  --scene NAME            Ort, mit dem die Bühne startet (%s)\n"
+        "  --go ORT[:ÜBERGANG]     nach dem Vorspulen wechseln; Übergang schnitt, ueberblendung, raster,\n"
+        "                          abblenden (Standard)\n"
+        "  --after N               N Logik-Schritte nach dem Wechsel (dann Screenshot)\n"
+        "  --sequence DATEI        Bildfolge als PNG (kopflos), z. B. für Übergänge und Animationen\n"
+        "  --every K               Abstand der Bilder in Logik-Schritten (Standard 3)\n"
+        "  --count N               Zahl der Bilder (Standard 8)\n"
         "  --seed N                Startwert für den Zufall (Standard 1)\n"
         "  --day N                 Welttag beim Start (Standard 0)\n"
         "  --time HH:MM            Uhrzeit beim Start (Standard 12:00)\n"
@@ -40,9 +47,11 @@ void print_help() {
         "                          setup-fehler, update, update-fertig, failed, message, toast, toast-lang,\n"
         "                          toast-ip, info, info-setup, info-offline, hold\n"
         "  --test NAME             Selbsttest ohne Hardware: gestures (Tippen, langer Druck),\n"
-        "                          redact (Passwort-Filter der Diagnose), all\n"
+        "                          redact (Passwort-Filter der Diagnose), stage (Bühne, Determinismus,\n"
+        "                          Sprites, Farbreihen), all\n"
         "\n"
         "Fenster: Leertaste Pause, +/- Zeitraffer, T eine Stunde weiter, S Screenshot, Esc Ende,\n"
+        "         1–9 Ort wechseln, U Übergang durchschalten,\n"
         "         Maus 3 s gedrückt halten = Info-Karte (wie langer Druck aufs Display), Klick schließt sie\n",
         pixelia::scene_names());
 }
@@ -103,6 +112,16 @@ int main(int argc, char** argv) {
             opt.device_colors = false;
         } else if (a == "--screen") {
             opt.screen = next();
+        } else if (a == "--go") {
+            opt.go = next();
+        } else if (a == "--after") {
+            opt.after = std::atol(next());
+        } else if (a == "--sequence") {
+            opt.sequence = next();
+        } else if (a == "--every") {
+            opt.every = std::max(1, std::atoi(next()));
+        } else if (a == "--count") {
+            opt.count = std::atoi(next());
         } else if (a == "--run-seconds") {
             opt.run_seconds = std::atof(next());
         } else if (a == "--test") {

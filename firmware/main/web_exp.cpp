@@ -1,6 +1,7 @@
 // Seite Experimentell und Live-Vorschau (seit 0.4.2):
 //   GET  /api/exp     Schalter, Panel-Werte (aktiv, gespeichert, Standard), Probe, Testbild, Touch-Test
-//   POST /api/exp     a=on|off|panel|confirm|revert|reset|test|picoff (mit PIN; revert ohne, macht nur sicherer)
+//   POST /api/exp     a=on|off|panel|confirm|revert|reset|test|picoff (mit PIN; revert ohne, macht nur sicherer);
+//                     Orte (seit 0.5.0): a=place&n=<Index>, a=trans&v=<Übergang>, a=tour&s=<Sekunden>, a=figures&n=
 //   GET  /api/screen  aktuelles Bild 400×240 als Paletten-Indizes, PackBits-gepackt (Aufbau siehe screen_get)
 //   POST /api/picture eigenes Testbild zeigen (seit 0.5.0, Aufbau siehe picture_post)
 
@@ -75,6 +76,30 @@ esp_err_t exp_post(httpd_req_t* req) {
     if (a == "picoff") {
         ui::hide_picture();
         return reply(req, true, "Testbild beendet");
+    }
+    // Orte (Vorschau, seit 0.5.0): nur mit Experimentell an
+    if (a == "place" || a == "trans" || a == "tour" || a == "figures") {
+        if (!exper::enabled()) return reply(req, false, "Experimentell ist aus");
+        if (a == "place") {
+            const int n = field(body, "n", -1);
+            if (n < 0 || n >= gfx::place_count()) return reply(req, false, "Ort unbekannt");
+            gfx::go_place(n);
+            return reply(req, true, gfx::place_title(n));
+        }
+        if (a == "trans") {
+            std::string v;
+            pixelia::Transition t;
+            if (!form_value(body, "v", &v) || !pixelia::parse_transition(v, &t))
+                return reply(req, false, "Übergang unbekannt");
+            gfx::set_transition(t);
+            return reply(req, true, "Übergang gesetzt");
+        }
+        if (a == "tour") {
+            gfx::set_tour(field(body, "s", 0));
+            return reply(req, true, gfx::tour() ? "Rundgang an" : "Rundgang aus");
+        }
+        gfx::set_figures(field(body, "n", 0));
+        return reply(req, true, "Figuren gesetzt");
     }
     if (a == "test") {
         std::string m;

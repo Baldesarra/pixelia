@@ -20,7 +20,7 @@ namespace sim {
 
 namespace {
 
-void save_screenshot(const pixelia::Scene& scene, const pixelia::Palette& palette, const std::vector<uint8_t>& frame,
+void save_screenshot(const char* name, const pixelia::Palette& palette, const std::vector<uint8_t>& frame,
                      const pixelia::WorldClock& clock, bool device_colors, std::string path) {
     constexpr int s = 2;
     std::vector<uint8_t> rgb(static_cast<size_t>(pixelia::kScreenWidth) * s * pixelia::kScreenHeight * s * 3);
@@ -29,7 +29,7 @@ void save_screenshot(const pixelia::Scene& scene, const pixelia::Palette& palett
     auto png = pixelia::encode_png_rgb(rgb.data(), pixelia::kScreenWidth * s, pixelia::kScreenHeight * s);
     if (path.empty()) {
         char name[96];
-        std::snprintf(name, sizeof(name), "screenshots/%s-tag%d-%02d%02d.png", scene.name(), clock.day(), clock.hour(),
+        std::snprintf(name, sizeof(name), "screenshots/%s-tag%d-%02d%02d.png", name, clock.day(), clock.hour(),
                       clock.minute());
         path = name;
     }
@@ -62,17 +62,17 @@ int run_window(const Options& opt) {
                                              pixelia::kScreenWidth, pixelia::kScreenHeight);
     SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
 
-    auto scene = pixelia::make_scene(opt.scene.c_str());
-    scene->init(opt.seed);
-    if (opt.load >= 0) scene->set_load(opt.load);
+    pixelia::Stage stage;
+    setup_stage(opt, stage);
+    pixelia::Transition transition = pixelia::kDefaultTransition;
     pixelia::WorldClock clock;
     clock.set(opt.day, opt.hour, opt.minute);
     clock.set_speed(opt.speed);
     clock.advance(0);
-    scene->tick(clock);
+    stage.tick(clock);
     for (long i = 0; i < opt.frames; ++i) {
         clock.advance(pixelia::kTickUs);
-        scene->tick(clock);
+        stage.tick(clock);
     }
 
     std::vector<uint8_t> frame(pixelia::kScreenPixels);
@@ -111,6 +111,15 @@ int run_window(const Options& opt) {
                 else if (k == SDLK_MINUS || k == SDLK_KP_MINUS) clock.set_speed(std::max(1.0, clock.speed() / 2));
                 else if (k == SDLK_T) clock.set_world_us(clock.world_us() + 60 * pixelia::WorldClock::kUsPerMinute);
                 else if (k == SDLK_S) want_shot = true;
+                else if (k >= SDLK_1 && k <= SDLK_9 && static_cast<int>(k - SDLK_1) < stage.count()) {
+                    stage.go(static_cast<int>(k - SDLK_1), transition);
+                    std::printf("sim: Wechsel zu %s (%s)\n", stage.scene(static_cast<int>(k - SDLK_1)).name(),
+                                pixelia::transition_name(transition));
+                } else if (k == SDLK_U) {
+                    transition = static_cast<pixelia::Transition>((static_cast<int>(transition) + 1) %
+                                                                  pixelia::kTransitionKinds);
+                    std::printf("sim: Übergang %s\n", pixelia::transition_name(transition));
+                }
             } else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && e.button.button == SDL_BUTTON_LEFT) {
                 mouse_down = true;
                 mouse(e, 1);
@@ -142,27 +151,27 @@ int run_window(const Options& opt) {
         while (acc_us >= pixelia::kTickUs && steps < 8) {
             if (!paused) {
                 clock.advance(pixelia::kTickUs);
-                scene->tick(clock);
+                stage.tick(clock);
             }
             acc_us -= pixelia::kTickUs;
             ++steps;
         }
         if (steps == 8) acc_us = 0;
 
-        scene->render(canvas);
+        stage.render(canvas);
         const bool card_visible = now_ms < card_until_ms;
         if (card_visible) card.render(canvas);
         const float hold = gestures.hold_progress(static_cast<uint32_t>(now_ms));
         if (hold >= 0.25f && !card_visible) pixelia::ui::draw_hold_indicator(canvas, hold);
-        palette = scene->palette();
+        palette = stage.palette();
         pixelia::ui::apply_palette(palette);
         if (want_shot) {
-            save_screenshot(*scene, palette, frame, clock, opt.device_colors, "");
+            save_screenshot(stage.scene(stage.active()).name(), palette, frame, clock, opt.device_colors, "");
             want_shot = false;
         }
         if (opt.run_seconds > 0 && (now - started) / 1e9 >= opt.run_seconds) {
             if (!opt.screenshot.empty())
-                save_screenshot(*scene, palette, frame, clock, opt.device_colors, opt.screenshot);
+                save_screenshot(stage.scene(stage.active()).name(), palette, frame, clock, opt.device_colors, opt.screenshot);
             running = false;
         }
         pixelia::indexed_to_rgb(frame.data(), pixelia::kScreenWidth, pixelia::kScreenHeight, palette, 1,
@@ -175,7 +184,7 @@ int run_window(const Options& opt) {
 
         if (now - last_title > 250000000ULL) {
             char title[128];
-            std::snprintf(title, sizeof(title), "Pixelia-Simulator – %s – Tag %d %02d:%02d – %gx%s", scene->name(),
+            std::snprintf(title, sizeof(title), "Pixelia-Simulator – %s – Tag %d %02d:%02d – %gx%s", stage.scene(stage.active()).name(),
                           clock.day(), clock.hour(), clock.minute(), clock.speed(), paused ? " – Pause" : "");
             SDL_SetWindowTitle(window, title);
             last_title = now;

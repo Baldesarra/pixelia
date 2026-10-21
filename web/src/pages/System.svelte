@@ -470,6 +470,17 @@
   <div class="waiting"><LoadingIndicator size={64} label="Lade" /></div>
 {:else}
   <div class="page-grid">
+    <!-- Versionskarte (seit 0.5.0): die installierte Version auf einen Blick -->
+    <Card class="wide">
+      <div class="brand">
+        <span class="logo" aria-hidden="true"></span>
+        <div>
+          <div class="brand-name">Pixelia</div>
+          <div class="brand-ver tnum">Version {s.v}</div>
+        </div>
+      </div>
+    </Card>
+
     {#if s.rollback}
       <Card variant="error" class="wide">
         <div class="alert">
@@ -779,6 +790,44 @@
   .row {
     display: flex;
     justify-content: space-between;
+  }
+  /* Versionskarte: Pixel-Zeichen wie das Symbol im Browser-Tab */
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .logo {
+    position: relative;
+    flex: none;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--md-sys-color-primary);
+  }
+  .logo::before,
+  .logo::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: var(--md-sys-color-on-primary);
+  }
+  .logo::before {
+    left: 12px;
+    top: 12px;
+  }
+  .logo::after {
+    left: 24px;
+    top: 24px;
+  }
+  .brand-name {
+    font: var(--md-sys-typescale-headline-small);
+    color: var(--md-sys-color-on-surface);
+  }
+  .brand-ver {
+    font: var(--md-sys-typescale-body-large);
+    color: var(--md-sys-color-on-surface-variant);
   }
   /* Änderungsvorschau: Einträge der neueren Versionen, scrollt bei vielen */
   .preview {
