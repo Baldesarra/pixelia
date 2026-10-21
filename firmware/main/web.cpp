@@ -739,7 +739,7 @@ void start() {
     cfg.core_id = kSystemCore;
     cfg.stack_size = 8192;
     cfg.task_priority = 5;
-    cfg.max_uri_handlers = 60;  // 0.4.2: 53 belegt
+    cfg.max_uri_handlers = 60;  // 0.5.0: 54 belegt
     cfg.max_open_sockets = 7;
     cfg.lru_purge_enable = true;
     cfg.recv_wait_timeout = 10;

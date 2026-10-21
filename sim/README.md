@@ -14,9 +14,16 @@ Derselbe Engine- und Szenen-Code wie auf dem Gerät (`engine/`, später `worlds/
 .\tools\sim.ps1 -Headless --headless --time 06:30 --screenshot build-sim-headless/out/morgen.png
 .\tools\sim.ps1 -Headless --headless --contact-sheet build-sim-headless/out/kontaktbogen.png --span-days 2
 .\tools\sim.ps1 -Headless --headless --screen setup --screenshot build-sim-headless/out/setup.png
+.\tools\sim.ps1 -Headless --headless --scene testort-wiese --go testort-raum:ueberblendung --sequence build-sim-headless/out/wechsel.png --every 4 --count 4
 ```
 
 `-Headless` baut ohne SDL nach `build-sim-headless\` (schneller). Alle Optionen: `--help`.
+
+Seit 0.5.0 läuft im Simulator dieselbe Bühne wie am Gerät mit den Orten `scrolltest` (Landschaft), `testort-wiese` und
+`testort-raum`. `--scene` wählt den Startort, `--go ORT[:ÜBERGANG]` wechselt nach dem Vorspulen (`abblenden` Standard,
+`ueberblendung`, `raster`, `schnitt`), `--after N` rechnet danach weiter, `--sequence DATEI` legt eine Bildfolge an
+(`--every`, `--count`), z. B. für Übergänge und Animationen. `--load N` setzt die Figuren der Testorte bzw. die Vögel
+der Landschaft.
 
 `--screen NAME` zeichnet eine Systemanzeige mit Beispieldaten (Setup-Modus, Update, Meldung, Kurzmeldung), mit
 demselben Code wie auf dem Gerät: `setup`, `setup-leer`, `setup-fehler`, `update`, `update-fertig`, `failed`,
@@ -27,10 +34,12 @@ demselben Code wie auf dem Gerät: `setup`, `setup-leer`, `setup-fehler`, `updat
 Tippen, langer Druck (auch ohne neue Messwerte), Zittern, Bewegung, zwei Finger, einstellbare Dauer, Zeitüberlauf.
 `--test redact` prüft den Passwort-Filter der Diagnose-Ausgaben (`engine/redact.h`, seit 0.2.2): Geheimnisse über
 Blockgrenzen hinweg, JSON-Schreibweise, ineinander enthaltene Geheimnisse, zu kurze, Abbruch des Ziels.
+`--test stage` prüft die Bühne (seit 0.5.0): gleicher Startwert ergibt dieselben Bilder, Zeichnen ändert den Ablauf
+nicht, unsichtbare Orte rechnen weiter, Übergänge (Dauer, Mischung, Abblenden), Verdoppeln, Farbreihen, Animationen.
 Exit-Code 1, wenn ein Fall scheitert.
 
 Tasten im Fenster: Leertaste Pause, `+`/`-` Zeitraffer, `T` eine Stunde weiter, `S` Screenshot nach `screenshots/`,
-`Esc` Ende. Die Maus ersetzt den Touch, mit derselben Gestenerkennung wie auf dem Gerät: 3 s gedrückt halten zeigt
+`1`–`9` Ort wechseln, `U` Übergang durchschalten, `Esc` Ende. Die Maus ersetzt den Touch, mit derselben Gestenerkennung wie auf dem Gerät: 3 s gedrückt halten zeigt
 die Info-Karte (mit Beispieldaten), ein Klick schließt sie.
 
 ## CI

@@ -7,6 +7,7 @@
 
 #include "board/display.h"
 #include "board/touch_gt911.h"
+#include "pixelia/engine/stage.h"
 
 namespace app {
 
@@ -71,6 +72,23 @@ void request_buffers(bool psram);
 void set_sprites(int n);
 // n weiße Quadrate oben links ins Bild zeichnen (Stufenanzeige für Tests)
 void set_marks(int n);
+
+// Orte der Bühne (seit 0.5.0, engine/stage.h). Die Liste steht nach start() fest. Wechsel, Übergang, Rundgang und
+// Figurenzahl übernimmt der Grafik-Task vor dem nächsten Logik-Schritt (Seite Experimentell, Befehl „ort“).
+int place_count();
+const char* place_id(int i);     // Kennung (ASCII), "" = gibt es nicht
+const char* place_title(int i);  // sichtbarer Name
+int find_place(const char* id);  // −1 = gibt es nicht
+int place();                     // sichtbarer Ort (während eines Übergangs das Ziel)
+void go_place(int index);        // mit dem eingestellten Übergang
+void set_transition(pixelia::Transition t);
+pixelia::Transition transition();
+void set_tour(int seconds);  // automatischer Rundgang: alle n Sekunden der nächste Ort, 0 = aus
+int tour();
+void set_figures(int n);  // Figuren der Testorte 1–64, 0 = Standard des Ortes
+int figures();
+void reset_places();  // Landschaft, Standard-Übergang, kein Rundgang, Standardfiguren (Experimentell aus)
+void request_coarse(bool psram);  // groben Puffer umziehen (Messung; Standard PSRAM)
 // Weltzeit: folgt der echten Uhrzeit (NTP), sobald sie bekannt ist; ohne Uhrzeit startet die Welt um 12:00.
 // Uhrzeit stellen oder Zeitraffer ungleich 1 schaltet das Folgen ab, set_real_time(true) wieder an.
 void set_time_of_day(int hour, int minute);

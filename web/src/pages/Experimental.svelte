@@ -2,11 +2,12 @@
   // Seite „Experimentell“ (seit 0.4.2, exper.h): Schalter (Standard aus, auf dem Gerät gespeichert), Stromsparmodus und
   // Panel-Timing im Probelauf (ohne Bestätigung nach 15 s zurück), Displaytests, Touch-Test, ältere Version von GitHub.
   import { onMount } from 'svelte';
-  import { Button, Card, Chip, Icon, Switch, TextField, WavyProgress, confirmDialog } from '../lib/m3';
+  import { Button, ButtonGroup, Card, Chip, Icon, Slider, Switch, TextField, WavyProgress, confirmDialog } from '../lib/m3';
   import { get, post, type ExpState, type GhState, type PanelValues } from '../lib/api';
   import { device } from '../lib/status.svelte';
   import { num } from '../lib/format';
   import { cmpVersion, dateDe, parseFw } from '../lib/changelog';
+  import { preparePicture, type Picture } from '../lib/picture';
 
   let ex = $state<ExpState | null>(null);
   let failed = $state(false);
@@ -110,6 +111,43 @@
     { mode: 'motion', label: 'Bewegung', icon: 'motion_photos_on' },
   ] as const;
 
+  // --- Orte (seit 0.5.0) -----------------------------------------------------------------------------------
+  const transitions = [
+    { value: 'abblenden', label: 'Abblenden' },
+    { value: 'ueberblendung', label: 'Überblendung' },
+    { value: 'raster', label: 'Raster' },
+    { value: 'schnitt', label: 'Schnitt' },
+  ];
+
+  // --- Eigenes Testbild (seit 0.5.0) ---------------------------------------------------------------------
+  let fileInput = $state<HTMLInputElement>();
+  let pic = $state<(Picture & { name: string }) | null>(null);
+  let picCanvas = $state<HTMLCanvasElement>();
+  let picErr = $state('');
+  async function choosePicture(e: Event) {
+    const f = (e.currentTarget as HTMLInputElement).files?.[0];
+    if (!f) return;
+    picErr = '';
+    try {
+      pic = { ...(await preparePicture(f)), name: f.name };
+    } catch {
+      pic = null;
+      picErr = 'Das Bild ließ sich nicht öffnen.';
+    }
+  }
+  $effect(() => {
+    if (pic && picCanvas) picCanvas.getContext('2d')!.putImageData(pic.rgba, 0, 0);
+  });
+  async function showPicture() {
+    if (!pic) return;
+    busy = true;
+    msg = null;
+    const r = await post('/api/picture', pic.body).catch(() => null);
+    busy = false;
+    msg = r?.ok ? { ok: true, text: 'Testbild auf dem Display. Tippen aufs Display beendet es.' } : { ok: false, text: r?.msg ?? 'Pixelia antwortet nicht' };
+    await load();
+  }
+
   // --- Ältere Version von GitHub ---------------------------------------------------------------------------
   let gh = $state<GhState | null>(null);
   let ghBusy = $state(false);
@@ -200,6 +238,41 @@
     {/if}
 
     {#if ex.on}
+      {#if ex.places?.length}
+        <Card class="wide">
+          <h2 class="card-title"><Icon name="map" size={20} />Orte (Vorschau)</h2>
+          <p class="muted">
+            Die Testorte sind neutrale Platzhalter im groben Raster (200 × 120, am Display 4 × 4 Pixel je Bildpunkt):
+            Jede Figur ist einmal gezeichnet und bekommt ihre Farbe aus einer Farbreihe. Die Landschaft ist das bisherige
+            Bild. Beim Ausschalten von Experimentell kehrt das Display zur Landschaft zurück.
+          </p>
+          <div class="setting">
+            <span>Ort</span>
+            <ButtonGroup
+              label="Ort"
+              options={ex.places.map((p, i) => ({ value: String(i), label: p.title }))}
+              bind:value={() => String(ex?.place ?? 0), (v: string) => act({ a: 'place', n: Number(v) })}
+            />
+          </div>
+          <div class="setting">
+            <span>Übergang beim Wechsel</span>
+            <ButtonGroup
+              label="Übergang"
+              options={transitions}
+              bind:value={() => ex?.trans ?? 'abblenden', (v: string) => act({ a: 'trans', v })}
+            />
+          </div>
+          <div class="setting">
+            <span class="row"><span>Figuren je Testort</span><span class="tnum">{ex.figures ? ex.figures : 'Standard'}</span></span>
+            <Slider label="Figuren je Testort" min={1} max={64} value={ex.figures || 6} onchange={(v) => act({ a: 'figures', n: v })} />
+          </div>
+          <div class="actions">
+            <span class="pol"><Switch label="Rundgang" checked={!!ex.tour} disabled={busy} onchange={(v) => act({ a: 'tour', s: v ? 20 : 0 })} />Rundgang: alle 20 s der nächste Ort</span>
+            {#if ex.figures}<Button variant="text" icon="restart_alt" onclick={() => act({ a: 'figures', n: 0 })}>Figuren: Standard</Button>{/if}
+          </div>
+        </Card>
+      {/if}
+
       <Card>
         <div class="head">
           <Icon name="energy_savings_leaf" size={24} />
@@ -229,6 +302,34 @@
           {/if}
         </div>
         {#if ex.testS >= 0}<p class="muted small tnum">Testbild „{ex.mode}“ noch {ex.testS} s</p>{/if}
+      </Card>
+
+      <Card class="wide">
+        <h2 class="card-title">
+          <Icon name="image" size={20} />Eigenes Testbild (Vorschau)
+          {#if ex.pic}<span class="end"><Chip pulse tone="primary">auf dem Display</Chip></span>{/if}
+        </h2>
+        <p class="muted">
+          Ein Bild mit 400 × 240 Pixeln erscheint 2× vergrößert auf dem Display, bis du aufs Display tippst oder hier
+          „Beenden“ drückst (spätestens nach 30 min). Andere Größen werden pixelgenau angepasst. Das Bild bleibt nur im
+          Arbeitsspeicher, nichts wird gespeichert.
+        </p>
+        <input type="file" accept="image/*" hidden bind:this={fileInput} onchange={choosePicture} />
+        <div class="actions">
+          <Button variant="tonal" icon="upload_file" disabled={busy} onclick={() => fileInput?.click()}>Bild wählen</Button>
+          {#if pic}
+            <Button icon="monitor" disabled={busy || ex.trialS >= 0} onclick={showPicture}>Auf dem Display zeigen</Button>
+          {/if}
+          {#if ex.pic}<Button variant="text" icon="close" onclick={() => act({ a: 'picoff' })}>Beenden</Button>{/if}
+        </div>
+        {#if picErr}<p class="err-text">{picErr}</p>{/if}
+        {#if pic}
+          <canvas class="pic" width="400" height="240" bind:this={picCanvas}></canvas>
+          <p class="muted small tnum">
+            {pic.name} · {pic.srcW} × {pic.srcH}{pic.srcW !== 400 || pic.srcH !== 240 ? ' → angepasst auf 400 × 240' : ''} ·
+            {pic.colors} Farben{pic.srcColors > pic.colors ? ` (reduziert von ${num(pic.srcColors, 0)})` : ''}
+          </p>
+        {/if}
       </Card>
 
       <Card class="wide">
@@ -368,6 +469,17 @@
     align-items: center;
     gap: 10px;
   }
+  /* Orte: Beschriftung über Knopfgruppe bzw. Regler (wie auf der Seite System) */
+  .setting {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 20px;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+  }
   .touch {
     position: relative;
     aspect-ratio: 5 / 3;
@@ -419,5 +531,15 @@
   }
   .finger.down {
     background: var(--md-sys-color-tertiary);
+  }
+  .pic {
+    display: block;
+    width: 100%;
+    max-width: 800px;
+    aspect-ratio: 5 / 3;
+    margin: 12px 0 4px;
+    border-radius: var(--md-sys-shape-corner-medium);
+    image-rendering: pixelated;
+    background: #000;
   }
 </style>

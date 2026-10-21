@@ -1,6 +1,6 @@
 #pragma once
 // Systemanzeigen auf dem Display (gezeichnet im Grafik-Task, siehe engine/system_ui.h).
-// Vorrang: Update > Zurücksetzen > Meldung > Setup-Modus > Welt. Kurzmeldungen erscheinen über der Welt,
+// Vorrang: Update > Zurücksetzen > Meldung > eigenes Testbild > Setup-Modus > Welt. Kurzmeldungen erscheinen über der Welt,
 // die Info-Karte und die Halte-Anzeige über allem außer dem Update.
 // Alle Funktionen dürfen von jedem Task aus aufgerufen werden.
 
@@ -35,5 +35,14 @@ bool reset_visible();
 
 // Halte-Anzeige während eines langen Drucks: 0..1, negativ = ausblenden
 void set_hold_progress(float progress);
+
+// Eigenes Testbild (seit 0.5.0, Seite Experimentell): 400×240 Paletten-Indizes (0–239) mit eigener Palette für die
+// Indizes 0–239, ganzseitig statt der Welt (Vorrang unter Meldung, über Setup). Übernimmt pixels (PSRAM,
+// heap_caps_malloc) und gibt den Puffer selbst frei; ein neues Bild ersetzt das alte. Endet mit hide_picture(),
+// Tippen aufs Display oder nach seconds.
+inline constexpr int kPictureMaxSeconds = 30 * 60;
+void show_picture(uint8_t* pixels, const pixelia::Color* palette240, int seconds);
+void hide_picture();
+bool picture_visible();
 
 }  // namespace app::ui

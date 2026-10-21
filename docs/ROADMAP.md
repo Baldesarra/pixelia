@@ -7,13 +7,13 @@
 
 | | |
 |---|---|
-| **Phase** | 0.4.x Updates & Diagnose **abgeschlossen** mit 0.4.2 „Experimentell, Live-Vorschau, Leistung“ (PR #20): Live-Vorschau mit Screenshot, Leistungsanzeige, Seite Experimentell mit Probelauf, Update abbrechen, Prüfung im Hintergrund, ältere Version |
-| **Letzte Version** | 0.4.2 „Experimentell, Live-Vorschau, Leistung“ (2026-10-20, PR #20), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.4.2). Am Gerät: mit Live-Vorschau 29,7–30,3 fps, RAM 115 KB, 0 Aussetzer; Stromsparmodus 30 Hz mit Rückfall nach 15 s; Download nach 932 KB abgebrochen ohne Neustart. Davor 0.4.1 „Update von GitHub“ (2026-10-20, PR #19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.4.1); davor Vorschau v0.4.1-beta.1 und 0.4.0 „Versionsverlauf und Diagnose“ (PR #17, #18). Zweiter echter Durchlauf im Kanal Stabil (0.4.1-beta.1 → 0.4.1 über GitHub): 1522 KB in 15,8 s (Verbindung 3,2 s, 121 KB/s), 30,0–30,2 fps, RAM-Tiefstwert 91 KB; Probelauf bestanden, danach 30,3 fps, RAM 117/111 KB |
+| **Phase** | 0.5.x Engine, Phase A (settingunabhängig): 0.5.0 „Bühne und Figuren“ fertig (PR #24): Bühne mit Orten und Übergängen, grobes Raster 200 × 120, Figuren mit Animationen und Farbreihen, Testorte, Lavendel, Versionskarte, eigenes Testbild |
+| **Letzte Version** | 0.5.0 „Bühne und Figuren“ (2026-10-21, PR #24), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.5.0). Am Gerät: 30 fps ohne Aussetzer, Zeichnen 4,2 ms (Testort mit 64 Figuren 5,9 ms, Überblendung höchstens 13,7 ms), RAM 102–106 KB, PSRAM 6,0 MB frei. Davor 0.4.2 „Experimentell, Live-Vorschau, Leistung“ (2026-10-20, PR #20), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.4.2). Am Gerät: mit Live-Vorschau 29,7–30,3 fps, RAM 115 KB, 0 Aussetzer; Stromsparmodus 30 Hz mit Rückfall nach 15 s; Download nach 932 KB abgebrochen ohne Neustart. Davor 0.4.1 „Update von GitHub“ (2026-10-20, PR #19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.4.1); davor Vorschau v0.4.1-beta.1 und 0.4.0 „Versionsverlauf und Diagnose“ (PR #17, #18). Zweiter echter Durchlauf im Kanal Stabil (0.4.1-beta.1 → 0.4.1 über GitHub): 1522 KB in 15,8 s (Verbindung 3,2 s, 121 KB/s), 30,0–30,2 fps, RAM-Tiefstwert 91 KB; Probelauf bestanden, danach 30,3 fps, RAM 117/111 KB |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
-| **Nächster Schritt** | 0.5.x Engine: erst Aufteilung in Patches vorschlagen und vom User bestätigen lassen, dann 0.5.0; frische Arbeits-Sitzung, Denkstufe Extra Hoch (xhigh) |
-| **Offen** | Sichtprüfung am Display durch den User: Stromsparmodus (Panel 30 Hz: flimmert es?), Touch-Test, Displaytests; Rückfall mit einem von GitHub geladenen kaputten Image nicht eigens geprüft (gleicher Weg wie beim Upload, dort geprüft; ein absichtlich kaputtes Release wäre für alle im Kanal Vorschau sichtbar); Captive Portal unter iOS einmal ansehen (Android und Windows geprüft); Screenshot-Läufe schreiben die Standard-Farbwahl aufs Gerät, solange es noch keine hat (harmlos); Geräteliste: kopflose Screenshot-Läufe legen jedes Mal ein neues Gerät an (harmlos, älteste fallen raus); Planungs-Chat: gemeinsames Setting ausarbeiten (vor Modul-Schnittstelle in 0.5.x); Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
-| **Aktualisiert** | 2026-10-20 |
+| **Nächster Schritt** | 0.5.1 Raum und Baukasten (Kacheln, Tiefensortierung, Innenraum-Baukasten, Ausbaustufen, Möbel-Daten, Ausgänge); frische Arbeits-Sitzung, Denkstufe xhigh |
+| **Offen** | Sichtprüfung am Display durch den User: Testorte und Übergänge (Seite Experimentell → Orte), Stromsparmodus (Panel 30 Hz: flimmert es?), Touch-Test, Displaytests; RAM-Tiefstwert beim nächsten Update von GitHub mit 0.5.0 messen (Ziel ≥ 60 KB); Zeichnen: Verdoppeln ins PSRAM kostet ~3 ms pro Bild, bei Bedarf in 0.5.2 beschleunigen (Backlog SIMD); Rückfall mit einem von GitHub geladenen kaputten Image nicht eigens geprüft (gleicher Weg wie beim Upload, dort geprüft; ein absichtlich kaputtes Release wäre für alle im Kanal Vorschau sichtbar); Captive Portal unter iOS einmal ansehen (Android und Windows geprüft); Screenshot-Läufe schreiben die Standard-Farbwahl aufs Gerät, solange es noch keine hat (harmlos); Geräteliste: kopflose Screenshot-Läufe legen jedes Mal ein neues Gerät an (harmlos, älteste fallen raus); Planungs-Chat: gemeinsames Setting ausarbeiten (vor Modul-Schnittstelle in 0.5.x); Perspektive entschieden (2026-10-21, 3/4-Draufsicht, siehe Backlog); Prüfliste Baukasten/Asset-Quellen geprüft (0.5.x), offen für `docs/STIL.md`: Aufteilung der Palette in Farbrampen (Grundlage für Farbreihen und eigene Möbel); `docs/SETTING.md` noch nicht auf main (Branch `claude/setting-3f92c5`); Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
+| **Aktualisiert** | 2026-10-21 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
 4,0 ms pro Bild, Hochskalier-Interrupt 20 %, keine Aussetzer, auch mit WLAN, Webserver, während Updates und unter Last
@@ -193,27 +193,60 @@ In drei Patches (Entscheidung 2026-10-20, eine Arbeits-Sitzung pro Patch):
 
 ## 0.5.x – Engine
 
-Reihenfolge: Settingunabhängige Engine-Teile kommen zuerst (Sprites, Tilemaps, Kamera, Paletten, Licht, Wetter,
-Partikel, Schrift, Asset-Pipeline, Dienste, Simulator, Langzeit-Test). Modul-Schnittstelle, Regie und gemeinsamer
-Weltzustand (Figuren über Orte hinweg, Hintergrund-Simulation inaktiver Orte) kommen in die letzten Patches, erst nach
-der Setting-Entscheidung (Backlog 2026-10-20).
+Aufteilung in 11 Patches, vom User bestätigt am 2026-10-21 (Entscheidungsprotokoll). Phase A ist settingunabhängig
+und geht sofort los; Phase B wartet, bis `docs/SETTING.md` auf main ist. Jeder Patch ist eine eigene Arbeits-Sitzung
+(< ~250 K Kontext) und wird im Simulator und am Gerät gemessen (fps, Bildzeit, RAM, PSRAM). Kamerafahrten und Parallax
+als Hauptmittel entfallen, weil nichts scrollt (Perspektive 2026-10-21); braucht der Zug Parallax, kommt es mit der
+Zug-Phase.
 
-- [ ] Sprites, Animationen, Tilemaps, Kamera, Parallax
-- [ ] Paletten, Tag/Nacht, Farbrotation, Lichttabellen, Transparenztabellen, Rastereffekte
-- [ ] Partikel und Wetter (Regen, Schnee, Nebel, Blitz)
-- [ ] Pixel-Schriften mit Umlauten, Overlays, Kurzmeldungen, Info-Karten
-- [ ] Dienste: Weltzeit, Standort (Open-Meteo-Geokodierung), Wetter (Open-Meteo), Ereignis-Bus, Regie, Nachtmodus
-- [ ] Modul-Schnittstelle für Welten, Schema → automatische Einstellungsseiten
-- [ ] Touch-Gesten und Einstellungen
-- [ ] Asset-Pipeline (PNG → Palette), `assets/CREDITS.md`, `docs/STIL.md`
-- [ ] Browser-Simulator auf GitHub Pages, Screenshots im Pull Request
-- [ ] **Langzeit-Test** im Simulator (Zeitraffer, Bericht, Blick-Test, Kontaktbogen, **Bilanz-Test**) und
-      **Inhaltszähler**, automatisch in jedem Welt-PR ([LEBENDIGKEIT.md](LEBENDIGKEIT.md) Kapitel 3)
-- [ ] **Ereignis-Regisseur** als Engine-Baustein (Spannungsbogen, Sperrzeiten, Kontext Tageszeit/Wetter/Jahreszeit)
-- [ ] **Gedächtnis-Bausteine** (LEBENDIGKEIT.md Regel 10), von allen Welten nutzbar: Bestände mit Menge und Standort und
-      exakter Bilanz, unterbrechbare Vorhaben, Besuchs- und Ereignisverlauf, Zustände mit Zeitbezug, atomares Speichern
-      mit begrenztem Nachholen; dazu Beziehungen und Erinnerungen für Figuren
-- [ ] Demo-Szene als Test
+**Phase A (settingunabhängig)**
+
+- [x] **0.5.0 Fundament** (xhigh) ✅ 2026-10-21, PR #24: Bühne mit mehreren Orten, Wechsel per Sprung mit Übergang
+      (Standard Abblenden, dazu Überblendung, Raster, Schnitt); Rechnen ohne Zeichnen; grobes Raster 200 × 120 (PSRAM),
+      2× in 400 × 240, Einblendungen fein; Sprites, Blickrichtungen, Animationen; Farbreihen per Umfärbe-Tabelle;
+      Testorte Wiese und Raum; 11 Bühnen-Tests im Simulator. Web: Lavendel als Standardfarbe, Versionskarte, Karte
+      „Orte (Vorschau)“ (Ort, Übergang, Figuren, Rundgang). Eigenes Testbild (Vorschau)
+- [ ] **0.5.1 Raum und Baukasten** (xhigh): Kacheln 8 × 8 grob, 25 × 15 pro Bildschirm, mehrere Ebenen; Tiefensortierung;
+      Innenraum-Baukasten (Raum = Datenliste: Teil, Lage, Stufe, Farbreihe, Besitzer), Ausbaustufen, Möbel-Daten
+      (Art, Stellfläche, Benutzungspunkte); Türen und Bildränder als Ausgänge
+- [ ] **0.5.2 Farbe und Licht** (xhigh): Paletten je Ort, Farbrampen (mit `docs/STIL.md`-Entwurf), Tag/Nacht,
+      Farbrotation, Lichtkreise, Transparenztabellen, Himmelsverläufe, Rastereffekte
+- [ ] **0.5.3 Wetter und Partikel** (Hoch): Regen, Schnee, Nebel, Blitz, Wind
+- [ ] **0.5.4 Asset-Quelle** (xhigh, Speicher-Architektur): Werkzeug PNG → Paletten-Indizes, `assets/CREDITS.md` mit
+      Prüfung; Quelle eingebettet / LittleFS / microSD, Laden auf Kern 0 beim Ortswechsel hinter dem Abblenden; SD-Karte
+      messen (Tempo, keine Aussetzer, Karte ziehen; braucht eine Karte im Gerät). Speicher-Stufen (Entscheidung
+      2026-10-21): Ablage → Grafik-Speicher im PSRAM (Budget, Vorladen der Nachbarorte, Verdrängen) → Zeichnen;
+      Grundausstattung (immer geladen) getrennt von Ortspaketen; Kennungen statt Zeiger; gepackt abgelegt;
+      Ladezeit pro Ort messen (Flash, LittleFS, SD)
+- [ ] **0.5.5 Schrift und Einblendungen** (Hoch): Pixel-Schriften mit Umlauten, Kurzmeldungen, Info-Karten, Pixel-Uhr,
+      Hinweis auf neue Version am Display, Ereignis-Bus, Touch-Gesten
+- [ ] **0.5.6 Dienste** (Hoch): Weltzeit (Tagesgerüst, Jahreszeit), Standort und Wetter (Open-Meteo), Nachtmodus,
+      Helligkeitskurve; Download von GitHub robuster (Abbruch ohne Fortschritt, Weitermachen per HTTP-Range)
+- [ ] **0.5.7 Browser-Simulator und Langzeit-Test** (Hoch): Simulator auf GitHub Pages, Screenshots im PR, Zeitraffer,
+      Bericht, Blick-Test, Kontaktbogen
+
+**Phase B (nach der Setting-Entscheidung)**
+
+- [ ] **0.5.8 Orte und Stil** (xhigh): Phase A nachprüfen und anpassen; Schnittstelle für Orte und Gebiete, Schema →
+      Einstellungsseiten; `docs/STIL.md` mit Format für eigene Möbel (Upload danach)
+- [ ] **0.5.9 Gemeinsamer Weltzustand** (xhigh): Figuren, Warenbuch, Aufgaben, Projekte; sichtbarer Ort voll, Rest grob
+      mit gleicher Wirkung; Gedächtnis-Bausteine (LEBENDIGKEIT.md Regel 10), atomares Speichern
+- [ ] **0.5.10 Regie und Nachweis** (Hoch): Ereignis-Regisseur, **Bilanz-Test** und **Inhaltszähler** automatisch in
+      jedem Welt-PR ([LEBENDIGKEIT.md](LEBENDIGKEIT.md) Kapitel 3), Demo-Szene
+
+**Prüfliste Baukasten und Asset-Quellen** (Wunsch des Users über den Planungs-Chat, geprüft 2026-10-21, vor dem Bau
+von Asset-Pipeline und „Raum“). Alle Punkte sind machbar; Kosten bezogen auf die Szene in 200 × 120 groben Bildpunkten.
+
+| Punkt | Wie | Speicher / Rechenzeit | Patch |
+|---|---|---|---|
+| 1 Innenraum-Baukasten | Raum = Datenliste (Teil, Kachel-Lage, Stufe, Farbreihe, Besitzer). Boden und Wände als Kachelebene, Möbel und Deko als Sprites mit Fußpunkt, mit den Figuren nach Tiefe sortiert. Unbewegte Teile beim Betreten einmal in ein Hintergrundbild (24 KB) vorzeichnen | ~6 Byte je Teil (60 Teile < 0,5 KB); pro Bild nur Kopie des Hintergrunds + bewegte Teile, < 1 ms | 0.5.1 |
+| 2 Ausbaustufen | Teil hat mehrere Stufen-Bilder; Ausbau = Datenänderung in der Raumliste (oder Raumliste je Stufe) | nur die Stufen-Grafiken | Engine 0.5.1, Umbau als Aufgabe nach dem Setting |
+| 3 Farbvarianten | Umfärbe-Tabelle (256 Byte, Index → Index): Möbel einmal mit einer Platzhalter-Farbrampe zeichnen, die Farbreihe ersetzt die Rampe beim Zeichnen; keine zusätzlichen Grafiken | 256 Byte je Farbreihe; Zeichnen gleich schnell wie ohne (ein Tabellenzugriff pro Pixel) | Zeichnen 0.5.0, Rampen der Palette 0.5.2 + `docs/STIL.md` |
+| 4 Auswahl in der Weboberfläche, sichtbarer Umbau | Engine lässt es zu: Raumliste zur Laufzeit änderbar. Umbau mit Spielzeit ist eine Aufgabe der Figur | – | nach dem Setting (Weltzustand, dann Web-Seite) |
+| 5 Erkennungsstücke | Teil mit Besitzer-Kennung bzw. Platzhalter „Erkennungsstück von Bewohner X“ in der Raumliste | 1–2 Byte je Teil | Feld 0.5.1, Inhalte nach dem Setting |
+| 6 Haupthaus anpassbar | Kombination aus 1, 3, 4: der Speicherstand hält die Raumliste des Haupthauses (überschreibt die Vorlage) | wenige KB im Speicherstand | nach dem Setting |
+| 7 Asset-Quellen | Schnittstelle „Quelle“ (eingebettet, LittleFS, später microSD), Laden auf Kern 0 beim Ortswechsel ins PSRAM hinter der Überblendung, nie im Zeichenpfad. SD-Pins 10/11/12/13 sind frei (RGB nutzt 1, 3–9, 14–16, 21, 39–42, 45–48; Licht 2; Touch 19/20/38; Flash/PSRAM 27–37) und sind die Standardpins von SPI2, also volles Tempo | Flash reicht für den Anfang: App 1,5 von 6 MB, LittleFS 3,8 MB frei | 0.5.4 (SD-Treiber und Messung, sobald eine Karte steckt) |
+| 8 Eigene Möbel | Browser wandelt PNG → Paletten-Indizes (wie beim Testbild, am Gerät pixelgenau geprüft), Firmware prüft nur Maße und Indizes und speichert in LittleFS (bzw. SD). Kein PNG-Decoder auf dem Gerät | ~1 KB je Möbel (32 × 32) | Format und „Zeichenanleitung für Möbel“ mit `docs/STIL.md` (0.5.8), Upload danach |
 
 ## Abnahme der Welten
 
@@ -308,7 +341,7 @@ Neue Wünsche des Users landen hier (mit Datum) und werden einer Version zugeord
 | 2026-10-18 | **Zuverlässiges Gedächtnis** (vor allem Inselwelt, aber für alle Welten): exakte Bestände (welche Waren, wie viele, wo), angefangene und unbeendete Arbeiten, wer schon zu Besuch war; nichts verdoppelt oder verschwindet, auch nicht bei Neustart; Bilanz-Test im Langzeit-Test. In LEBENDIGKEIT.md als Regel ergänzen | ✅ Regel 10 in LEBENDIGKEIT.md; Bausteine 0.5.x; Inselwelt und alle Welten |
 | 2026-10-18 | **Entscheidung Hauptwelt:** Inselwelt, Pixel-Dorf oder Dungeon-Held als Schwerpunkt der Software. Gemeinsam planen und diskutieren | vor Beginn 0.6.0 |
 | 2026-10-18 | **Dorf als Aufbau-Wirtschaft:** begrenzte Rohstoffe, die das Dorf selbst gewinnen muss; Bauprojekte verbrauchen Material exakt; neue Häuser müssen gebaut werden, damit neue Bewohner kommen; alles dauerhaft gespeichert (Ideen aus der Inselwelt übernehmen) | 0.7.x (PROJEKTPLAN 6.2, Checkliste oben) |
-| 2026-10-18 | **Mehrere Darstellungs-Vorschläge** für Dorf und Inselwelt (Perspektive, Ausschnitt, Figurengröße, Kamera), passend zum 5"-Display, mit Simulator-Mockups, bevor gebaut wird | Beginn 0.7.0 bzw. Inselwelt |
+| 2026-10-18 | **Mehrere Darstellungs-Vorschläge** für Dorf und Inselwelt (Perspektive, Ausschnitt, Figurengröße, Kamera), passend zum 5"-Display, mit Simulator-Mockups, bevor gebaut wird | **vorgezogen (2026-10-20):** Planungs-Chat, vor Tilemaps/Kamera in 0.5.x |
 | 2026-10-18 | **Systemschrift** (5×7, `engine/src/font.cpp`, Setup-Bildschirm) gefällt dem User: beibehalten, Grundlage für den Stil-Leitfaden | ✅ im Entscheidungsprotokoll festgehalten; STIL.md in 0.5.x |
 | 2026-10-18 | **Ausführliche Changelogs** im Stil der PR-Beschreibungen: Neu, Geprüft am Gerät (mit Messwerten), gefundene und behobene Probleme, Hinweise. Alle Änderungen inkl. Fixes seit 0.1.0. Format um Felder „Geprüft“ und „Hinweise“ erweitern, 0.1.0/0.2.0 ausführlich nachtragen (aus PR #1, #3, #4, #5), `tools/release_notes.py` anpassen, Regel in CLAUDE.md. Anzeige später unter „Versionsverlauf“ | ✅ 0.2.1 (Format, Nachtrag, CI-Prüfung, Regel); Anzeige 0.4.x |
 | 2026-10-18 | **IP jederzeit sehen:** langer Druck (3 s) aufs Display → Info-Karte mit IP, `pixelia.local`, WLAN-Name, Signal und QR-Code zur Weboberfläche; zusätzlich IP nach jedem Verbinden kurz einblenden; Geste in der Weboberfläche einstellbar | ✅ 0.2.1 (Geste, Info-Karte, Kurzmeldung, Dauer im NVS); 0.3.x (einstellbar in der Oberfläche) |
@@ -321,7 +354,23 @@ Neue Wünsche des Users landen hier (mit Datum) und werden einer Version zugeord
 | 2026-10-19 | **Arbeitsweise mit Sitzung pro Version** und Übergabe übers Repo, damit eine Version nicht das ganze Nutzungslimit braucht ([ARBEITSWEISE.md](ARBEITSWEISE.md)) | ✅ 0.3.0 |
 | 2026-10-20 | **Gemeinsames Setting** (Idee des Users): statt getrennter Welten eine große gemeinsame Welt. Zugfahrt, Dungeon usw. sind Module bzw. Orte, die später nachgereicht werden. Figuren wechseln zwischen den Orten (z. B. eine Person geht in den Dungeon, dort sieht man die Idle-Dungeon-Ansicht). Immer nur ein Ort sichtbar und voll simuliert, die anderen laufen vereinfacht („inaktiv“) im Hintergrund weiter. Wird im Planungs-Chat ausgearbeitet und ersetzt dann die Frage „Hauptwelt vor 0.6.0 festlegen“ | Planungs-Chat, vor Modul-Schnittstelle in 0.5.x |
 | 2026-10-20 | **Erste Phase von 0.5.x nachprüfen** (ausdrücklicher Wunsch des Users): Alles, was in der ersten Phase von 0.5.x gebaut wird, wird erneut geprüft und an das Setting angepasst, sobald dieses feststeht | nach der Setting-Entscheidung |
+| 2026-10-20 | **Download von GitHub robuster:** Bei einem WLAN-Aussetzer (`bcn_timeout`) hing der Download 0.4.1 → 0.4.2 vier Minuten bei 432 KB und brach dann ab (alte Version blieb, zweiter Versuch 20,8 s). Ideen: Abbruch nach ~30 s ohne Fortschritt mit klarer Meldung, automatisch weitermachen per HTTP-Range ab dem letzten Stück | 0.5.x oder später, klein |
 | 2026-10-20 | **Hinweis auf eine neue Version auch auf dem Display** (gefunden von der Prüfung im Hintergrund), Entscheidung des Planungs-Chats | 0.5.x (mit den Overlays) |
 | 2026-10-20 | Automatische Installation neuer Versionen ohne Nachfrage | ❌ entschieden: nicht, auch nicht als Option; Hinweis reicht (Entscheidung des Users) |
+| 2026-10-20 | **Perspektive vor der Engine wählen** (Wunsch des Users): Beispiele, wie die Welt dargestellt wird (Seitenansicht mit Parallax, Querschnitt, 3/4-Draufsicht, isometrisch, seitliche Bühne mit Tiefe), Hof mit Haus, Fluss, Weide bei Tag und Nacht, dazu ein Ortswechsel Hof → Haus → Zug. Erst danach Tilemaps, Kamera, Parallax, Tiefensortierung. Je Ort eigene Perspektive möglich | Planungs-Chat, vor „Raum und Perspektive“ in 0.5.x |
+| 2026-10-20 | **Modular wachsende Welt** (Wunsch des Users): Start im Dorf auf einem Hof (Haus, Fluss, Weide als eigene Szenen), später andere Gebäude oder mit dem Zug in ein anderes Dorf; neue Orte (z. B. Zug) kommen als Module per Update dazu und fügen sich ohne Umbau ein | Grundstein ✅ 0.5.0 (Bühne mit Orten, Wechsel mit Übergang, unsichtbare Orte rechnen weiter), Orts-Schnittstelle 0.5.8 nach der Setting-Entscheidung |
+| 2026-10-20 | **Standardfarbe der Oberfläche ab Werk „Lavendel“** (#7a5aa6) statt „Moos“; alle sechs Farben bleiben wählbar, eine gespeicherte Wahl bleibt erhalten. Farbstil bleibt „Tonal“ (Rückblick-Runde) | ✅ 0.5.0 (auch das Symbol im Browser-Tab) |
+| 2026-10-20 | **Seite System: Versionskarte** ganz oben mit „Pixelia“ und darunter „Version X.Y.Z“ (installierte Version), weil die Version heute schwer zu finden ist | ✅ 0.5.0 |
+| 2026-10-20 | **Display um 180° drehen** für den Einbau mit USB oben, Touch mitgedreht, Live-Vorschau richtig herum | gibt es schon seit 0.2.0 (Seite System → Anzeige → „Bilddrehung“; Touch wird mitgedreht, die Vorschau kopiert das Bild vor der Drehung); Beschriftung „Bilddrehung“ bleibt (Entscheidung des Users 2026-10-21) |
+| 2026-10-20 | **Uhrzeit-Einblendung:** kleine Pixel-Uhr in einer Ecke des Displays, abschaltbar; Ecke, 24-h-Format, Sekunden als Auswahl mit Empfehlung beim User abfragen | 0.5.x mit den Overlays |
+| 2026-10-20 | Handy-Leiste unten vorerst unverändert; **neu ordnen, sobald Menüpunkte zu Pixelia bzw. dem Dorf dazukommen** (Wunsch des Users) | mit den ersten Welt-Seiten |
+| 2026-10-20 | **Eigenes Testbild am Display** (Skizzen am echten 5″-Display ansehen): Seite Experimentell, Bild wählen → 2× auf dem Display bis Tippen oder „Beenden“ (Entscheidungen des Users: Ort Experimentell, Dauer bis Tippen, andere Größen pixelgenau anpassen) | ✅ 0.5.0 (am Gerät gemessen; Anzeigen und Tippen zum Beenden vom User geprüft, 2026-10-21) |
+| 2026-10-21 | **Perspektive entschieden** (Skizzen v1–v5, `docs/skizzen/`): 3/4-Draufsicht für alle Orte, feste Kamera, ein Bildschirm pro Bereich oder Raum, Wechsel per Sprung mit Überblendung, kein Scrollen; Szene in 200 × 120 groben Bildpunkten (2× in 400 × 240), Kachel 8 × 8 grob, Chibi-Figur 28 Bildpunkte, 4 Richtungen | 0.5.x (Fundament, Raum) |
+| 2026-10-21 | **Austauschbare Asset-Quelle** (Setting-Werkstatt, vom User beschlossen): Grafiken aus Flash oder SD-Karte, laden nur beim Ortswechsel auf Kern 0 ins PSRAM hinter einer Überblendung; SD-Karte vorher messen (Tempo, keine Aussetzer, Karte ziehen); Speicherstand bleibt in LittleFS | 0.5.x (Asset-Quelle) |
+| 2026-10-21 | **Innenraum-Baukasten** mit Ausbaustufen (Notunterkunft → Raum für Raum), Farbreihen per Palettentausch (auch für das Haus der Hauptfigur über die Weboberfläche), Möbel-Daten (Art, Stellfläche, Benutzungspunkte); Ziel ~20 Häuser. Dazu (Ideen des Users): **Erkennungsstücke** an eine Figur gebunden (Gitarre an der Wand, Geweih beim Jäger); **Haupthaus anpassbar** (Typ, Farbe, Couch-Auswahl) in der Weboberfläche, die Figur baut bzw. streicht dann sichtbar um und braucht dafür Spielzeit. Prüfergebnis siehe 0.5.x „Prüfliste“ | Engine 0.5.x (Raum), Umbau als Aufgabe und Web-Auswahl nach dem Setting |
+| 2026-10-21 | **Briefe mit Text** (Idee des Users): Ansicht wie die „Vorschau“ bei den Katzen von Pixelpfote; der User schickt eine Beispieldatei, wenn es so weit ist | Welt-Phase (nach dem Setting) |
+| 2026-10-21 | **Gedanken der Bewohner**, auch in der Weboberfläche sichtbar (Idee des Users) | Welt-Phase (nach dem Setting) |
+| 2026-10-21 | **Eigene Möbel des Users:** Format im Stil-Leitfaden, Upload über die Weboberfläche nach SD/Flash oder per Update; Machbarkeit prüfen | Format mit `docs/STIL.md`, Upload danach |
 | 2026-10-20 | **Easter Egg „So entstand Pixelia“:** Knopf in der Weboberfläche öffnet die frühen Skizzen ([docs/skizzen](skizzen/README.md): fünf Perspektiven, dann die gewählte Mischung), als Rückblick auf die Entwicklung (Wunsch des Users) | später (Weboberfläche) |
+| 2026-10-21 | **Easter Eggs (prüfen)** (Wunsch des Users über den Planungs-Chat): klären, wie Pixelia mit Easter Eggs umgeht: welche es gibt, wo sie versteckt sind (Weboberfläche, Display), wie man sie findet und ob sie hinter einem Schalter liegen. Erstes geplantes: die Beispielbilder und Beispiel-Seiten der Perspektiv-Sitzung (Hof, Haus, Dorf, Zug in verschiedenen Perspektiven), abgelegt in [docs/skizzen](skizzen/README.md) (v1–v5 als HTML), in der Weboberfläche als verstecktes Extra ansehen. Bei der Prüfung beachten: Web-Bundle ≤ 150 KB gzip (Bilder evtl. aus LittleFS oder später von der SD-Karte statt eingebettet); Umfang als Auswahlliste dem User vorlegen | später (Weboberfläche), Speicherort mit der Asset-Quelle 0.5.4 |
 | 2026-10-19 | Log-Zeilen der WLAN-Bibliothek, die in zwei Teilen kommen (z. B. „wifi:“ + „<ba-add>…“), im Log-Puffer zu einer Zeile zusammenfügen | offen (Kleinigkeit) |

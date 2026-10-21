@@ -4,13 +4,14 @@
 #include <cstdint>
 #include <string>
 
+#include "pixelia/engine/stage.h"
 #include "pixelia/engine/system_ui.h"
 
 namespace sim {
 
 struct Options {
     bool headless = false;
-    std::string scene = "scrolltest";
+    std::string scene = "scrolltest";  // Ort, mit dem die Bühne startet
     uint64_t seed = 1;
     int day = 0;
     int hour = 12;
@@ -26,7 +27,19 @@ struct Options {
     bool device_colors = true;    // Farben wie auf dem Display (über RGB565)
     double run_seconds = 0;       // Fenster nach X Sekunden schließen (0 = offen lassen), für Tests
     std::string screen;           // Systemanzeige statt bzw. über der Szene: setup, update, info, toast …
+    std::string go;               // Ortswechsel nach dem Vorspulen: ORT[:ÜBERGANG]
+    long after = 0;               // Logik-Schritte nach dem Wechsel (vor Screenshot)
+    std::string sequence;         // PNG-Datei mit einer Bildfolge (kopflos)
+    int every = 3;                // Abstand der Bilder in Logik-Schritten
+    int count = 8;                // Zahl der Bilder
 };
+
+// Bühne mit den Orten des Geräts, Startort opt.scene; false = Ort unbekannt
+bool setup_stage(const Options& opt, pixelia::Stage& stage);
+// ORT[:ÜBERGANG] → Index und Übergang (Standard Abblenden); false = unbekannt
+bool parse_go(const std::string& spec, const pixelia::Stage& stage, int* place, pixelia::Transition* t);
+// Palette der Bühne mit den Farben der System-Oberfläche (240–255)
+pixelia::Palette display_palette(const pixelia::Stage& stage);
 
 int run_headless(const Options& opt);
 int run_tests(const std::string& which);  // 0 = alle bestanden

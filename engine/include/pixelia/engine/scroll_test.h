@@ -18,6 +18,8 @@ public:
     static constexpr int kMaxSprites = 2048;
 
     const char* name() const override { return "scrolltest"; }
+    const char* title() const override { return "Landschaft"; }
+    int colors() const override { return 80; }  // Indizes 0–79 (scroll_test.cpp, kLitEnd)
     void init(uint64_t seed) override;
     void tick(const WorldClock& clock) override;
     void render(Canvas& canvas) const override;

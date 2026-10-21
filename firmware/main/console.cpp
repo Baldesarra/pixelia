@@ -108,6 +108,8 @@ void print_help() {
     ESP_LOGI(TAG, "  pol <hsync_idle_low> <vsync_idle_low> <pclk_neg>  Polaritäten 0/1");
     ESP_LOGI(TAG, "  bounce <Zeilen> | clk <160|240>                Bounce-Buffer, Taktquelle");
     ESP_LOGI(TAG, "  swap <n> | sprites <n> | buf <int|psram>       Engine-Prototyp");
+    ESP_LOGI(TAG, "  buf grob <int|psram>                           grober Puffer der Orte (Messung)");
+    ESP_LOGI(TAG, "  ort [<Nr|Kennung> [Übergang]] | ort rundgang <s> | ort figuren <n>   Orte der Bühne");
     ESP_LOGI(TAG, "  time <HH:MM|real> | speed <Faktor>             Weltzeit stellen (real = echte Uhrzeit), Zeitraffer");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
 }
@@ -362,6 +364,25 @@ bool handle(char* line) {
     } else if (is("sprites") && argc >= 2) {
         gfx::set_sprites(std::atoi(argv[1]));
         ESP_LOGI(TAG, "Sprites %d", std::atoi(argv[1]));
+    } else if (is("ort")) {
+        if (argc >= 3 && std::strcmp(argv[1], "rundgang") == 0) {
+            gfx::set_tour(std::atoi(argv[2]));
+        } else if (argc >= 3 && std::strcmp(argv[1], "figuren") == 0) {
+            gfx::set_figures(std::atoi(argv[2]));
+        } else if (argc >= 2) {
+            int n = gfx::find_place(argv[1]);
+            if (n < 0 && argv[1][0] >= '0' && argv[1][0] <= '9') n = std::atoi(argv[1]);
+            pixelia::Transition t;
+            if (argc >= 3 && pixelia::parse_transition(argv[2], &t)) gfx::set_transition(t);
+            if (n < 0 || n >= gfx::place_count()) ESP_LOGW(TAG, "Ort %s unbekannt", argv[1]);
+            else gfx::go_place(n);
+        }
+        for (int i = 0; i < gfx::place_count(); ++i)
+            ESP_LOGI(TAG, "%c %d %s (%s)", i == gfx::place() ? '*' : ' ', i, gfx::place_id(i), gfx::place_title(i));
+        ESP_LOGI(TAG, "Übergang %s, Rundgang %d s, Figuren %d (0 = Standard)",
+                 pixelia::transition_name(gfx::transition()), gfx::tour(), gfx::figures());
+    } else if (is("buf") && argc >= 3 && std::strcmp(argv[1], "grob") == 0) {
+        gfx::request_coarse(std::strcmp(argv[2], "psram") == 0);
     } else if (is("buf") && argc >= 2) {
         bool psram = std::strcmp(argv[1], "psram") == 0;
         gfx::request_buffers(psram);
