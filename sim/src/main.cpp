@@ -28,6 +28,9 @@ void print_help() {
         "                          abblenden (Standard)\n"
         "  --after N               N Logik-Schritte nach dem Wechsel (dann Screenshot)\n"
         "  --cmd A,B               Befehle an den Startort, z. B. ausbau, baustelle (Testraum)\n"
+        "  --grid DATEI            Vergleichsbild mit beschrifteten Zellen (kopflos), dazu --cells und --cols\n"
+        "  --cells \"T|ORT|HH:MM|A+B;…\"  Zellen: Beschriftung, Ort, Uhrzeit, Befehle an den Ort (mit + getrennt)\n"
+        "  --cols N                Spalten des Vergleichsbilds (Standard 3)\n"
         "  --inspect               Prüfansicht: Stellflächen, Benutzungspunkte, Ausgänge\n"
         "  --no-follow             Blick folgt der Begleiterin nicht durch Türen und Bildränder\n"
         "  --sequence DATEI        Bildfolge als PNG (kopflos), z. B. für Übergänge und Animationen\n"
@@ -129,6 +132,12 @@ int main(int argc, char** argv) {
             opt.run_seconds = std::atof(next());
         } else if (a == "--cmd") {
             opt.cmd = next();
+        } else if (a == "--grid") {
+            opt.grid = next();
+        } else if (a == "--cells") {
+            opt.cells = next();
+        } else if (a == "--cols") {
+            opt.cols = std::max(1, std::atoi(next()));
         } else if (a == "--inspect") {
             opt.inspect = true;
         } else if (a == "--no-follow") {

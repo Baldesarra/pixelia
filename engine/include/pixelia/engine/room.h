@@ -22,6 +22,7 @@
 
 #include "pixelia/engine/canvas.h"
 #include "pixelia/engine/depth.h"
+#include "pixelia/engine/light.h"
 #include "pixelia/engine/scene.h"
 #include "pixelia/engine/sprite.h"
 #include "pixelia/engine/tiles.h"
@@ -171,13 +172,25 @@ public:
     bool has_background() const { return bg_ != nullptr; }
     const uint8_t* background() const { return bg_; }  // vorgezeichnetes Bild (Prüfungen), nullptr = keins
     void set_shadow_color(uint8_t c);
+    // Schatten durchscheinend (seit 0.5.2): Index → Index, z. B. PlacePalette::tint_table Richtung Schwarz
+    void set_shadow_table(const uint8_t* table);
+
+    // Licht (seit 0.5.2, light.h): Lichtkreise am Boden; base und levels wie die Palette des Ortes. Beim Vorzeichnen
+    // entsteht eine Lichtkarte (24 KB Grafik-Speicher, nur solange der Ort betreten ist). Angewendet wird sie beim
+    // Verdoppeln (begin() meldet sie in layers), Figuren bekommen die Stufe an ihrem Fußpunkt. Zeichnet sofort neu.
+    static constexpr int kMaxLights = 8;
+    void set_lights(const LightCircle* lights, int n, int base, int levels, LightStyle style);
+    int light_count() const;
+    const uint8_t* light_map() const { return lm_; }
 
     // Prüfansicht in 400 × 240: versperrte Kacheln (Punkt), Stellflächen, Benutzungspunkte, Ausgänge (Rahmen)
     void draw_inspect(Canvas& fine, uint8_t blocked, uint8_t part, uint8_t use, uint8_t exit) const;
 
     // Zeichnen, Schritt 1: Hintergrund ins grobe Bild, Teile in die Tiefenliste. Danach fügt der Ort seine Figuren
     // hinzu und ruft draw(c) der Liste. with_background = false zeichnet alles direkt (Test der Gleichheit).
-    DepthList& begin(Canvas& c, bool with_background = true) const;
+    // layers (seit 0.5.2): Hintergrund nicht kopieren, sondern als untere Schicht melden (canvas.h, CoarseLayers);
+    // ohne Hintergrundbild bleibt layers->base leer und alles steht im Bild.
+    DepthList& begin(Canvas& c, bool with_background = true, CoarseLayers* layers = nullptr) const;
 
 private:
     struct Storage;
@@ -194,6 +207,7 @@ private:
     const PartCatalog* catalog_ = nullptr;
     Storage* st_ = nullptr;
     uint8_t* bg_ = nullptr;
+    uint8_t* lm_ = nullptr;  // Lichtkarte (Stufe je grobem Bildpunkt)
     uint32_t ticks_ = 0;
 };
 

@@ -33,6 +33,28 @@ struct Rect {
 
 using Palette = std::array<Color, 256>;
 
+// Grobes Bild aus zwei Schichten (seit 0.5.2): Die Bühne verdoppelt direkt aus dem unbewegten Hintergrund (base)
+// und nimmt nur je Zeile im Bereich [x0, x1) den Arbeitspuffer mit den bewegten Teilen. Das spart die Kopie des
+// ganzen Hintergrunds (24 KB PSRAM → PSRAM, 0,9 ms) in jedem Bild. Grenzen gerade, x0 == x1: Zeile ganz aus base.
+struct CoarseLayers {
+    const uint8_t* base = nullptr;  // nullptr = alles aus dem Arbeitspuffer
+    std::array<uint8_t, kCoarseHeight> x0{}, x1{};
+    // Licht (light.h): stetiger Lichtwert je grobem Bildpunkt (64 = eine Stufe), erst beim Verdoppeln angewendet,
+    // damit das Raster fein (2 × 2 Displaypunkte) sein kann; je Zeile der Bereich [lx0, lx1) mit Licht
+    const uint8_t* light = nullptr;
+    std::array<uint8_t, kCoarseHeight> lx0{}, lx1{};
+    uint8_t light_base = 0;   // Grundfarben je Lichtstufe
+    uint8_t light_style = 0;  // LightStyle
+};
+
+// Zeichnen im Licht (seit 0.5.2, light.h): Grundfarben 1 … base − 1 auf eine Lichtstufe heben, je Bildpunkt aus
+// der Lichtkarte (map, Maße der Zeichenfläche) oder für das ganze Bild fest (map = nullptr, level)
+struct LightBlit {
+    const uint8_t* map = nullptr;
+    int base = 0;
+    int level = 0;
+};
+
 // Sprite mit Palettenindizes, Index 0 = durchsichtig
 struct Sprite {
     const uint8_t* pixels;
@@ -59,7 +81,8 @@ public:
     // remap: Farbreihe (256 Byte, Index → Index), nullptr = Farben wie gezeichnet
     void blit(const Sprite& s, int x, int y, bool flip_x = false, const uint8_t* remap = nullptr);
     // wie blit, zeichnet aber nur innerhalb von clip (Tiefensortierung: Möbel vor einer Figur neu zeichnen)
-    void blit_clipped(const Sprite& s, int x, int y, bool flip_x, const uint8_t* remap, const Rect& clip);
+    void blit_clipped(const Sprite& s, int x, int y, bool flip_x, const uint8_t* remap, const Rect& clip,
+                      const LightBlit* light = nullptr);
 
 private:
     uint8_t* px_ = nullptr;

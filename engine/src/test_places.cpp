@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstdio>
 #include <cstring>
 #include <new>
+#include <string_view>
 
 #include "pixelia/engine/font.h"
 #include "pixelia/engine/memory.h"
@@ -35,6 +37,11 @@ constexpr uint8_t kWallTop = 62;
 constexpr uint8_t kGlass = 63;
 constexpr uint8_t kWood = 64;     // 64..67 Farbreihe Holz
 constexpr uint8_t kPastel = 68;   // 68..71 Tapete (Farbreihe für die Wand-Ebene)
+// seit 0.5.2 (Farbe und Licht): Rollen und Farbrotation, light.h
+constexpr uint8_t kSky = 72;    // 72..73 Fensterglas: Himmelsverlauf (Raum) bzw. Licht im Fenster am Abend (Wiese)
+constexpr uint8_t kWater = 74;  // 74..77 Wasser (Farbrotation)
+constexpr uint8_t kFlame = 78;  // 78..79 Schirm der Lampe, leuchtet bei Dunkelheit (Farbrotation), Kern kGlow
+static_assert(kFlame + 2 <= 80, "Grundfarben passen in eine Lichtstufe");
 
 // Farbreihen des Katalogs: 0 wie gezeichnet, 1–6 rot, blau, gelb, lavendel, grün, türkis, 7 Holz, 8 Tapete
 constexpr int kRowWood = 7, kRowPaper = 8, kRowCount = 9;
@@ -49,10 +56,10 @@ constexpr Animation kIdle{kIdleFrames, 2, AnimMode::Loop};
 // Kacheln: Legende Zeichen → Nummer (tiles.h); 0 = leer
 enum Tile : uint8_t {
     kTGrassA = 1, kTGrassB, kTTuft, kTBloom, kTPath, kTPlankA, kTPlankB, kTStoneA, kTStoneB,
-    kTWallFace, kTWallBase, kTWallBand, kTWallTop, kTHedge, kTHedgeFace, kTPebbles, kTFlowers, kTileCount
+    kTWallFace, kTWallBase, kTWallBand, kTWallTop, kTHedge, kTHedgeFace, kTPebbles, kTFlowers, kTWater, kTileCount
 };
-constexpr const char* kLegend = " .,\"*=_-ocWST#hHsf";
-static_assert(kTileCount == 18, "Legende passt zu den Kacheln");
+constexpr const char* kLegend = " .,\"*=_-ocWST#hHsf~";
+static_assert(kTileCount == 19, "Legende passt zu den Kacheln");
 
 // Teile des Katalogs
 enum Part : uint8_t {
@@ -274,7 +281,10 @@ void paint_stage(uint8_t* px, int s, int f) {
             break;
         case kPWindow:
             p.rect(0, 0, W, H, r2);
-            p.rect(2, 2, W - 4, H - 5, kGlass);
+            // Glas: Verlauf aus zwei Farben im 4×4-Raster (oben kSky, unten kSky + 1)
+            for (int y = 2; y < H - 3; ++y)
+                for (int x = 2; x < W - 2; ++x)
+                    p.dot(x, y, dither4(x, y, (y - 2) * 16 / (H - 6)) ? kSky + 1 : kSky);
             p.rect(7, 2, 2, H - 5, r2);
             p.rect(2, 7, W - 4, 1, r2);
             p.dot(3, 3, kBloom);
@@ -353,7 +363,10 @@ void paint_stage(uint8_t* px, int s, int f) {
             p.rect(3, 7, 2, 11, r3);
             p.rect(1, 18, 6, 2, r2);
             p.rect(2, 1, 4, 1, r1);
-            p.rect(1, 2, 6, 5, f ? kGlow : r0);
+            // Schirm leuchtet bei Dunkelheit (Rolle „leuchtend“), Kern flackert zwischen den Bildern
+            p.rect(1, 2, 6, 5, kFlame);
+            for (int x = 1; x < 7; x += 2) p.dot(x + f, 3, kFlame + 1);
+            p.rect(2 + f, 4, 3, 2, kGlow);
             p.rect(1, 6, 6, 1, r2);
             break;
         case kPPlant:
@@ -502,8 +515,11 @@ void paint_tiles(uint8_t (*t)[kTilePixels], uint8_t* flags) {
     dot(kTFlowers, 5, 1, kBloom + 1);
     dot(kTFlowers, 3, 5, kBloom);
     dot(kTFlowers, 6, 6, kRows + 8);
+    // Wasser (seit 0.5.2): schräge Wellen aus vier Farben, die Farbrotation lässt sie wandern
+    for (int y = 0; y < 8; ++y)
+        for (int x = 0; x < 8; ++x) dot(kTWater, x, y, static_cast<uint8_t>(kWater + ((x + y * 3) / 3 & 3)));
     std::memset(flags, 0, kTileCount);
-    for (int i : {kTWallFace, kTWallBase, kTWallBand, kTWallTop, kTHedge, kTHedgeFace}) flags[i] = kTileBlocks;
+    for (int i : {kTWallFace, kTWallBase, kTWallBand, kTWallTop, kTHedge, kTHedgeFace, kTWater}) flags[i] = kTileBlocks;
 }
 
 // Erkennungsstück: in den Testorten bekommt jeder Besitzer denselben neutralen Sockel (Farbe aus der Raumliste)
@@ -559,6 +575,27 @@ constexpr SpriteSheet figure_sheet(const Kit& k) { return {k.figure, kFigW, kFig
 Color tint(Color c, int r256, int g256, int b256) {
     auto ch = [](int v, int k) { return static_cast<uint8_t>(std::min(255, v * k >> 8)); };
     return {ch(c.r, r256), ch(c.g, g256), ch(c.b, b256)};
+}
+
+// Grundstimmung der Testorte (Vergleich für docs/STIL.md): 0 warm und gemütlich, 1 kräftig und bunt, 2 gedeckt
+Color grade(Color c, int mood) {
+    const int lum = (77 * c.r + 150 * c.g + 29 * c.b) >> 8;
+    const int sat = mood == 1 ? 330 : mood == 2 ? 170 : 232;
+    int r = lum + ((c.r - lum) * sat >> 8), g = lum + ((c.g - lum) * sat >> 8), b = lum + ((c.b - lum) * sat >> 8);
+    if (mood == 0) {
+        // wärmer, Schatten leicht ins Violettbraune angehoben
+        r = (r * 266 >> 8) + ((255 - lum) * 8 >> 8);
+        b = (b * 236 >> 8) + ((255 - lum) * 12 >> 8);
+    } else if (mood == 1) {
+        r = 128 + ((r - 128) * 280 >> 8);
+        g = 128 + ((g - 128) * 280 >> 8);
+        b = 128 + ((b - 128) * 280 >> 8);
+    } else if (mood == 2) {
+        r = (r * 204 + (lum * 276 >> 8) * 52) >> 8;
+        b = (b * 204 + (lum * 214 >> 8) * 52) >> 8;
+    }
+    auto cl = [](int v) { return static_cast<uint8_t>(v < 0 ? 0 : v > 255 ? 255 : v); };
+    return {cl(r), cl(g), cl(b)};
 }
 
 // --- Orte als Daten: Kachelzeilen (25 × 15), Raumliste, Ausgänge ---
@@ -619,8 +656,8 @@ constexpr Exit kRoomExits[] = {
 constexpr const char* kSquareFloor[kTilesY] = {
     "hhhhhhhhhhhhhhhhhhhhhhhhh", "hhhhhhhhhhhhhhhhhhhhhhhhh", "HHHHHHHHHHHHHHHHHHHHHHHHH",
     "..ococococococococococo..", "..cocococococococococoo..", "..ococococococococococo..",
-    "..cocococococococococoo..", "..ococococococococococo..", "..cocococococococococoo..",
-    "==ococococococococococo..", "==cocococococococococoo..", "..ococococococococococo..",
+    "..cocococococococococoo..", "..ococococococococococo..", "..cocococ~~~~~cocococoo..",
+    "==ocococo~~~~~ococococo..", "==cocococococococococoo..", "..ococococococococococo..",
     "..cocococococococococoo..", "..ococococococococococo..", "hhhhhhhhhhhhhhhhhhhhhhhhh",
 };
 constexpr const char* kSquareDeco[kTilesY] = {
@@ -636,6 +673,11 @@ constexpr RoomPart kSquareParts[] = {
 constexpr Exit kSquareExits[] = {
     {0, 9, 1, 2, 1, 9, Facing::Right, ExitKind::Edge, "testort-wiese", 1, Transition::Fade},
 };
+
+// Lichtkreise (seit 0.5.2): Wiese vor den Fenstern, Raum und Platz um die Lampe (Mitte am Fuß, grobe Bildpunkte)
+constexpr LightCircle kFieldLights[] = {{80, 37, 22, 9, 190}, {120, 37, 22, 9, 190}};
+constexpr LightCircle kRoomLights[] = {{188, 100, 58, 38, 255}};
+constexpr LightCircle kSquareLights[] = {{100, 56, 64, 40, 255}};
 
 constexpr RoomDef kRooms[3] = {
     {{kFieldFloor, kFieldWalls, kFieldDeco}, kLegend, {0, 0, 0}, kFieldParts, 8, kFieldExits, 2},
@@ -666,9 +708,10 @@ const char* TestPlace::title() const {
 }
 
 void TestPlace::build_palette() {
-    Palette& p = palette_;
-    p.fill({0, 0, 0});
-    p[kOutline] = {28, 26, 36};
+    PlacePalette& p = pal_;
+    p = PlacePalette(3);
+    std::array<Color, kColors> c{};
+    c[kOutline] = {28, 26, 36};
     const Color grass[4] = {{112, 150, 110}, {96, 134, 98}, {82, 118, 86}, {66, 100, 74}};
     const Color path[3] = {{186, 172, 138}, {166, 152, 120}, {142, 128, 100}};
     const Color floor[4] = {{164, 124, 90}, {146, 108, 78}, {126, 92, 66}, {104, 74, 54}};
@@ -677,6 +720,7 @@ void TestPlace::build_palette() {
     const Color stone[4] = {{184, 180, 172}, {164, 160, 152}, {142, 138, 132}, {112, 108, 104}};
     const Color wood[4] = {{188, 140, 96}, {160, 114, 76}, {128, 88, 60}, {96, 64, 46}};
     const Color pastel[4] = {{214, 200, 222}, {194, 178, 206}, {166, 150, 184}, {130, 116, 150}};
+    const Color water[4] = {{92, 150, 186}, {72, 128, 170}, {60, 112, 156}, {80, 140, 178}};
     // Farbreihen der Figuren: rot, blau, gelb, lavendel, grün, türkis
     const Color rows[kFigureRows][4] = {
         {{228, 106, 98}, {198, 80, 76}, {162, 60, 62}, {122, 46, 52}},
@@ -687,39 +731,60 @@ void TestPlace::build_palette() {
         {{110, 202, 198}, {82, 170, 172}, {62, 136, 142}, {46, 102, 110}},
     };
     for (int i = 0; i < 4; ++i) {
-        p[kGrass + i] = grass[i];
-        p[kFloor + i] = floor[i];
-        p[kWall + i] = wall[i];
-        p[kRamp + i] = ramp[i];
-        p[kStone + i] = stone[i];
-        p[kWood + i] = wood[i];
-        p[kPastel + i] = pastel[i];
-        for (int r = 0; r < kFigureRows; ++r) p[kRows + r * 4 + i] = rows[r][i];
+        c[kGrass + i] = grass[i];
+        c[kFloor + i] = floor[i];
+        c[kWall + i] = wall[i];
+        c[kRamp + i] = ramp[i];
+        c[kStone + i] = stone[i];
+        c[kWood + i] = wood[i];
+        c[kPastel + i] = pastel[i];
+        c[kWater + i] = water[i];
+        for (int r = 0; r < kFigureRows; ++r) c[kRows + r * 4 + i] = rows[r][i];
     }
-    for (int i = 0; i < 3; ++i) p[kPath + i] = path[i];
-    p[kTuft] = {130, 168, 118};
-    p[kBloom] = {238, 234, 222};
-    p[kBloom + 1] = {222, 180, 86};
-    p[kSkin] = {238, 216, 192};
-    p[kSkin + 1] = {216, 188, 162};
-    p[kSkin + 2] = {182, 152, 130};
-    p[kHair] = {84, 66, 60};
-    p[kHair + 1] = {64, 50, 46};
-    p[kHair + 2] = {46, 36, 34};
-    p[kEye] = {32, 28, 38};
-    p[kDark] = {52, 42, 40};
-    p[kGlow] = {255, 236, 170};
-    p[kWallTop] = {84, 74, 72};
-    p[kGlass] = {168, 198, 212};
-    p[kShadow] = kind_ == Kind::Field ? Color{70, 100, 78} : kind_ == Kind::Room ? Color{100, 74, 56}
+    for (int i = 0; i < 3; ++i) c[kPath + i] = path[i];
+    c[kTuft] = {130, 168, 118};
+    c[kBloom] = {238, 234, 222};
+    c[kBloom + 1] = {222, 180, 86};
+    c[kSkin] = {238, 216, 192};
+    c[kSkin + 1] = {216, 188, 162};
+    c[kSkin + 2] = {182, 152, 130};
+    c[kHair] = {84, 66, 60};
+    c[kHair + 1] = {64, 50, 46};
+    c[kHair + 2] = {46, 36, 34};
+    c[kEye] = {32, 28, 38};
+    c[kDark] = {52, 42, 40};
+    c[kWallTop] = {84, 74, 72};
+    c[kGlass] = {168, 198, 212};
+    c[kShadow] = kind_ == Kind::Field ? Color{70, 100, 78} : kind_ == Kind::Room ? Color{100, 74, 56}
                                                                                   : Color{118, 114, 108};
-    // Licht des Ortes: Wiese kühl, Raum warm, Platz neutral (verschiedene Paletten für die Überblendung)
+    c[kSky] = {176, 204, 216};      // Fensterglas am Tag (Spiegelung)
+    c[kSky + 1] = {150, 180, 196};
+    c[kFlame] = {214, 200, 168};    // Lampenschirm am Tag
+    c[kFlame + 1] = {200, 184, 150};
+    c[kGlow] = {226, 214, 184};
+    // Grundstimmung, dann Licht des Ortes: Wiese kühl, Raum warm, Platz neutral (verschiedene Paletten)
     for (int i = 1; i < kColors; ++i) {
-        if (i == kGlow) continue;
-        p[i] = kind_ == Kind::Field  ? tint(p[i], 246, 256, 268)
-               : kind_ == Kind::Room ? tint(p[i], 268, 248, 222)
-                                     : tint(p[i], 258, 254, 246);
+        const Color g = grade(c[i], mood_);
+        p.set(i, kind_ == Kind::Field  ? tint(g, 246, 256, 268)
+                 : kind_ == Kind::Room ? tint(g, 268, 248, 222)
+                                       : tint(g, 258, 254, 246));
     }
+    // Rollen: Lampe leuchtet bei Dunkelheit, Fenster zeigen innen den Himmel, außen am Abend Licht
+    p.set_glow(kFlame, {255, 210, 128});
+    p.set_glow(kFlame + 1, {255, 186, 96});
+    p.set_glow(kGlow, {255, 244, 204});
+    if (kind_ == Kind::Room) {
+        p.set_sky(kSky, 2);
+    } else if (kind_ == Kind::Field) {
+        p.set_glow(kSky, {255, 214, 130});
+        p.set_glow(kSky + 1, {246, 178, 92});
+    }
+    p.add_cycle({kWater, 4, 7});   // Wasser: alle 7 Schritte ein Platz weiter
+    p.add_cycle({kFlame, 2, 5});   // Lampe flackert
+    p.set_lamp({255, 190, 112});
+    p.set_exposure(kind_ == Kind::Room ? 220 : 256);
+    // Schatten durchscheinend: jede Farbe ein Stück Richtung Dunkelviolett (Farbtabelle)
+    p.tint_table({24, 18, 34}, 96, shadow_);
 }
 
 void TestPlace::build_room() {
@@ -727,6 +792,8 @@ void TestPlace::build_room() {
     if (!room_.init(&k.tileset, &k.catalog)) return;
     room_.load(kRooms[static_cast<int>(kind_)]);
     room_.set_shadow_color(kShadow);
+    room_.set_shadow_table(shadow_);
+    apply_lights();
     if (kind_ != Kind::Field) return;
     // Wiese: Gras im Schachbrett, dazu zufällig Büschel und Blüten (aus dem Startwert)
     TileMap& m = room_.tiles();
@@ -766,10 +833,22 @@ void TestPlace::spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, 
     f.anim.play(&kIdle);
 }
 
+void TestPlace::apply_lights() {
+    const LightCircle* l = kind_ == Kind::Field ? kFieldLights : kind_ == Kind::Room ? kRoomLights : kSquareLights;
+    const int n = kind_ == Kind::Field ? 2 : 1;
+    std::array<LightCircle, Room::kMaxLights> c{};
+    for (int i = 0; i < n; ++i) {
+        c[i] = l[i];
+        if (light_inner_ >= 0) c[i].inner = static_cast<uint8_t>(light_inner_);
+    }
+    room_.set_lights(c.data(), n, pal_.base(), pal_.levels(), light_style_);
+}
+
 void TestPlace::init(uint64_t seed) {
     kit();
     rng_.reseed(seed);
     build_palette();
+    pal_.apply(daylight_.at(12 * 3600 * 1000000LL), 0, palette_);
     build_room();
     count_ = 0;
     out_count_ = 0;
@@ -896,7 +975,9 @@ void TestPlace::reached(int i) {
     }
 }
 
-void TestPlace::tick(const WorldClock& /*clock*/) {
+void TestPlace::tick(const WorldClock& clock) {
+    // Palette zur Tageszeit (Tageslicht, Lampen, Fenster, Himmel) und Farbrotation
+    pal_.apply(daylight_.at(clock.us_of_day()), clock.ticks(), palette_);
     if (load_pending_) apply_load();
     room_.tick();
     for (int i = 0; i < count_;) {
@@ -979,6 +1060,33 @@ void TestPlace::arrive(const Travel& t) {
 
 bool TestPlace::command(const char* cmd) {
     if (!cmd) return false;
+    int n = 0;
+    if (std::sscanf(cmd, "stimmung %d", &n) == 1) {
+        mood_ = std::clamp(n, 0, 2);
+        build_palette();
+        room_.invalidate();
+        return true;
+    }
+    if (std::sscanf(cmd, "tageslicht %d", &n) == 1) {
+        const int floor = daylight_.floor();
+        daylight_ = daylight_preset(std::clamp(n, 0, kDaylightPresets - 1));
+        daylight_.set_floor(floor);
+        return true;
+    }
+    if (std::sscanf(cmd, "nacht %d", &n) == 1) {
+        daylight_.set_floor(std::clamp(n, 0, 256));
+        return true;
+    }
+    // „licht fein|grob|hart [innen 0–100 %]“
+    char style[8] = {};
+    if (std::sscanf(cmd, "licht %7s %d", style, &n) >= 1) {
+        const std::string_view st(style);
+        if (st != "fein" && st != "grob" && st != "hart") return false;
+        light_style_ = st == "fein" ? LightStyle::Fine : st == "grob" ? LightStyle::Coarse : LightStyle::Stepped;
+        light_inner_ = std::sscanf(cmd, "licht %*s %d", &n) == 1 ? std::clamp(n, 0, 100) * 255 / 100 : -1;
+        apply_lights();
+        return true;
+    }
     if (std::strcmp(cmd, "ausbau") == 0) {
         for (int i = 0; i < room_.part_count(); ++i) {
             const int n = room_.stage_count(i);
@@ -1014,13 +1122,14 @@ bool TestPlace::command(const char* cmd) {
     return false;
 }
 
-void TestPlace::draw(Canvas& c, bool with_background) const {
+void TestPlace::draw(Canvas& c, bool with_background, CoarseLayers* layers) const {
+    if (layers) layers->base = nullptr;
     if (!room_.ready()) {
         c.clear(0);
         return;
     }
     const Kit& k = kit();
-    DepthList& list = room_.begin(c, with_background);
+    DepthList& list = room_.begin(c, with_background, layers);
     const SpriteSheet sheet = figure_sheet(k);
     for (int i = 0; i < count_; ++i) {
         const Figure& f = figures_[i];

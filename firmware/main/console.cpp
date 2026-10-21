@@ -1,8 +1,8 @@
-// Diagnose-Schnittstelle über die serielle Konsole (UART0, 115200 Baud) und per WLAN (POST /api/cmd).
-// Eine Zeile = ein Befehl. Gedacht für tools/monitor.ps1 -Send bzw. tools/netlog.ps1 -Send, funktioniert aber auch
+﻿// Diagnose-Schnittstelle Ã¼ber die serielle Konsole (UART0, 115200 Baud) und per WLAN (POST /api/cmd).
+// Eine Zeile = ein Befehl. Gedacht fÃ¼r tools/monitor.ps1 -Send bzw. tools/netlog.ps1 -Send, funktioniert aber auch
 // im Terminal. Befehle aus dem Netz laufen in derselben Task wie serielle (nacheinander, gleicher Stack), ihre
-// Log-Zeilen gehen als Antwort zurück. Gefährliche Befehle (Liste kDangerous) brauchen dort eine Bestätigung.
-// WLAN-Passwörter lassen sich über die Konsole bewusst nicht eintragen.
+// Log-Zeilen gehen als Antwort zurÃ¼ck. GefÃ¤hrliche Befehle (Liste kDangerous) brauchen dort eine BestÃ¤tigung.
+// WLAN-PasswÃ¶rter lassen sich Ã¼ber die Konsole bewusst nicht eintragen.
 
 #include <algorithm>
 #include <cinttypes>
@@ -24,6 +24,8 @@
 #include "ui.h"
 #include "web.h"
 #include "driver/uart.h"
+#include "esp_async_memcpy.h"
+#include "esp_cache.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -41,7 +43,7 @@ constexpr const char* TAG = "cmd";
 constexpr uart_port_t kUart = UART_NUM_0;
 constexpr size_t kCaptureBytes = 16 * 1024;
 
-// Befehle, die über das Netz nur mit Bestätigung laufen (sub = zweites Wort, nullptr = egal)
+// Befehle, die Ã¼ber das Netz nur mit BestÃ¤tigung laufen (sub = zweites Wort, nullptr = egal)
 struct Danger {
     const char* cmd;
     const char* sub;
@@ -49,19 +51,19 @@ struct Danger {
 };
 constexpr Danger kDangerous[] = {
     {"reboot", nullptr, "startet Pixelia neu"},
-    {"wifi", "forget", "löscht ein gespeichertes WLAN (ohne WLAN bleibt nur das Setup-WLAN am Gerät)"},
+    {"wifi", "forget", "lÃ¶scht ein gespeichertes WLAN (ohne WLAN bleibt nur das Setup-WLAN am GerÃ¤t)"},
     {"wifi", "setup", "trennt Pixelia vom Heimnetz und startet den Setup-Modus"},
     {"wifi", "connect", "trennt die WLAN-Verbindung kurz"},
-    {"flash", nullptr, "überschreibt die Partition „storage“ (später Spielstände)"},
+    {"flash", nullptr, "Ã¼berschreibt die Partition â€žstorageâ€œ (spÃ¤ter SpielstÃ¤nde)"},
     {"pclk", nullptr, "stellt den Pixeltakt um, das Bild kann ausfallen"},
     {"timing", nullptr, "stellt das Panel-Timing um, das Bild kann ausfallen"},
-    {"pol", nullptr, "stellt die Panel-Polaritäten um, das Bild kann ausfallen"},
+    {"pol", nullptr, "stellt die Panel-PolaritÃ¤ten um, das Bild kann ausfallen"},
     {"bounce", nullptr, "legt das Panel neu an"},
     {"clk", nullptr, "stellt die Taktquelle des Panels um"},
     {"buf", nullptr, "legt die Engine-Puffer neu an"},
-    {"touchrst", nullptr, "setzt den Touch-Controller zurück"},
-    {"log", "clear", "löscht den Log-Puffer"},
-    {"coredump", "erase", "löscht den Absturzbericht"},
+    {"touchrst", nullptr, "setzt den Touch-Controller zurÃ¼ck"},
+    {"log", "clear", "lÃ¶scht den Log-Puffer"},
+    {"coredump", "erase", "lÃ¶scht den Absturzbericht"},
 };
 
 struct Job {
@@ -75,7 +77,7 @@ struct Job {
 };
 QueueHandle_t s_jobs = nullptr;            // std::shared_ptr<Job>* aus run_remote()
 SemaphoreHandle_t s_remote_lock = nullptr;  // immer nur ein Befehl aus dem Netz gleichzeitig
-bool s_remote = false;                      // gerade läuft ein Befehl aus dem Netz (nur Konsolen-Task)
+bool s_remote = false;                      // gerade lÃ¤uft ein Befehl aus dem Netz (nur Konsolen-Task)
 
 const char* danger_of(const char* line) {
     char copy[64];
@@ -95,24 +97,24 @@ void print_help() {
     ESP_LOGI(TAG, "Befehle:");
     ESP_LOGI(TAG, "  info | heap | scan | touch | touchrst | reboot");
     ESP_LOGI(TAG, "  log | log bench [n] | log clear | tasks | resets   Log-Puffer, Tasks, Reset-Historie");
-    ESP_LOGI(TAG, "  coredump | coredump erase                      Absturzbericht zeigen bzw. löschen");
+    ESP_LOGI(TAG, "  coredump | coredump erase                      Absturzbericht zeigen bzw. lÃ¶schen");
     ESP_LOGI(TAG, "  rot <0|180> | set | set bright <1-100>           Bild drehen, Einstellungen (gespeichert)");
-    ESP_LOGI(TAG, "  set lp <1000-10000>                            Dauer des langen Drucks für die Info-Karte (ms)");
-    ESP_LOGI(TAG, "  card | card off                                Info-Karte zeigen bzw. schließen");
+    ESP_LOGI(TAG, "  set lp <1000-10000>                            Dauer des langen Drucks fÃ¼r die Info-Karte (ms)");
+    ESP_LOGI(TAG, "  card | card off                                Info-Karte zeigen bzw. schlieÃŸen");
     ESP_LOGI(TAG, "  wifi | wifi scan | wifi list | wifi forget <Name> | wifi setup | wifi connect");
     ESP_LOGI(TAG, "  ota | ntp | web | toast <Text>                 Update-Zustand, Uhrzeit, Webserver, Kurzmeldung");
-    ESP_LOGI(TAG, "  tour [tap] | flash <Sekunden> | marks <n>      geführter Test (tap: Start per Tippen), Flash-Last");
+    ESP_LOGI(TAG, "  tour [tap] | flash <Sekunden> | marks <n>      gefÃ¼hrter Test (tap: Start per Tippen), Flash-Last");
     ESP_LOGI(TAG, "  pat <black|bars|frame|motion|touch|engine>   Testbild/Modus");
     ESP_LOGI(TAG, "  bl <0-100> | bl cycle | bl stop | blf <Hz>      Hintergrundbeleuchtung");
     ESP_LOGI(TAG, "  pclk <MHz>                                    Pixeltakt zur Laufzeit");
     ESP_LOGI(TAG, "  timing <hfp> <hpw> <hbp> <vfp> <vpw> <vbp>     Porches (Panel neu anlegen)");
-    ESP_LOGI(TAG, "  pol <hsync_idle_low> <vsync_idle_low> <pclk_neg>  Polaritäten 0/1");
+    ESP_LOGI(TAG, "  pol <hsync_idle_low> <vsync_idle_low> <pclk_neg>  PolaritÃ¤ten 0/1");
     ESP_LOGI(TAG, "  bounce <Zeilen> | clk <160|240>                Bounce-Buffer, Taktquelle");
     ESP_LOGI(TAG, "  swap <n> | sprites <n> | buf <int|psram>       Engine-Prototyp");
     ESP_LOGI(TAG, "  buf grob <int|psram>                           grober Puffer der Orte (Messung)");
-    ESP_LOGI(TAG, "  ort [<Nr|Kennung> [Übergang]] | ort rundgang <s> | ort figuren <n>   Orte der Bühne");
+    ESP_LOGI(TAG, "  ort [<Nr|Kennung> [Ãœbergang]] | ort rundgang <s> | ort figuren <n>   Orte der BÃ¼hne");
     ESP_LOGI(TAG, "  ort ausbau | ort baustelle | ort folgen 0/1 | ort pruefen 0/1   Testorte (Raum-Baukasten)");
-    ESP_LOGI(TAG, "  bench   Zeichnen messen: Verdoppeln und Kopie des Hintergrunds im PSRAM");
+    ESP_LOGI(TAG, "  bench [mem]   Zeichnen messen: Verdoppeln, Kopie des Hintergrunds; mem: PSRAM-Durchsatz, DMA");
     ESP_LOGI(TAG, "  time <HH:MM|real> | speed <Faktor>             Weltzeit stellen (real = echte Uhrzeit), Zeitraffer");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
 }
@@ -127,23 +129,86 @@ void log_buffer_info() {
     const log::Info i = log::info();
     const log::Stats& s = i.stats;
     const double mhz = CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ;
-    ESP_LOGI(TAG, "Log-Puffer: %lu Zeilen (Nr. %lu–%lu), %u von %u KB belegt, Start Nr. %u, beim Start %s (%lu Zeilen)",
+    ESP_LOGI(TAG, "Log-Puffer: %lu Zeilen (Nr. %luâ€“%lu), %u von %u KB belegt, Start Nr. %u, beim Start %s (%lu Zeilen)",
              static_cast<unsigned long>(i.next - i.first), static_cast<unsigned long>(i.first),
              static_cast<unsigned long>(i.next ? i.next - 1 : 0), static_cast<unsigned>(i.used / 1024),
              static_cast<unsigned>(i.capacity / 1024), i.boot, i.origin, static_cast<unsigned long>(i.prev_lines));
     ESP_LOGI(TAG, "  RTC-Sicherung %u von %u Byte (ab Nr. %lu, %s), PSRAM-Puffer bei %p", static_cast<unsigned>(i.rtc_used),
              static_cast<unsigned>(i.rtc_capacity), static_cast<unsigned long>(i.rtc_first),
              i.mirror ? "zeilenweise im Probelauf" : "nur beim Neustart", i.address);
-    ESP_LOGI(TAG, "  Hook: %lu Aufrufe, %lu im Puffer, %lu nur seriell, %lu gekürzt, %lu Fehler, %lu Warnungen",
+    ESP_LOGI(TAG, "  Hook: %lu Aufrufe, %lu im Puffer, %lu nur seriell, %lu gekÃ¼rzt, %lu Fehler, %lu Warnungen",
              static_cast<unsigned long>(s.calls), static_cast<unsigned long>(s.stored),
              static_cast<unsigned long>(s.serial_only), static_cast<unsigned long>(s.truncated),
              static_cast<unsigned long>(s.errors), static_cast<unsigned long>(s.warnings));
-    ESP_LOGI(TAG, "  Kosten pro Zeile: Formatieren %.1f µs, Puffer %.1f µs (max %.1f µs), seriell %.0f µs, gesamt max %.0f µs",
+    ESP_LOGI(TAG, "  Kosten pro Zeile: Formatieren %.1f Âµs, Puffer %.1f Âµs (max %.1f Âµs), seriell %.0f Âµs, gesamt max %.0f Âµs",
              s.calls ? s.fmt_cycles / mhz / s.calls : 0.0, s.stored ? s.store_cycles / mhz / s.stored : 0.0,
              s.store_max_cycles / mhz, s.calls ? s.uart_cycles / mhz / s.calls : 0.0, s.total_max_cycles / mhz);
 }
 
-// Messung: Puffer allein (ohne seriell), dann n echte Log-Zeilen über den Hook; Bildrate und Aussetzer dabei
+// Messung: Puffer allein (ohne seriell), dann n echte Log-Zeilen Ã¼ber den Hook; Bildrate und Aussetzer dabei
+// Speicher-Messung (0.5.2, â€žbench memâ€œ): Wohin geht die Zeit beim Verdoppeln? Schreiben, Lesen, Kopie aus dem
+// internen RAM und per DMA (GDMA, ohne Cache) in einen 96-KB-Puffer im PSRAM.
+volatile uint32_t s_bench_sink = 0;
+bool IRAM_ATTR bench_dma_done(async_memcpy_handle_t, async_memcpy_event_t*, void* arg) {
+    BaseType_t woken = pdFALSE;
+    xSemaphoreGiveFromISR(static_cast<SemaphoreHandle_t>(arg), &woken);
+    return woken == pdTRUE;
+}
+void bench_memory() {
+    constexpr int kRuns = 20, kChunk = 3200, kChunks = pixelia::kScreenPixels / kChunk;
+    auto* fine = static_cast<uint8_t*>(heap_caps_aligned_alloc(64, pixelia::kScreenPixels, MALLOC_CAP_SPIRAM));
+    auto* rows = static_cast<uint8_t*>(heap_caps_aligned_alloc(64, 2 * kChunk, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA));
+    SemaphoreHandle_t done = xSemaphoreCreateCounting(kChunks, 0);
+    async_memcpy_config_t cfg = ASYNC_MEMCPY_DEFAULT_CONFIG();
+    cfg.backlog = kChunks;
+    cfg.dma_burst_size = 64;
+    async_memcpy_handle_t mcp = nullptr;
+    const esp_err_t dma_err = esp_async_memcpy_install(&cfg, &mcp);
+    if (fine && rows && done) {
+        for (int i = 0; i < 2 * kChunk; ++i) rows[i] = static_cast<uint8_t>(i * 3);
+        auto timed = [&](auto&& f) {
+            const int64_t t0 = esp_timer_get_time();
+            for (int i = 0; i < kRuns; ++i) f(i);
+            return (esp_timer_get_time() - t0) / kRuns;
+        };
+        const int64_t w = timed([&](int i) { std::memset(fine, i, pixelia::kScreenPixels); });
+        const int64_t r = timed([&](int) {
+            uint32_t s = 0;
+            const auto* p = reinterpret_cast<const uint32_t*>(fine);
+            for (int k = 0; k < pixelia::kScreenPixels / 4; k += 16) s += p[k];  // ein Wort je 64-Byte-Zeile
+            s_bench_sink = s;
+        });
+        const int64_t c = timed([&](int) {
+            for (int y = 0; y < pixelia::kScreenHeight; ++y)
+                std::memcpy(fine + y * pixelia::kScreenWidth, rows + (y & 7) * pixelia::kScreenWidth,
+                            pixelia::kScreenWidth);
+        });
+        const int64_t inv = timed([&](int) { esp_cache_msync(fine, pixelia::kScreenPixels, ESP_CACHE_MSYNC_FLAG_DIR_M2C); });
+        int64_t d = -1;
+        int fails = 0;
+        if (dma_err == ESP_OK) {
+            d = timed([&](int) {
+                int ok = 0;
+                for (int k = 0; k < kChunks; ++k) {
+                    if (esp_async_memcpy(mcp, fine + k * kChunk, rows + (k & 1) * kChunk, kChunk, bench_dma_done,
+                                         done) == ESP_OK)
+                        ++ok;
+                    else
+                        ++fails;
+                }
+                for (int k = 0; k < ok; ++k) xSemaphoreTake(done, pdMS_TO_TICKS(50));
+            });
+        }
+        ESP_LOGI(TAG, "PSRAM 96 KB: schreiben %" PRId64 " Âµs, lesen %" PRId64 " Âµs, Kopie aus internem RAM %" PRId64
+                      " Âµs, DMA %" PRId64 " Âµs (%d Fehler, install %s), Cache verwerfen %" PRId64 " Âµs",
+                 w, r, c, d, fails, esp_err_to_name(dma_err), inv);
+    }
+    if (mcp) esp_async_memcpy_uninstall(mcp);
+    if (done) vSemaphoreDelete(done);
+    heap_caps_free(fine);
+    heap_caps_free(rows);
+}
+
 void log_bench(int n) {
     const double mhz = CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ;
     for (bool rtc : {false, true}) {
@@ -151,7 +216,7 @@ void log_bench(int n) {
         const log::Stats s0 = log::info().stats;
         log::bench_store(n, rtc, &avg, &mx);
         const log::Stats s1 = log::info().stats;
-        ESP_LOGI(TAG, "Messung Puffer allein%s: %d Zeilen, im Mittel %.2f µs (PSRAM %.2f µs, RTC %.2f µs), höchstens %.2f µs",
+        ESP_LOGI(TAG, "Messung Puffer allein%s: %d Zeilen, im Mittel %.2f Âµs (PSRAM %.2f Âµs, RTC %.2f Âµs), hÃ¶chstens %.2f Âµs",
                  rtc ? " mit RTC-Sicherung (Probelauf)" : "", n, avg / mhz, (s1.main_cycles - s0.main_cycles) / mhz / n,
                  (s1.rtc_cycles - s0.rtc_cycles) / mhz / n, mx / mhz);
     }
@@ -159,23 +224,23 @@ void log_bench(int n) {
     const board::display::Stats d0 = board::display::stats(false);
     const int64_t t0 = esp_timer_get_time();
     for (int i = 0; i < n; ++i)
-        ESP_LOGI(TAG, "Messzeile %d/%d über den Hook: seriell und Puffer, typische Länge mit Zahlen %d", i + 1, n, i * 37);
+        ESP_LOGI(TAG, "Messzeile %d/%d Ã¼ber den Hook: seriell und Puffer, typische LÃ¤nge mit Zahlen %d", i + 1, n, i * 37);
     const int64_t t1 = esp_timer_get_time();
     const board::display::Stats d1 = board::display::stats(false);
     const log::Stats after = log::info().stats;
     const uint32_t calls = after.calls - before.calls;
     const uint32_t stored = after.stored - before.stored;
-    ESP_LOGI(TAG, "Messung Hook: %lu Zeilen in %.0f ms, pro Zeile Formatieren %.1f µs, Puffer %.1f µs, seriell %.0f µs",
+    ESP_LOGI(TAG, "Messung Hook: %lu Zeilen in %.0f ms, pro Zeile Formatieren %.1f Âµs, Puffer %.1f Âµs, seriell %.0f Âµs",
              static_cast<unsigned long>(calls), (t1 - t0) / 1000.0,
              calls ? (after.fmt_cycles - before.fmt_cycles) / mhz / calls : 0.0,
              stored ? (after.store_cycles - before.store_cycles) / mhz / stored : 0.0,
              calls ? (after.uart_cycles - before.uart_cycles) / mhz / calls : 0.0);
-    ESP_LOGI(TAG, "  Display währenddessen: %.1f Hz, %lu Bildtausch (%.1f fps), %lu Aussetzer",
+    ESP_LOGI(TAG, "  Display wÃ¤hrenddessen: %.1f Hz, %lu Bildtausch (%.1f fps), %lu Aussetzer",
              (d1.vsyncs - d0.vsyncs) * 1e6 / (t1 - t0), static_cast<unsigned long>(d1.swaps - d0.swaps),
              (d1.swaps - d0.swaps) * 1e6 / (t1 - t0), static_cast<unsigned long>(d1.desyncs - d0.desyncs));
 }
 
-// Gibt false zurück, wenn der Befehl unbekannt ist
+// Gibt false zurÃ¼ck, wenn der Befehl unbekannt ist
 bool handle(char* line) {
     char* argv[24] = {};
     int argc = 0;
@@ -271,24 +336,24 @@ bool handle(char* line) {
                 std::strncat(name, argv[i], sizeof(name) - std::strlen(name) - 1);
             }
             esp_err_t err = wifi::remove_network(name);
-            ESP_LOGI(TAG, "WLAN „%s“: %s", name, err == ESP_OK ? "entfernt" : "nicht gespeichert");
+            ESP_LOGI(TAG, "WLAN â€ž%sâ€œ: %s", name, err == ESP_OK ? "entfernt" : "nicht gespeichert");
         } else if (std::strcmp(sub, "setup") == 0) {
             wifi::force_setup();
         } else if (std::strcmp(sub, "connect") == 0) {
             wifi::reconnect();
         } else {
             wifi::Status s = wifi::status();
-            ESP_LOGI(TAG, "WLAN %s, Netz „%s“, IP %s, %d dBm, Kanal %u, %d gespeichert", wifi::state_name(s.state), s.ssid,
-                     s.ip[0] ? s.ip : "–", s.rssi, s.channel, s.saved);
+            ESP_LOGI(TAG, "WLAN %s, Netz â€ž%sâ€œ, IP %s, %d dBm, Kanal %u, %d gespeichert", wifi::state_name(s.state), s.ssid,
+                     s.ip[0] ? s.ip : "â€“", s.rssi, s.channel, s.saved);
             if (s.ap_active)
-                ESP_LOGI(TAG, "Setup-WLAN „%s“ aktiv, %d Gerät(e), nächster Versuch in %d s", wifi::kApSsid, s.ap_clients,
+                ESP_LOGI(TAG, "Setup-WLAN â€ž%sâ€œ aktiv, %d GerÃ¤t(e), nÃ¤chster Versuch in %d s", wifi::kApSsid, s.ap_clients,
                          s.retry_in_s);
             if (s.last_error[0]) ESP_LOGI(TAG, "Letzter Fehler: %s", s.last_error);
         }
     } else if (is("ota")) {
         ota::log_status();
     } else if (is("toast") && argc >= 2) {
-        // Kurzmeldung zum Prüfen der Anzeige; Wörter wieder zusammensetzen
+        // Kurzmeldung zum PrÃ¼fen der Anzeige; WÃ¶rter wieder zusammensetzen
         std::string text;
         for (int i = 1; i < argc; ++i) text += (i > 1 ? " " : "") + std::string(argv[i]);
         ui::toast(text, pixelia::ui::Tone::Info, 15);
@@ -388,7 +453,7 @@ bool handle(char* line) {
         }
         for (int i = 0; i < gfx::place_count(); ++i)
             ESP_LOGI(TAG, "%c %d %s (%s)", i == gfx::place() ? '*' : ' ', i, gfx::place_id(i), gfx::place_title(i));
-        ESP_LOGI(TAG, "Übergang %s, Rundgang %d s, Figuren %d (0 = Standard), Blick folgt %d, Prüfansicht %d",
+        ESP_LOGI(TAG, "Ãœbergang %s, Rundgang %d s, Figuren %d (0 = Standard), Blick folgt %d, PrÃ¼fansicht %d",
                  pixelia::transition_name(gfx::transition()), gfx::tour(), gfx::figures(), gfx::follow(),
                  gfx::inspect());
     } else if (is("buf") && argc >= 3 && std::strcmp(argv[1], "grob") == 0) {
@@ -398,8 +463,8 @@ bool handle(char* line) {
         gfx::request_buffers(psram);
         ESP_LOGI(TAG, "Engine-Puffer: %s", psram ? "PSRAM" : "intern");
     } else if (is("bench")) {
-        // Messung fürs Zeichnen (seit 0.5.1, Grundlage für 0.5.2): Verdoppeln 200×120 → 400×240 und Kopie des
-        // Hintergrundbilds (24 KB), beides PSRAM → PSRAM wie auf der Grafik-Task. Läuft auf Kern 0, die Grafik läuft
+        // Messung fÃ¼rs Zeichnen (seit 0.5.1, Grundlage fÃ¼r 0.5.2): Verdoppeln 200Ã—120 â†’ 400Ã—240 und Kopie des
+        // Hintergrundbilds (24 KB), beides PSRAM â†’ PSRAM wie auf der Grafik-Task. LÃ¤uft auf Kern 0, die Grafik lÃ¤uft
         // weiter (gleicher Speicherverkehr durch das Display).
         constexpr int kRuns = 50;
         auto* coarse = static_cast<uint8_t*>(heap_caps_malloc(pixelia::kCoarsePixels, MALLOC_CAP_SPIRAM));
@@ -414,25 +479,26 @@ bool handle(char* line) {
             t0 = esp_timer_get_time();
             for (int i = 0; i < kRuns; ++i) std::memcpy(coarse, bg, pixelia::kCoarsePixels);
             const int64_t cp = esp_timer_get_time() - t0;
-            ESP_LOGI(TAG, "Verdoppeln 200×120 → 400×240: %" PRId64 " µs, Hintergrund kopieren (24 KB): %" PRId64
-                          " µs (je Bild, PSRAM, Mittel aus %d)", up / kRuns, cp / kRuns, kRuns);
+            ESP_LOGI(TAG, "Verdoppeln 200Ã—120 â†’ 400Ã—240: %" PRId64 " Âµs, Hintergrund kopieren (24 KB): %" PRId64
+                          " Âµs (je Bild, PSRAM, Mittel aus %d)", up / kRuns, cp / kRuns, kRuns);
         } else {
             ESP_LOGW(TAG, "bench: kein PSRAM frei");
         }
         heap_caps_free(coarse);
         heap_caps_free(bg);
         heap_caps_free(fine);
+        if (argc >= 2 && std::strcmp(argv[1], "mem") == 0) bench_memory();
     } else if (is("perf") && argc >= 2) {
         perf::set_interval(std::strcmp(argv[1], "off") == 0 ? 0 : std::atoi(argv[1]));
         ESP_LOGI(TAG, "Leistungsmonitor: %s", perf::interval() ? "an" : "aus");
     } else {
-        ESP_LOGW(TAG, "Unbekannt: %s (help für Liste)", cmd);
+        ESP_LOGW(TAG, "Unbekannt: %s (help fÃ¼r Liste)", cmd);
         known = false;
     }
     return known;
 }
 
-// Befehl aus dem Netz ausführen; seine Log-Zeilen gehen als Antwort zurück
+// Befehl aus dem Netz ausfÃ¼hren; seine Log-Zeilen gehen als Antwort zurÃ¼ck
 void run_job(Job& job) {
     static char* buf = static_cast<char*>(heap_caps_malloc(kCaptureBytes, MALLOC_CAP_SPIRAM));
     char line[256];
@@ -480,7 +546,7 @@ void console_task(void*) {
 }  // namespace
 
 void start() {
-    // Nur Empfang über den Treiber; die Log-Ausgabe läuft unverändert weiter
+    // Nur Empfang Ã¼ber den Treiber; die Log-Ausgabe lÃ¤uft unverÃ¤ndert weiter
     ESP_ERROR_CHECK(uart_driver_install(kUart, 1024, 0, 0, nullptr, 0));
     s_jobs = xQueueCreate(4, sizeof(std::shared_ptr<Job>*));
     s_remote_lock = xSemaphoreCreateMutex();
@@ -505,7 +571,7 @@ Result run_remote(const char* line, bool confirmed, char* out, size_t out_len, c
         xSemaphoreGive(s_remote_lock);
         return Result::Busy;
     }
-    // Läuft der Befehl länger, arbeitet die Konsolen-Task ihn trotzdem zu Ende (Job gehört beiden Seiten)
+    // LÃ¤uft der Befehl lÃ¤nger, arbeitet die Konsolen-Task ihn trotzdem zu Ende (Job gehÃ¶rt beiden Seiten)
     const bool finished = xSemaphoreTake(job->done, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
     xSemaphoreGive(s_remote_lock);
     if (!finished) return Result::Timeout;

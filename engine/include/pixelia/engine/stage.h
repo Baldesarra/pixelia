@@ -33,8 +33,10 @@ namespace pixelia {
 const char* transition_name(Transition t);
 bool parse_transition(std::string_view name, Transition* out);
 
-// 200×120 → 400×240 (jeder grobe Bildpunkt wird 2 × 2)
-void upscale2x(const uint8_t* coarse, Canvas& fine);
+// 200×120 → 400×240 (jeder grobe Bildpunkt wird 2 × 2); mit layers direkt aus Hintergrund und bewegten Teilen
+void upscale2x(const uint8_t* coarse, Canvas& fine, const CoarseLayers* layers = nullptr);
+// Schichten zu einem Bild zusammenlegen: Hintergrund außerhalb der Bereiche in coarse kopieren (Prüfungen)
+void flatten_layers(uint8_t* coarse, const CoarseLayers& layers);
 
 class Stage {
 public:
@@ -117,6 +119,8 @@ private:
     uint8_t* aux_ = nullptr;
     std::unique_ptr<uint8_t[]> own_;
     mutable std::array<uint8_t, kScreenWidth * 2> rows_{};  // zwei fertige Zeilen beim Zusammensetzen
+    mutable CoarseLayers layers_{};                          // Schichten der sichtbaren groben Szene
+    mutable CoarseLayers aux_layers_{};                      // der zweiten Szene während einer Überblendung
 };
 
 // Szenen von Gerät und Simulator in fester Reihenfolge: scrolltest (Landschaft), testort-wiese, testort-raum,

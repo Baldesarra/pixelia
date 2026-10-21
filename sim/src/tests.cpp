@@ -3,6 +3,7 @@
 // redact: Passwort-Filter der Diagnose-Ausgaben (Blockgrenzen, JSON-Schreibweise, mehrere Geheimnisse).
 // stage: Bühne und Figuren-Bausteine (Determinismus, Rechnen ohne Zeichnen, Übergänge, Farbreihen, Animationen).
 
+#include <cstring>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -10,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "pixelia/engine/light.h"
 #include "pixelia/engine/color.h"
 #include "pixelia/engine/gesture.h"
 #include "pixelia/engine/redact.h"
@@ -493,6 +495,23 @@ std::vector<Case> stage_cases() {
                      tp.render(ca);
                      tp.render_direct(cb);
                      if (a != b) return std::string(place) + ": verschieden nach " + std::to_string(k * 7) + " Schritten";
+                     // Schichten (0.5.2): Puffer mit Müll vorbelegt, nur unter den bewegten Teilen kopiert
+                     std::vector<uint8_t> w(pixelia::kCoarsePixels, 0xEE), fa(pixelia::kScreenPixels),
+                         fb(pixelia::kScreenPixels);
+                     pixelia::Canvas cw(w.data(), pixelia::kCoarseWidth, pixelia::kCoarseHeight);
+                     pixelia::CoarseLayers layers;
+                     tp.render_layers(cw, layers);
+                     if (!layers.base) return std::string(place) + ": keine Schichten";
+                     pixelia::Canvas cfa(fa.data(), pixelia::kScreenWidth, pixelia::kScreenHeight);
+                     pixelia::Canvas cfb(fb.data(), pixelia::kScreenWidth, pixelia::kScreenHeight);
+                     pixelia::upscale2x(w.data(), cfa, &layers);
+                     pixelia::CoarseLayers flat = layers;  // gleiches Licht, ohne Hintergrund-Schicht
+                     flat.base = nullptr;
+                     pixelia::upscale2x(b.data(), cfb, &flat);
+                     if (!layers.light) return std::string(place) + ": keine Lichtkarte";
+                     if (fa != fb) return std::string(place) + ": Schichten verdoppelt verschieden, Schritt " + std::to_string(k * 7);
+                     pixelia::flatten_layers(w.data(), layers);
+                     if (w != b) return std::string(place) + ": Schichten zusammengelegt verschieden";
                  }
              }
              return std::string();
@@ -584,6 +603,87 @@ std::vector<Case> stage_cases() {
              b.run(12000);
              if (b.stage.active() != b.stage.find("testort-wiese")) return std::string("ohne Folgen trotzdem gewechselt");
              if (b.stage.travels() != a.stage.travels()) return std::string("Reisen hängen vom Blick ab");
+             return std::string();
+         }},
+        // --- Farbe und Licht (seit 0.5.2) ---
+        {"Tageszeit: gleiche Uhr mit Zeitraffer ergibt dieselben Bilder, andere Uhrzeit eine andere Palette",
+         [] {
+             StageRun a(6, "testort-raum"), b(6, "testort-raum"), c(6, "testort-raum");
+             for (auto* r : {&a, &b, &c}) {
+                 r->clock.set_time_of_day(r == &c ? 5 : 17, 0);
+                 r->clock.set_speed(600);  // 300 Schritte = 100 Weltminuten
+             }
+             a.run(300, true);
+             b.run(300, false);
+             c.run(300, false);
+             if (a.frame() != b.frame()) return std::string("mit Zeitraffer verschieden");
+             return a.frame() != c.frame() ? std::string() : "17 Uhr und 5 Uhr gleich";
+         }},
+        {"Licht: tagsüber unsichtbar, nachts heller; Systemfarben 240–255 unberührt; Nacht nicht unter der Grenze",
+         [] {
+             pixelia::TestPlace p(pixelia::TestPlace::Kind::Room);
+             p.init(1);
+             p.enter();
+             const auto& pal = p.place_palette();
+             const int base = pal.base();
+             pixelia::WorldClock clk;
+             auto at = [&](int h, int m) {
+                 clk.set(0, h, m);
+                 p.tick(clk);
+                 return p.palette();
+             };
+             auto sum = [](pixelia::Color c) { return c.r + c.g + c.b; };
+             const pixelia::Palette day = at(12, 0), night = at(23, 30);
+             for (int i = 1; i < base; ++i) {
+                 if (pal.role(i) != pixelia::ColorRole::Normal) continue;
+                 if (sum(day[i]) != sum(day[2 * base + i])) return "tagsüber Lichtstufe sichtbar, Farbe " + std::to_string(i);
+                 if (sum(night[i]) > 30 && sum(night[2 * base + i]) <= sum(night[i]))
+                     return "nachts Lichtstufe nicht heller, Farbe " + std::to_string(i);
+             }
+             for (int i = pixelia::kSceneColors; i < 256; ++i)
+                 if (sum(night[i]) != 0) return "Systemfarbe " + std::to_string(i) + " verändert";
+             const pixelia::Ambient a = pixelia::daylight_preset(0).at(23LL * 3600 * 1000000);
+             if ((a.r + a.g + a.b) / 3 < pixelia::kDefaultNightFloor - 1) return std::string("Nacht unter der Grenze");
+             return p.room().light_count() > 0 && p.room().light_map() ? std::string() : "keine Lichtkarte";
+         }},
+        {"Überblendung mit wechselnden Paletten: Farben laufen weiter; nachts zu viele Farben, dann Abblenden",
+         [] {
+             StageRun a(4, "testort-wiese"), n(4, "testort-wiese");
+             a.clock.set_time_of_day(14, 0);
+             a.clock.set_speed(18000);
+             n.clock.set_time_of_day(23, 0);
+             for (auto* r : {&a, &n}) {
+                 r->run(1);
+                 r->stage.go(2, Transition::Dissolve);
+                 r->run(2);
+             }
+             if (a.stage.transition() != Transition::Dissolve) return std::string("tagsüber nicht überblendet");
+             const pixelia::Palette p1 = a.stage.palette();
+             a.run(8);
+             const pixelia::Palette p2 = a.stage.palette();
+             if (!a.stage.transitioning()) return std::string("Übergang schon vorbei");
+             if (std::memcmp(p1.data(), p2.data(), sizeof(p1)) == 0) return std::string("Palette steht während des Übergangs");
+             return n.stage.transition() == Transition::Fade ? std::string() : "nachts nicht abgeblendet";
+         }},
+        {"Farbrotation, Farbtabellen (Schatten, Mischung) und Lichtstufen der Tabellen",
+         [] {
+             pixelia::PlacePalette p(3);
+             const pixelia::Color cs[5] = {{200, 40, 40}, {40, 200, 40}, {40, 40, 200}, {120, 120, 120}, {60, 60, 60}};
+             for (int i = 0; i < 5; ++i) p.set(1 + i, cs[i]);
+             p.add_cycle({1, 3, 5});
+             pixelia::Palette o0{}, o5{}, o15{};
+             const pixelia::Ambient a;
+             p.apply(a, 0, o0);
+             p.apply(a, 5, o5);
+             p.apply(a, 15, o15);
+             if (o5[1].r != o0[2].r || o5[1].g != o0[2].g) return std::string("Rotation um einen Platz falsch");
+             if (std::memcmp(&o0[1], &o15[1], 3 * sizeof(pixelia::Color)) != 0) return std::string("nach 15 Schritten nicht zurück");
+             uint8_t t[256];
+             p.tint_table({0, 0, 0}, 128, t);
+             if (t[0] != 0 || t[4] != 5 || t[80 + 4] != 85 || t[250] != 250) return std::string("Schattentabelle falsch");
+             std::vector<uint8_t> bl(80 * 80);
+             p.blend_table(bl.data());
+             if (bl[4 * 80 + 4] != 4 || bl[4 * 80 + 5] != bl[5 * 80 + 4]) return std::string("Mischtabelle falsch");
              return std::string();
          }},
         {"Betreten: nur sichtbare Orte haben ein Hintergrundbild, während der Überblendung beide",

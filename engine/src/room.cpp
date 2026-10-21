@@ -5,6 +5,7 @@
 #include <cstring>
 #include <new>
 
+#include "pixelia/engine/light.h"
 #include "pixelia/engine/memory.h"
 
 namespace pixelia {
@@ -32,6 +33,12 @@ struct Room::Storage {
     uint8_t next[kTileCells]{};        // Breitensuche: Richtung zum Ziel
     uint16_t queue[kTileCells]{};
     DepthList list;
+    // Licht (seit 0.5.2): Kreise, Stufen der Palette, Raster
+    std::array<LightCircle, Room::kMaxLights> lights{};
+    int light_count = 0;
+    int light_base = 0, light_levels = 1;
+    LightStyle light_style = LightStyle::Fine;
+    std::array<uint8_t, kCoarseHeight> lx0{}, lx1{};  // je Zeile der Bereich mit Licht
 };
 
 Room::~Room() {
@@ -302,6 +309,18 @@ void Room::bake() {
     if (!st_ || !bg_) return;
     Canvas c(bg_, kCoarseWidth, kCoarseHeight);
     draw_static(c, true);
+    if (lm_) {
+        // Lichtkarte; angewendet wird sie erst beim Verdoppeln (fein gerastert), der Hintergrund bleibt ohne Licht
+        build_light_map(lm_, kCoarseWidth, kCoarseHeight, st_->lights.data(), st_->light_count, st_->light_levels);
+        for (int y = 0; y < kCoarseHeight; ++y) {
+            const uint8_t* m = lm_ + y * kCoarseWidth;
+            int x0 = 0, x1 = kCoarseWidth;
+            while (x0 < x1 && !m[x0]) ++x0;
+            while (x1 > x0 && !m[x1 - 1]) --x1;
+            st_->lx0[y] = static_cast<uint8_t>(x0);
+            st_->lx1[y] = static_cast<uint8_t>(x1);
+        }
+    }
 }
 
 void Room::tick() { ++ticks_; }
@@ -309,12 +328,32 @@ void Room::tick() { ++ticks_; }
 void Room::enter() {
     if (!st_) return;
     if (!bg_) bg_ = static_cast<uint8_t*>(asset_alloc(kCoarsePixels));
+    if (!lm_ && st_->light_count > 0) lm_ = static_cast<uint8_t*>(asset_alloc(kCoarsePixels));
     bake();
 }
 
 void Room::leave() {
     if (bg_) asset_free(bg_);
+    if (lm_) asset_free(lm_);
     bg_ = nullptr;
+    lm_ = nullptr;
+}
+
+void Room::set_lights(const LightCircle* lights, int n, int base, int levels, LightStyle style) {
+    if (!st_) return;
+    st_->light_count = std::clamp(n, 0, kMaxLights);
+    std::copy_n(lights, st_->light_count, st_->lights.begin());
+    st_->light_base = base;
+    st_->light_levels = levels;
+    st_->light_style = style;
+    if (bg_ && !lm_ && st_->light_count > 0) lm_ = static_cast<uint8_t*>(asset_alloc(kCoarsePixels));
+    invalidate();
+}
+
+int Room::light_count() const { return st_ ? st_->light_count : 0; }
+
+void Room::set_shadow_table(const uint8_t* table) {
+    if (st_) st_->list.set_shadow_table(table);
 }
 
 void Room::set_shadow_color(uint8_t c) {
@@ -357,14 +396,31 @@ void Room::draw_inspect(Canvas& fine, uint8_t blocked, uint8_t part, uint8_t use
     }
 }
 
-DepthList& Room::begin(Canvas& c, bool with_background) const {
+DepthList& Room::begin(Canvas& c, bool with_background, CoarseLayers* layers) const {
     DepthList& list = st_->list;
     const bool bg = with_background && bg_;
-    if (bg)
-        std::memcpy(c.pixels(), bg_, kCoarsePixels);
-    else
+    if (layers) layers->base = nullptr;
+    if (!bg) {
         draw_static(c, false);
+    } else if (!layers) {
+        std::memcpy(c.pixels(), bg_, kCoarsePixels);
+    }
     list.clear();
+    if (bg && layers) {
+        layers->base = bg_;  // die Liste kopiert den Hintergrund nur unter die bewegten Teile
+        list.use_layers(layers);
+    }
+    // Licht: Figuren gleichmäßig nach ihrem Fußpunkt, alles andere hebt das Verdoppeln nach der Lichtkarte
+    if (lm_) list.use_light(lm_, st_->light_base);
+    if (layers) {
+        layers->light = lm_;
+        if (lm_) {
+            layers->lx0 = st_->lx0;
+            layers->lx1 = st_->lx1;
+            layers->light_base = static_cast<uint8_t>(st_->light_base);
+            layers->light_style = static_cast<uint8_t>(st_->light_style);
+        }
+    }
     for (int i = 0; i < st_->part_count; ++i) {
         const PartDef* d = def(i);
         const PartStage* s = stage(i);

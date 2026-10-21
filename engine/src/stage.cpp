@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstring>
 
+#include "pixelia/engine/light.h"
 #include "pixelia/engine/system_ui.h"
 
 namespace pixelia {
@@ -47,18 +48,75 @@ bool parse_transition(std::string_view name, Transition* out) {
     return false;
 }
 
-void upscale2x(const uint8_t* coarse, Canvas& fine) {
-    // Zeile im (schnellen) Stapel aufbauen, dann zweimal am Stück kopieren: auf dem Gerät liegt fine im PSRAM
+namespace {
+inline void double_span(const uint8_t* src, uint32_t* out, int x0, int x1) {
+    for (int x = x0; x < x1; x += 2) {
+        const uint32_t a = src[x], b = src[x + 1];
+        out[x / 2] = a | a << 8 | b << 16 | b << 24;  // little-endian: a a b b
+    }
+}
+
+// Lichtstufen der vier feinen Bildpunkte eines groben (Grundfarbe s, Lichtwert v), in a0 a1 / b0 b1
+inline void lit4(uint8_t s, int v, int base, LightStyle style, int fx, int fy, uint8_t* a, uint8_t* b) {
+    a[0] = static_cast<uint8_t>(s + light_level(v, style, fx, fy) * base);
+    a[1] = static_cast<uint8_t>(s + light_level(v, style, fx + 1, fy) * base);
+    b[0] = static_cast<uint8_t>(s + light_level(v, style, fx, fy + 1) * base);
+    b[1] = static_cast<uint8_t>(s + light_level(v, style, fx + 1, fy + 1) * base);
+}
+
+// Licht im Bereich [x0, x1) der groben Zeile y auf die beiden schon verdoppelten feinen Zeilen a und b
+void light_span(uint8_t* a, uint8_t* b, int y, int x0, int x1, const CoarseLayers& L) {
+    const uint8_t* m = L.light + y * kCoarseWidth;
+    const int base = L.light_base;
+    const auto style = static_cast<LightStyle>(L.light_style);
+    for (int x = x0; x < x1; ++x) {
+        const int fx = 2 * x;
+        const uint8_t s = a[fx];
+        if (m[x] && s && s < base) lit4(s, m[x], base, style, fx, 2 * y, a + fx, b + fx);
+    }
+}
+}  // namespace
+
+void upscale2x(const uint8_t* coarse, Canvas& fine, const CoarseLayers* layers) {
+    // Zeile im (schnellen) Stapel aufbauen, dann zweimal am Stück kopieren: auf dem Gerät liegt fine im PSRAM.
+    // Gemessen (0.5.2, „bench mem“): 96 KB in den PSRAM schreiben kostet allein 2,4 ms (CPU wie DMA), die Schleife
+    // selbst ist nicht der Engpass.
     alignas(4) uint8_t row[kScreenWidth];
+    alignas(4) uint8_t row2[kScreenWidth];
     auto* out = reinterpret_cast<uint32_t*>(row);
+    const uint8_t* base = layers ? layers->base : nullptr;
+    const bool light = layers && layers->light;
     for (int y = 0; y < kCoarseHeight; ++y) {
         const uint8_t* src = coarse + y * kCoarseWidth;
-        for (int x = 0; x < kCoarseWidth; x += 2) {
-            const uint32_t a = src[x], b = src[x + 1];
-            out[x / 2] = a | a << 8 | b << 16 | b << 24;  // little-endian: a a b b
+        if (base) {
+            const uint8_t* b = base + y * kCoarseWidth;
+            const int x0 = layers->x0[y], x1 = layers->x1[y];
+            double_span(b, out, 0, x0);
+            double_span(src, out, x0, x1);
+            double_span(b, out, x1, kCoarseWidth);
+        } else {
+            double_span(src, out, 0, kCoarseWidth);
+        }
+        // Licht (light.h) erst hier: so kann das Raster fein sein (2 × 2 Displaypunkte)
+        if (light && layers->lx1[y] > layers->lx0[y]) {
+            std::memcpy(row2, row, kScreenWidth);
+            light_span(row, row2, y, layers->lx0[y], layers->lx1[y], *layers);
+            std::memcpy(fine.row(2 * y), row, kScreenWidth);
+            std::memcpy(fine.row(2 * y + 1), row2, kScreenWidth);
+            continue;
         }
         std::memcpy(fine.row(2 * y), row, kScreenWidth);
         std::memcpy(fine.row(2 * y + 1), row, kScreenWidth);
+    }
+}
+
+void flatten_layers(uint8_t* coarse, const CoarseLayers& layers) {
+    if (!layers.base) return;
+    for (int y = 0; y < kCoarseHeight; ++y) {
+        uint8_t* d = coarse + y * kCoarseWidth;
+        const uint8_t* b = layers.base + y * kCoarseWidth;
+        std::memcpy(d, b, layers.x0[y]);
+        std::memcpy(d + layers.x1[y], b + layers.x1[y], kCoarseWidth - layers.x1[y]);
     }
 }
 
@@ -253,8 +311,8 @@ void Stage::draw_scene(const Scene& s, Canvas& fine) const {
         return;
     }
     Canvas coarse(main_, kCoarseWidth, kCoarseHeight);
-    s.render(coarse);
-    upscale2x(main_, fine);
+    s.render_layers(coarse, layers_);
+    upscale2x(main_, fine, &layers_);
 }
 
 void Stage::render(Canvas& fine) const {
@@ -279,14 +337,16 @@ void Stage::render(Canvas& fine) const {
     const uint8_t* nc = nullptr;
     if (b.scale() == kCoarseScale) {
         Canvas c(main_, kCoarseWidth, kCoarseHeight);
-        b.render(c);
+        b.render_layers(c, layers_);
+        flatten_layers(main_, layers_);
         nc = main_;
     } else {
         b.render(fine);
     }
     if (a.scale() == kCoarseScale) {
         Canvas c(aux_, kCoarseWidth, kCoarseHeight);
-        a.render(c);
+        a.render_layers(c, aux_layers_);
+        flatten_layers(aux_, aux_layers_);
         oc = aux_;
     } else {
         a.render(fine);
@@ -312,8 +372,18 @@ void Stage::compose(Canvas& fine, const uint8_t* oc, const uint8_t* nc) const {
             const uint8_t* src = to_new ? nrow : orow;
             const uint8_t* map = to_new ? map_to_.data() : map_from_.data();
             const int fx = 2 * x;
-            if (src) {
-                const uint8_t v = map[src[x]];
+            const CoarseLayers& L = to_new ? layers_ : aux_layers_;
+            const uint8_t s = src ? src[x] : 0;
+            const int lv = src && L.light && s && s < L.light_base ? L.light[y * kCoarseWidth + x] : 0;
+            if (lv) {
+                uint8_t a[2], b[2];
+                lit4(s, lv, L.light_base, static_cast<LightStyle>(L.light_style), fx, 2 * y, a, b);
+                r0[fx] = map[a[0]];
+                r0[fx + 1] = map[a[1]];
+                r1[fx] = map[b[0]];
+                r1[fx + 1] = map[b[1]];
+            } else if (src) {
+                const uint8_t v = map[s];
                 r0[fx] = r0[fx + 1] = r1[fx] = r1[fx + 1] = v;
             } else {
                 // feine Szene: steht schon im Bild, nur auf die gemeinsame Palette umsetzen
