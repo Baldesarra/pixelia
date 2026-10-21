@@ -1,4 +1,4 @@
-﻿// Diagnose-Schnittstelle Ã¼ber die serielle Konsole (UART0, 115200 Baud) und per WLAN (POST /api/cmd).
+// Diagnose-Schnittstelle Ã¼ber die serielle Konsole (UART0, 115200 Baud) und per WLAN (POST /api/cmd).
 // Eine Zeile = ein Befehl. Gedacht fÃ¼r tools/monitor.ps1 -Send bzw. tools/netlog.ps1 -Send, funktioniert aber auch
 // im Terminal. Befehle aus dem Netz laufen in derselben Task wie serielle (nacheinander, gleicher Stack), ihre
 // Log-Zeilen gehen als Antwort zurÃ¼ck. GefÃ¤hrliche Befehle (Liste kDangerous) brauchen dort eine BestÃ¤tigung.

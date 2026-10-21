@@ -43,6 +43,7 @@ struct Room::Storage {
 
 Room::~Room() {
     leave();
+    if (lm_) asset_free(lm_);
     if (st_) {
         st_->~Storage();
         asset_free(st_);
@@ -308,10 +309,20 @@ void Room::draw_static(Canvas& c, bool standing) const {
 void Room::bake() {
     if (!st_ || !bg_) return;
     Canvas c(bg_, kCoarseWidth, kCoarseHeight);
-    draw_static(c, true);
+    draw_static(c, true);  // ohne Licht: das kommt beim Verdoppeln aus der Lichtkarte
+}
+
+void Room::build_lights() {
+    if (st_->light_count == 0) {
+        if (lm_) asset_free(lm_);
+        lm_ = nullptr;
+        return;
+    }
+    if (!lm_) lm_ = static_cast<uint8_t*>(asset_alloc(kCoarsePixels));
     if (lm_) {
-        // Lichtkarte; angewendet wird sie erst beim Verdoppeln (fein gerastert), der Hintergrund bleibt ohne Licht
-        build_light_map(lm_, kCoarseWidth, kCoarseHeight, st_->lights.data(), st_->light_count, st_->light_levels);
+        // einmal je Änderung der Lichter (Wurzel je Bildpunkt, einige ms), nicht bei jedem Betreten
+        build_light_map(lm_, kCoarseWidth, kCoarseHeight, st_->lights.data(), st_->light_count, st_->light_levels,
+                        st_->light_style);
         for (int y = 0; y < kCoarseHeight; ++y) {
             const uint8_t* m = lm_ + y * kCoarseWidth;
             int x0 = 0, x1 = kCoarseWidth;
@@ -328,15 +339,12 @@ void Room::tick() { ++ticks_; }
 void Room::enter() {
     if (!st_) return;
     if (!bg_) bg_ = static_cast<uint8_t*>(asset_alloc(kCoarsePixels));
-    if (!lm_ && st_->light_count > 0) lm_ = static_cast<uint8_t*>(asset_alloc(kCoarsePixels));
     bake();
 }
 
 void Room::leave() {
     if (bg_) asset_free(bg_);
-    if (lm_) asset_free(lm_);
     bg_ = nullptr;
-    lm_ = nullptr;
 }
 
 void Room::set_lights(const LightCircle* lights, int n, int base, int levels, LightStyle style) {
@@ -346,8 +354,7 @@ void Room::set_lights(const LightCircle* lights, int n, int base, int levels, Li
     st_->light_base = base;
     st_->light_levels = levels;
     st_->light_style = style;
-    if (bg_ && !lm_ && st_->light_count > 0) lm_ = static_cast<uint8_t*>(asset_alloc(kCoarsePixels));
-    invalidate();
+    build_lights();
 }
 
 int Room::light_count() const { return st_ ? st_->light_count : 0; }
@@ -411,14 +418,14 @@ DepthList& Room::begin(Canvas& c, bool with_background, CoarseLayers* layers) co
         list.use_layers(layers);
     }
     // Licht: Figuren gleichmäßig nach ihrem Fußpunkt, alles andere hebt das Verdoppeln nach der Lichtkarte
-    if (lm_) list.use_light(lm_, st_->light_base);
+    const uint8_t* lm = light_on_ ? lm_ : nullptr;  // tagsüber sind alle Lichtstufen gleich: nichts zu tun
+    if (lm) list.use_light(lm, st_->light_base);
     if (layers) {
-        layers->light = lm_;
-        if (lm_) {
+        layers->light = lm;
+        if (lm) {
             layers->lx0 = st_->lx0;
             layers->lx1 = st_->lx1;
             layers->light_base = static_cast<uint8_t>(st_->light_base);
-            layers->light_style = static_cast<uint8_t>(st_->light_style);
         }
     }
     for (int i = 0; i < st_->part_count; ++i) {

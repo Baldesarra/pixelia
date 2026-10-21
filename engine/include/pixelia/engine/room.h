@@ -175,13 +175,16 @@ public:
     // Schatten durchscheinend (seit 0.5.2): Index → Index, z. B. PlacePalette::tint_table Richtung Schwarz
     void set_shadow_table(const uint8_t* table);
 
-    // Licht (seit 0.5.2, light.h): Lichtkreise am Boden; base und levels wie die Palette des Ortes. Beim Vorzeichnen
-    // entsteht eine Lichtkarte (24 KB Grafik-Speicher, nur solange der Ort betreten ist). Angewendet wird sie beim
+    // Licht (seit 0.5.2, light.h): Lichtkreise am Boden; base und levels wie die Palette des Ortes. Dabei
+    // entsteht eine Lichtkarte (24 KB Grafik-Speicher, einmal je Änderung der Lichter). Angewendet wird sie beim
     // Verdoppeln (begin() meldet sie in layers), Figuren bekommen die Stufe an ihrem Fußpunkt. Zeichnet sofort neu.
     static constexpr int kMaxLights = 8;
     void set_lights(const LightCircle* lights, int n, int base, int levels, LightStyle style);
     int light_count() const;
     const uint8_t* light_map() const { return lm_; }
+    // Licht wirkt (Lampen an, PlacePalette: Ambient::lamp > 0); aus = alle Stufen gleich, Zeichnen ohne Licht
+    void set_light_on(bool on) { light_on_ = on; }
+    bool light_on() const { return light_on_; }
 
     // Prüfansicht in 400 × 240: versperrte Kacheln (Punkt), Stellflächen, Benutzungspunkte, Ausgänge (Rahmen)
     void draw_inspect(Canvas& fine, uint8_t blocked, uint8_t part, uint8_t use, uint8_t exit) const;
@@ -202,12 +205,14 @@ private:
     void draw_static(Canvas& c, bool standing) const;
     void rebuild_walk();
     void bake();
+    void build_lights();
 
     const TileSet* tiles_ = nullptr;
     const PartCatalog* catalog_ = nullptr;
     Storage* st_ = nullptr;
     uint8_t* bg_ = nullptr;
-    uint8_t* lm_ = nullptr;  // Lichtkarte (Stufe je grobem Bildpunkt)
+    uint8_t* lm_ = nullptr;  // Lichtkarte (Stufen je grobem Bildpunkt, light.h)
+    bool light_on_ = true;
     uint32_t ticks_ = 0;
 };
 

@@ -56,23 +56,29 @@ inline void double_span(const uint8_t* src, uint32_t* out, int x0, int x1) {
     }
 }
 
-// Lichtstufen der vier feinen Bildpunkte eines groben (Grundfarbe s, Lichtwert v), in a0 a1 / b0 b1
-inline void lit4(uint8_t s, int v, int base, LightStyle style, int fx, int fy, uint8_t* a, uint8_t* b) {
-    a[0] = static_cast<uint8_t>(s + light_level(v, style, fx, fy) * base);
-    a[1] = static_cast<uint8_t>(s + light_level(v, style, fx + 1, fy) * base);
-    b[0] = static_cast<uint8_t>(s + light_level(v, style, fx, fy + 1) * base);
-    b[1] = static_cast<uint8_t>(s + light_level(v, style, fx + 1, fy + 1) * base);
+// Grundfarbe s im Licht: Stufen der vier feinen Bildpunkte aus der Lichtkarte (p, je 2 Bit), in a0 a1 / b0 b1
+inline void lit4(uint8_t s, uint8_t p, const uint8_t* off, uint8_t* a, uint8_t* b) {
+    a[0] = static_cast<uint8_t>(s + off[p & 3]);
+    a[1] = static_cast<uint8_t>(s + off[p >> 2 & 3]);
+    b[0] = static_cast<uint8_t>(s + off[p >> 4 & 3]);
+    b[1] = static_cast<uint8_t>(s + off[p >> 6]);
+}
+
+// Verschiebung je Lichtstufe 0 … 3
+inline std::array<uint8_t, 4> level_offsets(int base) {
+    return {0, static_cast<uint8_t>(base), static_cast<uint8_t>(2 * base), static_cast<uint8_t>(3 * base)};
 }
 
 // Licht im Bereich [x0, x1) der groben Zeile y auf die beiden schon verdoppelten feinen Zeilen a und b
 void light_span(uint8_t* a, uint8_t* b, int y, int x0, int x1, const CoarseLayers& L) {
     const uint8_t* m = L.light + y * kCoarseWidth;
     const int base = L.light_base;
-    const auto style = static_cast<LightStyle>(L.light_style);
+    const auto off = level_offsets(base);
     for (int x = x0; x < x1; ++x) {
+        const uint8_t p = m[x];
         const int fx = 2 * x;
         const uint8_t s = a[fx];
-        if (m[x] && s && s < base) lit4(s, m[x], base, style, fx, 2 * y, a + fx, b + fx);
+        if (p && s && s < base) lit4(s, p, off.data(), a + fx, b + fx);
     }
 }
 }  // namespace
@@ -337,8 +343,7 @@ void Stage::render(Canvas& fine) const {
     const uint8_t* nc = nullptr;
     if (b.scale() == kCoarseScale) {
         Canvas c(main_, kCoarseWidth, kCoarseHeight);
-        b.render_layers(c, layers_);
-        flatten_layers(main_, layers_);
+        b.render_layers(c, layers_);  // Hintergrund liest compose() direkt aus der Schicht
         nc = main_;
     } else {
         b.render(fine);
@@ -346,7 +351,6 @@ void Stage::render(Canvas& fine) const {
     if (a.scale() == kCoarseScale) {
         Canvas c(aux_, kCoarseWidth, kCoarseHeight);
         a.render_layers(c, aux_layers_);
-        flatten_layers(aux_, aux_layers_);
         oc = aux_;
     } else {
         a.render(fine);
@@ -358,6 +362,7 @@ void Stage::compose(Canvas& fine, const uint8_t* oc, const uint8_t* nc) const {
     const int level = step_ * 256 / ticks_;
     const uint32_t salt = mix(transitions_ * 0x9E3779B1u);
     const bool pattern = trans_ == Transition::Pattern;
+    const bool lit = layers_.light || aux_layers_.light;  // sonst der schnelle Weg ohne Licht
     uint8_t* r0 = rows_.data();
     uint8_t* r1 = r0 + kScreenWidth;
     for (int y = 0; y < kCoarseHeight; ++y) {
@@ -365,26 +370,32 @@ void Stage::compose(Canvas& fine, const uint8_t* oc, const uint8_t* nc) const {
         const uint8_t* f1 = fine.row(2 * y + 1);
         const uint8_t* orow = oc ? oc + y * kCoarseWidth : nullptr;
         const uint8_t* nrow = nc ? nc + y * kCoarseWidth : nullptr;
+        // außerhalb der Bereiche mit bewegten Teilen direkt aus dem Hintergrund (spart zwei Kopien je Bild)
+        const uint8_t* obase = orow && aux_layers_.base ? aux_layers_.base + y * kCoarseWidth : orow;
+        const uint8_t* nbase = nrow && layers_.base ? layers_.base + y * kCoarseWidth : nrow;
+        const int ox0 = aux_layers_.base ? aux_layers_.x0[y] : 0, ox1 = aux_layers_.base ? aux_layers_.x1[y] : 0;
+        const int nx0 = layers_.base ? layers_.x0[y] : 0, nx1 = layers_.base ? layers_.x1[y] : 0;
         for (int x = 0; x < kCoarseWidth; ++x) {
             const int thr = pattern ? kBayer4[y & 3][x & 3] * 16 + 8
                                     : static_cast<int>(mix(static_cast<uint32_t>(y * kCoarseWidth + x) ^ salt) & 0xFF);
             const bool to_new = thr < level;
-            const uint8_t* src = to_new ? nrow : orow;
+            const uint8_t* src = to_new ? (x >= nx0 && x < nx1 ? nrow : nbase) : (x >= ox0 && x < ox1 ? orow : obase);
             const uint8_t* map = to_new ? map_to_.data() : map_from_.data();
             const int fx = 2 * x;
-            const CoarseLayers& L = to_new ? layers_ : aux_layers_;
-            const uint8_t s = src ? src[x] : 0;
-            const int lv = src && L.light && s && s < L.light_base ? L.light[y * kCoarseWidth + x] : 0;
-            if (lv) {
-                uint8_t a[2], b[2];
-                lit4(s, lv, L.light_base, static_cast<LightStyle>(L.light_style), fx, 2 * y, a, b);
+            if (src && !lit) {
+                const uint8_t v = map[src[x]];
+                r0[fx] = r0[fx + 1] = r1[fx] = r1[fx + 1] = v;
+            } else if (src) {
+                // mit Licht (selten: nachts reichen die Farben meist nicht, dann wird abgeblendet)
+                const CoarseLayers& L = to_new ? layers_ : aux_layers_;
+                const uint8_t s = src[x];
+                const uint8_t lp = L.light && s && s < L.light_base ? L.light[y * kCoarseWidth + x] : 0;
+                uint8_t a[2] = {s, s}, b[2] = {s, s};
+                if (lp) lit4(s, lp, level_offsets(L.light_base).data(), a, b);
                 r0[fx] = map[a[0]];
                 r0[fx + 1] = map[a[1]];
                 r1[fx] = map[b[0]];
                 r1[fx + 1] = map[b[1]];
-            } else if (src) {
-                const uint8_t v = map[s];
-                r0[fx] = r0[fx + 1] = r1[fx] = r1[fx + 1] = v;
             } else {
                 // feine Szene: steht schon im Bild, nur auf die gemeinsame Palette umsetzen
                 r0[fx] = map[f0[fx]];

@@ -39,12 +39,12 @@ using Palette = std::array<Color, 256>;
 struct CoarseLayers {
     const uint8_t* base = nullptr;  // nullptr = alles aus dem Arbeitspuffer
     std::array<uint8_t, kCoarseHeight> x0{}, x1{};
-    // Licht (light.h): stetiger Lichtwert je grobem Bildpunkt (64 = eine Stufe), erst beim Verdoppeln angewendet,
-    // damit das Raster fein (2 × 2 Displaypunkte) sein kann; je Zeile der Bereich [lx0, lx1) mit Licht
+    // Licht (light.h): je grobem Bildpunkt die Stufen seiner vier feinen Bildpunkte (je 2 Bit, Raster schon beim
+    // Vorzeichnen ausgerechnet), erst beim Verdoppeln angewendet, damit das Raster fein sein kann (2 × 2
+    // Displaypunkte); je Zeile der Bereich [lx0, lx1) mit Licht. nullptr = kein Licht (z. B. tagsüber)
     const uint8_t* light = nullptr;
     std::array<uint8_t, kCoarseHeight> lx0{}, lx1{};
-    uint8_t light_base = 0;   // Grundfarben je Lichtstufe
-    uint8_t light_style = 0;  // LightStyle
+    uint8_t light_base = 0;  // Grundfarben je Lichtstufe
 };
 
 // Zeichnen im Licht (seit 0.5.2, light.h): Grundfarben 1 … base − 1 auf eine Lichtstufe heben, je Bildpunkt aus

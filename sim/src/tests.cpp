@@ -481,6 +481,7 @@ std::vector<Case> stage_cases() {
          [] {
              for (const char* place : {"testort-wiese", "testort-raum", "testort-platz"}) {
                  StageRun r(11, place);
+                 r.clock.set_time_of_day(23, 0);  // nachts: Licht an (Figuren im Lichtkreis, Lichtkarte beim Verdoppeln)
                  r.stage.set_follow(false);
                  r.stage.set_load(40);
                  auto& tp = static_cast<pixelia::TestPlace&>(r.stage.scene(r.stage.active()));

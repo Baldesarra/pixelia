@@ -235,9 +235,11 @@ void PlacePalette::blend_table(uint8_t* out) const {
         }
 }
 
-void build_light_map(uint8_t* map, int w, int h, const LightCircle* lights, int n, int levels) {
+void build_light_map(uint8_t* map, int w, int h, const LightCircle* lights, int n, int levels, LightStyle style) {
+    static constexpr uint8_t kBayer[4][4] = {{0, 8, 2, 10}, {12, 4, 14, 6}, {3, 11, 1, 9}, {15, 7, 13, 5}};
+    constexpr int kUnit = 64;  // Lichtwert einer Stufe
     std::memset(map, 0, static_cast<size_t>(w) * h);
-    const int top = std::max(0, levels - 1) * kLightUnit;
+    const int top = std::clamp(levels - 1, 0, 3) * kUnit;
     for (int l = 0; l < n; ++l) {
         const LightCircle& c = lights[l];
         if (!c.rx || !c.ry) continue;
@@ -253,10 +255,30 @@ void build_light_map(uint8_t* map, int w, int h, const LightCircle* lights, int 
                 float f = d <= inner ? 1.0f : (1.0f - d) / (1.0f - inner);
                 f = f * f * (3.0f - 2.0f * f);
                 const int v = static_cast<int>(f * top * c.strength / 255.0f + 0.5f);
-                uint8_t& m = map[y * w + x];
-                if (v > m) m = static_cast<uint8_t>(v);
+                uint8_t packed = 0;
+                for (int k = 0; k < 4; ++k) {
+                    const int fx = 2 * x + (k & 1), fy = 2 * y + (k >> 1);
+                    int lv = style == LightStyle::Stepped  ? (v + kUnit / 2) / kUnit
+                             : style == LightStyle::Coarse ? (v + kBayer[y & 3][x & 3] * 4 + 2) / kUnit
+                                                           : (v + kBayer[fy & 3][fx & 3] * 4 + 2) / kUnit;
+                    lv = std::min(lv, top / kUnit);
+                    const int old = (map[y * w + x] >> (2 * k)) & 3;
+                    packed |= static_cast<uint8_t>(std::max(lv, old) << (2 * k));
+                }
+                map[y * w + x] = packed;
             }
     }
+}
+
+int light_level_at(const uint8_t* map, int w, int h, int x, int y) {
+    const int x0 = std::clamp(x & ~3, 0, w - 4), y0 = std::clamp(y & ~3, 0, h - 4);
+    int sum = 0;
+    for (int yy = y0; yy < y0 + 4; ++yy)
+        for (int xx = x0; xx < x0 + 4; ++xx) {
+            const uint8_t p = map[yy * w + xx];
+            sum += (p & 3) + (p >> 2 & 3) + (p >> 4 & 3) + (p >> 6);
+        }
+    return (sum + 32) / 64;
 }
 
 }  // namespace pixelia

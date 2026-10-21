@@ -111,21 +111,14 @@ void DepthList::draw_item(Canvas& c, const DepthItem& it, const Rect& clip) cons
         c.blit_clipped(it.sprite, it.x, it.y, it.flip, it.remap, clip);
         return;
     }
-    if (!it.figure) {
-        c.blit_clipped(it.sprite, it.x, it.y, it.flip, it.remap, clip);  // wie der Hintergrund: Licht beim Verdoppeln
+    // Möbel wie der Hintergrund (Licht beim Verdoppeln), Figuren mit der Stufe an ihrem Fußpunkt
+    const int level = it.figure ? light_level_at(light_, c.width(), c.height(), it.foot_x, it.foot_y) : 0;
+    if (!level) {
+        c.blit_clipped(it.sprite, it.x, it.y, it.flip, it.remap, clip);
         return;
     }
-    const LightBlit lb{nullptr, light_base_, foot_level(c, it)};
+    const LightBlit lb{nullptr, light_base_, level};
     c.blit_clipped(it.sprite, it.x, it.y, it.flip, it.remap, clip, &lb);
-}
-
-int DepthList::foot_level(const Canvas& c, const DepthItem& it) const {
-    // Mittel der Lichtkarte über das 4×4-Feld am Fußpunkt, gerundet auf eine Stufe
-    const int x0 = std::clamp(it.foot_x & ~3, 0, c.width() - 4), y0 = std::clamp(it.foot_y & ~3, 0, c.height() - 4);
-    int sum = 0;
-    for (int y = y0; y < y0 + 4; ++y)
-        for (int x = x0; x < x0 + 4; ++x) sum += light_[y * c.width() + x];
-    return (sum / 16 + kLightUnit / 2) / kLightUnit;
 }
 
 void DepthList::copy_under_movers(Canvas& c, int movers) {

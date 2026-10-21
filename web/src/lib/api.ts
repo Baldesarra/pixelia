@@ -192,6 +192,9 @@ export type ExpState = {
   figures?: number;
   follow?: boolean; // Blick folgt der Begleiterin durch Türen und Bildränder (seit 0.5.1)
   inspect?: boolean; // Prüfansicht: Stellflächen, Benutzungspunkte, Ausgänge (seit 0.5.1)
+  minute?: number; // Testuhr (seit 0.5.2): Minute des Tages, Zeitraffer, echte Uhrzeit
+  speed?: number;
+  real?: boolean;
   touch:{ ok: boolean; down: boolean; x: number; y: number; corners: number; n: number };
 };
 

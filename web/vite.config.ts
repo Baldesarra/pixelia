@@ -66,7 +66,7 @@ function mockDevice(): Plugin {
     on: process.env.PIXELIA_MOCK_EXP === '1', safeBoot: false, trialS: -1, trialNeed: 15,
     panel: { ...std }, saved: { ...std }, std, mode: 'engine', testS: -1, pic: false,
     places: [{ id: 'scrolltest', title: 'Landschaft' }, { id: 'testort-wiese', title: 'Testort Wiese' }, { id: 'testort-raum', title: 'Testort Raum' }, { id: 'testort-platz', title: 'Testort Platz' }],
-    place: 0, trans: 'abblenden', tour: 0, figures: 0, follow: true, inspect: false,
+    place: 0, trans: 'abblenden', tour: 0, figures: 0, follow: true, inspect: false, minute: 720, speed: 1, real: true,
     touch: { ok: true, down: false, x: -1, y: -1, corners: 0, n: 312 },
   };
   let prevPanel = { ...std };
@@ -432,6 +432,11 @@ function mockDevice(): Plugin {
         if (a === 'cmd') return f.get('v') === 'ausbau' ? ok('Nächste Ausbaustufe') : f.get('v') === 'baustelle' ? ok('Im Bau umgeschaltet') : json(res, { ok: false, msg: 'Befehl unbekannt' });
         if (a === 'follow') return ((exp.follow = f.get('v') !== '0'), ok(exp.follow ? 'Blick folgt' : 'Blick bleibt'));
         if (a === 'inspect') return ((exp.inspect = f.get('v') === '1'), ok(exp.inspect ? 'Prüfansicht an' : 'Prüfansicht aus'));
+        if (a === 'time') {
+          if (f.get('v') === 'real') return ((exp.real = true), (exp.speed = 1), ok('Echte Uhrzeit'));
+          return ((exp.minute = Number(f.get('v'))), (exp.real = false), ok('Uhrzeit gestellt'));
+        }
+        if (a === 'speed') return ((exp.speed = Number(f.get('v'))), (exp.real = false), ok('Zeitraffer an'));
         if (a === 'test') {
           const m = f.get('mode') ?? '';
           if (m === 'engine') return (Object.assign(exp, { mode: 'engine', testS: -1 }), ok());

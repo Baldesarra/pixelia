@@ -977,7 +977,9 @@ void TestPlace::reached(int i) {
 
 void TestPlace::tick(const WorldClock& clock) {
     // Palette zur Tageszeit (Tageslicht, Lampen, Fenster, Himmel) und Farbrotation
-    pal_.apply(daylight_.at(clock.us_of_day()), clock.ticks(), palette_);
+    const Ambient a = daylight_.at(clock.us_of_day());
+    pal_.apply(a, clock.ticks(), palette_);
+    room_.set_light_on(a.lamp > 0);
     if (load_pending_) apply_load();
     room_.tick();
     for (int i = 0; i < count_;) {

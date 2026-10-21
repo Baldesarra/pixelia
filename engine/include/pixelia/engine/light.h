@@ -4,9 +4,10 @@
 //
 // - Grundfarben 0 … base−1: damit wird gezeichnet (Index 0 = durchsichtig), Farbreihen tauschen Rampen darin.
 // - Lichtstufen: Stufe k liegt bei k × base + i (base = 240 / Stufen, bei drei Stufen 80). Stufe 0 = nur Umgebungs-
-//   licht, die höheren = zusätzlich Lampenlicht (halb, voll). Licht = Index verschieben: Der Hintergrund wird beim
-//   Vorzeichnen nach der Lichtkarte gehoben, bewegte Teile danach im selben Bereich (relight). Tagsüber sind alle
-//   Stufen gleich hell, die Lichtkreise also unsichtbar; nachts leuchten sie. Kein Rechnen pro Bild außer der Palette.
+//   licht, die höheren = zusätzlich Lampenlicht (halb, voll). Licht = Index verschieben: Die Lichtkarte (je grobem
+//   Bildpunkt die Stufen der vier feinen, Raster schon ausgerechnet) wird beim Verdoppeln angewendet (stage.h), so ist
+//   das Raster fein (2 × 2 Displaypunkte). Figuren bekommen gleichmäßig die Stufe an ihrem Fußpunkt (depth.h).
+//   Tagsüber sind alle Stufen gleich hell: dann wird gar nicht gerechnet (Room::set_light_on).
 // - Tageslicht (Daylight): Umgebungslicht der Tageszeit aus Stützpunkten (Farbe, Sättigung, Lampenwirkung) und
 //   Himmelsfarben. Die Tageszeit kommt von außen über WorldClock (bis 0.5.6 die Testuhr, dann die Weltzeit).
 //   Die Dunkelheit der Palette ist nicht die Hintergrundbeleuchtung des Displays (Helligkeitskurve kommt mit 0.5.6).
@@ -138,19 +139,10 @@ enum class LightStyle : uint8_t {
     Coarse,   // grobes Raster: 4 × 4 Displaypunkte (ein grober Bildpunkt), klassischer Pixel-Look
     Stepped,  // hart gestuft: Ringe ohne Raster
 };
-inline constexpr int kLightUnit = 64;  // Lichtwert einer Stufe in der Lichtkarte
-
-// Lichtkarte: je grobem Bildpunkt der stetige Lichtwert 0 … (levels − 1) × kLightUnit (größter Wert aller Kreise)
-void build_light_map(uint8_t* map, int w, int h, const LightCircle* lights, int n, int levels);
-// Lichtstufe eines Bildpunkts aus dem Lichtwert v; (fx, fy) = Lage im feinen Raster 400 × 240
-inline int light_level(int v, LightStyle style, int fx, int fy) {
-    static constexpr uint8_t kBayer[4][4] = {{0, 8, 2, 10}, {12, 4, 14, 6}, {3, 11, 1, 9}, {15, 7, 13, 5}};
-    if (style == LightStyle::Stepped) return (v + kLightUnit / 2) / kLightUnit;
-    if (style == LightStyle::Coarse) {
-        fx >>= 1;
-        fy >>= 1;
-    }
-    return (v + kBayer[fy & 3][fx & 3] * 4 + 2) / kLightUnit;
-}
+// Lichtkarte im groben Raster w × h: je Bildpunkt die Stufen (0 … 3) seiner vier feinen Bildpunkte, je 2 Bit:
+// Bit 0–1 oben links, 2–3 oben rechts, 4–5 unten links, 6–7 unten rechts. Größter Wert aller Kreise, Raster nach style.
+void build_light_map(uint8_t* map, int w, int h, const LightCircle* lights, int n, int levels, LightStyle style);
+// Stufe am Fußpunkt einer Figur: Mittel der Karte über das 4 × 4-Feld um (x, y), gerundet
+int light_level_at(const uint8_t* map, int w, int h, int x, int y);
 
 }  // namespace pixelia

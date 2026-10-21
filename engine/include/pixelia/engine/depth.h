@@ -64,7 +64,6 @@ public:
 
 private:
     void copy_under_movers(Canvas& c, int movers);
-    int foot_level(const Canvas& c, const DepthItem& it) const;
     void sort();
     static Rect bounds(const DepthItem& it);  // Bild und Schatten
     void draw_item(Canvas& c, const DepthItem& it, const Rect& clip) const;

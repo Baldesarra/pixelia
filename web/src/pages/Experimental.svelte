@@ -118,6 +118,14 @@
     { value: 'raster', label: 'Raster' },
     { value: 'schnitt', label: 'Schnitt' },
   ];
+  // Testuhr (seit 0.5.2): echte Uhrzeit oder Zeitraffer, bis die Weltzeit kommt (0.5.6)
+  const speeds = [
+    { value: '0', label: 'Echt' },
+    { value: '1', label: '1×' },
+    { value: '60', label: '60×' },
+    { value: '600', label: '600×' },
+  ];
+  const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 
   // --- Eigenes Testbild (seit 0.5.0) ---------------------------------------------------------------------
   let fileInput = $state<HTMLInputElement>();
@@ -267,6 +275,18 @@
             <span class="row"><span>Figuren je Testort</span><span class="tnum">{ex.figures ? ex.figures : 'Standard'}</span></span>
             <Slider label="Figuren je Testort" min={1} max={64} value={ex.figures || 6} onchange={(v) => act({ a: 'figures', n: v })} />
           </div>
+          <div class="setting">
+            <span class="row"><span>Tageszeit (Testuhr)</span><span class="tnum">{hhmm(ex.minute ?? 720)}</span></span>
+            <Slider label="Tageszeit" min={0} max={1425} step={15} value={ex.minute ?? 720} onchange={(v) => act({ a: 'time', v })} />
+          </div>
+          <div class="setting">
+            <span>Zeitraffer</span>
+            <ButtonGroup
+              label="Zeitraffer"
+              options={speeds}
+              bind:value={() => (ex?.real ? '0' : String(ex?.speed ?? 1)), (v: string) => act(v === '0' ? { a: 'time', v: 'real' } : { a: 'speed', v: Number(v) })}
+            />
+          </div>
           <div class="actions">
             <span class="pol"><Switch label="Blick folgt" checked={ex.follow !== false} disabled={busy} onchange={(v) => act({ a: 'follow', v: v ? 1 : 0 })} />Blick folgt der Begleiterin</span>
             <span class="pol"><Switch label="Prüfansicht" checked={!!ex.inspect} disabled={busy} onchange={(v) => act({ a: 'inspect', v: v ? 1 : 0 })} />Prüfansicht</span>
@@ -278,7 +298,8 @@
           <p class="muted small">
             Ausbau: nächste Ausbaustufe im sichtbaren Testort (Lager ↔ Bett, Kisten ↔ Tisch). Im Bau: Möbel werden zur
             Baustelle (halbfertiges Bett, sonst Bretterstapel) und wieder fertig. Prüfansicht: Stellflächen (lila),
-            Benutzungspunkte (grün), Ausgänge (gelb), versperrte Kacheln (Punkte).
+            Benutzungspunkte (grün), Ausgänge (gelb), versperrte Kacheln (Punkte). Tageszeit: Licht, Lampen, Fenster
+            und Himmel der Orte folgen der Testuhr; Uhrzeit stellen oder Zeitraffer schaltet die echte Uhrzeit ab.
           </p>
           <div class="actions">
             <span class="pol"><Switch label="Rundgang" checked={!!ex.tour} disabled={busy} onchange={(v) => act({ a: 'tour', s: v ? 20 : 0 })} />Rundgang: alle 20 s der nächste Ort</span>
