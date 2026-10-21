@@ -459,6 +459,34 @@ sichtbar machen: wachsendes Tagebuch, selbst gepflanzter Baum, Steinhaufen mit F
 **[Vorschlag]** Ein **Ereignis-Regisseur** für die ganze Welt wählt nach Verlauf, Spannungsbogen und Sperrzeiten aus
 (LEBENDIGKEIT Regel 6). Ereignisse stehen als Daten in Seltenheitsstufen.
 
+### Besondere Ereignisse starten [entschieden, Wunsch des Users 2026-10-21]
+
+Grund: Der Betrachter schaut nicht rund um die Uhr hin und würde besondere Momente sonst verpassen.
+
+- **Start über die Weboberfläche mit Voraussetzungen.** Eine Liste zeigt alle besonderen Ereignisse (Dorffest,
+  Tavernenabend, das verlorene Lamm …). Bereite Ereignisse lassen sich starten. **Gesperrte** zeigen, was fehlt
+  (z. B. „erst, wenn Sykora und Taylor sich vertraut sind“, „das Fest braucht Essen und Musik“).
+- **Nur zu passenden Uhrzeiten:** Jedes Ereignis hat ein Zeitfenster. Dorffest und Tavernenereignisse nur abends; ein
+  Abendereignis kann tagsüber nicht gestartet werden. Außerhalb des Fensters ist es gesperrt mit Hinweis, ab wann es
+  geht. [Vorschlag] Man kann es tagsüber für den Abend ansetzen.
+- **Vorbereitung ist sichtbar:** Für ein Dorffest werden tagsüber Vorkehrungen getroffen (Bänke tragen, Girlanden und
+  Laternen aufhängen, Essen kochen, Holz fürs Feuer). Die Orte sind **geschmückt und sehen anders aus**; der Schmuck
+  bleibt bis zum Aufräumen am nächsten Tag. [Vorschlag] Ein Fest, das man abends startet, wurde dann „schon tagsüber
+  vorbereitet“ nur, wenn es vorher angesetzt war; sonst wird es ein kleineres, spontanes Fest.
+- [Vorschlag] Einmalige Meilensteine (das verlorene Lamm, der erste Tanz) lassen sich höchstens einmal auslösen;
+  wiederholbare Ereignisse (Dorffest, Tavernenabend) haben eine Sperrzeit, damit sie besonders bleiben.
+
+### Zuschauzeiten und nichts verpassen [entschieden]
+
+- **Zuschauzeiten:** Der Betrachter stellt ein, wann er meist hinschaut (z. B. 18–22 Uhr). **Große Ereignisse, die
+  nicht zum normalen Tagesablauf gehören, legt der Regisseur in diese Zeiten.** Der normale Alltag läuft unabhängig
+  davon weiter.
+- **Kamera springt hin:** Passiert etwas Besonderes, schwenkt die Anzeige automatisch dorthin, mit Kurzmeldung.
+  Abschaltbar.
+- **Verpasst-Übersicht:** Beim Öffnen der Weboberfläche zuerst eine kurze Zusammenfassung, was seit dem letzten Besuch
+  passiert ist.
+- Nicht gewählt: automatische Erinnerungsfotos (bleibt als Idee im Hinterkopf).
+
 ## 12. Eingreifen und Weboberfläche
 
 **[übernommen]** Anzeigen: Charakterkarten (Bedürfnisse, Stimmung, Rolle, Fähigkeiten, Interessen, Beziehungen,
@@ -671,3 +699,5 @@ Fest beschlossene Punkte dieser Werkstatt. Am Ende als Zeilen ins Entscheidungsp
 | 2026-10-21 | **Der Wirt ist ein Mann** (Gustav statt Hedwig) | Hinweis des Users |
 | 2026-10-21 | **Romanze:** gemeinsame Wintererinnerung als Grundlage, Meilensteine „das verlorene Lamm“ und „der erste Tanz“ | Entscheidung des Users |
 | 2026-10-21 | **Spielstart einige Wochen nach dem Entschluss zu bleiben**, erste Notunterkünfte halb fertig | Entscheidung des Users |
+| 2026-10-21 | **Besondere Ereignisse über die Weboberfläche starten**, mit Voraussetzungen (gesperrte zeigen, was fehlt) und nur in ihrem Zeitfenster (Dorffest, Taverne nur abends); Vorbereitung tagsüber sichtbar, Orte geschmückt | Wunsch des Users: er schaut nicht rund um die Uhr hin |
+| 2026-10-21 | **Zuschauzeiten** bestimmen, wann große Ereignisse außerhalb des Alltags passieren; Kamera springt hin (abschaltbar); Verpasst-Übersicht in der Weboberfläche | Entscheidung des Users |
