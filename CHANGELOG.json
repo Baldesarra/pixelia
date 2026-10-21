@@ -1,9 +1,9 @@
 [
   {
     "v": "0.5.0",
-    "d": "",
-    "t": "",
-    "s": "",
+    "d": "2026-10-21",
+    "t": "Bühne und Figuren",
+    "s": "Erster Baustein der Engine: mehrere Orte mit Übergängen, grobes Raster 200 × 120, Figuren mit Animationen und Farbreihen; Lavendel als Standardfarbe, Versionskarte, eigenes Testbild",
     "n": [
       "Engine: Bühne mit mehreren Orten; jeder behält Palette und Zustand, alle rechnen weiter, gezeichnet wird nur der sichtbare. Wechsel per Sprung mit Übergang, Standard Abblenden (0,6 s)",
       "Engine: grobes Raster 200 × 120 für Orte, 2× ins 400 × 240-Bild verdoppelt; feine Einblendungen der Orte und der System-Oberfläche darüber",
