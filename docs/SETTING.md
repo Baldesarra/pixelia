@@ -213,7 +213,7 @@ weg.** Alles bleibt, wie es ist; das Dorf wächst nur durch Zuzug.
 **Startbesetzung [entschieden: Sykora, Taylor, Tischler, Bäckerin, Fischer, Jäger, Familie Brandt als altes Ehepaar
 mit dem Jäger als Sohn; dazu ein Bauernpaar und ein Waldarbeiter (2026-10-21); Rest ebenfalls entschieden].**
 16 Menschen und eine Katze. Vierzehn von ihnen sind Reisende aus dem gestrandeten Zug, zwei lebten schon vorher hier.
-**Namen [entschieden 2026-10-21]:** Die Namen bleiben, wie sie sind. Die neuen Figuren heißen **Fritz** und **Ida**
+**Namen [entschieden 2026-10-21]:** Die Namen bleiben, wie sie sind. Die neuen Figuren heißen **Otto** und **Ida**
 (Bauernpaar) und **Veit** (Waldarbeiter); [Vorschlag von Claude, änderbar].
 
 | Figur | Rolle | Woher, warum im Zug | Schläft am Anfang | Baut sich später | Erkennungsstücke |
@@ -231,7 +231,7 @@ mit dem Jäger als Sohn; dazu ein Bauernpaar und ein Waldarbeiter (2026-10-21); 
 | Anton Brandt, 34 | Jäger | Sohn der Brandts; hat im Winter alle mit Wild versorgt | Abteil der Familie | Jagdhütte am Waldrand mit Räucherkammer | Geweih an der Wand, Felle, Flinte über dem Kamin, Fallen |
 | Martha, 72 | Kräuterfrau | **lebte schon hier**, half mit Kräutern durch den Winter | eigene Hütte am Waldrand | Kräutergarten, Pflanzenhaus | Kräuterbündel an der Decke, Mörser |
 | Hannes, 52 | Fischer, schneidet Schilf für Dächer | **lebte schon hier**, wortkarg, kennt jedes Wetter | eigene Hütte am See | Steg, Bootsschuppen, Räucherofen | Reusen, Netze zum Trocknen, Boot am Steg |
-| Fritz, ~40 | Bauer: Felder, Hühner, später Mühle | Auswanderer auf dem Weg zum Hafen nach Amerika, Saatgut im Gepäck | Gepäckwagen | Bauernhof mit Scheune und Feldern | Saatgutkiste, Sense an der Wand |
+| Otto, ~40 | Bauer: Felder, Hühner, später Mühle | Auswanderer auf dem Weg zum Hafen nach Amerika, Saatgut im Gepäck | Gepäckwagen | Bauernhof mit Scheune und Feldern | Saatgutkiste, Sense an der Wand |
 | Ida, ~38 | Bäuerin: Gemüse, Hühner, Raps und Öl | wie ihr Mann; „wir wollten neues Land, jetzt haben wir es hier“ | Gepäckwagen | Bauernhof | Hühnerkorb, Einmachgläser, Bild vom Schiff, das sie nie bestiegen haben |
 | Veit, ~25 | Holzfäller und Köhler | wollte im Sägewerk der Stadt arbeiten; kräftig, still | Warteraum | Holzfällerhütte am Waldrand (ein Raum) mit Holzstapel, später Meiler | Axt im Hackklotz, Holzstapel, rußige Hände |
 | Katze (Name vom Betrachter) | vollwertige Figur | streunt im Bahnhof herum, niemand weiß woher | wo es warm ist | bleibt bei Sykora oder Taylor | Lieblingskissen, Gabenhaufen |
@@ -251,7 +251,7 @@ Kinder gibt es zum Start nicht; Zugezogene können Kinder mitbringen, die Kinder
   (macht froh) und Wachs (gute Kerzen).
 
 **Wiederkehrende Gäste [entschieden]**, alle mit Namen und Geschichte: **Dora**, die Händlerin, die mit ihrem Maultier
-über den Bergpass kommt, solange er offen ist (Tausch, Post, Neuigkeiten), **Quirin**, der Kesselflicker auf
+über den Bergpass kommt, solange er offen ist (Tausch, Post, Neuigkeiten), **Balthasar**, der Kesselflicker auf
 Wanderschaft (selten, erzählt in der
 Taverne). Später kommen Gäste mit dem Zug.
 
@@ -872,8 +872,8 @@ keine Magie, kein Altern, kein Tod, kein Wegzug.
    (Lieder über echte Ereignisse, im Web lesbar); Vertrauen der Bewohner in Sykora (entscheidet die Wahl, spiegelt die
    Entscheidungen des Bürgermeisters); Lok taufen per Abstimmung am Schwarzen Brett.
 2. **Reihenfolge** (Kapitel 4): Grube vor Lok oder umgekehrt? Erste Region hinter der Strecke?
-3. **Wirtschaft** ([WIRTSCHAFT.md](WIRTSCHAFT.md)): Warenliste, Startwerte, Händlerin, Kipppunkte, Startvorrat,
-   Arbeitsrhythmus der Berufe und die Wunschliste (Kapitel 8) sind Vorschläge und warten auf das OK des Users.
+3. **Wirtschaft** ([WIRTSCHAFT.md](WIRTSCHAFT.md)): Warenliste, Händlerin, Kipppunkte, Startvorrat und die
+   Wunschliste (Kapitel 8) sind Vorschläge und warten auf das OK des Users.
 4. **Nachholen** nach dem Ausschalten: wie lange (Vorschlag: höchstens 24 h)?
 5. **Briefe und Gedanken** (Kapitel 12): Wer schreibt wem, wie oft, wie lang? Ansicht nach der Beispieldatei des
    Users (Pixelpfote-Vorschau). Vorgemerkt für die Themen Figuren, Gedächtnis, Wohnen und Besitz.
@@ -931,6 +931,8 @@ Fest beschlossene Punkte dieser Werkstatt. Am Ende als Zeilen ins Entscheidungsp
 | 2026-10-21 | **Museum als Naturalienkabinett:** echte Tiere in Aquarium und Terrarium, Infokarte mit Pixel-Art und echten Angaben, füllt sich durch Spenden der Bewohner; dazu Spender und Fundmoment auf der Karte, Steine, Fossilien und Pflanzen, Fundstücke der Katze | Wunsch des Users |
 | 2026-10-21 | **Standardsuppe am Suppenkessel im Speisewagen**, Bewohner holen sie und essen zu Hause; die Taverne kocht tagsüber ein Tagesgericht für den Abend | Wunsch des Users, Ort von Claude gewählt (Kessel aus dem Winter) |
 | 2026-10-21 | **Zu Beginn treffen sich die meisten in der Taverne im Speisewagen** | Wunsch des Users |
-| 2026-10-21 | **Namen bleiben**; neue Figuren Fritz und Ida (Bauernpaar), Veit (Waldarbeiter), Dora (Händlerin), Quirin (Kesselflicker) | Entscheidung des Users, neue Namen von Claude vorgeschlagen |
+| 2026-10-21 | **Namen bleiben**; neue Figuren Otto und Ida (Bauernpaar), Veit (Waldarbeiter), Dora (Händlerin), Balthasar (Kesselflicker) | Entscheidung des Users, neue Namen von Claude vorgeschlagen |
 | 2026-10-21 | **Die Bäckerin backt in der Morgendämmerung** | Hinweis des Users (abends backen ist unrealistisch) |
-| 2026-10-21 | **Erträge anheben statt Quellen vervielfachen:** reicht eine Ware nicht, steigt erst der Ertrag pro Tier, Acker oder Beruf, bevor mehr Tiere oder Äcker ins Bild kommen | Wunsch des Users |
+| 2026-10-21 | **Regel fürs Balancing: Erträge anheben statt Quellen vervielfachen:** reicht eine Ware nicht, wird beim Einstellen der Werte erst der Ertrag pro Tier, Acker oder Beruf angehoben, bevor mehr Tiere oder Äcker eingeplant werden; im laufenden Spiel ändert sich nichts | Wunsch des Users |
+| 2026-10-21 | **Herstellung und Arbeitsrhythmus der Berufe** (WIRTSCHAFT.md Kapitel 8) übernommen; geprüft wird im Zeitraffer | Entscheidung des Users |
+| 2026-10-21 | **Neue Namen:** Otto (statt Fritz) für den Bauern, Balthasar (statt Quirin) für den Kesselflicker | Entscheidung des Users |

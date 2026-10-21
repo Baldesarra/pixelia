@@ -62,9 +62,11 @@
      Bäckerin mit Handmühle etwa 30.
   2. **Jede Menge ist im Bild glaubhaft:** ein Holzstapel, 20 Laibe in der Auslage, ein Dutzend Säcke in der Scheune.
   3. **Jede Ware hat eine Quelle und einen Zweck.** Nichts fällt vom Himmel, nichts wird nur gesammelt, um zu liegen.
-- **Ertrag anheben statt Quellen vervielfachen [entschieden, Wunsch des Users]:** Reicht eine Ware nicht, steigt zuerst
-  der Ertrag pro Tier, Acker oder Beruf. Mehr Tiere oder Äcker kommen nur dazu, solange es im Bild glaubhaft bleibt
-  (keine 200 Schafe auf der Weide). Die Werte unten sind schon danach eingestellt.
+- **Regel fürs Balancing: Ertrag anheben statt Quellen vervielfachen [entschieden, Wunsch des Users]:** Zeigt die
+  Prüfung (Kapitel 14), dass eine Ware nicht reicht, wird beim Einstellen der Werte zuerst der Ertrag pro Tier, Acker
+  oder Beruf angehoben, statt mehr Tiere oder Äcker einzuplanen (keine 200 Schafe auf der Weide). Das ist eine Regel für
+  die Arbeits-Sitzungen, die die Werte festlegen; **im laufenden Spiel ändert sich dadurch nichts**, die Erträge sind
+  feste Werte. Die Startwerte in dieser Datei sind schon danach gewählt.
 
 | Einheit | Bedeutung |
 |---|---|
@@ -81,12 +83,12 @@
 
 ## 3. Berufe: wer was liefert [Vorschlag]
 
-Namen wie in SETTING.md Kapitel 3; neu sind Fritz und Ida (Bauernpaar), Veit (Waldarbeiter) und Dora (Händlerin).
+Namen wie in SETTING.md Kapitel 3; neu sind Otto und Ida (Bauernpaar), Veit (Waldarbeiter) und Dora (Händlerin).
 
 | Figur | liefert | eigenes Lager | holt sich vor allem |
 |---|---|---|---|
 | Veit (Waldarbeiter) | Rundholz, Stämme, Hartholz (Eiche), Reisig, Rinde, Kienspan; im Meiler Holzkohle und Teer | Holzplatz an der Holzfällerhütte, Meiler | Brot, Essen |
-| Fritz (Bauer) | Weizen, Stroh, Saatgut, Heu (mit Taylor); später Gerste, Hanf, Mehl aus der Wassermühle | Scheune | Stiele, Werkzeug |
+| Otto (Bauer) | Weizen, Stroh, Saatgut, Heu (mit Taylor); später Gerste, Hanf, Mehl aus der Wassermühle | Scheune | Stiele, Werkzeug |
 | Ida (Bäuerin) | Kartoffeln, Gemüse, Raps → Rüböl (Ölpresse), Eier, Federn | Erdkeller, Hühnerstall, Ölkammer | Kleie für die Hühner |
 | Taylor | Milch, Käse, Wolle, Garn (spinnt beim Hüten), Mist, Heu (mit dem Bauern) | Schäferhaus, Käsekammer | Labkraut, Salz, Heu |
 | Greta | Brot (mahlt anfangs selbst mit der Handmühle: Mehl und Kleie) | Auslage, Mehlkammer | Weizen, Rundholz |
@@ -156,7 +158,7 @@ und See ist keine Ware: Es ist unbegrenzt, aber das Holen mit Eimer oder Fass ko
 
 | Ware | Quelle | Wofür | Ab |
 |---|---|---|---|
-| Heu | Taylor und Fritz mähen die Wiesen (2 Mahden à 80 Bund) | Winterfutter für die Tiere | Sommer 1 |
+| Heu | Taylor und Otto mähen die Wiesen (2 Mahden à 80 Bund) | Winterfutter für die Tiere | Sommer 1 |
 | Stroh | Bauer, beim Dreschen | Strohsack, Streu, Lehmputz | Restvorrat, dann ab Ernte |
 | Laubstreu | alle, im Herbst | Streu im Stall (Ersatz für Stroh) | Herbst 1 |
 | Mist | Taylors Stall, Hühner | Dünger (+20 % Ernte) | Start |
@@ -314,7 +316,7 @@ Fisch und frisches Fleisch 30 % (deshalb Räuchern), Eier 5 %, Gemüse und Karto
 frisch, dann bis zum 6. Tag altbacken (Brotsuppe), danach Hühnerfutter. Korn, Mehl, Käse, Geräuchertes, Holz und alles
 Übrige verdirbt nicht. Was verdirbt, wird als Abgang „verdorben“ gebucht.
 
-## 8. Herstellung, Arbeitsrhythmus, Jahreslauf und Natur [Vorschlag, Startwerte]
+## 8. Herstellung, Arbeitsrhythmus, Jahreslauf und Natur [entschieden 2026-10-21: Startwerte, Prüfung im Zeitraffer]
 
 Leistung pro Arbeitstag (etwa 8 Stunden) bei Fähigkeit „geübt“ und gutem Werkzeug:
 
@@ -339,7 +341,7 @@ Leistung pro Arbeitstag (etwa 8 Stunden) bei Fähigkeit „geübt“ und gutem W
 Stahl 1,3) × Wetter (Regen 0,8 und Schnee 0,6 für Feld und Bau; Holzfällen ist Winterarbeit und wird nicht gebremst) ×
 Kraft und Laune (0,8–1,1). Helfer ohne den Beruf arbeiten als Anfänger.
 
-### Arbeitsrhythmus: wer wann was macht [Vorschlag]
+### Arbeitsrhythmus: wer wann was macht [entschieden]
 
 **Braucht es das, oder nimmt es Leben aus der Welt?** Wir brauchen es, aber als **Rhythmus, nicht als Schleife**.
 Eine Schleife ist eine feste Abfolge, die abläuft, egal was los ist; die wäre leblos. Ein Rhythmus ist eine Gewohnheit,
@@ -368,7 +370,7 @@ er bestimmt, **wann** eine Ware da ist (Brot zum Frühstück, nicht abends).
 | Veit (Waldarbeiter) | Bäume fällen | fällen | aufarbeiten: entasten, ablängen, Rundholz stapeln, Stämme entrinden | brennt ein Meiler, kurz nachsehen | Sturm: Holzplatz ordnen, Werkzeug, Setzlinge; Winter: Hauptzeit fürs Fällen |
 | jeder Haushalt | Wasser und Brot holen | Beruf | auf dem Heimweg Rundholz mitnehmen | Holz spalten (30–45 min), Kamin anzünden, kochen | – |
 | Taylor (Schäferin) | melken, Herde austreiben | hüten, nebenbei spinnen; jeden zweiten Tag Käse machen | hüten | eintreiben, melken, Tiere zählen | Gewitter: bei den Tieren im Stall; Winter: Stall und Heu |
-| Fritz und Ida (Bauernhof) | Hühner füttern, Eier sammeln | Feldarbeit nach Jahreszeit (in den kühlen Stunden) | Hof: dreschen, Ölpresse, Garten | Hühner einsperren | Regen: in der Scheune dreschen, Geräte richten; Erntetage ganztags mit Erntehilfe |
+| Otto und Ida (Bauernhof) | Hühner füttern, Eier sammeln | Feldarbeit nach Jahreszeit (in den kühlen Stunden) | Hof: dreschen, Ölpresse, Garten | Hühner einsperren | Regen: in der Scheune dreschen, Geräte richten; Erntetage ganztags mit Erntehilfe |
 | Gustav (Wirt) | steht später auf | Zutaten holen, Tagesgericht ansetzen | Mittagessen ausgeben (anfangs für alle), Abendessen kochen | **Taverne: sein Hauptdienst** | – |
 | Anton (Jäger) | Fallen in der Morgendämmerung kontrollieren | zerlegen, räuchern, gerben | Fallen stellen, Rinde holen | Ansitz in der Abenddämmerung, wenn das Wild unterwegs ist | Regen: gerben, Fallen richten |
 | Hannes (Fischer) | Reusen leeren, angeln im Morgengrauen | Fang ausnehmen, räuchern | Netze flicken | – | Winter: Eisfischen, Schilf schneiden |
@@ -522,7 +524,7 @@ Bauzeiten werden die Kipppunkte früher erreicht (in Monaten), aber bei denselbe
 |---|---|---|
 | 1 Waldarbeiter | 11 Häuser | zweiter Waldarbeiter oder Köhler |
 | Greta mit Handmühle | 30 Menschen | Wassermühle am Bauernhof |
-| Fritz und Ida mit Erntehilfe | 25 Menschen | Ochse und Pflug (bis ~35), danach eine zweite Bauernfamilie |
+| Otto und Ida mit Erntehilfe | 25 Menschen | Ochse und Pflug (bis ~35), danach eine zweite Bauernfamilie |
 | Lene und Taylor (Spinnen, Weben) | 20 Menschen | Weberin oder Schneiderin |
 | Anton, Hannes, Hühner | 30 Menschen | mehr Hühner, Käse, Fischer |
 | 1 Raps-Acker | 17 Häuser | zweiter Acker |
@@ -672,7 +674,8 @@ weil ein leeres Lager sonst einfach „nichts verbraucht“.
 
 ## 16. Offene Punkte
 
-1. **Startwerte, Warenliste, Händlerin, Kipppunkte, Arbeitsrhythmus** (diese Datei): warten auf das OK des Users.
+1. **Warenliste, Händlerin, Kipppunkte, Startvorrat** (diese Datei): warten auf das OK des Users. Kapitel 8
+   (Herstellung, Arbeitsrhythmus) hat der User übernommen; geprüft wird im Zeitraffer (Kapitel 14).
 2. **Ruhetag** [Idee]: ein freier Tag pro Weltwoche (Platz, Ausflüge, Feste). Senkt die Kapazität um ein Siebtel; die
    Startwerte haben dafür genug Luft.
 3. **Gerste und Bier:** ab wann (erstes Herbstfest oder später)?
