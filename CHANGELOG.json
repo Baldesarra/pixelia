@@ -1,5 +1,39 @@
 [
   {
+    "v": "0.5.2",
+    "d": "2026-10-21",
+    "t": "Farbe und Licht",
+    "s": "Paletten je Ort mit Lichtstufen, Tageslicht nach Uhrzeit, Lampen als weiche Lichtkreise, Fenster am Abend, Wasser mit Farbrotation; Zeichnen direkt aus dem Hintergrund",
+    "n": [
+      "Engine: Palette je Ort mit drei Lichtstufen (light.h): 80 Grundfarben, Stufe 1 und 2 (Lampenlicht) rechnet die Engine; 240–255 bleiben der System-Oberfläche, Einblendungen auch nachts lesbar",
+      "Engine: Tageslicht nach Uhrzeit aus Stützpunkten (Farbe, Sättigung, Lampenwirkung, Himmel); Stimmung „natürlich“, Nacht „mittel“ mit Mindesthelligkeit 85/256 (Entscheidungen des Users)",
+      "Engine: Tageszeit-Schnittstelle über WorldClock; bis zur Weltzeit (0.5.6) füttert sie die Testuhr: echte Uhrzeit, Uhrzeit stellen, Zeitraffer",
+      "Engine: Rollen einzelner Farben: leuchtend (Fenster am Abend, Lampenschirm), Himmelsverlauf (Fenster von innen), fest; Farbrotation für Wasser und Flamme",
+      "Engine: Lichtkreise als Ellipse am Boden: hell bis zur Hälfte, dann weich im feinen Raster (2 × 2 Displaypunkte, Wunsch des Users); Figuren im Licht gleichmäßig nach dem Fußpunkt",
+      "Engine: Farbtabellen (Index → Index, 50-%-Mischung der Grundfarben) und durchscheinende Schatten; Raster-Hilfe dither4 für Verläufe",
+      "Engine: Verdoppeln direkt aus Hintergrundbild und bewegten Teilen (CoarseLayers); der Hintergrund wird nur noch unter Figuren kopiert, auch in der Überblendung",
+      "Engine: Testorte zeigen Licht und Tageszeit: Lampe als Lichtkreis (Raum, Platz), Fenster am Abend mit Lichtfleck (Wiese), Himmel in den Fenstern, Wasserbecken mit Farbrotation",
+      "Web: Karte „Orte“ mit Tageszeit-Schieber und Zeitraffer (Echt, 1×, 60×, 600×); POST /api/exp a=time&v=<Minute>|real, a=speed&v=<1–3600>, Werte in GET /api/exp",
+      "Simulator: --grid mit --cells und --cols für beschriftete Vergleichsbilder (Ort, Uhrzeit, Befehle); Ortsbefehle stimmung, tageslicht, nacht, licht fein|grob|hart [innen %]",
+      "Werkzeuge: Konsolenbefehl „bench mem“ misst den PSRAM-Durchsatz: 96 KB schreiben 2,4 ms (CPU wie DMA), lesen 1,4 ms",
+      "Doku: docs/STIL.md (Entwurf): Grundstimmung, Aufbau der Palette, Rampen, Sonderrollen, Licht, Schatten; Dunkelheit der Palette getrennt von der Hintergrundbeleuchtung"
+    ],
+    "i": [
+      "Engine: Zeichnen am Tag schneller (Raum und Platz 3,8 statt 4,1–4,2 ms); Licht kostet nur bei Dunkelheit, die Lichtkarte entsteht einmal je Änderung (24 KB PSRAM je Ort)"
+    ],
+    "g": [
+      "Gerät: 29,8–30,3 fps, 0 Aussetzer; Zeichnen tagsüber 3,8–4,2 ms, nachts mit Licht 4,4–5,8 ms; 64 Figuren 7,1–9,4 ms",
+      "Gerät: Überblendung höchstens 12,5–16 ms mit den Standard-Figuren, mit 64 Figuren je Ort bis 19,7 ms (Grenze; Standard bleibt Abblenden)",
+      "Gerät: RAM 110 KB frei (Tiefstwert 103 KB), PSRAM 5,82 MB frei; Firmware 1,61 MB (26 % der App-Partition); Live-Vorschau mit Licht geprüft",
+      "Simulator: 22/22 Bühnen-Tests, neu: Tageszeit mit Zeitraffer deterministisch, Licht und Systemfarben, Überblendung mit wechselnden Paletten, Farbrotation und Farbtabellen"
+    ],
+    "h": [
+      "Engine: SIMD/PIE und DMA helfen beim Verdoppeln nicht, der Engpass ist das Schreiben in den PSRAM; großer Hebel wäre, dass das Display das grobe Bild selbst liest (Frage an den Planungs-Chat)",
+      "Engine: Überblendung nur, wenn beide Paletten zusammen ≤ 240 Farben brauchen; nachts mit Lampen meist nicht, dann wird abgeblendet"
+    ],
+    "pr": [27]
+  },
+  {
     "v": "0.5.1",
     "d": "2026-10-21",
     "t": "Raum und Baukasten",

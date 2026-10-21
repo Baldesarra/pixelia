@@ -27,13 +27,18 @@ struct DepthItem {
     uint8_t shadow;        // halbe Breite des Schattens, 0 = keiner
     bool flip;
     bool baked;
+    bool figure;  // mit add() hinzugefügt: im Licht gleichmäßig nach dem Fußpunkt
 };
 
 class DepthList {
 public:
     static constexpr int kCapacity = 192;
 
-    void clear() { n_ = 0; }
+    void clear() {
+        n_ = 0;
+        layers_ = nullptr;
+        light_ = nullptr;
+    }
     int size() const { return n_; }
     void set_shadow_color(uint8_t c) { shadow_color_ = c; }
     // Fußpunkt (fx, fy) im Ort, Fußpunkt im Bild (px, py); false = Liste voll
@@ -44,8 +49,21 @@ public:
                 bool baked = false);
     // Zeichnet nach Tiefe. all = eingebackene Teile vollständig zeichnen (Vorzeichnen, Zeichnen ohne Hintergrund)
     void draw(Canvas& c, bool all = false);
+    // Seit 0.5.2: Hintergrund steht in layers->base, nicht im Bild. draw() kopiert ihn nur unter die bewegten Teile
+    // (je Zeile ein Bereich, gerade Grenzen) und trägt die Bereiche in layers ein. Gilt bis zum nächsten clear().
+    void use_layers(CoarseLayers* layers) { layers_ = layers; }
+    // Licht (seit 0.5.2, light.h): Teile im Licht zeichnen. Möbel je Bildpunkt nach der Lichtkarte (wie der
+    // vorgezeichnete Hintergrund), Figuren (add) gleichmäßig mit der Stufe an ihrem Fußpunkt, ohne Raster auf der
+    // Figur. Gilt bis zum nächsten clear().
+    void use_light(const uint8_t* map, int base) {
+        light_ = map;
+        light_base_ = base;
+    }
+    // Schatten durchscheinend: Index → Index statt einer festen Farbe (nullptr = shadow_color)
+    void set_shadow_table(const uint8_t* table) { shadow_table_ = table; }
 
 private:
+    void copy_under_movers(Canvas& c, int movers);
     void sort();
     static Rect bounds(const DepthItem& it);  // Bild und Schatten
     void draw_item(Canvas& c, const DepthItem& it, const Rect& clip) const;
@@ -55,6 +73,10 @@ private:
     std::array<uint8_t, kCapacity> movers_{};
     int n_ = 0;
     uint8_t shadow_color_ = 0;
+    const uint8_t* shadow_table_ = nullptr;
+    CoarseLayers* layers_ = nullptr;
+    const uint8_t* light_ = nullptr;
+    int light_base_ = 0;
 };
 
 }  // namespace pixelia

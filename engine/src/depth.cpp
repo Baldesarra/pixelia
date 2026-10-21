@@ -1,5 +1,11 @@
 #include "pixelia/engine/depth.h"
 
+#include <algorithm>
+#include <cstring>
+
+#include "pixelia/engine/light.h"
+
+
 namespace pixelia {
 
 static_assert(DepthList::kCapacity <= 256, "Indizes der Liste sind 8 Bit");
@@ -18,6 +24,7 @@ bool DepthList::add(const Sprite& s, int fx, int fy, int px, int py, bool flip, 
     it.shadow = static_cast<uint8_t>(shadow < 0 ? 0 : shadow > 255 ? 255 : shadow);
     it.flip = flip;
     it.baked = baked;
+    it.figure = true;
     return true;
 }
 
@@ -34,6 +41,7 @@ bool DepthList::add_at(const Sprite& s, int x, int y, int depth, bool flip, cons
     it.shadow = 0;
     it.flip = flip;
     it.baked = baked;
+    it.figure = false;
     return true;
 }
 
@@ -73,15 +81,70 @@ void fill_clipped(Canvas& c, Rect r, const Rect& clip, uint8_t color) {
     if (x0 < x1 && y0 < y1) c.fill_rect(x0, y0, x1 - x0, y1 - y0, color);
 }
 
+void shade_clipped(Canvas& c, Rect r, const Rect& clip, const uint8_t* table) {
+    const int x0 = std::max({r.x, clip.x, 0}), y0 = std::max({r.y, clip.y, 0});
+    const int x1 = std::min({r.x + r.w, clip.x + clip.w, c.width()});
+    const int y1 = std::min({r.y + r.h, clip.y + clip.h, c.height()});
+    for (int y = y0; y < y1; ++y) {
+        uint8_t* p = c.row(y);
+        for (int x = x0; x < x1; ++x) p[x] = table[p[x]];
+    }
+}
+
 }  // namespace
 
 void DepthList::draw_item(Canvas& c, const DepthItem& it, const Rect& clip) const {
     if (it.shadow) {
         const int w = it.shadow;
-        fill_clipped(c, {it.foot_x - w + 1, it.foot_y - 1, 2 * w - 1, 3}, clip, shadow_color_);
-        fill_clipped(c, {it.foot_x - w, it.foot_y, 2 * w + 1, 1}, clip, shadow_color_);
+        const Rect a{it.foot_x - w + 1, it.foot_y - 1, 2 * w - 1, 3}, b{it.foot_x - w, it.foot_y, 2 * w + 1, 1};
+        if (shadow_table_) {
+            // durchscheinend: Mittelzeile nur außerhalb von a, sonst würde sie doppelt abgedunkelt
+            shade_clipped(c, a, clip, shadow_table_);
+            shade_clipped(c, {b.x, b.y, 1, 1}, clip, shadow_table_);
+            shade_clipped(c, {b.x + b.w - 1, b.y, 1, 1}, clip, shadow_table_);
+        } else {
+            fill_clipped(c, a, clip, shadow_color_);
+            fill_clipped(c, b, clip, shadow_color_);
+        }
     }
-    c.blit_clipped(it.sprite, it.x, it.y, it.flip, it.remap, clip);
+    if (!light_) {
+        c.blit_clipped(it.sprite, it.x, it.y, it.flip, it.remap, clip);
+        return;
+    }
+    // Möbel wie der Hintergrund (Licht beim Verdoppeln), Figuren mit der Stufe an ihrem Fußpunkt
+    const int level = it.figure ? light_level_at(light_, c.width(), c.height(), it.foot_x, it.foot_y) : 0;
+    if (!level) {
+        c.blit_clipped(it.sprite, it.x, it.y, it.flip, it.remap, clip);
+        return;
+    }
+    const LightBlit lb{nullptr, light_base_, level};
+    c.blit_clipped(it.sprite, it.x, it.y, it.flip, it.remap, clip, &lb);
+}
+
+void DepthList::copy_under_movers(Canvas& c, int movers) {
+    CoarseLayers& L = *layers_;
+    const int w = c.width(), h = c.height() < kCoarseHeight ? c.height() : kCoarseHeight;
+    L.x0.fill(0xFF);
+    L.x1.fill(0);
+    // je Zeile die Hülle aller bewegten Teile (Bild und Schatten), auf gerade Grenzen erweitert
+    for (int m = 0; m < movers; ++m) {
+        const Rect r = bounds(items_[movers_[m]]);
+        const int x0 = (r.x < 0 ? 0 : r.x) & ~1, x1r = r.x + r.w > w ? w : r.x + r.w;
+        const int x1 = (x1r + 1) & ~1;
+        const int y0 = r.y < 0 ? 0 : r.y, y1 = r.y + r.h > h ? h : r.y + r.h;
+        if (x0 >= x1) continue;
+        for (int y = y0; y < y1; ++y) {
+            if (x0 < L.x0[y]) L.x0[y] = static_cast<uint8_t>(x0);
+            if (x1 > L.x1[y]) L.x1[y] = static_cast<uint8_t>(x1 > w ? w : x1);
+        }
+    }
+    for (int y = 0; y < h; ++y) {
+        if (L.x0[y] >= L.x1[y]) {
+            L.x0[y] = L.x1[y] = 0;
+            continue;
+        }
+        std::memcpy(c.row(y) + L.x0[y], L.base + y * w + L.x0[y], L.x1[y] - L.x0[y]);
+    }
 }
 
 void DepthList::draw(Canvas& c, bool all) {
@@ -90,6 +153,7 @@ void DepthList::draw(Canvas& c, bool all) {
     if (!all)
         for (int i = 0; i < n_; ++i)
             if (!items_[i].baked) movers_[movers++] = static_cast<uint8_t>(i);
+    if (layers_ && layers_->base && !all) copy_under_movers(c, movers);
     for (int k = 0; k < n_; ++k) {
         const DepthItem& it = items_[sorted_[k]];
         if (all || !it.baked) {

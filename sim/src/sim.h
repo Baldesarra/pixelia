@@ -31,6 +31,9 @@ struct Options {
     std::string cmd;              // Befehle an den Startort, durch Komma getrennt (z. B. ausbau,baustelle)
     bool inspect = false;         // Prüfansicht (Stellflächen, Benutzungspunkte, Ausgänge)
     bool follow = true;           // Blick folgt der Begleiterin durch die Ausgänge
+    std::string grid;             // Vergleichsbild (seit 0.5.2)
+    std::string cells;            // Zellen „Beschriftung|Ort|HH:MM|Befehl+Befehl“, durch ; getrennt
+    int cols = 3;
     long after = 0;               // Logik-Schritte nach dem Wechsel (vor Screenshot)
     std::string sequence;         // PNG-Datei mit einer Bildfolge (kopflos)
     int every = 3;                // Abstand der Bilder in Logik-Schritten

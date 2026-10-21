@@ -319,7 +319,60 @@ bool parse_go(const std::string& spec, const pixelia::Stage& stage, int* place, 
     return *place >= 0;
 }
 
+// Vergleichsbild (seit 0.5.2): je Zelle eine frische Bühne mit Ort, Uhrzeit und Befehlen, 2 s gelaufen
+int grid(const Options& opt) {
+    std::vector<std::string> cells;
+    for (size_t pos = 0; pos <= opt.cells.size();) {
+        size_t end = opt.cells.find(';', pos);
+        if (end == std::string::npos) end = opt.cells.size();
+        if (end > pos) cells.push_back(opt.cells.substr(pos, end - pos));
+        pos = end + 1;
+    }
+    if (cells.empty()) {
+        std::printf("FEHLER: --grid braucht --cells\n");
+        return 2;
+    }
+    const int n = static_cast<int>(cells.size()), cols = std::min(n, opt.cols), rows = (n + cols - 1) / cols;
+    const int gap = 6;
+    RgbImage sheet(gap + cols * (kScreenWidth + gap), gap + rows * (kScreenHeight + 22 + gap), 22, 22, 28);
+    std::vector<uint8_t> frame(pixelia::kScreenPixels), rgb(static_cast<size_t>(kScreenWidth) * kScreenHeight * 3);
+    for (int i = 0; i < n; ++i) {
+        std::string part[4];
+        size_t pos = 0;
+        for (int k = 0; k < 4; ++k) {
+            const size_t end = k < 3 ? cells[i].find('|', pos) : std::string::npos;
+            part[k] = cells[i].substr(pos, end == std::string::npos ? std::string::npos : end - pos);
+            if (end == std::string::npos) break;
+            pos = end + 1;
+        }
+        Options o = opt;
+        if (!part[1].empty()) o.scene = part[1];
+        if (!part[2].empty() && std::sscanf(part[2].c_str(), "%d:%d", &o.hour, &o.minute) != 2) return 2;
+        o.cmd = part[3];
+        for (char& ch : o.cmd)
+            if (ch == '+') ch = ',';
+        pixelia::Stage stage;
+        if (!setup_stage(o, stage)) return 2;
+        pixelia::WorldClock clock;
+        clock.set(o.day, o.hour, o.minute);
+        Stats st;
+        step(stage, clock, st, 60);
+        render(stage, frame, st);
+        pixelia::indexed_to_rgb(frame.data(), kScreenWidth, kScreenHeight, display_palette(stage), 1,
+                                opt.device_colors, rgb.data());
+        const int x = gap + (i % cols) * (kScreenWidth + gap), y = gap + (i / cols) * (kScreenHeight + 22 + gap);
+        sheet.blit(rgb.data(), kScreenWidth, kScreenHeight, x, y);
+        std::string label = part[0];
+        for (char& ch : label) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        sheet.text(label.c_str(), x + 2, y + kScreenHeight + 5, 2, 236, 236, 240);
+    }
+    if (!write_file(opt.grid, pixelia::encode_png_rgb(sheet.px.data(), sheet.w, sheet.h))) return 1;
+    std::printf("sim: Vergleichsbild %s (%dx%d, %d Zellen)\n", opt.grid.c_str(), sheet.w, sheet.h, n);
+    return 0;
+}
+
 int run_headless(const Options& opt) {
+    if (!opt.grid.empty()) return grid(opt);
     pixelia::Stage stage;
     if (!setup_stage(opt, stage)) return 2;
     pixelia::WorldClock clock;

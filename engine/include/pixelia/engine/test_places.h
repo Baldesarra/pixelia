@@ -19,6 +19,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "pixelia/engine/light.h"
 #include "pixelia/engine/rng.h"
 #include "pixelia/engine/room.h"
 #include "pixelia/engine/scene.h"
@@ -30,7 +31,7 @@ class TestPlace : public Scene {
 public:
     enum class Kind : uint8_t { Field, Room, Square };
     static constexpr int kMaxFigures = 64;
-    static constexpr int kColors = 72;
+    static constexpr int kColors = 80;  // Grundfarben je Lichtstufe (drei Stufen, light.h)
 
     explicit TestPlace(Kind kind) : kind_(kind) {}
     // Orte liegen im Grafik-Speicher (auf dem Gerät PSRAM): je ~2,5 KB Figuren, der interne RAM bleibt frei
@@ -41,18 +42,22 @@ public:
     void init(uint64_t seed) override;
     void tick(const WorldClock& clock) override;
     void render(Canvas& canvas) const override;
+    void render_layers(Canvas& work, CoarseLayers& out) const override { draw(work, true, &out); }
     void render_overlay(Canvas& fine) const override;
     const Palette& palette() const override { return palette_; }
     void set_load(int figures) override;
     int scale() const override { return kCoarseScale; }
-    int colors() const override { return kColors; }
+    int colors() const override { return pal_.used(); }
     void enter() override { room_.enter(); }
     void leave() override { room_.leave(); }
     bool take_travel(Travel* out) override;
     void arrive(const Travel& t) override;
     void set_inspect(bool on) override { inspect_ = on; }
-    // „ausbau“: nächste Ausbaustufe aller Teile mit Stufen; „baustelle“: Möbel im Bau bzw. wieder fertig
+    // „ausbau“: nächste Ausbaustufe aller Teile mit Stufen; „baustelle“: Möbel im Bau bzw. wieder fertig.
+    // Seit 0.5.2 zum Vergleichen: „stimmung n“ (Grundstimmung 0–2), „tageslicht n“ (0–2), „nacht n“ (Mindest-
+    // helligkeit 0–256), „licht weich|hart“ (Ränder der Lichtkreise)
     bool command(const char* cmd) override;
+    const PlacePalette& place_palette() const { return pal_; }
 
     int figure_count() const { return count_; }
     bool has_guide() const;
@@ -81,6 +86,7 @@ private:
 
     void build_palette();
     void build_room();
+    void apply_lights();
     bool random_free_tile(int* tx, int* ty);
     void spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide);
     void decide(Figure& f);
@@ -88,11 +94,17 @@ private:
     void reached(int i);  // Figur i steht auf ihrem Ziel
     void remove_figure(int i);
     void apply_load();
-    void draw(Canvas& c, bool with_background) const;
+    void draw(Canvas& c, bool with_background, CoarseLayers* layers = nullptr) const;
 
     Kind kind_;
     Rng rng_;
-    Palette palette_{};
+    Palette palette_{};   // zur Tageszeit ausgerechnet (tick)
+    PlacePalette pal_{};  // Grundfarben, Rollen, Farbrotation
+    Daylight daylight_ = daylight_preset(0);
+    uint8_t shadow_[256]{};  // Schatten durchscheinend (Farbtabelle)
+    int mood_ = 0;
+    LightStyle light_style_ = LightStyle::Fine;
+    int light_inner_ = -1;  // −1 = Vorgabe des Ortes
     Room room_;
     std::array<Figure, kMaxFigures> figures_{};
     int count_ = 0;

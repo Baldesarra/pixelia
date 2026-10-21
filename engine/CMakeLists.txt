@@ -6,6 +6,7 @@ set(PIXELIA_ENGINE_SRCS
     src/depth.cpp
     src/font.cpp
     src/gesture.cpp
+    src/light.cpp
     src/memory.cpp
     src/png.cpp
     src/qr.cpp

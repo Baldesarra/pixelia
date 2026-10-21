@@ -337,6 +337,9 @@ std::string state_json() {
     j.num("place", gfx::place()).str("trans", pixelia::transition_name(gfx::transition()));
     j.num("tour", gfx::tour()).num("figures", gfx::figures());
     j.boolean("follow", gfx::follow()).boolean("inspect", gfx::inspect());
+    // Testuhr (seit 0.5.2): Tageszeit der Welt, Zeitraffer, echte Uhrzeit
+    j.num("minute", gfx::engine_stats(false).world_minute).num("speed", gfx::speed(), 0);
+    j.boolean("real", gfx::real_time());
     j.obj("touch").boolean("ok", tl.ok).boolean("down", tl.down).num("x", tl.x).num("y", tl.y);
     j.num("corners", tl.corners).num("n", tl.touches).end_obj();
     j.end_obj();

@@ -45,6 +45,12 @@ public:
     virtual void tick(const WorldClock& clock) = 0;
     // Zeichnet in 400×240 (scale() == 1) oder ins grobe Raster 200×120 (scale() == 2)
     virtual void render(Canvas& canvas) const = 0;
+    // Grobe Szenen mit Hintergrundbild (seit 0.5.2): zeichnen nur die bewegten Teile in den Arbeitspuffer und melden
+    // den Hintergrund als untere Schicht (canvas.h, CoarseLayers). Ohne eigene Fassung: alles in den Puffer.
+    virtual void render_layers(Canvas& work, CoarseLayers& out) const {
+        out.base = nullptr;
+        render(work);
+    }
     virtual const Palette& palette() const = 0;
     // Lastregler für Messungen (z. B. Zahl der Sprites); Szenen ohne Regler ignorieren das
     virtual void set_load(int /*load*/) {}
