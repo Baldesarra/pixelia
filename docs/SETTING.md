@@ -19,7 +19,7 @@
 | Schritt | Thema | Stand |
 |---|---|---|
 | 1 | Ideen des Users: Grundidee, Ton, Hauptfiguren, Skript | entschieden (Namen bleiben, 2026-10-21) |
-| 2 | Gebiete, Figuren, Reihenfolge | entschieden bis auf die Reihenfolge Grube/Lok (Kapitel 18) |
+| 2 | Gebiete, Figuren, Reihenfolge | entschieden (Grube vor Lok seit der Neuplanung, PR #31) |
 | 2a | Wirtschaft: Waren, Berufe, Lager, Werkzeuge, Wünsche, Dauer, Protokoll | Grundsätze entschieden, Startwerte Vorschlag ([WIRTSCHAFT.md](WIRTSCHAFT.md), Kapitel 8) |
 | 3 | Modularer Aufbau, Regie, Kamera | entschieden (Kapitel 13 und 15) |
 | 4 | Hardware-Eignung mit Zahlen (inkl. SD-Karte, Baukasten) | entschieden (Kapitel 16) |
@@ -63,7 +63,7 @@ wird inhaltlich neu aufgezogen, gute Ideen aus den alten Konzepten werden weiter
 
 **Epoche [entschieden]: frühe Dampfzeit auf dem Land, um 1850**, in einem erfundenen Land:
 
-- Im Dorf ist der Alltag vorindustriell: Laternen in der Hand, Fackeln und Öllampen an den Häusern, Kerzen, Kamine,
+- Im Dorf ist der Alltag vorindustriell: Laternen in der Hand, Öllampen und Kerzen in den Stuben, Kamine, Fackeln bei Festen,
   Brunnen, Schubkarren und Handkarren (später ein Ochsenkarren). **Schmiede und Tischlerei sind echte Handarbeit**, nichts ist automatisiert, die Bewohner
   arbeiten sichtbar.
 - Die Eisenbahn ist die einzige „moderne“ Technik und kommt von außen: Dampflok, Bahnwärterhaus, Signale.
@@ -113,8 +113,9 @@ damals schwerer war als Bleiben. Der Zug ist durch die fehlende Benutzung kaputt
 Simulation entstehen:
 
 1. *Der erste Frühling:* (Spielstart einige Wochen nach dem Entschluss) Feuerstelle vor dem Bahnhof, Schlafplätze in
-   Wagen und Warteraum, erste Notunterkünfte werden fertig, erster Garten. Die Katze taucht auf.
-2. *Die ersten Häuser:* Notunterkünfte entstehen, der Speisewagen wird zur Taverne, Schwarzes Brett am Bahnsteig,
+   Wagen und Warteraum, Abende in der Taverne im Speisewagen, erste Notunterkünfte werden fertig, erster Garten. Die
+   Katze taucht auf.
+2. *Die ersten Häuser:* Notunterkünfte entstehen, Schwarzes Brett am Bahnsteig,
    Werkstätten (Schmiede, Tischlerei, Bäckerei), Holzfällerhütte, die ersten Felder des Bauernhofs.
 3. *Die Wahl:* Sykora wird Bürgermeister (Kapitel 2).
 4. *Die alte Grube:* mit Wilhelm hinein, Stück für Stück tiefer (Kapitel 4).
@@ -280,6 +281,10 @@ Rohstoffe-Sammeln, ohne Kampf. Neue Gebiete kommen mit Updates. Orte werden nach
 | 4 | **Die Strecke** | zugewachsene Gleise, Brücke, Abteil im fahrenden Zug; der verschüttete Tunnel nach hinten | nach der Lok | Zugfahrt |
 | 5+ | **Neue Regionen (Updates)** | z. B. Marktstadt, Küste, See, Bergdorf | mit dem Zug | wählt der User, wenn es soweit ist |
 
+**Reihenfolge [entschieden 2026-10-21, Neuplanung PR #31]: Grube vor Lok.** Kapitel 3 „Die alte Grube“ (0.8.x) kommt
+vor Kapitel 4 „Die Lok“ (0.9.x), denn die Lok braucht Kohle und Blei aus der Grube. Die Phasen stehen in
+[ROADMAP.md](ROADMAP.md).
+
 **Sonderorte [entschieden], verstreut und selten:** die Grabstelle eines Unbekannten am Waldrand (langes Rätsel ohne
 Magie: Fundstücke aus Grube, Wald und Briefen erzählen über Monate, wer das war), ein verlassener Planwagen, die Ruine
 auf dem Hügel, eine Höhle hinter dem Wasserfall.
@@ -389,7 +394,9 @@ Eingriffe als starker Wunsch.
 - Taverne, Feiern und Musik nur abends.
 
 [entschieden] Zeitfenster hängen an der Tageszeit der Welt und verschieben sich mit Jahreszeit und Charakter
-(Frühaufsteher, Nachteule). [entschieden] Die Bäckerin backt in der Morgendämmerung, damit das Brot zum Frühstück da ist. Wer wann welche
+(Frühaufsteher, Nachteule). **Schlafenszeit [entschieden 2026-10-21, Wunsch des Users]:** Frühaufsteher gehen gegen
+22 Uhr ins Bett, die meisten gegen 23 Uhr, Nachteulen gegen 1 Uhr; aufgestanden wird je nach Charakter zwischen 5 und
+7½ Uhr. So ist abends lange etwas los, wenn der Betrachter zusieht. [entschieden] Die Bäckerin backt in der Morgendämmerung, damit das Brot zum Frühstück da ist. Wer wann welche
 Arbeit macht, steht als Arbeitsrhythmus der Berufe in [WIRTSCHAFT.md](WIRTSCHAFT.md) Kapitel 8.
 
 **Aufbau der Entscheidung [entschieden]:**
@@ -614,11 +621,74 @@ Arbeit pro Bauabschnitt kleiner gerechnet; die Zahl der Hände bleibt gleich:
 - Wetterarten: Sonne, bewölkt, Regen, Schnee, Wind, Nebel, Gewitter. Ein Gewitter darf auch einmal mitten in einer
   Wetterzeit kommen (Sommernachmittag).
 - **Kalender der Welt:** Jahr 1 beginnt mit dem ersten Tag. Feste entstehen aus dem Leben (fertiger Raum, erste Ernte,
-  Wahl, erste Zugfahrt, Jahrestag) und aus wenigen Jahresfesten (Frühlingsmarkt, Erntefest, Lichterabend zur
-  Wintersonnenwende).
+  Wahl, erste Zugfahrt, Jahrestag) und aus wenigen Jahresfesten (Frühlingsmarkt, Erntefest und die vier
+  Jahreszeitenabende mit Sommerfeuer und Lichterabend, Kapitel 11).
+- **Jahreszeiten wechseln sonntags [entschieden 2026-10-21, Wunsch des Users]:** In der Nacht von Sonntag auf Montag
+  beginnt die neue Jahreszeit; der Sonntagabend ist der letzte Abend der alten (Jahreszeitenabend, Kapitel 11). Der
+  erste Frühling dauert bis zum ersten Sonntag, der mindestens eine Woche nach dem Spielstart liegt (7–13 Tage).
+  Ist eine andere Länge eingestellt, ist der Jahreszeitenabend am letzten Tag der Jahreszeit.
 - **Erstlinge** jeder Jahreszeit (erste Schwalbe, erster Schnee) werden einmalig als Erinnerung gespeichert.
 - **Licht als System:** Laternen, Fackeln, Kerzen und Kamine brauchen Brennstoff aus dem Warenbuch. Das abendliche
-  Anzünden ist ein Ritual, ein leerer Ort bleibt dunkel.
+  Anzünden ist ein Ritual, ein leerer Ort bleibt dunkel. Die Regeln stehen im nächsten Abschnitt.
+
+### Licht: wann es brennt und wie hell [entschieden 2026-10-21]
+
+**Grundidee (Wunsch des Users):** Nachts sieht man von außen, wer wach ist. Ein Fenster leuchtet nur, wenn dahinter
+jemand wach ist und Brennstoff hat. Jede Ursache kommt aus der Simulation: Brennstoff fehlt, alle schlafen, alle sind
+fort. Regeln von Claude, Aussehen und Außenlicht vom User gewählt.
+
+- **Wann es brennt:** wenn es dunkel ist, jemand wach im Raum ist und Brennstoff da ist, auch morgens. Bei Greta
+  brennt im Winter um 5 Uhr das erste Licht im Dorf. Wer zuerst heimkommt, zündet an (Ritual). Wer als Letzter ins
+  Bett geht oder den Raum verlässt, löscht; draußen nimmt man die Laterne mit.
+- **Kamin und Herd geben Licht,** schwach und flackernd: genug zum Essen und Reden, nicht für Handarbeit (Spinnen,
+  Lesen und Schnitzen brauchen Kerze oder Lampe). Das Fenster glimmt dann orange. Zum Schlafen wird die Glut
+  abgedeckt; sie glimmt im Raum, nach außen bleibt das Fenster dunkel.
+- **Verbrauch nach Brenndauer:** Eine Kerze oder eine Lampenfüllung brennt etwa 2½ Stunden, ein „Lichtabend“
+  ([WIRTSCHAFT.md](WIRTSCHAFT.md) Kapitel 7). Wer länger aufbleibt, verbraucht mehr.
+- **Sparen mit Grund:** Wird das Licht knapp (Reichweite von Kerzen und Öl unter dem Soll), brennt nur noch ein Licht im
+  Haus. Man sitzt am Kamin, geht früher ins Bett oder in die Taverne bzw. die Spinnstube; ganz ohne gibt es Kienspan.
+  Wer abends in der Taverne sitzt, spart zu Hause Licht, wie damals.
+- **Stärke** (die Engine setzt sie in Radius und Helligkeit um; mehrere Quellen in einem Raum addieren sich bis zu
+  einer Obergrenze):
+
+| Quelle | Stärke | Licht |
+|---|---|---|
+| Glut | 1 | rot, nur im Raum, kein Schein nach außen |
+| Kienspan | 2 | gelb-orange, flackert, rußt |
+| Talgkerze | 2 | warm, flackert |
+| Wachskerze | 3 | warm, ruhiger |
+| Kaminfeuer, Herd | 3 | orange-rot, flackert stark, hellt die Seite zum Feuer auf |
+| Laterne (Hand- und Sturmlaterne) | 3 | wie Kerze oder Öl, fällt nach unten, wandert mit dem Träger |
+| Rüböllampe | 4 | gelb-weiß, ruhig |
+| Fackel | 4 | hell, unruhig, rußt |
+
+- **Fenster nach außen:** Laden offen: voller Schein. **Laden zu: Lichtritzen** [Wahl des Users], dünne helle Linien
+  durch die Fugen der Bretter. Geöltes Leinen: weicher, gelblicher Schein (etwa 60 %). Glas: klar und hell. Die Läden
+  sind zu im Winter, bei Regen und Sturm und zum Schlafen; im Sommer bleiben sie offen, solange jemand wach ist. Im
+  Winter ist das Dorf nachts voller Lichtritzen.
+- **Taverne:** das hellste Fenster im Dorf (Lampen und Kamin). Gustav zündet die Laterne über der Tür an, wenn er
+  öffnet, und löscht sie, wenn der letzte Gast geht. Licht über der Tür heißt „offen“.
+- **Werkstätten** sind abends dunkel; Esse und Backofen werden nach Feierabend abgedeckt. Morgens brennt Licht in der
+  Backstube.
+- **Stall:** dunkel. Licht gibt es nur, wenn jemand mit der Sturmlaterne hineingeht (Lammen, Gewitter, krankes Tier);
+  offenes Feuer gibt es im Stall nie.
+- **Draußen [Wahl des Users: wie um 1850, dazu eine Dorfplatz-Laterne]:** Es gibt keine Straßenlaternen. Feste
+  Lichter sind:
+  - die **Bahnsteiglaterne**, die Emil in der Dämmerung anzündet und löscht, wenn er schlafen geht (sein Ritual als
+    Lokführer);
+  - die **Laterne über der Tavernentür** (Gustav);
+  - später die **Laterne am Dorfplatz** als Bonuswunsch (braucht Glas von der Händlerin und jede Nacht Rüböl): Paul
+    zündet sie in der Dämmerung an, Gustav löscht sie, wenn er die Taverne schließt.
+
+  Wer nachts unterwegs ist, trägt eine **Handlaterne**; man sieht Lichter über die Wege wandern. **Licht für die, die
+  noch unterwegs sind:** Ist jemand aus dem Haushalt noch fort (Taverne, Stall), stellt der, der daheim ist, eine
+  Kerze ins Fenster; wer heimkommt, löscht sie. **Fackeln** gibt es nur bei Festen.
+- **Echter Mond [entschieden, Idee von Claude, vom User gewählt]:** Der Mond am Himmel hat die Phase von heute (aus dem
+  Datum gerechnet, ohne Internet) und steht nachts am Himmel, wenn es klar ist. Bei Vollmond ist die Nacht heller, und
+  manche gehen ohne Laterne heim. Bei Neumond ist es stockdunkel, dann leuchten die Fenster umso mehr.
+- **Prüfung:** Kein Fenster leuchtet ohne wache Person und Brennstoff dahinter. Ausnahmen mit Grund sind die Kerze
+  für die, die noch unterwegs sind, und der Lichterabend (Kapitel 11). Kienspan höchstens 20 % der Lichtabende
+  ([WIRTSCHAFT.md](WIRTSCHAFT.md) P4).
 
 ## 10. Ortszustände
 
@@ -650,6 +720,26 @@ sichtbar machen: wachsendes Tagebuch, selbst gepflanzter Baum, Steinhaufen mit F
 **[entschieden]** Ein **Ereignis-Regisseur** für die ganze Welt wählt nach Verlauf, Spannungsbogen und Sperrzeiten aus
 (LEBENDIGKEIT Regel 6). Ereignisse stehen als Daten in Seltenheitsstufen.
 
+### Jahreszeitenabende [entschieden 2026-10-21, Wunsch des Users]
+
+Am letzten Abend jeder Jahreszeit (sonntags, Kapitel 9) kommt das Dorf in großer Runde zusammen. Das ist ein fester
+Termin im Kalender; der Regisseur legt nichts anderes darüber.
+
+| Ende des … | Wo | Was |
+|---|---|---|
+| Winters | Taverne | großer Abend: Essen für alle, Musik, man erzählt vom Winter |
+| Frühlings | Taverne | großer Abend in der Taverne |
+| Sommers: **Sommerfeuer** | Dorfplatz (bis es ihn gibt: an der Feuerstelle vor dem Bahnhof) | großes Lagerfeuer zur Feier des Sommers auf dem geschmückten Platz (Kränze, Wimpel aus Stoffresten, Blumen, Laternen) |
+| Herbstes: **Lichterabend** (Wintersonnenwende) | jedes Haus, dann die Taverne | in der Dämmerung stellt jedes Haus eine Kerze ins Fenster, dann geht man zusammen in die Taverne |
+
+- **Fast alle kommen,** bis auf wenige mit Grund: Jemand ist krank (Martha sieht nach ihm), Taylor kommt in der
+  Lammzeit später, Veit hält Wache am Meiler, Hannes bleibt nur kurz. Höchstens zwei bis drei fehlen.
+- **Vorbereitung ist sichtbar:** Fürs Sommerfeuer schichten die Bewohner ab der Mitte des Sommers einen Holzstoß auf,
+  der Tag für Tag wächst: Reisig, Äste und Bauholz-Reste, dazu etwas Rundholz, aber nur aus dem Überschuss
+  ([WIRTSCHAFT.md](WIRTSCHAFT.md) Kapitel 7). In einem knappen Jahr wird das Feuer kleiner. Für den Lichterabend legen
+  die Haushalte vorher Kerzen zurück; das sieht man im Lager.
+- In der Taverne am Platz bleibt es dabei; mit 40 Bewohnern wird es eng und laut, und das ist gewollt.
+
 ### Besondere Ereignisse starten [entschieden, Wunsch des Users 2026-10-21]
 
 Grund: Der Betrachter schaut nicht rund um die Uhr hin und würde besondere Momente sonst verpassen.
@@ -669,7 +759,7 @@ Grund: Der Betrachter schaut nicht rund um die Uhr hin und würde besondere Mome
 
 ### Zuschauzeiten und nichts verpassen [entschieden]
 
-- **Zuschauzeiten:** Der Betrachter stellt ein, wann er meist hinschaut (z. B. 18–22 Uhr). **Große Ereignisse, die
+- **Zuschauzeiten:** Der Betrachter stellt ein, wann er meist hinschaut (z. B. 18–23 Uhr). **Große Ereignisse, die
   nicht zum normalen Tagesablauf gehören, legt der Regisseur in diese Zeiten.** Der normale Alltag läuft unabhängig
   davon weiter.
 - **Kamera springt hin:** Passiert etwas Besonderes, schwenkt die Anzeige automatisch dorthin, mit Kurzmeldung.
@@ -871,14 +961,16 @@ keine Magie, kein Altern, kein Tod, kein Wegzug.
 1. **Ideenliste von Claude:** Katze als Kupplerin zwischen Sykora und Taylor; Taylors Lieder wachsen mit dem Dorf
    (Lieder über echte Ereignisse, im Web lesbar); Vertrauen der Bewohner in Sykora (entscheidet die Wahl, spiegelt die
    Entscheidungen des Bürgermeisters); Lok taufen per Abstimmung am Schwarzen Brett.
-2. **Reihenfolge** (Kapitel 4): Grube vor Lok oder umgekehrt? Erste Region hinter der Strecke?
+2. **Reihenfolge [entschieden 2026-10-21, Neuplanung PR #31]:** Grube vor Lok (Kapitel 4). Die erste Region hinter
+   der Strecke wählt der User, wenn es soweit ist.
 3. **Wirtschaft** ([WIRTSCHAFT.md](WIRTSCHAFT.md)): Warenliste, Händlerin, Kipppunkte, Startvorrat und die
    Wunschliste (Kapitel 8) sind Vorschläge und warten auf das OK des Users.
 4. **Nachholen** nach dem Ausschalten: wie lange (Vorschlag: höchstens 24 h)?
 5. **Briefe und Gedanken** (Kapitel 12): Wer schreibt wem, wie oft, wie lang? Ansicht nach der Beispieldatei des
    Users (Pixelpfote-Vorschau). Vorgemerkt für die Themen Figuren, Gedächtnis, Wohnen und Besitz.
-6. **Charta:** Die Mindestziele für Zug, Dungeon, Liga und Inselwelt (LEBENDIGKEIT Kapitel 2) passen nicht mehr.
-   Vorschlag: Dorf-Ziele bleiben (bis auf „Wegzug“), dazu neue Ziele für Hof, Grube, Lok und die Welt als Ganzes.
+6. **Charta [Kapitel 1 entschieden 2026-10-21]:** Die Mindestziele für Kapitel 1 stehen in
+   [LEBENDIGKEIT.md](LEBENDIGKEIT.md) Kapitel 2; die Dorf-Ziele bleiben („Zuzug“ statt „Zu- oder Wegzug“). Die Ziele
+   für Grube, Lok und die Welt als Ganzes legt der User zu Beginn der jeweiligen Phase fest.
 
 ## 19. Entscheidungen
 
@@ -936,3 +1028,8 @@ Fest beschlossene Punkte dieser Werkstatt. Am Ende als Zeilen ins Entscheidungsp
 | 2026-10-21 | **Regel fürs Balancing: Erträge anheben statt Quellen vervielfachen:** reicht eine Ware nicht, wird beim Einstellen der Werte erst der Ertrag pro Tier, Acker oder Beruf angehoben, bevor mehr Tiere oder Äcker eingeplant werden; im laufenden Spiel ändert sich nichts | Wunsch des Users |
 | 2026-10-21 | **Herstellung und Arbeitsrhythmus der Berufe** (WIRTSCHAFT.md Kapitel 8) übernommen; geprüft wird im Zeitraffer | Entscheidung des Users |
 | 2026-10-21 | **Neue Namen:** Otto (statt Fritz) für den Bauern, Balthasar (statt Quirin) für den Kesselflicker | Entscheidung des Users |
+| 2026-10-21 | **Licht-Regeln:** Licht brennt nur, wo jemand wach ist und Brennstoff hat; Kamin gibt schwaches Licht; geschlossene Läden zeigen Lichtritzen; draußen wie um 1850 (Bahnsteig, Taverne, später eine Dorfplatz-Laterne, Handlaternen, Fackeln nur bei Festen); echter Mond | Wunsch des Users (Fensterlicht), Regeln von Claude, Aussehen und Außenlicht vom User gewählt |
+| 2026-10-21 | **Schlafenszeit eine Stunde später:** Frühaufsteher 22 Uhr, die meisten 23 Uhr, Nachteulen 1 Uhr | Wunsch des Users: er schaut abends länger zu |
+| 2026-10-21 | **Jahreszeitenabende:** Jahreszeiten wechseln sonntags, am letzten Abend großes Zusammenkommen in der Taverne; am Sommerende das Sommerfeuer auf dem Dorfplatz (Holz wird angespart), am Herbstende der Lichterabend | Wunsch des Users |
+| 2026-10-21 | **Mindestziele Kapitel 1** (LEBENDIGKEIT Kapitel 2) | Entscheidung des Users, Werte von Claude vorgeschlagen |
+| 2026-10-21 | **Grube vor Lok:** Kapitel 3 „Die alte Grube“ (0.8.x) vor Kapitel 4 „Die Lok“ (0.9.x) | Entscheidung des Users in der Neuplanung (PR #31); die Lok braucht Kohle und Blei aus der Grube |
