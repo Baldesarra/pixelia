@@ -64,7 +64,9 @@ function mockDevice(): Plugin {
   const std = { pclk: 24600, hp: 4, hb: 8, hf: 8, vp: 4, vb: 8, vf: 8, hlow: true, vlow: true, neg: true, eco: false, hz: 60, swap: 2 };
   const exp = {
     on: process.env.PIXELIA_MOCK_EXP === '1', safeBoot: false, trialS: -1, trialNeed: 15,
-    panel: { ...std }, saved: { ...std }, std, mode: 'engine', testS: -1,
+    panel: { ...std }, saved: { ...std }, std, mode: 'engine', testS: -1, pic: false,
+    places: [{ id: 'scrolltest', title: 'Landschaft' }, { id: 'testort-wiese', title: 'Testort Wiese' }, { id: 'testort-raum', title: 'Testort Raum' }, { id: 'testort-platz', title: 'Testort Platz' }],
+    place: 0, trans: 'abblenden', tour: 0, figures: 0, follow: true, inspect: false, minute: 720, speed: 1, real: true,
     touch: { ok: true, down: false, x: -1, y: -1, corners: 0, n: 312 },
   };
   let prevPanel = { ...std };
@@ -115,8 +117,21 @@ function mockDevice(): Plugin {
     return Buffer.from(out);
   };
   let frameNo = 0;
+  // 0.5.0: eigenes Testbild (POST /api/picture: 96 000 Indizes + Palette 240 × RGB), erscheint dann in /api/screen
+  let picture: Buffer | null = null;
   const screen = () => {
     const w = 400, h = 240, px = new Uint8Array(w * h), pal = Buffer.alloc(768);
+    if (exp.pic && picture) {
+      px.set(picture.subarray(0, w * h));
+      picture.copy(pal, 0, w * h);
+      const head = Buffer.alloc(16);
+      head.write('PXS1');
+      head.writeUInt16LE(w, 4);
+      head.writeUInt16LE(h, 6);
+      head.writeUInt32LE(++frameNo, 8);
+      head[12] = 1;
+      return Buffer.concat([head, pal, packbits(px)]);
+    }
     for (let i = 0; i < 64; i++) pal.set([40 + i, 90 + i, 160 + i * 1.4], i * 3); // Himmel
     pal.set([255, 214, 90], 64 * 3); // Sonne
     pal.set([250, 250, 255], 65 * 3); // Wolke
@@ -388,9 +403,10 @@ function mockDevice(): Plugin {
         const ok = (msg = 'OK') => json(res, { ok: true, msg });
         if (a === 'on' || a === 'off') {
           exp.on = a === 'on';
-          if (!exp.on) Object.assign(exp, { trialS: -1, testS: -1, mode: 'engine', panel: { ...std }, saved: { ...std } });
+          if (!exp.on) Object.assign(exp, { trialS: -1, testS: -1, mode: 'engine', pic: false, panel: { ...std }, saved: { ...std }, place: 0, trans: 'abblenden', tour: 0, figures: 0, follow: true, inspect: false });
           return ok();
         }
+        if (a === 'picoff') return ((exp.pic = false), ok('Testbild beendet'));
         if (!exp.on) return json(res, { ok: false, msg: 'Experimentell ist aus' });
         if (a === 'panel') {
           const p = panelOf(f);
@@ -407,6 +423,20 @@ function mockDevice(): Plugin {
         }
         if (a === 'revert') return (exp.trialS >= 0 && Object.assign(exp, { trialS: -1, panel: { ...prevPanel } }), ok());
         if (a === 'reset') return (Object.assign(exp, { trialS: -1, safeBoot: false, panel: { ...std }, saved: { ...std } }), ok());
+        // Orte (seit 0.5.0)
+        if (a === 'place') return ((exp.place = Number(f.get('n') ?? 0)), ok(exp.places[exp.place]?.title));
+        if (a === 'trans') return ((exp.trans = f.get('v') ?? 'abblenden'), ok('Übergang gesetzt'));
+        if (a === 'tour') return ((exp.tour = Number(f.get('s') ?? 0)), ok(exp.tour ? 'Rundgang an' : 'Rundgang aus'));
+        if (a === 'figures') return ((exp.figures = Number(f.get('n') ?? 0)), ok('Figuren gesetzt'));
+        // Raum-Baukasten (seit 0.5.1)
+        if (a === 'cmd') return f.get('v') === 'ausbau' ? ok('Nächste Ausbaustufe') : f.get('v') === 'baustelle' ? ok('Im Bau umgeschaltet') : json(res, { ok: false, msg: 'Befehl unbekannt' });
+        if (a === 'follow') return ((exp.follow = f.get('v') !== '0'), ok(exp.follow ? 'Blick folgt' : 'Blick bleibt'));
+        if (a === 'inspect') return ((exp.inspect = f.get('v') === '1'), ok(exp.inspect ? 'Prüfansicht an' : 'Prüfansicht aus'));
+        if (a === 'time') {
+          if (f.get('v') === 'real') return ((exp.real = true), (exp.speed = 1), ok('Echte Uhrzeit'));
+          return ((exp.minute = Number(f.get('v'))), (exp.real = false), ok('Uhrzeit gestellt'));
+        }
+        if (a === 'speed') return ((exp.speed = Number(f.get('v'))), (exp.real = false), ok('Zeitraffer an'));
         if (a === 'test') {
           const m = f.get('mode') ?? '';
           if (m === 'engine') return (Object.assign(exp, { mode: 'engine', testS: -1 }), ok());
@@ -417,6 +447,17 @@ function mockDevice(): Plugin {
           return ok();
         }
         json(res, { ok: false, msg: 'Aktion unbekannt' });
+      });
+      server.middlewares.use('/api/picture', async (req, res) => {
+        if (!authorized(req, new URLSearchParams())) return deny(res);
+        if (!exp.on) return json(res, { ok: false, msg: 'Experimentell ist aus' });
+        const chunks: Buffer[] = [];
+        for await (const c of req) chunks.push(c as Buffer);
+        const body = Buffer.concat(chunks);
+        if (body.length !== 400 * 240 + 240 * 3) return ((res.statusCode = 400), json(res, { ok: false, msg: 'Bild muss 400 × 240 groß sein' }));
+        Object.assign(exp, { mode: 'engine', testS: -1, pic: true });
+        picture = body;
+        json(res, { ok: true, msg: 'Testbild auf dem Display' });
       });
       server.middlewares.use('/api/screen', (_req, res) => {
         if (exp.mode !== 'engine') return ((res.statusCode = 503), json(res, { ok: false, msg: 'Kein Bild (Testbild aktiv?)' }));

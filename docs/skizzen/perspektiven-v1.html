@@ -1,0 +1,1533 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pixelia Perspektiven</title>
+<style>
+html{padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)} body{margin:0} [hidden]{display:none!important}
+/* Layout: Werkbank – links das Display im Gehäuse, rechts der Steckbrief; darunter Vergleich und Empfehlung */
+:root {
+  --bg: #e9ece6; --surface: #f8f9f5; --fg: #1d2224; --muted: #586164; --line: #cfd5cc;
+  --accent: #a85a12; --accent-bg: #f3e1c6; --bezel: #15171b; --bezel-fg: #9aa0a6;
+  --good: #2f7a45; --bad: #a13a2f;
+  --f-pixel: "Silkscreen", "Courier New", monospace;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-data: "JetBrains Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111417; --surface: #1a1e22; --fg: #e5e8e2; --muted: #9ba3a2; --line: #2b3237;
+  --accent: #f0a640; --accent-bg: #3a2a14; --bezel: #050607; --bezel-fg: #7d848a; --good: #6cc488; --bad: #ef8a7c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111417; --surface: #1a1e22; --fg: #e5e8e2; --muted: #9ba3a2; --line: #2b3237;
+  --accent: #f0a640; --accent-bg: #3a2a14; --bezel: #050607; --bezel-fg: #7d848a; --good: #6cc488; --bad: #ef8a7c; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 16px/1.55 var(--f-body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px; }
+h1, h2, h3 { text-wrap: balance; margin: 0 }
+h1 { font: 400 clamp(22px, 4vw, 34px)/1.15 var(--f-pixel); letter-spacing: .02em }
+h2 { font: 400 20px/1.2 var(--f-pixel); letter-spacing: .03em }
+h3 { font-size: 17px }
+p { margin: 0; max-width: 68ch }
+.lede { color: var(--muted) }
+.eyebrow { font: 400 11px/1 var(--f-pixel); letter-spacing: .12em; text-transform: uppercase; color: var(--accent) }
+header { display: grid; gap: 10px }
+/* Auswahl */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px }
+.tab { font: 700 14px/1.2 var(--f-body); border: 1px solid var(--line); background: var(--surface); color: var(--fg); padding: 9px 12px; border-radius: 8px; cursor: pointer; display: flex; gap: 8px; align-items: baseline }
+.tab .n { font: 400 11px/1 var(--f-pixel); color: var(--muted) }
+.tab[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg) }
+.tab[aria-pressed="true"] .n { color: var(--accent-bg) }
+.tab.mix { border-style: dashed }
+.tab.mix[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px }
+.stage { display: grid; grid-template-columns: minmax(0, 830px) minmax(0, 1fr); gap: 24px; align-items: start }
+@media (max-width: 1100px) { .stage { grid-template-columns: minmax(0, 1fr) } }
+/* Display im Gehäuse */
+.device { background: var(--bezel); border-radius: 14px; padding: 15px 15px 10px; box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 10px 30px rgba(0,0,0,.18) }
+.device canvas { display: block; width: 100%; max-width: 800px; aspect-ratio: 5 / 3; image-rendering: pixelated; image-rendering: crisp-edges; background: #000 }
+.device .plate { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font: 400 10px/1 var(--f-pixel); letter-spacing: .1em; color: var(--bezel-fg); padding-top: 9px }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px }
+.btn { font: 700 14px/1 var(--f-body); border: 1px solid var(--line); background: var(--surface); color: var(--fg); padding: 10px 14px; border-radius: 8px; cursor: pointer }
+.btn[aria-pressed="true"] { background: var(--accent-bg); border-color: var(--accent); color: var(--fg) }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff }
+.btn.primary[aria-pressed="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg) }
+.stats { font: 400 12.5px/1.5 var(--f-data); color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 10px }
+.stats b { color: var(--fg); font-weight: 600 }
+.strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 14px }
+.thumb { border: 2px solid transparent; background: var(--surface); padding: 4px 4px 6px; border-radius: 8px; cursor: pointer; display: grid; gap: 5px; color: var(--fg); font: 700 13px/1.1 var(--f-body); text-align: left }
+.thumb canvas { width: 100%; aspect-ratio: 5 / 3; image-rendering: pixelated; display: block; border-radius: 3px }
+.thumb .arrow { color: var(--muted); font-weight: 400 }
+.thumb[aria-pressed="true"] { border-color: var(--accent) }
+/* Steckbrief */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: grid; gap: 14px; min-width: 0 }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0 }
+.facts dt { font: 400 10.5px/1.9 var(--f-pixel); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.facts dd { margin: 0 }
+.meter { display: grid; grid-template-columns: 7.5em auto 1fr; gap: 4px 10px; align-items: center }
+.meter .lbl { font-weight: 700; font-size: 14px }
+.bar { display: flex; gap: 3px }
+.bar i { width: 12px; height: 12px; background: var(--line) }
+.bar i.on { background: var(--accent) }
+.meter .txt { grid-column: 1 / -1; color: var(--muted); font-size: 14px; margin-bottom: 6px }
+ul.pc { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; font-size: 15px }
+ul.pc li { padding-left: 20px; position: relative }
+ul.pc li::before { position: absolute; left: 0; font: 700 15px/1.5 var(--f-data) }
+ul.plus li::before { content: "+"; color: var(--good) }
+ul.minus li::before { content: "–"; color: var(--bad) }
+.note { font-size: 13.5px; color: var(--muted) }
+/* Tabelle */
+.tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface) }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 14.5px }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line) }
+thead th { font: 400 10.5px/1.4 var(--f-pixel); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+tbody th { font-weight: 700 }
+tr.rec { background: var(--accent-bg) }
+td.num { font-family: var(--f-data); font-variant-numeric: tabular-nums; white-space: nowrap }
+section { display: grid; gap: 14px }
+.rec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px }
+.rec-grid .card h3 { font: 400 13px/1.3 var(--f-pixel); letter-spacing: .06em; color: var(--accent) }
+.verdict { border-left: 4px solid var(--accent); padding: 4px 0 4px 16px; display: grid; gap: 8px }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Pixelia · Entscheidung vor 0.5.x „Raum und Perspektive“</span>
+    <h1>Pixelia Perspektiven</h1>
+    <p class="lede">Fünf Arten, das gemeinsame Setting zu zeigen, jeweils mit denselben vier Orten. Jedes Bild ist echte 400 × 240 Pixel mit 8-Bit-Palette und wird ohne Glättung verdoppelt, so wie auf dem 5″-Display. Alles wird live im Browser gezeichnet; die Zahlen unter dem Bild zählt diese Skizze selbst.</p>
+  </header>
+
+  <nav class="tabs" id="tabs" aria-label="Perspektive"></nav>
+
+  <div class="stage">
+    <div>
+      <div class="device">
+        <canvas id="screen" width="400" height="240" aria-label="Szene in 400 mal 240 Pixeln"></canvas>
+        <div class="plate"><span>ESP32-8048S050 · 5″</span><span id="plate-r">400×240 → 800×480</span></div>
+      </div>
+      <div class="controls">
+        <button class="btn" id="b-night" aria-pressed="false">Nacht</button>
+        <button class="btn" id="b-anim" aria-pressed="true">Bewegung an</button>
+        <button class="btn primary" id="b-seq" aria-pressed="false">▶ Bildfolge Hof → Haus → Dorf → Zug</button>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div class="strip" id="strip"></div>
+    </div>
+    <aside class="card" id="info" aria-live="polite"></aside>
+  </div>
+
+  <section id="vergleich">
+    <span class="eyebrow">Überblick</span>
+    <h2>Vergleich auf einen Blick</h2>
+    <div class="tablebox"><table>
+      <thead><tr><th>Perspektive</th><th>Figur (px / mm)</th><th>Richtungen</th><th>Grafikarbeit</th><th>Rechenzeit (ESP32-S3)</th><th>Gemeinsame Welt</th></tr></thead>
+      <tbody id="cmp"></tbody>
+    </table></div>
+    <p class="note">Mehr Kästchen = weniger Aufwand bzw. besser geeignet. mm = Höhe auf dem 5″-Panel: 1 Weltpixel wird 2 × 2 Displaypixel, das sind 0,27 mm. Rechnen: Schätzung für 400 × 240, 30 fps, Logik und Zeichnen ≤ 20 ms; gezählt sind Schreibzugriffe und sortierte Objekte dieser Skizze, nicht die Firmware.</p>
+  </section>
+
+  <section id="empfehlung">
+    <span class="eyebrow">Mischung</span>
+    <h2>Jeder Ort mit eigener Perspektive</h2>
+    <p>Jeder Ort darf eine eigene Perspektive haben. Teuer wird das bei den Figuren: Jede Figur braucht Ansichten für jede Perspektive. Mit dem Reiter „Mischung“ oben läuft die Bildfolge in der empfohlenen Kombination.</p>
+    <div class="rec-grid">
+      <div class="card"><h3>Außen · 3/4-Draufsicht</h3><p>Hof, Weide, Fluss, Dorfplatz, später Bahnhof und Dorf B. Große Karten, die Kamera fährt mit. Viele Bewohner können sich frei bewegen und begegnen.</p></div>
+      <div class="card"><h3>Innen und Zug · Querschnitt</h3><p>Haus, Bäckerei, Taverne, Zugwagen. Ein Bildschirm pro Gebäude, alle Räume gleichzeitig sichtbar. Hinter dem Zugwagen läuft die Landschaft als Parallax vorbei, so bleibt die Zugfenster-Idee erhalten.</p></div>
+      <div class="card"><h3>Ein Figurensatz für beide</h3><p>Die 3/4-Ansicht braucht Figuren von vorn, von hinten und im Profil. Der Querschnitt braucht Profil und vorn. Das sind dieselben Bilder: Zwei Perspektiven kosten so fast nur einen Figurensatz.</p></div>
+    </div>
+    <div class="verdict">
+      <h3>Empfehlung des Kapitäns</h3>
+      <p><b>3/4-Draufsicht für alle Außenorte, Querschnitt für Gebäude und Zug.</b> Keine Isometrie, keine skalierte Bühne. Grundraster 16 × 16, Figurenzelle 16 × 24 (Figur etwa 10 × 22 px, rund 6 mm), 4 Blickrichtungen aus 3 gezeichneten Ansichten.</p>
+      <p>Warum: Das Dorf soll 40 Bewohner zeigen, die sich treffen, Wege gehen und Spuren hinterlassen. Dafür braucht es Bodenfläche, und die gibt nur die Draufsicht. Im Haus zählt dagegen, dass man alles gleichzeitig sieht: wer kocht, wer schläft, was im Keller lagert. Das kann nur der Querschnitt. Beide nutzen rechteckige Kacheln, eine einfache Y-Sortierung und dieselben Figuren. Die Isometrie sähe räumlicher aus, kostet aber für jede Figur, jede Wand und jedes Möbel doppelte Grafikarbeit; diese Zeit fehlt dann für Lebendigkeit. Die Bühne hat die schönsten Figuren, aber jeder Ort wäre ein Einzelbild und das Dorf könnte mit Updates schlecht wachsen.</p>
+    </div>
+  </section>
+</div>
+<script>
+'use strict';
+// ---- Grundgerüst: 400×240 Index-Puffer, Palette, Licht, Sprites ----
+const W = 400, H = 240, N = W * H;
+const PAL_SRC = `out:1c1622 ink:2b2433
+sky0:4f9ad0 sky1:79b8e2 sky2:a8d4ec sky3:d6eef5 cloud:f6f9fa cloudS:cddde8
+mtn0:7c98b4 mtn1:9db5c8 mtnS:e8eef2 hill0:5f8f86 hill1:78a787
+tree0:2d5a3a tree1:3f7a45 tree2:5c9a4d tree3:82b85a
+gr0:3f7536 gr1:58923f gr2:74ad4a gr3:9cc95e
+dirt0:5a3d2a dirt1:7d5636 dirt2:a37a4c sand:c8a874 sand2:ddc290
+wat0:24507a wat1:3672a6 wat2:5a9ccc wat3:a6d8ee
+wd0:3e2618 wd1:62402a wd2:8a5c38 wd3:b0804c
+rf0:5a2226 rf1:8a3530 rf2:b8503c rf3:d87a52
+st0:3e4450 st1:626a78 st2:8f96a2 st3:bfc4cc
+pl0:9c8a70 pl1:d6c6a4 pl2:efe4c8
+sk0:b8754e sk1:e8b088
+hrB:5a3220 hrY:d8aa48 hrK:2a2030 hrR:a8482a hrG:a0a0a8
+shR:b03838 shR2:7c2430 shB:3a5aa6 shB2:283c74 shG:3a8a50 shG2:275e38
+shY:d8a030 shY2:9c6c1c shP:8a4a9a shP2:5e2e6e
+pnt:3c3a58 pnt2:29283e shoe:3a2a22
+wool:f0ece2 wool2:c8c0b0 glass:8cc0d8 glass2:b8dcea
+red:d84a3a pink:e88ab0 yel:f0d050 wht:f8f8f0
+wall0:8a6e58 wall1:b89a78 wall2:d4bc96
+rug0:7a2e3a rug1:a84a4a rug2:d8a060
+tr0:24483f tr1:3e7f6c tr2:5aa88a gold:d8b048 rail:4a4040
+nsky0:*0b1028 nsky1:*141d40 nsky2:*22305c nsky3:*34467a
+star:*f0f0d8 moon:*f4f0d0 lamp:*ffe9a8 lit:*ffc65a lit2:*e8903a
+fire0:*ff6a28 fire1:*ffb03a fire2:*fff0a0`;
+const C = {}, PAL = [], EMIS = [];
+PAL_SRC.trim().split(/\s+/).forEach((tok, i) => {
+  let [n, h] = tok.split(':'); const e = h[0] === '*'; if (e) h = h.slice(1);
+  C[n] = i; PAL.push([parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]); EMIS.push(e);
+});
+const NP = PAL.length, T = 255;
+const pack = (r, g, b) => (Math.max(0, Math.min(255, r | 0)) << 16) | (Math.max(0, Math.min(255, g | 0)) << 8) | Math.max(0, Math.min(255, b | 0));
+// Lichttabellen: Stufe 0 = Nacht, 1 = Dämmerlicht, 2 = warm beleuchtet (wie die Engine-Tabellen)
+const TBL = [new Int32Array(NP), new Int32Array(NP), new Int32Array(NP), new Int32Array(NP)];
+for (let i = 0; i < NP; i++) {
+  const [r, g, b] = PAL[i], l = r * .3 + g * .59 + b * .11;
+  const nr = (r * .4 + l * .6) * .30 + 6, ng = (g * .4 + l * .6) * .36 + 9, nb = (b * .4 + l * .6) * .60 + 26;
+  const wr = r * 1.06 + 8, wg = g * .96 + 2, wb = b * .76;
+  TBL[0][i] = pack(nr, ng, nb);
+  TBL[1][i] = pack(nr * .45 + wr * .5, ng * .45 + wg * .48, nb * .5 + wb * .42);
+  TBL[2][i] = pack(wr, wg, wb);
+  TBL[3][i] = pack(r, g, b);
+}
+const RGB = PAL.map(([r, g, b]) => pack(r, g, b));
+// Spiegelung im Wasser: nächste Palettenfarbe zu (Farbe · 0,55 + Wasser · 0,45)
+const REFL = new Uint8Array(NP);
+for (let i = 0; i < NP; i++) {
+  if (EMIS[i]) { REFL[i] = i; continue; }
+  const w = PAL[C.wat1], t = PAL[i].map((v, k) => v * .55 + w[k] * .45); let best = 0, bd = 1e9;
+  for (let j = 0; j < NP; j++) { if (EMIS[j]) continue; const p = PAL[j], d = (p[0] - t[0]) ** 2 + (p[1] - t[1]) ** 2 + (p[2] - t[2]) ** 2; if (d < bd) { bd = d; best = j; } }
+  REFL[i] = best;
+}
+const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
+const bay = (x, y) => BAY[((y & 3) << 2) | (x & 3)];
+function hsh(x, y, s = 0) { let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+let B = new Uint8Array(N), WR = 0, LIGHTS = [], SORTN = 0, NIGHT = false, TM = 0;
+function beginFrame(night, t) { B.fill(0); WR = 0; LIGHTS = []; SORTN = 0; NIGHT = night; TM = t; }
+
+// ---- Zeichen-Grundfunktionen (zählen jeden Pixel-Schreibzugriff) ----
+function px(x, y, c) { x = Math.floor(x); y = Math.floor(y); if (x < 0 || y < 0 || x >= W || y >= H) return; B[y * W + x] = c; WR++; }
+function rect(x, y, w, h, c) {
+  x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h);
+  const x0 = Math.max(0, x), y0 = Math.max(0, y), x1 = Math.min(W, x + w), y1 = Math.min(H, y + h);
+  if (x1 <= x0 || y1 <= y0) return;
+  for (let yy = y0; yy < y1; yy++) B.fill(c, yy * W + x0, yy * W + x1);
+  WR += (x1 - x0) * (y1 - y0);
+}
+function hl(x0, x1, y, c) { if (x1 < x0) [x0, x1] = [x1, x0]; rect(x0, y, x1 - x0 + 1, 1, c); }
+function vl(x, y0, y1, c) { if (y1 < y0) [y0, y1] = [y1, y0]; rect(x, y0, 1, y1 - y0 + 1, c); }
+function circ(cx, cy, r, c) { cx = Math.round(cx); cy = Math.round(cy); r = Math.round(r); for (let dy = -r; dy <= r; dy++) { const dx = Math.floor(Math.sqrt(r * r - dy * dy + r * .8)); hl(cx - dx, cx + dx, cy + dy, c); } }
+function ell(cx, cy, rx, ry, c) { cx = Math.round(cx); cy = Math.round(cy); ry = Math.max(1, Math.round(ry)); for (let dy = -ry; dy <= ry; dy++) { const f = 1 - (dy / (ry + .4)) ** 2; if (f <= 0) continue; const dx = Math.round(rx * Math.sqrt(f)); hl(cx - dx, cx + dx, cy + dy, c); } }
+function line(x0, y0, x1, y1, c) { x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1); const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx + dy; for (; ;) { px(x0, y0, c); if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } } }
+function poly(p, c) { // Scanline-Füllung, p = [x0,y0,x1,y1,...]
+  let ymin = 1e9, ymax = -1e9; for (let i = 1; i < p.length; i += 2) { ymin = Math.min(ymin, p[i]); ymax = Math.max(ymax, p[i]); }
+  ymin = Math.max(0, Math.floor(ymin)); ymax = Math.min(H - 1, Math.ceil(ymax)); const n = p.length / 2;
+  for (let y = ymin; y <= ymax; y++) {
+    const sy = y + .5, xs = [];
+    for (let i = 0; i < n; i++) { const ax = p[i * 2], ay = p[i * 2 + 1], bx = p[(i + 1) % n * 2], by = p[(i + 1) % n * 2 + 1]; if ((ay <= sy && by > sy) || (by <= sy && ay > sy)) xs.push(ax + (sy - ay) / (by - ay) * (bx - ax)); }
+    xs.sort((a, b) => a - b);
+    for (let k = 0; k + 1 < xs.length; k += 2) { const a = Math.round(xs[k]), b = Math.round(xs[k + 1]) - 1; if (b >= a) hl(a, b, y, c); }
+  }
+}
+function gradV(x, y, w, h, cols) { // senkrechter Verlauf mit Bayer-Raster zwischen den Stufen
+  const n = cols.length - 1;
+  for (let r = 0; r < h; r++) { const yy = y + r; if (yy < 0 || yy >= H) continue; const pos = r / Math.max(1, h - 1) * n, k = Math.min(n - 1, Math.floor(pos)), f = pos - k;
+    for (let xx = Math.max(0, x); xx < Math.min(W, x + w); xx++) { B[yy * W + xx] = f > bay(xx, yy) ? cols[k + 1] : cols[k]; } WR += w; }
+}
+function speckle(x, y, w, h, from, to, p, seed = 1) { for (let yy = Math.max(0, y); yy < Math.min(H, y + h); yy++) for (let xx = Math.max(0, x); xx < Math.min(W, x + w); xx++) { const i = yy * W + xx; if (B[i] === from && hsh(xx, yy, seed) < p) { B[i] = to; WR++; } } }
+function recolor(x, y, w, h, map) { for (let yy = Math.max(0, y); yy < Math.min(H, y + h); yy++) for (let xx = Math.max(0, x); xx < Math.min(W, x + w); xx++) { const i = yy * W + xx, m = map[B[i]]; if (m !== undefined) { B[i] = m; WR++; } } }
+function dith(x, y, w, h, c1, c2) { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) px(xx, yy, ((xx + yy) & 1) ? c2 : c1); }
+function light(x, y, rx, ry, s = 1) { if (NIGHT) LIGHTS.push({ x, y, rx, ry: ry ?? rx, s }); }
+
+// ---- Sprites mit automatischer Kontur ----
+function Spr(w, h) { return { w, h, d: new Uint8Array(w * h).fill(T) }; }
+function sp(s, x, y, c) { x = Math.round(x); y = Math.round(y); if (x >= 0 && y >= 0 && x < s.w && y < s.h) s.d[y * s.w + x] = c; }
+function sr(s, x, y, w, h, c) { for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) sp(s, x + xx, y + yy, c); }
+function sellipse(s, cx, cy, rx, ry, c) { for (let dy = -ry; dy <= ry; dy++) { const f = 1 - (dy / (ry + .4)) ** 2; if (f <= 0) continue; const dx = Math.round(rx * Math.sqrt(f)); for (let xx = -dx; xx <= dx; xx++) sp(s, cx + xx, cy + dy, c); } }
+function outline(s, c) { const o = s.d.slice(); for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) { const i = y * s.w + x; if (o[i] !== T) continue; if ((x > 0 && o[i - 1] !== T) || (x < s.w - 1 && o[i + 1] !== T) || (y > 0 && o[i - s.w] !== T) || (y < s.h - 1 && o[i + s.w] !== T)) s.d[i] = c; } }
+function blit(s, x, y, flip) { x = Math.round(x); y = Math.round(y); for (let yy = 0; yy < s.h; yy++) { const ty = y + yy; if (ty < 0 || ty >= H) continue; for (let xx = 0; xx < s.w; xx++) { const c = s.d[yy * s.w + (flip ? s.w - 1 - xx : xx)]; if (c === T) continue; const tx = x + xx; if (tx < 0 || tx >= W) continue; B[ty * W + tx] = c; WR++; } } }
+
+// ---- Figuren: ein Generator für alle Größen und Ansichten ----
+// v: f = von vorn, b = von hinten, s = Profil (nach rechts), fi/bi = schräg (Isometrie)
+const PCACHE = new Map();
+const LOOKS = {
+  bauer: { hair: C.hrB, shirt: C.shG, shirt2: C.shG2, pants: C.pnt, hat: C.sand },
+  baeckerin: { hair: C.hrY, shirt: C.wht, shirt2: C.wool2, pants: C.shR2, dress: 1 },
+  kind: { hair: C.hrR, shirt: C.shY, shirt2: C.shY2, pants: C.shB2 },
+  alte: { hair: C.hrG, shirt: C.shP, shirt2: C.shP2, pants: C.shP2, dress: 1 },
+  wirt: { hair: C.hrK, shirt: C.shR, shirt2: C.shR2, pants: C.pnt },
+  haendler: { hair: C.hrB, shirt: C.shB, shirt2: C.shB2, pants: C.wd1 },
+  frau: { hair: C.hrK, shirt: C.shR, shirt2: C.shR2, pants: C.shR2, dress: 1 },
+  schaffner: { hair: C.hrG, shirt: C.shB2, shirt2: C.pnt2, pants: C.shB2, cap: C.shB2 },
+  heizer: { hair: C.hrK, shirt: C.st1, shirt2: C.st0, pants: C.pnt2, cap: C.st0 },
+};
+function person(o) {
+  const key = JSON.stringify(o); if (PCACHE.has(key)) return PCACHE.get(key);
+  const L = LOOKS[o.look] || LOOKS.bauer, Hh = o.h, big = Hh >= 30, v = o.v, fr = o.fr || 0;
+  const hh = big ? Math.round(Hh * .2) : Math.round(Hh * .4), hw = big ? Math.round(hh * .9) : hh;
+  const th = big ? Math.round(Hh * .34) : Math.round(Hh * .3), lh = Hh - hh - th;
+  const tw = big ? hw + 4 : Math.max(3, hw - 2), aw = big ? 2 : 1;
+  const s = Spr(Math.max(hw, tw + 2 * aw) + 8, Hh + 3), cx = s.w >> 1;
+  const skin = C.sk1, sk2 = C.sk0, sh = L.shirt, sh2 = L.shirt2, pn = L.pants, pn2 = C.pnt2, shoe = C.shoe, hair = L.hair;
+  const hx = cx - (hw >> 1), hy = 1, ty = hy + hh, ly = ty + th, ey = hy + Math.round(hh * .6), sit = o.pose === 'sit';
+  s.ly = ly;
+  if (v !== 's') {
+    const lw = Math.max(1, (tw >> 1) - (big ? 1 : 0)), lx0 = cx - (tw >> 1) + (big ? 1 : 0), lx1 = cx + (tw - (tw >> 1)) - lw - (big ? 1 : 0);
+    const l0 = sit ? Math.ceil(lh * .45) : lh - (fr === 1 ? 1 : 0), l1 = sit ? Math.ceil(lh * .45) : lh - (fr === 3 ? 1 : 0), sb = big ? 2 : 1;
+    sr(s, lx0, ly, lw, l0, pn); sr(s, lx1, ly, lw, l1, pn); sr(s, lx1 + lw - 1, ly, 1, l1, pn2);
+    sr(s, lx0, ly + l0 - sb, lw, sb, shoe); sr(s, lx1, ly + l1 - sb, lw, sb, shoe);
+    sr(s, cx - (tw >> 1), ty, tw, th, sh); sr(s, cx + (tw - (tw >> 1)) - 1, ty, 1, th, sh2);
+    if (L.dress && !sit) sr(s, cx - (tw >> 1) - (big ? 1 : 0), ty + th - 1, tw + (big ? 2 : 0), Math.ceil(lh * .55), sh);
+    const as = (v === 'f' || v === 'fi') && (fr === 1 || fr === 3) ? 1 : 0;
+    sr(s, cx - (tw >> 1) - aw, ty + 1, aw, th - 1 - (fr === 1 ? as : 0), sh2); sr(s, cx + (tw - (tw >> 1)), ty + 1, aw, th - 1 - (fr === 3 ? as : 0), sh2);
+    sr(s, cx - (tw >> 1) - aw, ty + th - (fr === 1 ? as : 0), aw, big ? 2 : 1, skin); sr(s, cx + (tw - (tw >> 1)), ty + th - (fr === 3 ? as : 0), aw, big ? 2 : 1, skin);
+    sr(s, hx, hy, hw, hh, skin);
+    if (v === 'f' || v === 'fi') {
+      const sh_ = v === 'fi' ? 1 : 0;
+      sr(s, hx, hy, hw, Math.ceil(hh * .38), hair); sr(s, hx, hy, 1 + sh_, Math.round(hh * .72), hair); if (!sh_) sr(s, hx + hw - 1, hy, 1, Math.round(hh * .72), hair);
+      const e0 = hx + Math.round(hw * .27) + sh_, e1 = hx + hw - 1 - Math.round(hw * .27) + sh_;
+      sp(s, e0, ey, C.ink); if (e1 < hx + hw) sp(s, e1, ey, C.ink); if (big) { sp(s, e0, ey - 1, C.ink); sp(s, e1, ey - 1, C.ink); sp(s, cx + sh_, ey + 2, sk2); sp(s, e0 - 1, ey + 1, C.pink); }
+    } else { sr(s, hx, hy, hw, hh - (big ? 2 : 1), hair); }
+  } else {
+    const tws = Math.max(3, tw - 2), tx = cx - (tws >> 1), lw = big ? 4 : 2;
+    if (sit) {
+      const thl = Math.max(3, Math.round(lh * .55));
+      sr(s, tx, ly, tws + thl - 1, lw, pn); sr(s, tx + tws + thl - 1 - lw, ly + lw, lw, lh - lw - 1, pn); sr(s, tx + tws + thl - 1 - lw, ly + lh - 1 - (big ? 2 : 1), lw + 1, big ? 2 : 1, shoe);
+    } else {
+      const spread = [0, 1, 0, 1][fr] * (big ? 5 : 2), swap = fr === 3 ? -1 : 1;
+      for (let r = 0; r < lh; r++) { const off = Math.round(spread * r / Math.max(1, lh - 1)); const xb = cx - (lw >> 1) - off * swap, xf = cx - (lw >> 1) + off * swap; sr(s, xb, ly + r, lw, 1, pn2); sr(s, xf, ly + r, lw, 1, pn); }
+      const sb = big ? 2 : 1; const xb = cx - (lw >> 1) - spread * swap, xf = cx - (lw >> 1) + spread * swap;
+      sr(s, xb, ly + lh - sb, lw + 1, sb, shoe); sr(s, xf, ly + lh - sb, lw + 1, sb, shoe);
+    }
+    sr(s, tx, ty, tws, th, sh);
+    if (L.dress && !sit) sr(s, tx - (big ? 1 : 0), ty + th - 1, tws + (big ? 2 : 1), Math.ceil(lh * .55), sh);
+    const sw_ = sit ? 1 : [0, 1, 0, -1][fr] * (big ? 3 : 1);
+    for (let r = 0; r < th; r++) sr(s, cx - (aw >> 1) + Math.round(sw_ * r / th), ty + 1 + r, aw, 1, sh2);
+    sr(s, cx - (aw >> 1) + sw_, ty + th, aw, big ? 2 : 1, skin);
+    sr(s, hx, hy, hw, hh, skin);
+    sr(s, hx, hy, hw, Math.ceil(hh * .38), hair); sr(s, hx, hy, Math.ceil(hw * .55), Math.round(hh * .8), hair);
+    sp(s, hx + hw - 2, ey, C.ink); if (big) { sp(s, hx + hw - 2, ey - 1, C.ink); sp(s, hx + hw, ey + 1, skin); sp(s, hx + hw - 2, ey + 3, sk2); } else sp(s, hx + hw, ey + 1, skin);
+  }
+  if (L.hat) { const ht = Math.max(2, Math.round(hh * .3)); sr(s, hx, hy - 1, hw, ht, L.hat); sr(s, hx - 1 - (big ? 1 : 0), hy - 1 + ht, hw + 2 + (big ? 2 : 0), 1, L.hat); }
+  if (L.cap) { sr(s, hx, hy - 1, hw, Math.max(2, Math.round(hh * .3)), L.cap); if (v === 's') sr(s, hx + hw - 1, hy + Math.max(1, Math.round(hh * .3)) - 1, 2, 1, L.cap); }
+  if (o.carry === 'eimer' && v === 's') { sr(s, cx + 2, ty + th - 1, 3, 3, C.st2); sp(s, cx + 3, ty + th - 1, C.wat2); }
+  if (o.carry === 'laterne') { const lx = v === 's' ? cx + 2 : cx + (tw >> 1) + aw; sr(s, lx, ty + th, 2, 3, NIGHT_SPRITES ? C.lamp : C.glass2); sp(s, lx, ty + th - 1, C.st0); }
+  outline(s, C.out);
+  PCACHE.set(key, s); return s;
+}
+let NIGHT_SPRITES = false;
+// Figur mit Fußpunkt (x, y) zeichnen; flip = nach links schauen
+function fig(look, v, x, y, h, fr = 0, flip = false, extra = {}) {
+  const o = Object.assign({ look, v, h, fr, night: NIGHT }, extra); NIGHT_SPRITES = NIGHT;
+  const s = person(o);
+  if (extra.pose === 'sit') blit(s, x - (s.w >> 1), y - s.ly, flip); else blit(s, x - (s.w >> 1), y - s.h + 2, flip);
+  return s;
+}
+// Schaf in drei Ansichten: s = Profil, t = 3/4 von oben, i = schräg
+function sheepSpr(v, sz, fr) {
+  const key = 'sheep' + v + sz + fr; if (PCACHE.has(key)) return PCACHE.get(key);
+  const rx = Math.round(6 * sz), ry = Math.round(4 * sz), s = Spr(rx * 2 + 9, ry * 2 + Math.round(5 * sz) + 4), cx = rx + 3, cy = ry + 2;
+  const lg = Math.max(2, Math.round(3 * sz));
+  if (v === 't') {
+    sellipse(s, cx, cy + 1, rx - 1, ry + 1, C.wool); sellipse(s, cx + 1, cy + 3, rx - 2, ry - 1, C.wool2); sellipse(s, cx - 1, cy, rx - 3, ry - 1, C.wool);
+    sr(s, cx - 2, cy + ry + 1, 4, Math.round(3 * sz), C.ink); sp(s, cx - 3, cy + ry + 1, C.ink); sp(s, cx + 2, cy + ry + 1, C.ink); sp(s, cx - 1, cy + ry + 2, C.wht);
+  } else {
+    for (const lx of [cx - rx + 2, cx - rx + 4, cx + rx - 4, cx + rx - 2]) sr(s, lx, cy + ry - 1, 1, lg + 1 - ((fr && lx > cx) ? 1 : 0), C.ink);
+    sellipse(s, cx, cy, rx, ry, C.wool); sellipse(s, cx, cy + 1, rx - 1, ry - 1, C.wool2); sellipse(s, cx - 1, cy - 1, rx - 2, ry - 2, C.wool);
+    const hx = cx + rx - 1, hy = cy - ry + (fr ? 2 : 0);
+    sr(s, hx, hy, Math.round(3 * sz) + 1, Math.round(3 * sz), C.ink); sp(s, hx - 1, hy, C.ink); sp(s, hx + Math.round(3 * sz) - 1, hy + 1, C.wht);
+  }
+  outline(s, C.out); s.cx = cx; PCACHE.set(key, s); return s;
+}
+function sheep(v, x, y, sz = 1, fr = 0, flip = false) { const s = sheepSpr(v, sz, fr); blit(s, x - s.cx, y - s.h + 2, flip); }
+function catSpr(sz) { const key = 'cat' + sz; if (PCACHE.has(key)) return PCACHE.get(key); const s = Spr(Math.round(12 * sz) + 4, Math.round(7 * sz) + 4); sellipse(s, (s.w >> 1), s.h - 4, Math.round(5 * sz), Math.round(2.5 * sz), C.rf3); sr(s, 2, s.h - 7, Math.round(4 * sz), Math.round(3 * sz), C.rf3); sp(s, 2, s.h - 8, C.rf3); sp(s, 2 + Math.round(4 * sz) - 1, s.h - 8, C.rf3); sp(s, 3, s.h - 6, C.ink); sr(s, s.w - 5, s.h - 4, 3, 1, C.rf2); outline(s, C.out); PCACHE.set(key, s); return s; }
+function cat(x, y, sz = 1, flip) { const s = catSpr(sz); blit(s, x - (s.w >> 1), y - s.h + 2, flip); }
+function chicken(x, y, fr, flip) { const s = Spr(9, 9); sellipse(s, 4, 5, 3, 2, C.wht); sr(s, 6, 1, 2, 3, C.wht); sp(s, 7, 0, C.red); sp(s, 8, 2, C.yel); sp(s, 7, 2, C.ink); sp(s, 3, 8 - (fr & 1), C.yel); sp(s, 5, 8, C.yel); outline(s, C.out); blit(s, x - 4, y - 8, flip); }
+
+// ---- Wiederverwendbare Motive ----
+function sky(y0, y1, sunny = true) {
+  if (!NIGHT) gradV(0, y0, W, y1 - y0, [C.sky0, C.sky1, C.sky2, C.sky3]);
+  else {
+    gradV(0, y0, W, y1 - y0, [C.nsky0, C.nsky1, C.nsky2, C.nsky3]);
+    const r = rng(7); for (let k = 0; k < 70; k++) { const x = r() * W | 0, y = y0 + r() * (y1 - y0) * .75 | 0; if (r() > .85) { px(x, y, C.star); if ((TM * 2 + k) % 5 > 1.2) { px(x - 1, y, C.nsky3); px(x + 1, y, C.nsky3); } } else px(x, y, (TM * 3 + k * 1.7) % 6 < 5.6 ? C.star : C.nsky3); }
+  }
+}
+function moon(x, y) { if (!NIGHT) return; circ(x, y, 7, C.moon); circ(x + 3, y - 2, 6, C.nsky1); }
+function cloud(x, y, w) { if (NIGHT) { ell(x, y, w * .5, 3, C.nsky2); return; } ell(x, y + 2, w * .5, 4, C.cloudS); circ(x - w * .2, y, w * .18, C.cloud); circ(x + w * .1, y - 2, w * .22, C.cloud); ell(x, y + 1, w * .45, 3, C.cloud); }
+function tree(x, by, r, seed = 1) {
+  r = Math.round(r); const cy = by - Math.round(r * 1.55);
+  rect(x - 2, cy, 4, by - cy, C.wd1); vl(x + 1, cy, by - 1, C.wd0); px(x - 3, by - 1, C.wd1); px(x + 2, by - 1, C.wd0);
+  const blobs = [[0, 0, 1], [-.55, .25, .7], [.55, .25, .7], [-.25, -.45, .65], [.3, -.4, .6]];
+  for (const [dx, dy, s] of blobs) circ(x + dx * r, cy + dy * r, r * s + 1, C.out);
+  for (const [dx, dy, s] of blobs) circ(x + dx * r, cy + dy * r, r * s, C.tree0);
+  for (const [dx, dy, s] of blobs) circ(x + dx * r - 1, cy + dy * r - 2, r * s - 2, C.tree1);
+  for (const [dx, dy, s] of blobs.slice(3)) circ(x + dx * r - 2, cy + dy * r - 3, r * s * .5, C.tree2);
+  speckle(x - r * 1.4, cy - r * 1.3, r * 2.8, r * 2.4, C.tree1, C.tree2, .12, seed); speckle(x - r * 1.4, cy - r * 1.3, r * 2.8, r * 2.4, C.tree2, C.tree3, .15, seed + 1); speckle(x - r * 1.4, cy - r * 1.3, r * 2.8, r * 2.4, C.tree1, C.tree0, .08, seed + 2);
+}
+function bush(x, by, r) { circ(x, by - r, r + 1, C.out); circ(x, by - r, r, C.tree1); circ(x - 1, by - r - 1, r - 2, C.tree2); speckle(x - r, by - 2 * r, 2 * r, 2 * r, C.tree2, C.tree3, .2, x); }
+function smoke(x, y, n = 6, spread = 1) {
+  for (let k = 0; k < n; k++) { const a = (TM * .35 + k / n) % 1, yy = y - a * 46, xx = x + Math.sin(a * 5 + k) * 3 + a * 16 * spread, r = 1 + a * 4.5; circ(xx, yy, r, NIGHT ? C.st1 : (a > .6 ? C.st3 : C.cloudS)); if (!NIGHT) circ(xx - 1, yy - 1, r * .5, C.cloud); }
+}
+function water(x, y, w, h, flow = 1, seed = 3) { // Wasserfläche mit wandernden Glanzlichtern
+  rect(x, y, w, h, C.wat1); gradV(x, y + h * .55, w, Math.ceil(h * .45), [C.wat1, C.wat0]);
+  for (let r = 1; r < h; r += 3) { for (let k = 0; k < Math.max(1, w / 28); k++) { const ph = hsh(k, r, seed), len = 2 + (ph * 5 | 0); let xx = x + ((ph * w + TM * 9 * flow * (1 + ph)) % w); hl(xx, Math.min(x + w - 1, xx + len), y + r, r < h * .4 ? C.wat2 : C.wat2); if (ph > .7) px(xx + 1, y + r, C.wat3); } }
+}
+function lampPost(x, by, h = 30, glow = 1) {
+  rect(x - 1, by - h, 3, h, C.st0); vl(x, by - h, by - 1, C.st1); rect(x - 3, by - 2, 7, 2, C.st0);
+  rect(x - 3, by - h - 7, 7, 7, C.out); rect(x - 2, by - h - 6, 5, 5, NIGHT ? C.lamp : C.glass2); hl(x - 4, x + 4, by - h - 8, C.st0); px(x, by - h - 9, C.st0);
+  light(x, by - h - 4, 36 * glow, 30 * glow, 1.1);
+}
+function win(x, y, w, h, lit = true, curtain = C.rf2) { // Fenster von vorn
+  rect(x - 1, y - 1, w + 2, h + 2, C.wd0);
+  if (NIGHT && lit) { rect(x, y, w, h, C.lit); rect(x, y + h - Math.ceil(h / 3), w, Math.ceil(h / 3), C.lit2); }
+  else { rect(x, y, w, h, C.glass); for (let k = 0; k < Math.min(w, h); k += 1) px(x + w - 2 - k, y + k + 1, C.glass2); if (curtain) { vl(x, y, y + h - 1, curtain); vl(x + w - 1, y, y + h - 1, curtain); } }
+  vl(x + (w >> 1), y, y + h - 1, C.wd1); hl(x, x + w - 1, y + (h >> 1), C.wd1);
+  hl(x - 2, x + w + 1, y + h + 1, C.wd2);
+  if (NIGHT && lit) light(x + w / 2, y + h / 2, 30, 26, .9);
+}
+function fire(x, y, w, h) { // flackerndes Feuer (emissiv)
+  for (let i = 0; i < w; i++) { const f = .55 + .45 * Math.sin(TM * 9 + i * 1.7) * Math.sin(TM * 5.3 + i), hh = Math.max(1, Math.round(h * f)); vl(x + i, y - hh + 1, y, C.fire0); if (hh > 2) vl(x + i, y - Math.round(hh * .6) + 1, y, C.fire1); if (hh > 3 && i > 0 && i < w - 1) vl(x + i, y - Math.round(hh * .3) + 1, y, C.fire2); }
+  light(x + w / 2, y - h / 2, 60, 50, 1.2 + .1 * Math.sin(TM * 7));
+}
+function candle(x, y) { rect(x, y - 4, 2, 4, C.wht); px(x, y - 5, (TM * 6 | 0) % 2 ? C.fire1 : C.fire2); light(x, y - 5, 34, 30, .9); }
+
+// ---- Zusammensetzen: Index-Puffer → RGB mit Nachtlicht (Bayer-Raster an den Lichtkanten) ----
+const LV = new Float32Array(N);
+function composite(img) {
+  const d = img.data, used = new Set();
+  if (!NIGHT) { for (let i = 0; i < N; i++) { const c = RGB[B[i]]; used.add(c); d[i * 4] = c >> 16; d[i * 4 + 1] = (c >> 8) & 255; d[i * 4 + 2] = c & 255; d[i * 4 + 3] = 255; } return used.size; }
+  LV.fill(0);
+  for (const L of LIGHTS) {
+    const x0 = Math.max(0, Math.floor(L.x - L.rx)), x1 = Math.min(W - 1, Math.ceil(L.x + L.rx)), y0 = Math.max(0, Math.floor(L.y - L.ry)), y1 = Math.min(H - 1, Math.ceil(L.y + L.ry));
+    for (let y = y0; y <= y1; y++) { const dy = (y - L.y) / L.ry; for (let x = x0; x <= x1; x++) { const dx = (x - L.x) / L.rx, q = dx * dx + dy * dy; if (q >= 1) continue; const v = (1 - Math.sqrt(q)) * L.s, i = y * W + x; if (v > LV[i]) LV[i] = v; } }
+  }
+  for (let y = 0, i = 0; y < H; y++) for (let x = 0; x < W; x++, i++) {
+    const idx = B[i]; let c;
+    if (EMIS[idx]) c = RGB[idx]; else { const q = LV[i] * 3.1 + bay(x, y) - .5; c = TBL[q < 1 ? 0 : q < 2 ? 1 : q < 3 ? 2 : 3][idx]; }
+    used.add(c); d[i * 4] = c >> 16; d[i * 4 + 1] = (c >> 8) & 255; d[i * 4 + 2] = c & 255; d[i * 4 + 3] = 255;
+  }
+  return used.size;
+}
+// Wasserspiegelung: Zeilen über y0 gespiegelt nach unten kopieren, mit Wellenversatz
+function reflect(y0, y1, x0 = 0, x1 = W, sq = 1.15) {
+  for (let y = y0; y < y1; y++) {
+    const k = y - y0, sy = y0 - 1 - Math.floor(k * sq); if (sy < 0) break;
+    const off = Math.round(Math.sin(TM * 2.2 + (y >> 1) * 1.3) * (.6 + k * .05));
+    for (let x = x0; x < x1; x++) { const sx = Math.min(W - 1, Math.max(0, x + off)), i = y * W + x; if ((k % 4 === 3) && ((x + (TM * 8 | 0)) >> 2) % 3 === 0) B[i] = C.wat2; else B[i] = REFL[B[sy * W + sx]]; WR++; }
+  }
+}
+
+// ===== Perspektive 1: Seitenansicht mit Parallax =====
+// Endlose Ebenen (wiederholen sich, damit der Zug beliebig weit fahren kann)
+function mountains(off, base, amp, col, snow, seed, step = 46) {
+  const k0 = Math.floor((-off - 120) / step), k1 = Math.ceil((W - off + 120) / step), p = [];
+  p.push(k0 * step + off, H);
+  for (let k = k0; k <= k1; k++) { const x = k * step + off; p.push(x, base - amp * .25 * hsh(k, 1, seed)); p.push(x + step * .5, base - amp * (.55 + .45 * hsh(k, 2, seed))); }
+  p.push(k1 * step + off + step, H); poly(p, col);
+  if (snow) for (let k = k0; k <= k1; k++) { const x = k * step + off + step * .5, y = base - amp * (.55 + .45 * hsh(k, 2, seed)), s = amp * .22 * (.5 + hsh(k, 2, seed)); if (s < 4) continue; poly([x, y, x + s * .9, y + s, x + s * .3, y + s * .75, x, y + s * 1.05, x - s * .4, y + s * .7, x - s * .9, y + s], snow); }
+}
+function hills(off, base, a, col, top, y1 = H) { for (let x = 0; x < W; x++) { const wx = x - off, y = Math.round(base + Math.sin(wx * .021) * a + Math.sin(wx * .057 + 1) * a * .5); vl(x, y, y1, col); if (top !== undefined) px(x, y, top); } }
+function treeLine(off, by, step, rmin, rmax, seed, mute) {
+  const k0 = Math.floor((-off - 40) / step), k1 = Math.ceil((W - off + 40) / step);
+  for (let k = k0; k <= k1; k++) { const x = k * step + off + hsh(k, 3, seed) * step * .5, r = rmin + hsh(k, 4, seed) * (rmax - rmin); if (hsh(k, 5, seed) < .2) continue; tree(x, by + hsh(k, 6, seed) * 3, r, k); }
+  if (mute) recolor(0, by - rmax * 3, W, rmax * 3 + 4, { [C.tree1]: C.hill0, [C.tree2]: C.hill1, [C.tree3]: C.hill1, [C.tree0]: C.tree0, [C.wd1]: C.tree0, [C.out]: C.tree0 });
+}
+function groundBand(y0, h, off, seed = 2) {
+  rect(0, y0, W, h, C.gr2); hl(0, W - 1, y0, C.gr3);
+  for (let y = y0 + 1; y < y0 + h; y++) for (let x = 0; x < W; x++) { const q = hsh(Math.floor(x - off), y, seed); if (q < .07) px(x, y, C.gr1); else if (q < .1) px(x, y, C.gr3); else if (q < .105) px(x, y, C.yel); }
+}
+// Haus von der Seite (Längsseite), Fußpunkt links unten
+function sideHouse(x, by, w, hw, o = {}) {
+  const top = by - hw, wall = o.wall ?? C.pl2, roof = o.roof ?? C.rf1;
+  // Dach
+  const rh = o.rh ?? 34; poly([x - 8, top + 2, x + w + 8, top + 2, x + w - 14, top - rh, x + 14, top - rh], C.out);
+  poly([x - 7, top + 1, x + w + 7, top + 1, x + w - 14, top - rh + 1, x + 14, top - rh + 1], roof);
+  for (let y = top - rh + 4; y < top; y += 4) { const f = (y - (top - rh)) / rh, xl = x + 14 - f * 21, xr = x + w - 14 + f * 21; hl(xl, xr, y, C.rf0); for (let xx = xl + ((y >> 2) & 1) * 3; xx < xr; xx += 7) px(xx, y - 1, C.rf2); }
+  hl(x + 14, x + w - 14, top - rh + 1, C.rf2);
+  if (o.chimney !== undefined) { const cx = x + o.chimney; rect(cx - 1, top - rh - 16, 12, rh - 8 + 16, C.out); rect(cx, top - rh - 15, 10, rh - 8 + 14, C.st1); for (let y = top - rh - 13; y < top - 10; y += 4) { hl(cx, cx + 9, y, C.st0); px(cx + ((y >> 2) & 1) * 5 + 2, y - 2, C.st0); } rect(cx - 1, top - rh - 17, 12, 3, C.st0); smoke(cx + 5, top - rh - 18); }
+  // Wand mit Fachwerk
+  rect(x, top, w, hw, wall); rect(x, top, w, 3, C.out);
+  if (o.timber !== false) { for (const yy of [top + 3, top + Math.round(hw * .5)]) rect(x, yy, w, 3, C.wd1); for (let xx = x; xx <= x + w - 3; xx += Math.round((w - 3) / Math.round(w / 32))) { rect(xx, top + 3, 3, hw - 9, C.wd1); } }
+  rect(x, by - 6, w, 6, C.st1); for (let xx = x; xx < x + w; xx += 6) { vl(xx + ((xx >> 1) & 3), by - 6, by - 4, C.st0); vl(xx + 3, by - 3, by - 1, C.st0); } hl(x, x + w - 1, by - 6, C.st2); hl(x, x + w - 1, by - 3, C.st0);
+  rect(x - 1, top, 1, hw, C.out); rect(x + w, top, 1, hw, C.out);
+}
+function door(x, by, w, h, open) { rect(x - 2, by - h - 2, w + 4, h + 2, C.wd0); if (open && NIGHT) { rect(x, by - h, w, h, C.lit); rect(x, by - 6, w, 6, C.lit2); light(x + w / 2, by - h / 2, 46, 40, 1.1); } else { rect(x, by - h, w, h, C.wd2); for (let xx = x + 3; xx < x + w; xx += 4) vl(xx, by - h, by - 1, C.wd1); px(x + w - 3, by - h / 2, C.gold); } }
+
+function p1hof(t) {
+  const cam = Math.round(Math.sin(t * .22) * 40);
+  sky(0, 200); moon(330, 30);
+  for (let k = 0; k < 5; k++) cloud(((k * 137 + t * 3 - cam * .08) % 520) - 60, 18 + (k * 13) % 40, 40 + k * 9);
+  mountains(-cam * .1, 126, 56, C.mtn1, C.mtnS, 4, 70); mountains(-cam * .18 + 30, 144, 38, C.mtn0, C.mtnS, 9, 58);
+  hills(-cam * .35, 150, 6, C.hill1, C.mtn1); hills(-cam * .5 + 60, 162, 4, C.hill0, C.hill1);
+  treeLine(-cam * .6, 170, 26, 6, 9, 3, true);
+  const o = -cam, G = 172;
+  groundBand(G, 16, o);
+  // Haus
+  const hx = 18 + o; sideHouse(hx, G + 2, 124, 44, { chimney: 92 });
+  win(hx + 14, G - 30, 16, 13, true); win(hx + 92, G - 30, 16, 13, false);
+  for (const wx of [hx + 14, hx + 92]) { rect(wx - 1, G - 14, 18, 3, C.wd1); for (let k = 0; k < 6; k++) px(wx + k * 3, G - 15, [C.red, C.pink, C.yel][k % 3]); }
+  door(hx + 56, G + 2, 14, 26, true); lampPost(hx + 78, G - 10, 0, .8);
+  // Holzstapel
+  for (let r = 0; r < 3; r++) for (let k = 0; k < 4 - r; k++) { const cx = hx + 134 + k * 7 + r * 3.5, cy = G - 2 - r * 6; circ(cx, cy, 3, C.out); circ(cx, cy, 2, C.wd3); px(cx, cy, C.wd2); }
+  tree(hx + 186, G + 3, 15, 5);
+  // Weide mit Zaun
+  const px0 = 230 + o;
+  for (let k = 0; k < 4; k++) { const sx = px0 + 26 + k * 50 + Math.sin(t * .2 + k * 2) * 8, fr = ((t * 1.3 + k) % 4) < 1.5 ? 1 : 0; sheep('s', sx, G + 2 - (k & 1) * 2, 1.25, fr, k % 2 === 1); }
+  for (let xx = px0; xx < px0 + 260; xx += 15) { rect(xx, G - 18, 3, 20, C.out); rect(xx + 1, G - 17, 1, 18, C.wd2); }
+  for (const yy of [G - 14, G - 7]) { rect(px0, yy, 255, 3, C.out); hl(px0, px0 + 254, yy + 1, C.wd2); }
+  // Fluss mit Spiegelung
+  const R = G + 16; reflect(R, H, 0, W, 1.05); hl(0, W - 1, R, C.wat3);
+  // Figur auf dem Weg
+  const span = 160, ph = (t * 13) % (2 * span), dir = ph < span ? 1 : -1, fx = hx + 160 + (ph < span ? ph : 2 * span - ph);
+  fig('bauer', 's', fx, G + 13, 22, Math.floor(t * 7) % 4, dir < 0, { carry: NIGHT ? 'laterne' : 'eimer' });
+  if (NIGHT) light(fx + (dir < 0 ? -3 : 3), G + 2, 38, 26, 1);
+  // Schilf im Vordergrund (schneller als die Hauptebene)
+  const fo = -cam * 1.5;
+  for (let k = -2; k < 30; k++) { const x = Math.round(k * 17 + fo + hsh(k, 9) * 9) % 520; if (hsh(k, 8) < .35) continue; const hgt = 10 + hsh(k, 7) * 16; for (let j = 0; j < 4; j++) { line(x + j * 2, H, x + j * 2 + Math.sin(t * 1.5 + k + j) * 2, H - hgt + j * 3, j & 1 ? C.tree0 : C.gr0); } if (hsh(k, 6) > .5) rect(x + 2 + Math.round(Math.sin(t * 1.5 + k) * 2), H - hgt - 4, 2, 6, C.wd1); }
+}
+function p1haus(t) {
+  // Wand mit Tapete
+  rect(0, 0, W, 200, C.wall2); for (let x = 0; x < W; x += 10) rect(x, 14, 2, 150, C.wall1); speckle(0, 14, W, 150, C.wall2, C.wall1, .02, 4);
+  rect(0, 0, W, 14, C.wd1); hl(0, W - 1, 13, C.wd0); for (let x = 20; x < W; x += 60) { rect(x, 0, 14, 16, C.wd0); rect(x + 1, 1, 12, 13, C.wd2); }
+  rect(0, 160, W, 40, C.wd2); hl(0, W - 1, 160, C.wd3); hl(0, W - 1, 162, C.wd1); for (let x = 0; x < W; x += 40) { rect(x + 4, 166, 32, 28, C.wd1); rect(x + 5, 167, 30, 26, C.wd2); }
+  // Boden (von der Seite: Dielenkante) und Fundament
+  rect(0, 198, W, 5, C.wd3); hl(0, W - 1, 198, C.sand2); rect(0, 203, W, 17, C.wd1); for (let x = 0; x < W; x += 24) vl(x, 203, 219, C.wd0); hl(0, W - 1, 211, C.wd0);
+  rect(0, 220, W, 20, C.st0); for (let y = 222; y < H; y += 5) for (let x = (y % 10) * 2; x < W; x += 14) rect(x, y, 12, 4, C.st1);
+  // Fenster mit Blick nach draußen
+  const wx = 168, wy = 44, ww = 64, wh = 70; rect(wx - 4, wy - 4, ww + 8, wh + 8, C.wd0);
+  const saveN = NIGHT; for (let y = wy; y < wy + wh; y++) { const f = (y - wy) / wh; for (let x = wx; x < wx + ww; x++) B[y * W + x] = NIGHT ? (f < .5 ? C.nsky1 : C.nsky2) : (f < .4 ? C.sky1 : C.sky2); }
+  for (let x = wx; x < wx + ww; x++) { const y = Math.round(wy + 46 + Math.sin(x * .08) * 4); vl(x, y, wy + wh - 1, C.hill1); const y2 = Math.round(wy + 56 + Math.sin(x * .05 + 2) * 3); vl(x, y2, wy + wh - 1, C.gr2); }
+  if (NIGHT) { circ(wx + 46, wy + 16, 5, C.moon); circ(wx + 48, wy + 14, 4, C.nsky1); px(wx + 12, wy + 10, C.star); px(wx + 30, wy + 24, C.star); } else cloud(wx + 20, wy + 18, 22);
+  tree(wx + 16, wy + 62, 7, 3);
+  rect(wx + ww / 2 - 2, wy, 4, wh, C.wd1); rect(wx, wy + wh / 2 - 2, ww, 4, C.wd1);
+  rect(wx - 10, wy - 8, 10, wh + 14, C.rf1); rect(wx + ww, wy - 8, 10, wh + 14, C.rf1); for (let y = wy - 8; y < wy + wh + 6; y += 6) { px(wx - 6, y, C.rf2); px(wx + ww + 4, y, C.rf2); }
+  rect(wx - 14, wy - 10, ww + 28, 3, C.wd0); rect(wx - 6, wy + wh + 2, ww + 12, 4, C.wd2);
+  rect(wx + 6, wy + wh - 6, 8, 8, C.rf2); circ(wx + 10, wy + wh - 9, 4, C.tree1); px(wx + 9, wy + wh - 12, C.red);
+  // Bild und Uhr
+  rect(28, 54, 46, 34, C.gold); rect(31, 57, 40, 28, C.sky2); rect(31, 74, 40, 11, C.gr2); circ(52, 74, 7, C.tree1); hl(31, 70, 85, C.wd1);
+  rect(116, 58, 18, 46, C.wd1); circ(125, 68, 7, C.wd0); circ(125, 68, 6, C.pl2); px(125, 64, C.ink); px(125, 65, C.ink); px(126, 68, C.ink); px(127, 68, C.ink);
+  { const a = Math.sin(t * 3) * .5, bx = 125 + Math.round(Math.sin(a) * 10), by = 80 + Math.round(Math.cos(a) * 10); line(125, 78, bx, by, C.gold); circ(bx, by, 2, C.gold); }
+  // Regal
+  rect(256, 70, 80, 4, C.wd1); hl(256, 335, 70, C.wd3); for (let k = 0; k < 6; k++) { const bx = 260 + k * 12, c = [C.rf2, C.shB, C.shG, C.gold, C.glass, C.wht][k]; rect(bx, 58, 8, 12, C.out); rect(bx + 1, 59, 6, 11, c); if (k > 3) { rect(bx + 1, 59, 6, 3, C.wd2); } }
+  // Herd mit Feuer, Rohr zur Decke
+  rect(24, 140, 70, 60, C.out); rect(25, 141, 68, 58, C.st1); rect(25, 141, 68, 4, C.st2); rect(30, 152, 26, 20, C.out); fire(32, 170, 22, 12); rect(30, 152, 26, 3, C.st0);
+  for (let x = 34; x < 54; x += 4) vl(x, 155, 171, C.st0);
+  rect(62, 152, 26, 34, C.st0); rect(64, 154, 22, 30, C.st1); px(80, 168, C.st3);
+  rect(70, 14, 8, 127, C.out); rect(71, 14, 6, 127, C.st0); hl(71, 76, 60, C.st1);
+  rect(36, 126, 26, 15, C.out); rect(37, 127, 24, 13, C.st2); hl(37, 60, 128, C.st3); smoke(48, 124, 4, .4);
+  // Figur am Herd (rührt um)
+  fig('bauer', 's', 112, 200, 26, [0, 3, 0, 1][Math.floor(t * 3) % 4] === 0 ? 0 : 2, true, {});
+  // Tisch, Stuhl, Kerze
+  rect(222, 164, 84, 6, C.out); rect(223, 165, 82, 4, C.wd3); hl(223, 304, 168, C.wd2); rect(228, 170, 5, 29, C.wd1); rect(294, 170, 5, 29, C.wd1);
+  rect(312, 140, 4, 59, C.wd1); rect(300, 176, 18, 4, C.wd2); rect(301, 180, 3, 19, C.wd1);
+  ell(244, 161, 8, 3, C.dirt2); hl(238, 250, 160, C.sand2); rect(266, 155, 7, 9, C.wht); hl(266, 272, 157, C.shB);
+  if (NIGHT) candle(288, 164); else rect(288, 160, 2, 4, C.wht);
+  // Bett
+  rect(330, 132, 6, 68, C.wd0); rect(392, 156, 6, 44, C.wd0); rect(334, 176, 62, 8, C.wht); rect(336, 172, 58, 16, C.out); rect(337, 173, 56, 14, C.rf1); for (let x = 340; x < 392; x += 8) for (let y = 175; y < 186; y += 6) rect(x, y, 4, 3, C.rf2);
+  rect(336, 166, 16, 8, C.out); rect(337, 167, 14, 6, C.wht); rect(334, 188, 62, 4, C.wd1);
+  // Teppich und Katze
+  rect(200, 197, 130, 2, C.rug1); hl(200, 329, 197, C.rug2); cat(250, 198, 1.1);
+  if (NIGHT) { rect(180, 14, 2, 30, C.st0); rect(175, 44, 12, 9, C.out); rect(176, 45, 10, 7, C.lamp); light(181, 50, 80, 70, 1); }
+}
+
+function p1dorf(t) {
+  const cam = Math.round(Math.sin(t * .2) * 40);
+  sky(0, 200); moon(60, 26);
+  for (let k = 0; k < 4; k++) cloud(((k * 151 + t * 3 - cam * .08) % 520) - 60, 16 + (k * 17) % 30, 44 + k * 8);
+  // ferne Dächer und Kirchturm (blasse Ebene)
+  const fo = -cam * .3;
+  for (let k = -1; k < 12; k++) { const x = k * 42 + fo, h = 30 + hsh(k, 1) * 26; rect(x, 168 - h, 36, h + 30, C.mtn0); poly([x - 3, 168 - h, x + 39, 168 - h, x + 18, 150 - h], C.mtn0); if (hsh(k, 2) > .4) rect(x + 10, 178 - h, 5, 6, NIGHT ? C.lit2 : C.mtn1); }
+  { const x = 250 + fo; rect(x, 64, 26, 120, C.mtn0); poly([x - 2, 64, x + 28, 64, x + 13, 22], C.mtn0); circ(x + 13, 80, 5, C.mtn1); px(x + 13, 78, C.mtn0); vl(x + 13, 12, 22, C.mtn0); hl(x + 10, x + 16, 15, C.mtn0); }
+  treeLine(-cam * .55, 182, 34, 7, 10, 8, true);
+  const o = -cam, G = 186;
+  rect(0, G, W, H - G, C.st1);
+  // Häuserzeile
+  const bx = -30 + o;
+  // Bäckerei
+  sideHouse(bx, G, 104, 58, { wall: C.sand2, roof: C.rf2, timber: false, rh: 26, chimney: 70 });
+  rect(bx + 10, G - 44, 50, 22, C.wd0); rect(bx + 12, G - 42, 46, 18, NIGHT ? C.lit2 : C.glass); for (let k = 0; k < 5; k++) { ell(bx + 18 + k * 9, G - 27, 3, 2, C.dirt2); px(bx + 17 + k * 9, G - 28, C.sand2); }
+  for (let k = 0; k < 7; k++) poly([bx + 6 + k * 8, G - 52, bx + 14 + k * 8, G - 52, bx + 14 + k * 8, G - 46, bx + 10 + k * 8, G - 44, bx + 6 + k * 8, G - 46], k & 1 ? C.wht : C.rf2);
+  door(bx + 72, G, 14, 26, true); rect(bx + 98, G - 60, 12, 2, C.st0); circ(bx + 106, G - 52, 5, C.gold); circ(bx + 106, G - 52, 2, C.sand2);
+  // Taverne
+  const tx = bx + 116; sideHouse(tx, G, 118, 78, { wall: C.pl1, roof: C.rf0, rh: 30, chimney: 20 });
+  win(tx + 14, G - 66, 14, 12); win(tx + 52, G - 66, 14, 12, false); win(tx + 90, G - 66, 14, 12); win(tx + 14, G - 34, 18, 14); win(tx + 86, G - 34, 18, 14);
+  door(tx + 52, G, 18, 30, true); rect(tx + 46, G - 46, 2, 10, C.wd0); rect(tx + 40, G - 36, 16, 10, C.out); rect(tx + 41, G - 35, 14, 8, C.wd2); ell(tx + 48, G - 31, 4, 3, C.wd3); hl(tx + 44, tx + 52, G - 31, C.wd1);
+  lampPost(tx + 38, G - 14, 0, .9);
+  // Laden
+  const lx = tx + 130; sideHouse(lx, G, 94, 62, { wall: C.st2, roof: C.st0, timber: false, rh: 24 });
+  for (let y = G - 60; y < G - 6; y += 6) hl(lx, lx + 93, y, C.st1);
+  rect(lx + 8, G - 40, 46, 30, C.wd0); rect(lx + 10, G - 38, 42, 26, NIGHT ? C.lit : C.glass); for (let k = 0; k < 4; k++) { rect(lx + 13 + k * 10, G - 22, 6, 9, [C.rf2, C.yel, C.shG, C.shB][k]); }
+  for (let k = 0; k < 6; k++) rect(lx + 4 + k * 9, G - 48, 9, 6, k & 1 ? C.wht : C.shG); door(lx + 66, G, 14, 26, false);
+  if (NIGHT) light(lx + 31, G - 25, 40, 34, 1);
+  // Wohnhaus mit Figur am Fenster
+  const wx = lx + 106; sideHouse(wx, G, 100, 70, { wall: C.pl2, roof: C.rf1, rh: 30, chimney: 60 });
+  win(wx + 16, G - 58, 16, 14); win(wx + 66, G - 58, 16, 14, false); win(wx + 16, G - 30, 16, 14, false); door(wx + 64, G, 14, 26, false);
+  // Straße
+  rect(0, G, W, 4, C.st3); hl(0, W - 1, G + 3, C.st2);
+  for (let y = G + 4; y < H; y += 4) { const sh = ((y >> 2) & 1) * 4; for (let x = -8; x < W; x += 8) { const xx = x + sh + (o % 8 + 8) % 8; rect(xx + 1, y + 1, 6, 2, y > 222 ? C.st1 : C.st2); px(xx + 1, y + 1, C.st3); } }
+  // Figuren (jede mit eigenem Takt)
+  const walkers = [['baeckerin', 18, 4.5, 0, 204], ['kind', 34, 9, 1, 214], ['alte', 9, 3.2, 2, 207], ['haendler', 22, 6, 3, 219], ['frau', 16, 5, 4, 210]];
+  const list = NIGHT ? walkers.slice(3) : walkers;
+  for (const [look, sp_, fps, k, y] of list) { const range = 520, p = (t * sp_ + k * 97) % (range * 2), d = p < range ? 1 : -1, x = -60 + (p < range ? p : 2 * range - p) + o; fig(look, 's', x, y, look === 'kind' ? 17 : 22, Math.floor(t * fps + k) % 4, d < 0, NIGHT ? { carry: 'laterne' } : {}); if (NIGHT) light(x, y - 12, 34, 24, 1); }
+  if (!NIGHT) { const dx = ((t * 34 + 97) % 1040), x = -60 + (dx < 520 ? dx : 1040 - dx) + o - 18 * (dx < 520 ? 1 : -1); const d = Spr(14, 9); sr(d, 2, 2, 8, 4, C.wd2); sr(d, 9, 0, 4, 4, C.wd2); sp(d, 12, 2, C.ink); const f = Math.floor(t * 9) % 2; sp(d, 2, 6 + f, C.wd1); sp(d, 9, 7 - f, C.wd1); sp(d, 1, 1, C.wd1); outline(d, C.out); blit(d, x - 7, 207, dx >= 520); }
+  else fig('wirt', 's', tx + 60, G + 1, 22, 0, false);
+  // Brunnen und Laternen im Vordergrund (schneller)
+  const vo = -cam * 1.3;
+  const fx = 200 + vo; rect(fx - 30, 214, 60, 20, C.out); rect(fx - 29, 215, 58, 18, C.st2); hl(fx - 29, fx + 28, 215, C.st3); for (let x = fx - 26; x < fx + 28; x += 8) vl(x, 218, 232, C.st1);
+  rect(fx - 4, 186, 8, 30, C.st1); rect(fx - 10, 192, 20, 4, C.st2);
+  for (let k = 0; k < 14; k++) { const a = ((t * 1.4 + k / 14) % 1), sx = (k & 1 ? 1 : -1); for (let j = 0; j < 3; j++) { const aa = a + j * .02; px(fx + sx * aa * 24, 188 - Math.sin(aa * Math.PI) * 12 + aa * 26, j ? C.wat2 : C.wat3); } }
+  ell(fx, 216, 26, 2, C.wat1); hl(fx - 20, fx + 20, 216, C.wat2);
+  for (const lpx of [60, 340]) lampPost(lpx + vo, H, 52, 1.2);
+}
+
+function p1zug(t) {
+  const s = t * 70; // gefahrene Strecke in Pixeln
+  sky(0, 200); moon(80, 30);
+  for (let k = 0; k < 5; k++) cloud(((k * 131 - s * .02) % 520 + 520) % 520 - 60, 18 + (k * 13) % 40, 40 + k * 8);
+  mountains(-s * .03, 150, 64, C.mtn1, C.mtnS, 4, 72); mountains(-s * .06 + 30, 166, 40, C.mtn0, C.mtnS, 9, 56);
+  hills(-s * .14, 170, 6, C.hill1, C.mtn1); hills(-s * .22 + 60, 180, 4, C.hill0, C.hill1);
+  treeLine(-s * .4, 188, 24, 6, 10, 3, true);
+  const G = 186; groundBand(G, 18, -s);
+  // Telegrafenmasten mit Leitung
+  const step = 150, k0 = Math.floor((s - 40) / step);
+  for (let k = k0; k < k0 + 5; k++) { const x = Math.round(k * step - s); rect(x, 100, 3, 88, C.wd1); vl(x + 2, 100, 187, C.wd0); rect(x - 8, 104, 19, 3, C.wd1); px(x - 7, 103, C.wht); px(x + 9, 103, C.wht);
+    for (let xx = 0; xx < step; xx++) { const sag = Math.sin(xx / step * Math.PI) * 9; px(x + xx, 104 + sag, C.ink); px(x + xx, 104 + sag + 1, NIGHT ? C.nsky0 : C.st1); } }
+  // Gleis
+  rect(0, 198, W, 10, C.st1); speckle(0, 198, W, 10, C.st1, C.st2, .25, (s | 0) % 7); for (let x = -(s % 12); x < W; x += 12) rect(x, 199, 7, 3, C.wd1); hl(0, W - 1, 197, C.st3); hl(0, W - 1, 198, C.st0);
+  const bob = (s % 90) < 6 ? 1 : 0, y0 = -bob;
+  // Wagen
+  const wagons = [[22, 'frau', 'alte', 'kind'], [140, 'bauer', 'haendler', 'baeckerin']];
+  for (const [x, ...pax] of wagons) {
+    const top = 134 + y0;
+    rect(x - 1, top - 1, 110, 56, C.out); rect(x, top + 6, 108, 48, C.tr1); poly([x, top + 7, x + 6, top, x + 102, top, x + 108, top + 7], C.st1); hl(x + 6, x + 101, top, C.st2);
+    hl(x, x + 107, top + 30, C.gold); rect(x, top + 44, 108, 10, C.tr0);
+    for (let k = 0; k < 3; k++) { const wx = x + 10 + k * 34, wy = top + 11; rect(wx - 1, wy - 1, 22, 17, C.out); if (NIGHT) { rect(wx, wy, 20, 15, C.lit); light(wx + 10, wy + 7, 30, 32, 1); } else { rect(wx, wy, 20, 15, C.glass); for (let j = 0; j < 8; j++) px(wx + 14 - j, wy + 1 + j, C.glass2); }
+      fig(pax[k], 's', wx + 10, wy + 30, 22, 0, k === 1); rect(wx - 1, wy + 16, 22, 3, C.tr1); rect(wx - 1, wy + 19, 22, 8, C.tr1); hl(x, x + 107, top + 30, C.gold); }
+    for (const bx of [x + 18, x + 88]) { rect(bx - 12, top + 54, 24, 4, C.st0); for (const wx of [bx - 7, bx + 7]) { circ(wx, 196 - 5 + y0 + bob, 5, C.out); circ(wx, 196 - 5 + y0 + bob, 4, C.st1); px(wx, 191 + y0 + bob, C.st3); } }
+    rect(x + 108, top + 38, 10, 3, C.st0);
+  }
+  // Lok
+  const lx = 262, top = 128 + y0;
+  rect(lx - 2, top - 2, 38, 62, C.out); rect(lx, top, 34, 58, C.tr0); rect(lx + 2, top - 6, 32, 6, C.out); rect(lx, top - 6, 36, 3, C.st0);
+  rect(lx + 6, top + 8, 20, 16, C.out); rect(lx + 7, top + 9, 18, 14, NIGHT ? C.lit2 : C.glass); fig('heizer', 's', lx + 16, top + 32, 22, 0, false); rect(lx + 6, top + 24, 22, 10, C.tr0);
+  rect(lx + 34, top + 18, 82, 34, C.out); rect(lx + 35, top + 19, 80, 32, C.tr1); hl(lx + 35, lx + 114, top + 21, C.tr2); hl(lx + 35, lx + 114, top + 22, C.tr2); rect(lx + 35, top + 44, 80, 7, C.tr0);
+  for (const bx of [lx + 52, lx + 76, lx + 100]) rect(bx, top + 19, 3, 32, C.gold);
+  rect(lx + 64, top + 8, 14, 11, C.out); rect(lx + 65, top + 9, 12, 10, C.gold); rect(lx + 98, top - 4, 12, 23, C.out); rect(lx + 99, top - 3, 10, 22, C.st0); rect(lx + 96, top - 7, 16, 4, C.out);
+  poly([lx + 115, top + 52, lx + 132, top + 62, lx + 115, top + 62], C.st0); rect(lx + 115, top + 22, 8, 10, C.out); rect(lx + 116, top + 23, 6, 8, NIGHT ? C.lamp : C.glass2);
+  if (NIGHT) { for (let k = 0; k < 4; k++) light(lx + 140 + k * 26, top + 50 + k * 4, 24 + k * 6, 16 + k * 3, 1.1 - k * .15); light(lx + 16, top + 16, 30, 26, 1); }
+  // Treibräder mit Stange
+  const a = s / 9;
+  for (const wx of [lx + 50, lx + 76, lx + 102]) { circ(wx, 186 + y0 + bob, 11, C.out); circ(wx, 186 + y0 + bob, 10, C.st1); circ(wx, 186 + y0 + bob, 7, C.st0); for (let k = 0; k < 4; k++) { const aa = a + k * Math.PI / 4; line(wx - Math.cos(aa) * 9, 186 + y0 + bob - Math.sin(aa) * 9, wx + Math.cos(aa) * 9, 186 + y0 + bob + Math.sin(aa) * 9, C.st2); } circ(wx, 186 + y0 + bob, 2, C.st3); }
+  const rx = Math.cos(a) * 6, ry = Math.sin(a) * 6; rect(lx + 50 + rx, 185 + y0 + ry, 54, 3, C.st3); hl(lx + 50 + rx, lx + 103 + rx, 185 + y0 + ry, C.wht);
+  // Rauch nach hinten
+  for (let k = 0; k < 12; k++) { const aa = (t * .9 + k / 12) % 1, xx = lx + 104 - aa * 300, yy = top - 10 - aa * 50 + Math.sin(aa * 9 + k) * 4, r = 2 + aa * 9; circ(xx, yy, r, NIGHT ? C.st1 : (aa > .5 ? C.st3 : C.cloudS)); if (!NIGHT) circ(xx - r * .3, yy - r * .3, r * .5, C.cloud); }
+  if (NIGHT) for (let k = 0; k < 6; k++) { const aa = (t * 1.7 + k / 6) % 1; px(lx + 104 - aa * 90 + Math.sin(k * 3) * 6, top - 8 - aa * 40, aa < .6 ? C.fire2 : C.fire0); }
+  // Vordergrund rauscht vorbei
+  rect(0, 214, W, 26, C.gr1); hl(0, W - 1, 214, C.gr2); for (let k = 0; k < 18; k++) { const y = 216 + (k * 7) % 24, x = ((k * 97 - s * 2.4) % 480 + 480) % 480 - 40; hl(x, x + 20 + (k % 3) * 10, y, C.gr0); }
+  const fo = -s * 2.2;
+  for (let k = Math.floor((-fo - 60) / 40); k < Math.floor((-fo + W + 60) / 40); k++) { const x = k * 40 + fo; if (hsh(k, 1) < .3) continue; const r = 8 + hsh(k, 2) * 10; circ(x, 238, r + 1, C.out); circ(x, 238, r, C.tree0); speckle(x - r, 238 - r, 2 * r, r, C.tree0, C.gr0, .3, k); }
+}
+var P1 = { hof: p1hof, haus: p1haus, dorf: p1dorf, zug: p1zug };
+
+// ===== Perspektive 2: Querschnitt / Puppenhaus =====
+// Schnittfläche wie in einer Bauzeichnung: Kontur + Schraffur
+function hatch(x, y, w, h, a = C.st0, b = C.st1) { rect(x, y, w, h, C.out); for (let yy = y + 1; yy < y + h - 1; yy++) for (let xx = x + 1; xx < x + w - 1; xx++) px(xx, yy, ((xx + yy) & 3) === 0 ? b : a); }
+function paper(x, y, w, h, base = C.wall2, stripe = C.wall1, step = 8) { rect(x, y, w, h, base); for (let xx = x + 3; xx < x + w; xx += step) vl(xx, y, y + h - 1, stripe); }
+function bricks(x, y, w, h, a = C.st1, b = C.st0) { rect(x, y, w, h, a); for (let yy = y; yy < y + h; yy += 4) { hl(x, x + w - 1, yy, b); for (let xx = x + ((yy - y) / 4 & 1) * 5; xx < x + w; xx += 10) vl(xx, yy, Math.min(y + h - 1, yy + 3), b); } }
+function soil(x, y, w, h, seed = 1) {
+  rect(x, y, w, h, C.dirt1); gradV(x, y + 22, w, h - 22, [C.dirt1, C.dirt0, C.dirt0]);
+  const r = rng(seed); for (let k = 0; k < w * h / 260; k++) { const sx = x + r() * w, sy = y + 6 + r() * (h - 8), s = 1 + r() * 3; ell(sx, sy, s + 1, s * .7, C.st0); ell(sx - .5, sy - .5, s, s * .6, C.st1); px(sx - s * .4, sy - s * .3, C.st2); }
+  for (let k = 0; k < w / 30; k++) { let rx = x + r() * w, ry = y + 1; for (let j = 0; j < 8 + r() * 10; j++) { px(rx, ry, C.wd1); rx += (r() - .5) * 2; ry += 1; } }
+  for (let k = 0; k < w / 70; k++) { const wx = x + r() * w, wy = y + 14 + r() * 30; hl(wx, wx + 3, wy, C.pink); px(wx + 4, wy - 1, C.pink); }
+}
+function lamp(x, y, s = 1) { vl(x, y - 8, y - 3, C.st0); rect(x - 3, y - 3, 7, 5, C.out); rect(x - 2, y - 2, 5, 3, NIGHT ? C.lamp : C.st3); light(x, y + 8, 52 * s, 34 * s, 1.2); }
+function bed(x, by, w = 40, col = C.rf1, sleeper) {
+  rect(x, by - 18, 4, 18, C.wd0); rect(x + w - 4, by - 12, 4, 12, C.wd0); rect(x + 2, by - 9, w - 4, 5, C.wht); rect(x + 2, by - 11, w - 4, 3, C.out);
+  if (sleeper) { circ(x + 9, by - 13, 3, C.out); circ(x + 9, by - 13, 2, C.sk1); rect(x + 7, by - 16, 5, 2, sleeper); }
+  rect(x + (sleeper ? 12 : 3), by - 12, w - (sleeper ? 15 : 6), 6, C.out); rect(x + (sleeper ? 13 : 4), by - 11, w - (sleeper ? 17 : 8), 4, col); for (let xx = x + 15; xx < x + w - 5; xx += 5) px(xx, by - 10, C.rf3);
+  if (!sleeper) { rect(x + 4, by - 15, 9, 4, C.out); rect(x + 5, by - 14, 7, 2, C.wht); }
+  rect(x, by - 4, w, 2, C.wd1);
+}
+function shelfJars(x, y, w, n = 5) { rect(x, y, w, 2, C.wd1); for (let k = 0; k < n; k++) { const jx = x + 2 + k * Math.floor(w / n); rect(jx, y - 6, 4, 6, C.out); rect(jx + 1, y - 5, 2, 5, [C.red, C.yel, C.shG, C.rf3, C.glass][k % 5]); px(jx + 1, y - 6, C.wd2); } }
+function barrel(x, by, r = 7) { ell(x, by - r, r, r, C.out); ell(x, by - r, r - 1, r - 1, C.wd2); vl(x - r + 3, by - 2 * r + 2, by - 2, C.wd1); vl(x + r - 3, by - 2 * r + 2, by - 2, C.wd1); hl(x - r + 1, x + r - 1, by - r - 3, C.st1); hl(x - r + 1, x + r - 1, by - r + 3, C.st1); px(x, by - r, C.wd0); }
+function sack(x, by) { ell(x, by - 5, 5, 5, C.out); ell(x, by - 5, 4, 4, C.sand2); rect(x - 1, by - 11, 3, 2, C.sand); px(x - 1, by - 4, C.sand); }
+function crate(x, by, s = 10) { rect(x, by - s, s, s, C.out); rect(x + 1, by - s + 1, s - 2, s - 2, C.wd3); line(x + 1, by - s + 1, x + s - 2, by - 2, C.wd2); hl(x + 1, x + s - 2, by - (s >> 1), C.wd2); }
+function chairSide(x, by, flip) { const d = flip ? -1 : 1; rect(x, by - 8, 8, 2, C.wd2); vl(x + (flip ? 7 : 0), by - 20, by - 1, C.wd1); vl(x + (flip ? 0 : 7), by - 7, by - 1, C.wd1); }
+function tableSide(x, by, w = 30) { rect(x, by - 13, w, 3, C.wd3); hl(x, x + w - 1, by - 11, C.wd2); vl(x + 2, by - 10, by - 1, C.wd1); vl(x + w - 3, by - 10, by - 1, C.wd1); }
+function stoveSide(x, by) { rect(x, by - 22, 24, 22, C.out); rect(x + 1, by - 21, 22, 20, C.st1); hl(x + 1, x + 22, by - 21, C.st2); rect(x + 4, by - 14, 10, 8, C.out); fire(x + 5, by - 7, 8, 5); rect(x + 16, by - 15, 5, 12, C.st0); rect(x + 8, by - 34, 5, 12, C.st0); rect(x + 2, by - 27, 9, 5, C.out); rect(x + 3, by - 26, 7, 4, C.st2); smoke(x + 7, by - 29, 3, .3); }
+function sky2(y1) { sky(0, y1); }
+function houseX(x, y, w, roofH, o = {}) { // Außenmaße mit Schnittwänden und Dach (Dreieck, geschnitten)
+  const t = 4;
+  poly([x - 10, y, x + w / 2, y - roofH, x + w + 10, y], C.out); poly([x - 6, y - 1, x + w / 2, y - roofH + 3, x + w + 6, y - 1], o.roof ?? C.rf1);
+  for (let yy = y - roofH + 8; yy < y; yy += 3) { const f = (yy - (y - roofH)) / roofH; const xl = x + w / 2 - f * (w / 2 + 6), xr = x + w / 2 + f * (w / 2 + 6); px(xl + 2, yy, C.rf0); px(xr - 3, yy, C.rf0); }
+  const ix = x + w / 2, iy = y - roofH + 10; poly([x + 4, y - 1, ix, iy, x + w - 4, y - 1], C.wd1); poly([x + 7, y - 2, ix, iy + 4, x + w - 7, y - 2], o.attic ?? C.wall0);
+  for (let xx = x + 12; xx < x + w - 10; xx += 14) { const top = iy + 4 + Math.abs(xx - ix) * (roofH - 14) / (w / 2) * 1; vl(xx, Math.max(iy + 6, top), y - 2, C.wd0); }
+  hatch(x - 2, y - 2, w + 4, t);
+  if (o.chimney !== undefined) { const cx = x + o.chimney; rect(cx, y - roofH - 6, 10, roofH, C.out); bricks(cx + 1, y - roofH - 5, 8, roofH - 6); smoke(cx + 5, y - roofH - 8); }
+}
+
+function p2hof(t) {
+  const Gs = 144;
+  sky(0, Gs); moon(360, 26); for (let k = 0; k < 4; k++) cloud(((k * 140 + t * 4) % 520) - 60, 14 + (k * 11) % 30, 40 + k * 8);
+  hills(30, 120, 6, C.hill1, C.mtn1, Gs); hills(-60, 132, 4, C.hill0, C.hill1, Gs); treeLine(10, 140, 30, 6, 9, 3, true);
+  soil(0, Gs, W, H - Gs, 3); rect(0, Gs - 2, W, 4, C.gr2); hl(0, W - 1, Gs - 2, C.gr3); for (let x = 0; x < W; x += 3) px(x, Gs - 3 - (hsh(x, 1) * 2 | 0), C.gr2);
+  // Haus: Keller, Erdgeschoss, Dachboden
+  const hx = 14, hw = 160, eg = Gs - 46;
+  rect(hx + 4, Gs + 2, hw - 8, 50, C.st0); bricks(hx + 6, Gs + 4, hw - 12, 46, C.st1, C.st0); hatch(hx, Gs + 2, 6, 54); hatch(hx + hw - 6, Gs + 2, 6, 54); hatch(hx, Gs + 52, hw, 5);
+  barrel(hx + 22, Gs + 52); barrel(hx + 38, Gs + 52); sack(hx + 54, Gs + 52); sack(hx + 63, Gs + 52); shelfJars(hx + 74, Gs + 30, 40, 6); shelfJars(hx + 74, Gs + 44, 40, 6); crate(hx + 122, Gs + 52, 12); crate(hx + 134, Gs + 52, 9);
+  if (NIGHT) candle(hx + 66, Gs + 40);
+  paper(hx + 4, eg, hw - 8, 46); hl(hx + 4, hx + hw - 5, eg + 34, C.wd1); rect(hx + 4, eg + 35, hw - 8, 11, C.wd2);
+  win(hx + 72, eg + 10, 14, 12, false, null);
+  stoveSide(hx + 10, Gs - 2); shelfJars(hx + 42, eg + 14, 26, 4);
+  tableSide(hx + 98, Gs - 2, 32); chairSide(hx + 88, Gs - 2, false); chairSide(hx + 132, Gs - 2, true); rect(hx + 108, Gs - 18, 6, 3, C.wht); ell(hx + 121, Gs - 17, 4, 2, C.dirt2);
+  cat(hx + 60, Gs - 1, 1);
+  // Leiter in den Keller, Luke
+  for (let y = Gs - 2; y < Gs + 50; y += 6) hl(hx + 148, hx + 154, y, C.wd2); vl(hx + 147, Gs - 4, Gs + 50, C.wd1); vl(hx + 155, Gs - 4, Gs + 50, C.wd1);
+  hatch(hx, eg - 2, 6, 48); hatch(hx + hw - 6, eg - 2, 6, 34); rect(hx + hw - 6, eg + 32, 6, 14, NIGHT ? C.lit2 : C.wd2);
+  houseX(hx, eg, hw, 50, { chimney: 22 });
+  bed(hx + 98, eg - 4, 40, C.shB); crate(hx + 48, eg - 4, 10); sack(hx + 66, eg - 4); for (let k = 0; k < 4; k++) { vl(hx + 76 + k * 5, eg - 26, eg - 20, C.st1); ell(hx + 76 + k * 5, eg - 18, 2, 2, C.rf3); }
+  lamp(hx + 50, eg + 10); lamp(hx + 120, eg + 10);
+  // Fluss im Schnitt
+  const rx = 200, rw = 74;
+  poly([rx - 6, Gs - 1, rx + rw + 6, Gs - 1, rx + rw - 10, Gs + 54, rx + 12, Gs + 54], C.out);
+  poly([rx - 4, Gs, rx + rw + 4, Gs, rx + rw - 11, Gs + 52, rx + 13, Gs + 52], C.wat1); gradV(rx, Gs + 18, rw, 35, [C.wat1, C.wat0]);
+  for (let x = rx - 4; x < rx + rw + 4; x++) { const y = Gs + Math.round(Math.sin(x * .3 + t * 3)); px(x, y, C.wat3); px(x, y + 1, C.wat2); }
+  for (let y = Gs + 46; y < Gs + 53; y++) for (let x = rx + 8; x < rx + rw - 6; x++) if (hsh(x, y) < .5 && B[y * W + x] !== C.out) px(x, y, hsh(x, y, 2) < .5 ? C.sand : C.st2);
+  for (let k = 0; k < 5; k++) { const bx = rx + 18 + k * 11; for (let j = 0; j < 12; j++) px(bx + Math.sin(t * 2 + j * .5 + k) * 2, Gs + 46 - j, j & 1 ? C.tree1 : C.tree2); }
+  for (let k = 0; k < 2; k++) { const fx = rx + 10 + ((t * (8 + k * 5) + k * 30) % (rw - 20)), fy = Gs + 18 + k * 12 + Math.sin(t + k) * 2, f = Spr(10, 6); sellipse(f, 4, 3, 3, 1, k ? C.rf3 : C.st2); sp(f, 8, 2, k ? C.rf3 : C.st2); sp(f, 8, 4, k ? C.rf3 : C.st2); sp(f, 2, 2, C.ink); outline(f, C.out); blit(f, fx, fy, true); }
+  for (let x = rx - 16; x < rx + rw + 16; x++) px(x, Gs - 6, C.wd2); rect(rx - 16, Gs - 5, 3, 6, C.wd1); rect(rx + rw + 13, Gs - 5, 3, 6, C.wd1); rect(rx + rw / 2, Gs - 5, 3, 22, C.wd1); hl(rx - 16, rx + rw + 15, Gs - 7, C.out);
+  // Kaninchenbau
+  ell(330, Gs + 34, 12, 5, C.dirt0); for (let k = 0; k < 14; k++) px(320 - k * .6, Gs + 30 - k * 2, C.dirt0), px(321 - k * .6, Gs + 30 - k * 2, C.dirt0);
+  { const r = Spr(12, 8); sellipse(r, 6, 5, 4, 2, C.wool2); sr(r, 8, 1, 1, 3, C.wool2); sr(r, 10, 1, 1, 3, C.wool2); sp(r, 9, 4, C.ink); outline(r, C.out); blit(r, 324, Gs + 30, false); }
+  // Weide
+  tree(372, Gs - 1, 13, 4);
+  for (let k = 0; k < 3; k++) sheep('s', 300 + k * 28 + Math.sin(t * .3 + k) * 4, Gs - 1, 1.1, ((t + k) % 3) < 1 ? 1 : 0, k === 1);
+  for (let xx = 284; xx < W; xx += 14) { rect(xx, Gs - 17, 3, 16, C.out); vl(xx + 1, Gs - 16, Gs - 2, C.wd2); } for (const yy of [Gs - 13, Gs - 7]) { hl(284, W - 1, yy, C.out); hl(284, W - 1, yy + 1, C.wd2); }
+  const p = (t * 10) % 120, d = p < 60 ? 1 : -1; fig('bauer', 's', 196 + (p < 60 ? p : 120 - p) - 30, Gs - 1, 20, Math.floor(t * 6) % 4, d < 0, { carry: NIGHT ? 'laterne' : 'eimer' });
+  if (NIGHT) light(196 + (p < 60 ? p : 120 - p) - 30, Gs - 10, 30, 22, 1);
+}
+
+function p2haus(t) {
+  sky(0, 200); moon(370, 26); cloud(50, 30, 40);
+  const Gs = 200; rect(0, Gs - 2, W, 4, C.gr2); hl(0, W - 1, Gs - 2, C.gr3); soil(0, Gs + 2, W, H - Gs - 2, 7);
+  tree(18, Gs - 1, 12, 2); bush(388, Gs - 1, 7);
+  const hx = 38, hw = 324, f1 = Gs - 52, f2 = f1 - 52;
+  // Keller
+  bricks(hx + 4, Gs + 2, hw - 8, 40); hatch(hx, Gs + 2, 5, 40); hatch(hx + hw - 5, Gs + 2, 5, 40);
+  for (let k = 0; k < 4; k++) barrel(hx + 24 + k * 16, H); shelfJars(hx + 104, Gs + 20, 60, 8); shelfJars(hx + 104, Gs + 32, 60, 8); for (let k = 0; k < 5; k++) sack(hx + 186 + k * 10, H); crate(hx + 250, H, 14); crate(hx + 266, H, 10); crate(hx + 254, H - 14, 10);
+  { const m = (t * 20) % 200; const r = Spr(9, 5); sellipse(r, 3, 3, 3, 1, C.st2); sp(r, 6, 2, C.st2); sp(r, 6, 1, C.pink); sr(r, 0, 3, 1, 1, C.pink); outline(r, C.out); blit(r, hx + 290 - m * .3, H - 6, true); }
+  // Erdgeschoss: Küche links, Stube rechts
+  paper(hx + 4, f1, 150, 50, C.pl2, C.pl1, 6); paper(hx + 158, f1, hw - 162, 50, C.wall2, C.wall1);
+  rect(hx + 4, f1 + 36, 150, 14, C.st2); for (let x = hx + 4; x < hx + 154; x += 6) vl(x, f1 + 36, f1 + 49, C.st1); hl(hx + 4, hx + 153, f1 + 36, C.st3);
+  stoveSide(hx + 10, Gs - 2); rect(hx + 40, Gs - 18, 40, 16, C.out); rect(hx + 41, Gs - 17, 38, 14, C.wd2); hl(hx + 41, hx + 78, Gs - 17, C.wd3); rect(hx + 50, Gs - 22, 8, 4, C.st2); ell(hx + 68, Gs - 20, 5, 2, C.rf3);
+  shelfJars(hx + 44, f1 + 12, 50, 6); for (let k = 0; k < 4; k++) { vl(hx + 104 + k * 7, f1 + 2, f1 + 8, C.st0); ell(hx + 104 + k * 7, f1 + 11, 2, 3, [C.yel, C.tree1, C.rf2, C.yel][k]); }
+  win(hx + 112, f1 + 14, 16, 14, false); cat(hx + 132, Gs - 2, 1);
+  hatch(hx + 154, f1 + 2, 4, 30); // Innenwand mit Durchgang
+  // Stube
+  tableSide(hx + 196, Gs - 2, 46); chairSide(hx + 182, Gs - 2, false); chairSide(hx + 246, Gs - 2, true);
+  fig('bauer', 's', hx + 192, Gs - 12, 20, 0, false, { pose: 'sit' }); rect(hx + 210, Gs - 18, 7, 3, C.wht); ell(hx + 213, Gs - 19, 3, 1, C.dirt2); rect(hx + 224, Gs - 20, 4, 5, C.glass2);
+  if (NIGHT) candle(hx + 232, Gs - 15);
+  win(hx + 176, f1 + 10, 16, 14); rect(hx + 230, f1 + 6, 16, 12, C.gold); rect(hx + 232, f1 + 8, 12, 8, C.hill1);
+  rect(hx + 196, Gs - 2, 50, 2, C.rug1);
+  // Treppe nach oben
+  for (let k = 0; k < 8; k++) { rect(hx + 262 + k * 7, Gs - 6 - k * 6, 8, 6 + k * 6, C.wd1); hl(hx + 262 + k * 7, hx + 269 + k * 7, Gs - 6 - k * 6, C.wd3); }
+  hatch(hx, f1 - 2, 4, 52); hatch(hx + hw - 4, f1 - 2, 4, 36); rect(hx + hw - 4, f1 + 26, 4, 22, C.wd2);
+  // Obergeschoss: Schlafzimmer, Lesestube
+  hatch(hx, f2 + 48, hw - 64, 4); rect(hx + hw - 64, f2 + 48, 60, 4, C.wd1);
+  paper(hx + 4, f2, 170, 48, C.wall1, C.wall0, 10); paper(hx + 178, f2, hw - 182, 48, C.pl2, C.sand2, 5);
+  bed(hx + 24, f1 - 2, 56, C.rf1, C.hrY); rect(hx + 96, f2 + 8, 26, 38, C.out); rect(hx + 97, f2 + 9, 24, 37, C.wd2); vl(hx + 109, f2 + 9, f2 + 45, C.wd1); px(hx + 107, f2 + 28, C.gold); px(hx + 111, f2 + 28, C.gold);
+  win(hx + 136, f2 + 12, 16, 14); hatch(hx + 174, f2 + 2, 4, 30);
+  for (let k = 0; k < 4; k++) { const yy = f2 + 12 + k * 9; rect(hx + 190, yy + 7, 36, 2, C.wd1); for (let j = 0; j < 7; j++) rect(hx + 191 + j * 5, yy, 4, 7, [C.rf2, C.shB, C.shG, C.gold, C.shP, C.rf3, C.st3][(j + k) % 7]); }
+  chairSide(hx + 250, f1 - 2, false); fig('alte', 's', hx + 256, f1 - 12, 19, 0, false, { pose: 'sit' }); rect(hx + 266, f1 - 22, 5, 4, C.wht);
+  hatch(hx, f2 - 2, 4, 52); hatch(hx + hw - 4, f2 - 2, 4, 52);
+  // Dachboden
+  houseX(hx, f2, hw, 62, { chimney: 40 });
+  for (let k = 0; k < 6; k++) { vl(hx + 130 + k * 8, f2 - 34, f2 - 28, C.st1); ell(hx + 130 + k * 8, f2 - 26, 2, 2, k & 1 ? C.rf3 : C.yel); }
+  crate(hx + 70, f2 - 2, 12); crate(hx + 82, f2 - 2, 10); crate(hx + 76, f2 - 14, 10); sack(hx + 210, f2 - 2); sack(hx + 220, f2 - 2); barrel(hx + 240, f2 - 2, 6);
+  // Lampen je Raum
+  lamp(hx + 80, f1 + 10); lamp(hx + 220, f1 + 10); lamp(hx + 70, f2 + 10, .9); lamp(hx + 230, f2 + 10, .9); if (NIGHT) light(hx + 160, f2 - 20, 40, 20, .7);
+}
+
+function p2dorf(t) {
+  const Gs = 170;
+  sky(0, Gs); moon(40, 22); for (let k = 0; k < 3; k++) cloud(((k * 160 + t * 3) % 520) - 60, 12 + k * 10, 46);
+  { const x = 208; rect(x, 40, 22, 130, C.mtn0); poly([x - 2, 40, x + 24, 40, x + 11, 6], C.mtn0); circ(x + 11, 54, 4, C.mtn1); }
+  treeLine(0, Gs - 2, 40, 7, 10, 5, true);
+  soil(0, Gs + 2, W, H - Gs - 2, 11);
+  rect(0, Gs - 1, W, 4, C.st2); hl(0, W - 1, Gs - 1, C.st3); for (let x = 0; x < W; x += 6) vl(x, Gs, Gs + 2, C.st1);
+  // Kanal
+  ell(200, 226, 220, 9, C.out); ell(200, 226, 219, 8, C.st1); rect(0, 222, W, 9, C.st0); rect(0, 225, W, 5, C.wat0); for (let k = 0; k < 10; k++) { const x = ((k * 53 + t * 14) % 420) - 10; hl(x, x + 4, 226, C.wat1); }
+  { const rx = ((t * 26) % 520) - 60; const r = Spr(14, 6); sellipse(r, 5, 3, 4, 2, C.st1); sr(r, 9, 2, 3, 2, C.st1); sp(r, 11, 2, C.ink); sr(r, 0, 3, 2, 1, C.pink); outline(r, C.out); blit(r, rx, 220, false); }
+  // Bäckerei
+  let x = 4, w = 92, top = Gs - 52;
+  rect(x + 4, Gs + 2, w - 8, 18, C.st0); bricks(x + 4, Gs + 2, w - 8, 18); for (let k = 0; k < 5; k++) sack(x + 14 + k * 11, Gs + 20); hatch(x, Gs + 2, 4, 20); hatch(x + w - 4, Gs + 2, 4, 20); hatch(x, Gs + 20, w, 3);
+  paper(x + 4, top, w - 8, 52, C.sand2, C.pl1, 6);
+  poly([x + 8, Gs - 2, x + 8, Gs - 22, x + 18, Gs - 30, x + 34, Gs - 30, x + 44, Gs - 22, x + 44, Gs - 2], C.out); bricks(x + 9, Gs - 29, 34, 27, C.rf2, C.rf0); rect(x + 18, Gs - 16, 16, 12, C.out); fire(x + 19, Gs - 5, 14, 8);
+  fig('baeckerin', 's', x + 54, Gs - 1, 20, 0, true);
+  for (let k = 0; k < 3; k++) { rect(x + 62, top + 10 + k * 10, 24, 2, C.wd1); for (let j = 0; j < 4; j++) ell(x + 66 + j * 6, top + 8 + k * 10, 2, 1, C.dirt2); }
+  rect(x + 60, Gs - 12, 28, 10, C.wd2); hl(x + 60, x + 87, Gs - 12, C.wd3);
+  hatch(x, top - 2, 4, 54); hatch(x + w - 4, top - 2, 4, 36);
+  houseX(x, top, w, 34, { roof: C.rf2, chimney: 18 }); sack(x + 30, top - 2); crate(x + 50, top - 2, 9);
+  lamp(x + 50, top + 8);
+  // Straße 1
+  lampPost(110, Gs - 1, 30); fig('kind', 's', 104 + Math.sin(t) * 6, Gs - 1, 16, Math.floor(t * 9) % 4, Math.cos(t) < 0);
+  // Taverne
+  x = 124; w = 128; top = Gs - 50; const f2 = top - 46;
+  bricks(x + 4, Gs + 2, w - 8, 18); for (let k = 0; k < 5; k++) barrel(x + 18 + k * 17, Gs + 20, 7); hatch(x, Gs + 2, 4, 20); hatch(x + w - 4, Gs + 2, 4, 20); hatch(x, Gs + 20, w, 3);
+  paper(x + 4, top, w - 8, 50, C.wall1, C.wall0, 9); rect(x + 4, top + 34, w - 8, 16, C.wd2);
+  rect(x + 10, Gs - 18, 40, 16, C.out); rect(x + 11, Gs - 17, 38, 15, C.wd1); rect(x + 9, Gs - 20, 44, 3, C.wd3); for (let k = 0; k < 3; k++) barrel(x + 18 + k * 12, top + 22, 5);
+  fig('wirt', 's', x + 30, Gs - 18, 20, 0, false); rect(x + 9, Gs - 20, 44, 3, C.wd3); rect(x + 24, Gs - 24, 3, 4, C.gold);
+  tableSide(x + 72, Gs - 2, 30); fig('haendler', 's', x + 66, Gs - 12, 20, 0, false, { pose: 'sit' }); fig('frau', 's', x + 108, Gs - 12, 20, 0, true, { pose: 'sit' }); chairSide(x + 58, Gs - 2, false); chairSide(x + 108, Gs - 2, true);
+  rect(x + 80, Gs - 19, 4, 4, C.gold); rect(x + 92, Gs - 19, 4, 4, C.gold);
+  hatch(x, top - 2, 4, 52); hatch(x + w - 4, top - 2, 4, 34); hatch(x, f2 + 44, w, 4);
+  paper(x + 4, f2, w - 8, 44, C.pl2, C.pl1, 6); bed(x + 14, top - 2, 46, C.shG, C.hrK); win(x + 76, f2 + 12, 14, 12); crate(x + 100, top - 2, 12);
+  hatch(x, f2 - 2, 4, 46); hatch(x + w - 4, f2 - 2, 4, 46); houseX(x, f2, w, 40, { roof: C.rf0, chimney: 90 });
+  lamp(x + 40, top + 8); lamp(x + 90, top + 8); lamp(x + 64, f2 + 8, .8);
+  // Laden
+  x = 262; w = 82; top = Gs - 54;
+  bricks(x + 4, Gs + 2, w - 8, 18); crate(x + 10, Gs + 20, 14); crate(x + 24, Gs + 20, 12); crate(x + 14, Gs + 6, 10); hatch(x, Gs + 2, 4, 20); hatch(x + w - 4, Gs + 2, 4, 20); hatch(x, Gs + 20, w, 3);
+  paper(x + 4, top, w - 8, 54, C.glass2, C.st3, 7);
+  for (let k = 0; k < 4; k++) { const yy = top + 12 + k * 10; rect(x + 8, yy + 6, 30, 2, C.wd1); for (let j = 0; j < 5; j++) rect(x + 9 + j * 6, yy, 4, 6, [C.red, C.yel, C.shG, C.shB, C.rf3][(j + k) % 5]); }
+  rect(x + 46, Gs - 14, 30, 12, C.out); rect(x + 47, Gs - 13, 28, 11, C.wd2); fig('haendler', 's', x + 60, Gs - 14, 20, 0, true); rect(x + 46, Gs - 14, 30, 2, C.wd3);
+  fig('alte', 's', x + 40, Gs - 1, 20, 0, false);
+  hatch(x, top - 2, 4, 56); hatch(x + w - 4, top - 2, 4, 40); houseX(x, top, w, 30, { roof: C.st0 });
+  lamp(x + 40, top + 8);
+  // Wohnhaus (angeschnitten)
+  x = 352; w = 70; top = Gs - 48;
+  bricks(x + 4, Gs + 2, w, 18); hatch(x, Gs + 2, 4, 20); hatch(x, Gs + 20, w, 3);
+  paper(x + 4, top, w, 48, C.wall2, C.wall1); chairSide(x + 12, Gs - 2, false); fig('frau', 's', x + 18, Gs - 12, 20, 0, false, { pose: 'sit' }); rect(x + 26, Gs - 20, 5, 6, C.shB);
+  win(x + 34, top + 12, 14, 12); hatch(x, top - 2, 4, 50); houseX(x, top, 90, 32, { roof: C.rf1 }); lamp(x + 30, top + 8);
+}
+
+function p2zug(t) {
+  const s = t * 70;
+  // Landschaft hinter dem Zug (durch die Fenster der Rückwand sichtbar)
+  sky(0, 210); moon(330, 22);
+  for (let k = 0; k < 4; k++) cloud(((k * 140 - s * .03) % 520 + 520) % 520 - 60, 14 + (k * 13) % 30, 42);
+  mountains(-s * .04, 120, 50, C.mtn1, C.mtnS, 4, 64); hills(-s * .12, 132, 5, C.hill1, C.mtn1); hills(-s * .2, 146, 4, C.hill0, C.hill1); treeLine(-s * .45, 160, 22, 6, 10, 3, true);
+  groundBand(158, 50, -s);
+  const step = 130, k0 = Math.floor((s * .9 - 40) / step); for (let k = k0; k < k0 + 5; k++) { const x = Math.round(k * step - s * .9); rect(x, 70, 3, 90, C.wd1); rect(x - 7, 74, 17, 3, C.wd1); for (let xx = 0; xx < step; xx++) px(x + xx, 74 + Math.sin(xx / step * Math.PI) * 8, C.ink); }
+  rect(0, 206, W, 34, C.st1); speckle(0, 206, W, 34, C.st1, C.st2, .25, 3); for (let x = -(s % 12); x < W; x += 12) rect(x, 207, 7, 3, C.wd1); hl(0, W - 1, 205, C.st3); hl(0, W - 1, 206, C.st0);
+  const BG = B.slice(), bob = (s % 90) < 6 ? 1 : 0;
+  // Personenwagen im Schnitt
+  const x = 8, w = 248, top = 108 - bob, fl = 190 - bob;
+  rect(x, top, w, fl - top, C.out);
+  rect(x + 4, top + 4, w - 8, fl - top - 4, C.tr1); for (let xx = x + 4; xx < x + w - 4; xx += 6) vl(xx, top + 4, fl - 1, C.tr0);
+  const comp = 3, cw = (w - 8) / comp;
+  for (let c = 0; c < comp; c++) {
+    const cx = x + 4 + c * cw, wx = cx + cw / 2 - 18;
+    // Fensterloch in der Rückwand: Landschaft bleibt sichtbar
+    for (let yy = top + 22; yy < top + 50; yy++) for (let xx = Math.round(wx); xx < wx + 36; xx++) { const i = yy * W + xx; B[i] = BG[i]; WR++; }
+    rect(wx - 2, top + 20, 40, 2, C.wd1); rect(wx - 2, top + 50, 40, 2, C.wd1); rect(wx - 2, top + 20, 2, 32, C.wd1); rect(wx + 36, top + 20, 2, 32, C.wd1);
+    rect(wx, top + 50, 36, fl - top - 50, C.tr1); hl(wx, wx + 35, top + 52, C.gold);
+    rect(cx + 6, top + 10, cw - 12, 3, C.st1); for (let k = 0; k < 3; k++) { const sx = cx + 10 + k * 22; if ((c + k) % 2) { rect(sx, top + 2, 14, 8, C.out); rect(sx + 1, top + 3, 12, 7, [C.rf2, C.wd2, C.shB][k]); hl(sx + 5, sx + 8, top + 2, C.gold); } }
+    // Bänke gegenüber
+    for (const [bx, fl_] of [[cx + 6, false], [cx + cw - 16, true]]) { rect(bx, fl - 14, 10, 4, C.rf1); rect(fl_ ? bx + 7 : bx, fl - 36, 3, 26, C.rf1); rect(fl_ ? bx + 8 : bx, fl - 36, 2, 26, C.rf0); rect(bx + 1, fl - 10, 2, 9, C.wd0); rect(bx + 7, fl - 10, 2, 9, C.wd0); }
+    const P = [['frau', 'kind'], ['bauer', 'alte'], ['haendler', 'baeckerin']][c];
+    fig(P[0], 's', cx + 13, fl - 15, 20, 0, false, { pose: 'sit' }); fig(P[1], 's', cx + cw - 13, fl - 15, P[1] === 'kind' ? 16 : 20, 0, true, { pose: 'sit' });
+    rect(cx + cw / 2 - 4, fl - 20, 8, 2, C.wd3); vl(cx + cw / 2, fl - 18, fl - 1, C.wd1);
+    lamp(cx + cw / 2, top + 6, .8);
+    if (c < comp - 1) hatch(cx + cw - 2, top + 4, 4, fl - top - 4, C.tr0, C.tr1);
+  }
+  hatch(x, top, w, 5, C.st0, C.st1); poly([x + 2, top, x + 8, top - 6, x + w - 8, top - 6, x + w - 2, top], C.st1); hl(x + 8, x + w - 9, top - 6, C.st2);
+  hatch(x, fl, w, 6, C.wd0, C.wd1); hatch(x, top, 5, fl - top); hatch(x + w - 5, top, 5, fl - top);
+  for (const bx of [x + 40, x + w - 40]) { rect(bx - 16, fl + 6, 32, 4, C.st0); for (const wx of [bx - 9, bx + 9]) { circ(wx, 200 - bob, 6, C.out); circ(wx, 200 - bob, 5, C.st1); px(wx, 200 - bob, C.st3); } }
+  rect(x + w, fl - 6, 12, 3, C.st0);
+  // Lok im Schnitt
+  const lx = 268, lt = 112 - bob;
+  rect(lx, lt, 40, fl - lt, C.out); rect(lx + 4, lt + 4, 32, fl - lt - 4, C.tr0); hatch(lx, lt, 40, 5, C.tr0, C.tr1); hatch(lx, lt, 4, fl - lt); rect(lx - 2, lt - 4, 44, 4, C.st0);
+  rect(lx + 22, fl - 30, 14, 30, C.out); rect(lx + 23, fl - 29, 12, 26, C.st0); fire(lx + 24, fl - 6, 10, 10);
+  { const fr = Math.floor(t * 2.5) % 4; fig('heizer', 's', lx + 12, fl, 20, fr === 2 ? 1 : 0, false); rect(lx + 16 + (fr === 2 ? 4 : 0), fl - 9 - (fr === 2 ? 3 : 0), 6, 2, C.st1); }
+  win(lx + 8, lt + 10, 12, 10, false, null);
+  rect(lx + 40, lt + 24, 92, 46, C.out); rect(lx + 41, lt + 25, 90, 44, C.tr1);
+  rect(lx + 44, lt + 28, 76, 38, C.st0); for (let k = 0; k < 6; k++) { rect(lx + 46, lt + 31 + k * 6, 72, 3, C.st2); hl(lx + 46, lx + 117, lt + 31 + k * 6, C.st3); }
+  hatch(lx + 40, lt + 24, 92, 4, C.tr0, C.tr1); hatch(lx + 40, lt + 66, 92, 4, C.tr0, C.tr1);
+  rect(lx + 104, lt + 6, 12, 18, C.out); rect(lx + 105, lt + 7, 10, 17, C.st0); rect(lx + 102, lt + 3, 16, 4, C.out);
+  rect(lx + 72, lt + 14, 14, 10, C.out); rect(lx + 73, lt + 15, 12, 9, C.gold);
+  poly([lx + 132, fl, lx + 132, fl - 20, lx + 140, fl], C.st0); rect(lx + 124, lt + 30, 7, 9, NIGHT ? C.lamp : C.glass2);
+  if (NIGHT) for (let k = 0; k < 3; k++) light(lx + 150 + k * 22, fl + k * 3, 24 + k * 6, 14, 1 - k * .2);
+  const a = s / 9; for (const wx of [lx + 60, lx + 86, lx + 112]) { circ(wx, 196 - bob, 10, C.out); circ(wx, 196 - bob, 9, C.st1); circ(wx, 196 - bob, 6, C.st0); for (let k = 0; k < 3; k++) { const aa = a + k * Math.PI / 3; line(wx - Math.cos(aa) * 8, 196 - bob - Math.sin(aa) * 8, wx + Math.cos(aa) * 8, 196 - bob + Math.sin(aa) * 8, C.st2); } }
+  rect(lx + 60 + Math.cos(a) * 5, 195 - bob + Math.sin(a) * 5, 52, 3, C.st3);
+  for (let k = 0; k < 10; k++) { const aa = (t * .9 + k / 10) % 1, xx = lx + 110 - aa * 320, yy = lt - aa * 60 + Math.sin(aa * 9 + k) * 4, r = 2 + aa * 9; circ(xx, yy, r, NIGHT ? C.st1 : (aa > .5 ? C.st3 : C.cloudS)); }
+  if (NIGHT) light(lx + 28, fl - 16, 40, 40, 1.2);
+}
+var P2 = { hof: p2hof, haus: p2haus, dorf: p2dorf, zug: p2zug };
+
+// ===== Perspektive 3: 3/4-Draufsicht =====
+// Schattentabelle: jede Farbe → nächste dunklere Palettenfarbe
+const DARK = new Uint8Array(NP);
+for (let i = 0; i < NP; i++) { if (EMIS[i]) { DARK[i] = i; continue; } const t = PAL[i].map((v, k) => v * [.72, .74, .82][k]); let best = i, bd = 1e9; for (let j = 0; j < NP; j++) { if (EMIS[j] || j === i) continue; const p = PAL[j], d = (p[0] - t[0]) ** 2 + (p[1] - t[1]) ** 2 + (p[2] - t[2]) ** 2; if (d < bd) { bd = d; best = j; } } DARK[i] = best; }
+function shade(cx, cy, rx, ry, dither) { cx = Math.round(cx); cy = Math.round(cy); for (let dy = -ry; dy <= ry; dy++) { const y = cy + dy; if (y < 0 || y >= H) continue; const f = 1 - (dy / (ry + .4)) ** 2; if (f <= 0) continue; const dx = Math.round(rx * Math.sqrt(f)); for (let x = Math.max(0, cx - dx); x <= Math.min(W - 1, cx + dx); x++) { if (dither && Math.abs(x - cx) > dx - 3 && ((x + y) & 1)) continue; const i = y * W + x; B[i] = DARK[B[i]]; WR++; } } }
+function shadeRect(x, y, w, h) { for (let yy = Math.max(0, y); yy < Math.min(H, y + h); yy++) for (let xx = Math.max(0, x); xx < Math.min(W, x + w); xx++) { const i = yy * W + xx; B[i] = DARK[B[i]]; WR++; } }
+function cloudShadows(t) { if (NIGHT) return; for (let k = 0; k < 2; k++) { const x = ((t * 7 + k * 260) % 640) - 120, y = 60 + k * 100; shade(x, y, 70, 26, true); shade(x + 40, y - 12, 40, 16, true); } }
+function grassTD(x, y, w, h, seed = 1) {
+  rect(x, y, w, h, C.gr2);
+  for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) { const q = hsh(xx, yy, seed); if (q < .045) { px(xx, yy, C.gr3); px(xx + 1, yy + 1, C.gr1); } else if (q < .06) px(xx, yy, C.gr1); else if (q < .0635) px(xx, yy, [C.wht, C.yel, C.pink][(q * 1000 | 0) % 3]); }
+}
+function pathTD(x, y, w, h) { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) { const e = Math.min(xx - x, x + w - 1 - xx, yy - y, y + h - 1 - yy); if (e < 2 && hsh(xx, yy, 5) < .5 - e * .25) continue; const q = hsh(xx, yy, 6); px(xx, yy, q < .08 ? C.sand2 : q < .12 ? C.dirt2 : C.sand); } }
+function cobble(x, y, w, h) { rect(x, y, w, h, C.st1); for (let yy = y; yy < y + h; yy += 5) { const o = ((yy - y) / 5 & 1) * 4; for (let xx = x - 8 + o; xx < x + w; xx += 8) { const c = hsh(xx, yy) < .2 ? C.st3 : C.st2; rect(xx + 1, yy + 1, 6, 3, c); px(xx + 1, yy + 1, C.st1); px(xx + 6, yy + 1, C.st1); hl(xx + 2, xx + 5, yy + 1, hsh(xx, yy, 2) < .5 ? C.st3 : c); } } }
+// Zaun von vorn (waagerecht) und von oben (senkrechte Pfostenreihe)
+function fenceH(x0, x1, y) { hl(x0, x1, y - 6, C.out); hl(x0, x1, y - 5, C.wd2); hl(x0, x1, y - 2, C.out); hl(x0, x1, y - 1, C.wd2); for (let x = x0; x <= x1; x += 12) { rect(x - 1, y - 9, 4, 10, C.out); rect(x, y - 8, 2, 8, C.wd3); px(x + 1, y - 8, C.wd2); } }
+function fenceV(x, y0, y1) { for (let y = y0; y <= y1; y++) px(x + 1, y, C.wd2); for (let y = y0; y <= y1; y += 12) { rect(x - 1, y - 7, 4, 9, C.out); rect(x, y - 6, 2, 7, C.wd3); } }
+function lampTD(x, by) { shade(x + 2, by, 5, 2); lampPost(x, by, 22, 1); if (NIGHT) LIGHTS[LIGHTS.length - 1].ry *= .8; }
+// Haus in 3/4: Dach von oben, Wand von vorn
+function houseTD(x, y, w, roofH, wallH, o = {}) {
+  const roof = o.roof ?? C.rf1, wall = o.wall ?? C.pl2, ry = y, wy = y + roofH;
+  shadeRect(x + w, wy - 6, 8, wallH + 6);
+  rect(x, wy, w, wallH, wall); rect(x, wy + wallH - 5, w, 5, C.st1); hl(x, x + w - 1, wy + wallH - 5, C.st2); for (let xx = x + 2; xx < x + w; xx += 6) vl(xx, wy + wallH - 4, wy + wallH - 1, C.st0);
+  if (o.timber !== false) { rect(x, wy + 2, w, 2, C.wd1); for (let xx = x; xx < x + w; xx += 24) rect(xx, wy, 3, wallH - 5, C.wd1); rect(x + w - 3, wy, 3, wallH - 5, C.wd1); }
+  rect(x - 1, wy, 1, wallH, C.out); rect(x + w, wy, 1, wallH, C.out); hl(x - 1, x + w, wy + wallH, C.out);
+  // Dach: Ziegelreihen, Traufe mit Schatten
+  rect(x - 5, ry - 1, w + 10, roofH + 3, C.out); rect(x - 4, ry, w + 8, roofH + 1, roof);
+  for (let yy = ry + 3; yy < ry + roofH; yy += 5) { hl(x - 4, x + w + 3, yy, C.rf0); for (let xx = x - 4 + ((yy >> 2) & 1) * 4; xx < x + w + 3; xx += 8) { vl(xx, yy + 1, yy + 4, C.rf0); px(xx + 1, yy + 1, C.rf2); } }
+  rect(x - 4, ry, w + 8, 3, C.rf2); hl(x - 4, x + w + 3, ry + roofH, C.rf0); rect(x - 4, ry, 3, roofH + 1, C.rf0); rect(x + w + 1, ry, 3, roofH + 1, C.rf0);
+  hl(x, x + w - 1, wy + 1, DARK[wall]); hl(x, x + w - 1, wy + 2, DARK[wall]);
+  if (o.chimney !== undefined) { const cx = x + o.chimney; rect(cx - 1, ry - 10, 12, 18, C.out); rect(cx, ry - 9, 10, 16, C.st1); rect(cx, ry - 9, 10, 3, C.st2); rect(cx + 2, ry - 8, 6, 1, C.ink); smoke(cx + 5, ry - 11); }
+}
+function doorTD(x, by, w = 14, h = 20, open) { door(x, by, w, h, open); rect(x - 3, by, w + 6, 3, C.st2); hl(x - 3, x + w + 2, by + 2, C.st1); if (NIGHT && open) light(x + w / 2, by + 10, 40, 26, 1); }
+function winTD(x, y, w, h, lit = true) { win(x, y, w, h, lit); if (NIGHT && lit) light(x + w / 2, y + h + 22, 26, 16, 1); }
+function treeTD(x, by, r, seed) { shade(x + 4, by, r * .95, r * .38); tree(x, by, r, seed); }
+// Y-Sortierung: alles mit Fußpunkt y wird von hinten nach vorn gezeichnet
+function ysort(list) { list.sort((a, b) => a[0] - b[0]); SORTN += list.length; for (const [, f] of list) f(); }
+// Wegpunkt-Läufer: liefert Position und Blickrichtung für 3/4-Figuren
+function walker(pts, speed, t, ph = 0) {
+  let L = 0; const seg = []; for (let i = 0; i < pts.length - 1; i++) { const d = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); seg.push(d); L += d; }
+  let s = (t * speed + ph) % (2 * L), back = s > L; if (back) s = 2 * L - s;
+  for (let i = 0; i < seg.length; i++) { if (s <= seg[i] || i === seg.length - 1) { const f = Math.min(1, s / seg[i]), a = pts[i], b = pts[i + 1]; let dx = (b[0] - a[0]) * (back ? -1 : 1), dy = (b[1] - a[1]) * (back ? -1 : 1); const v = Math.abs(dx) > Math.abs(dy) ? 's' : dy > 0 ? 'f' : 'b'; return { x: a[0] + (b[0] - a[0]) * f, y: a[1] + (b[1] - a[1]) * f, v, flip: v === 's' && dx < 0 }; } s -= seg[i]; }
+}
+
+function p3hof(t) {
+  grassTD(0, 0, W, H, 1);
+  // Fluss (senkrecht, leicht geschwungen)
+  const rc = y => 262 + Math.sin(y * .024) * 12;
+  for (let y = 0; y < H; y++) { const c = rc(y), xl = Math.round(c - 22), xr = Math.round(c + 22);
+    hl(xl - 4, xl - 1, y, C.dirt1); px(xl - 4, y, C.gr1); hl(xr + 1, xr + 3, y, C.dirt1); hl(xr + 1, xr + 1, y, C.dirt0);
+    hl(xl, xr, y, C.wat1); hl(xl, xl + 2, y, C.wat0); px(xl - 1, y, C.dirt0);
+    for (let x = xl + 3; x < xr; x++) { const q = hsh(x, Math.floor(y - t * 14), 9); if (q < .025) px(x, y, C.wat2); else if (q < .03) px(x, y, C.wat3); } }
+  for (let k = 0; k < 6; k++) { const y = 12 + k * 41, x = rc(y) + (k & 1 ? 14 : -18); ell(x, y, 3, 2, C.st1); px(x - 1, y - 1, C.st2); }
+  // Wege
+  pathTD(84, 112, 18, 64); pathTD(84, 160, 160, 18); pathTD(286, 160, 40, 18); pathTD(312, 160, 16, 60);
+  // Garten
+  rect(18, 132, 56, 40, C.dirt1); for (let y = 136; y < 170; y += 7) { hl(20, 71, y, C.dirt0); for (let x = 24; x < 70; x += 9) { circ(x, y - 2, 2, C.tree1); px(x - 1, y - 3, C.tree3); } }
+  // Brücke
+  const by = 158; shadeRect(232, by + 18, 70, 4);
+  rect(230, by, 74, 20, C.wd2); for (let x = 232; x < 304; x += 5) vl(x, by, by + 19, C.wd1); for (let x = 233; x < 304; x += 10) px(x + 1, by + 4, C.wd3);
+  hl(230, 303, by - 1, C.out); rect(230, by + 18, 74, 4, C.wd1); hl(230, 303, by + 22, C.out);
+  // Weide
+  const pw = 330; rect(pw, 30, W - pw, 182, C.gr2); speckle(pw, 30, W - pw, 182, C.gr2, C.gr3, .05, 4);
+  rect(352, 186, 22, 8, C.out); rect(353, 187, 20, 6, C.wd2); rect(355, 188, 16, 3, C.wat1);
+  cloudShadows(t);
+  // Objekte nach Y sortiert
+  const L = [];
+  L.push([112, () => { houseTD(26, 26, 116, 50, 36, { chimney: 92 }); winTD(40, 88, 16, 13); winTD(112, 88, 16, 13, false); for (const wx of [40, 112]) { rect(wx - 1, 104, 18, 3, C.wd1); for (let k = 0; k < 6; k++) px(wx + k * 3, 103, [C.red, C.pink, C.yel][k % 3]); } doorTD(85, 112, 14, 22, true); }]);
+  L.push([108, () => { for (let r = 0; r < 3; r++) for (let k = 0; k < 4 - r; k++) { const cx = 152 + k * 7 + r * 3.5, cy = 106 - r * 6; circ(cx, cy, 3, C.out); circ(cx, cy, 2, C.wd3); px(cx, cy, C.wd2); } }]);
+  L.push([186, () => treeTD(168, 186, 17, 7)]);
+  L.push([30, () => { tree(20, 26, 12, 3); tree(190, 18, 11, 5); }]);
+  L.push([34, () => fenceH(pw, W, 34)]); L.push([212, () => { fenceH(pw, 306 + 6, 212); fenceH(338, W, 212); }]);
+  L.push([120, () => fenceV(pw, 34, 206)]);
+  L.push([132, () => treeTD(372, 132, 14, 2)]);
+  for (let k = 0; k < 4; k++) { const sx = 348 + (k % 2) * 30 + Math.sin(t * .25 + k * 2) * 8, sy = 70 + k * 30 + Math.cos(t * .2 + k) * 4; L.push([sy, () => sheep(k === 2 ? 't' : 's', sx, sy, 1.1, ((t * 1.2 + k) % 4) < 1.5 ? 1 : 0, k % 2 === 1)]); }
+  for (let k = 0; k < 3; k++) { const cx = 120 + k * 16 + Math.sin(t * .8 + k * 2) * 6, cy = 128 + k * 5; L.push([cy, () => chicken(cx, cy, Math.floor(t * 4 + k), Math.cos(t * .8 + k * 2) < 0)]); }
+  L.push([170, () => lampTD(222, 170)]);
+  for (const [bx, by_, r] of [[30, 214, 8], [44, 222, 6], [150, 230, 7], [196, 216, 5]]) L.push([by_, () => { shade(bx + 2, by_, r, 3); bush(bx, by_, r); }]);
+  for (const [rx, ry] of [[110, 206], [300, 120], [16, 110]]) L.push([ry, () => { ell(rx, ry - 3, 5, 3, C.out); ell(rx, ry - 3, 4, 2, C.st2); px(rx - 2, ry - 4, C.st3); }]);
+  const f = walker([[92, 136], [92, 170], [320, 170], [320, 205]], 16, t, 0);
+  L.push([f.y, () => { shade(f.x, f.y, 6, 2); fig('bauer', f.v, f.x, f.y, 22, Math.floor(t * 7) % 4, f.flip, { carry: NIGHT ? 'laterne' : undefined }); if (NIGHT) light(f.x, f.y - 6, 34, 26, 1); }]);
+  ysort(L);
+  // Schatten der Figur zuletzt nicht nötig: Fußschatten vor dem Zeichnen wäre sauberer, hier reicht die Kontur
+}
+
+function p3haus(t) {
+  rect(0, 0, W, H, C.out);
+  const x0 = 40, x1 = 360, wt = 22, wb = 84, fb = 214;
+  // Rückwand
+  rect(x0, wt, x1 - x0, wb - wt, C.wall2); for (let x = x0 + 4; x < x1; x += 10) vl(x, wt, wb - 20, C.wall1);
+  rect(x0, wb - 20, x1 - x0, 20, C.wd2); hl(x0, x1 - 1, wb - 20, C.wd3); for (let x = x0; x < x1; x += 20) vl(x, wb - 18, wb - 1, C.wd1); hl(x0, x1 - 1, wt, C.wd1);
+  // Boden
+  rect(x0, wb, x1 - x0, fb - wb, C.wd2); for (let y = wb; y < fb; y += 8) { hl(x0, x1 - 1, y, C.wd1); for (let x = x0 + ((y >> 3) % 3) * 23; x < x1; x += 70) vl(x, y, y + 7, C.wd1); for (let x = x0; x < x1; x += 13) if (hsh(x, y) < .3) hl(x, x + 4, y + 3, C.wd3); }
+  shadeRect(x0, wb, x1 - x0, 4);
+  // Wände von oben (dicke Kanten)
+  rect(x0 - 8, 8, 8, fb + 14 - 8, C.wd0); rect(x1, 8, 8, fb + 14 - 8, C.wd0); rect(x0 - 8, 8, x1 - x0 + 16, wt - 8, C.wd0); hl(x0 - 8, x1 + 7, 8, C.wd1); vl(x0 - 1, wt, fb, C.wd1); vl(x1, wt, fb, C.wd1);
+  rect(x0 - 8, fb, 150, 14, C.wd0); rect(x0 + 180, fb, x1 - x0 - 172, 14, C.wd0); hl(x0 - 8, x1 + 7, fb, C.wd1); rect(x0 + 142, fb, 38, 14, C.wd2); for (let x = x0 + 144; x < x0 + 178; x += 4) vl(x, fb + 2, fb + 12, C.rug1);
+  // Wanddinge
+  winTD(196, 34, 34, 26); winTD(262, 34, 34, 26, false);
+  rect(150, 34, 30, 22, C.gold); rect(152, 36, 26, 18, C.sky2); rect(152, 46, 26, 8, C.gr2); circ(165, 46, 4, C.tree1);
+  rect(70, 50, 56, 3, C.wd1); for (let k = 0; k < 5; k++) { circ(76 + k * 11, 45, 4, C.out); circ(76 + k * 11, 45, 3, k & 1 ? C.wht : C.shB); }
+  rect(320, 32, 14, 30, C.wd1); circ(327, 40, 5, C.pl2); px(327, 38, C.ink); px(328, 40, C.ink);
+  // Teppich
+  rect(140, 156, 120, 46, C.out); rect(141, 157, 118, 44, C.rug0); rect(145, 161, 110, 36, C.rug1); for (let x = 150; x < 252; x += 12) for (let y = 166; y < 194; y += 10) { px(x, y, C.rug2); px(x + 1, y + 1, C.rug2); px(x - 1, y + 1, C.rug2); px(x, y + 2, C.rug2); }
+  const L = [];
+  // Herd mit Rohr
+  L.push([96, () => { rect(48, 30, 6, 40, C.st0); rect(46, 66, 44, 30, C.out); rect(47, 67, 42, 10, C.st2); rect(47, 77, 42, 18, C.st1); rect(52, 80, 18, 12, C.out); fire(53, 91, 16, 8); circ(80, 71, 4, C.out); circ(80, 71, 3, C.st0); circ(62, 71, 5, C.out); circ(62, 71, 4, C.st3); circ(62, 71, 3, C.rf3); smoke(62, 66, 4, .3); }]);
+  // Anrichte
+  L.push([96, () => { rect(92, 70, 54, 26, C.out); rect(93, 71, 52, 8, C.wd3); rect(93, 79, 52, 16, C.wd2); for (let x = 96; x < 142; x += 17) { rect(x, 82, 14, 10, C.wd1); px(x + 7, 86, C.gold); } ell(104, 74, 5, 2, C.dirt2); rect(118, 72, 12, 5, C.wd1); for (let k = 0; k < 3; k++) { rect(132 + k * 4, 70, 3, 5, C.out); px(133 + k * 4, 72, [C.red, C.yel, C.shG][k]); } }]);
+  // Bett
+  L.push([150, () => { rect(292, 72, 60, 80, C.out); rect(293, 73, 58, 10, C.wd1); rect(293, 83, 58, 62, C.wht); rect(298, 85, 48, 14, C.out); rect(299, 86, 46, 12, C.wht); hl(299, 344, 97, C.wool2); rect(293, 104, 58, 42, C.rf1); for (let x = 296; x < 350; x += 8) for (let y = 107; y < 144; y += 8) rect(x, y, 4, 4, C.rf2); rect(293, 145, 58, 6, C.wd1); hl(293, 350, 145, C.wd2); }]);
+  // Tisch mit Stühlen
+  L.push([118, () => { rect(176, 106, 14, 14, C.out); rect(177, 107, 12, 12, C.wd2); rect(212, 106, 14, 14, C.out); rect(213, 107, 12, 12, C.wd2); }]);
+  L.push([150, () => { shadeRect(166, 148, 76, 4); rect(164, 118, 76, 32, C.out); rect(165, 119, 74, 22, C.wd3); for (let y = 123; y < 141; y += 6) hl(165, 238, y, C.wd2); rect(165, 141, 74, 8, C.wd1); rect(167, 149, 4, 4, C.wd0); rect(233, 149, 4, 4, C.wd0);
+    circ(184, 128, 5, C.out); circ(184, 128, 4, C.wht); circ(184, 128, 2, C.rf3); rect(200, 124, 6, 7, C.out); rect(201, 125, 4, 5, C.shB); circ(222, 130, 6, C.out); circ(222, 130, 5, C.wd1); for (let k = 0; k < 4; k++) circ(219 + (k % 2) * 5, 128 + (k >> 1) * 4, 2, C.red);
+    if (NIGHT) candle(210, 128); }]);
+  L.push([168, () => { rect(186, 154, 16, 16, C.out); rect(187, 155, 14, 8, C.wd2); rect(187, 163, 14, 6, C.wd1); rect(187, 150, 14, 5, C.wd3); }]);
+  // Truhe, Fass, Pflanze
+  L.push([190, () => { rect(50, 168, 34, 24, C.out); rect(51, 169, 32, 8, C.wd3); rect(51, 177, 32, 14, C.wd2); hl(51, 82, 177, C.wd1); rect(64, 180, 6, 5, C.gold); }]);
+  L.push([206, () => { rect(326, 186, 18, 20, C.out); rect(327, 187, 16, 18, C.rf2); ell(335, 182, 10, 7, C.tree0); ell(334, 180, 8, 5, C.tree1); px(331, 178, C.tree3); px(338, 181, C.tree3); }]);
+  L.push([186, () => cat(214, 186, 1.1)]);
+  // Figur geht zwischen Herd, Tisch und Tür
+  const f = walker([[70, 112], [70, 120], [150, 120], [150, 170], [200, 200]], 14, t, 30);
+  L.push([f.y, () => { shade(f.x, f.y, 6, 2); fig('bauer', f.v, f.x, f.y, 22, Math.floor(t * 7) % 4, f.flip); }]);
+  ysort(L);
+  if (NIGHT) { rect(200, 8, 2, 30, C.st0); rect(195, 38, 12, 8, C.out); rect(196, 39, 10, 6, C.lamp); light(200, 110, 110, 70, .9); }
+}
+
+function p3dorf(t) {
+  cobble(0, 84, W, H - 84);
+  for (const [x, w] of [[0, 26], [W - 26, 26]]) { grassTD(x, 120, w, 120, 3); }
+  // Häuserzeile oben
+  const L = [];
+  houseTD(4, 0, 92, 40, 44, { roof: C.rf2, wall: C.sand2, timber: false, chimney: 64 });
+  winTD(12, 56, 30, 18); for (let k = 0; k < 6; k++) poly([10 + k * 6, 50, 16 + k * 6, 50, 16 + k * 6, 55, 13 + k * 6, 57, 10 + k * 6, 55], k & 1 ? C.wht : C.rf2); doorTD(62, 84, 16, 24, true); circ(88, 58, 5, C.gold); circ(88, 58, 2, C.sand2);
+  houseTD(104, -10, 104, 46, 48, { roof: C.st0, wall: C.st2, timber: false });
+  for (let y = 40; y < 80; y += 6) hl(104, 207, y, C.st1);
+  rect(140, -2, 32, 40, C.out); rect(141, -1, 30, 38, C.st2); circ(156, 18, 9, C.out); circ(156, 18, 8, C.pl2); line(156, 18, 156, 12, C.ink); line(156, 18, 160, 18, C.ink);
+  rect(140, 40, 32, 44, C.out); rect(142, 52, 28, 32, C.wd1); poly([142, 52, 156, 44, 170, 52], C.wd1); vl(156, 48, 83, C.wd0); winTD(114, 50, 14, 20, false); winTD(184, 50, 14, 20, false); rect(136, 84, 40, 3, C.st3); rect(132, 87, 48, 3, C.st2);
+  houseTD(216, 0, 100, 40, 44, { roof: C.rf0, wall: C.pl1, chimney: 20 });
+  winTD(226, 54, 16, 14); winTD(290, 54, 16, 14); doorTD(258, 84, 18, 26, true); rect(252, 48, 2, 8, C.wd0); rect(244, 56, 18, 10, C.out); rect(245, 57, 16, 8, C.wd2); ell(253, 61, 4, 3, C.wd3);
+  houseTD(324, 0, 76, 40, 44, { roof: C.st0, wall: C.glass2, timber: false });
+  winTD(332, 54, 26, 16); for (let k = 0; k < 5; k++) rect(330 + k * 6, 50, 6, 5, k & 1 ? C.wht : C.shB); doorTD(372, 84, 14, 22, false);
+  for (let k = 0; k < 3; k++) L.push([96, () => barrel(232 + k * 12 - 20, 96, 6)]);
+  // Brunnen
+  const fx = 200, fy = 156;
+  L.push([fy + 14, () => { shade(fx + 4, fy + 14, 40, 8); ell(fx, fy + 6, 38, 13, C.out); rect(fx - 38, fy, 77, 8, C.out); ell(fx, fy + 6, 37, 12, C.st1); rect(fx - 37, fy, 75, 7, C.st1); for (let x = fx - 34; x < fx + 36; x += 8) vl(x, fy + 1, fy + 12, C.st0);
+    ell(fx, fy, 37, 12, C.st3); ell(fx, fy, 32, 9, C.wat1); for (let k = 0; k < 3; k++) { const r = ((t * 10 + k * 10) % 30); ell(fx, fy, 2 + r, (2 + r) * .3, C.wat2); ell(fx, fy, 1 + r, (1 + r) * .3, C.wat1); }
+    rect(fx - 3, fy - 24, 7, 24, C.out); rect(fx - 2, fy - 23, 5, 23, C.st2); ell(fx, fy - 24, 9, 3, C.out); ell(fx, fy - 24, 8, 2, C.st3);
+    for (let k = 0; k < 10; k++) { const a = (t * 1.3 + k / 10) % 1, sx = k & 1 ? 1 : -1; for (let j = 0; j < 2; j++) px(fx + sx * (a + j * .03) * 26, fy - 26 - Math.sin((a + j * .03) * Math.PI) * 8 + (a + j * .03) * 26, j ? C.wat2 : C.wat3); } }]);
+  // Marktstand
+  L.push([150, () => { fig('haendler', 'f', 86, 136, 22, 0); rect(56, 132, 62, 18, C.out); rect(57, 133, 60, 8, C.wd3); rect(57, 141, 60, 8, C.wd2); for (let k = 0; k < 7; k++) { circ(62 + k * 8, 136, 3, C.out); circ(62 + k * 8, 136, 2, [C.red, C.tree2, C.yel, C.rf3][k % 4]); } }]);
+  L.push([118, () => { rect(54, 104, 66, 18, C.out); for (let k = 0; k < 8; k++) rect(55 + k * 8, 105, 8, 14, k & 1 ? C.wht : C.rf2); for (let k = 0; k < 8; k++) poly([55 + k * 8, 119, 63 + k * 8, 119, 59 + k * 8, 123], k & 1 ? C.wht : C.rf2); vl(56, 119, 148, C.wd1); vl(117, 119, 148, C.wd1); }]);
+  // Bäume, Laternen, Bänke
+  L.push([226, () => treeTD(22, 226, 16, 3)]); L.push([200, () => treeTD(380, 200, 15, 9)]);
+  for (const [lx, ly] of [[120, 100], [282, 100], [120, 214], [282, 214]]) L.push([ly, () => lampTD(lx, ly)]);
+  L.push([206, () => { rect(160, 198, 34, 4, C.wd3); rect(160, 202, 34, 3, C.wd1); vl(162, 205, 207, C.wd0); vl(191, 205, 207, C.wd0); }]);
+  // Figuren
+  const fr = (s) => Math.floor(t * s) % 4;
+  L.push([86, () => fig('baeckerin', 'f', 46, 96, 22, 0)]);
+  if (!NIGHT) {
+    const a = t * .7, kx = fx + Math.cos(a) * 58, ky = fy + 8 + Math.sin(a) * 28, kv = Math.abs(Math.sin(a)) > .7 ? (Math.cos(a) < 0 ? 'f' : 'b') : 's';
+    L.push([ky, () => fig('kind', Math.sin(a) > .7 ? 's' : (Math.cos(a) > 0 ? 'f' : 'b'), kx, ky, 18, fr(10), Math.sin(a) > 0)]);
+    const a2 = a - .5, dx = fx + Math.cos(a2) * 58, dy = fy + 8 + Math.sin(a2) * 28;
+    L.push([dy, () => { const d = Spr(12, 10); sr(d, 2, 3, 7, 4, C.wd2); sr(d, 7, 1, 4, 4, C.wd2); sp(d, 10, 2, C.ink); sp(d, 2 + (fr(10) & 1), 7, C.wd1); sp(d, 7 - (fr(10) & 1), 7, C.wd1); sp(d, 1, 2, C.wd1); outline(d, C.out); blit(d, dx - 6, dy - 8, Math.sin(a2) > 0); }]);
+    L.push([196, () => fig('frau', 's', 238, 196, 22, 0, false)]); L.push([197, () => fig('alte', 's', 256, 197, 22, 0, true)]);
+    const w = walker([[330, 230], [330, 130], [300, 100]], 9, t, 10); L.push([w.y, () => fig('schaffner', w.v, w.x, w.y, 22, fr(5), w.flip)]);
+    for (let k = 0; k < 3; k++) { const px_ = 150 + k * 9, py = 220 + (k & 1) * 4, peck = ((t * 2 + k) % 2) < .3; L.push([py, () => { const s = Spr(7, 6); sellipse(s, 3, 3, 2, 1, C.st2); sp(s, 5, peck ? 3 : 1, C.st1); outline(s, C.out); blit(s, px_, py - 5, k === 1); }]); }
+  } else {
+    const w = walker([[60, 230], [160, 220], [300, 230]], 10, t); L.push([w.y, () => { fig('haendler', w.v, w.x, w.y, 22, fr(6), w.flip, { carry: 'laterne' }); light(w.x, w.y - 6, 30, 22, 1); }]);
+  }
+  L.push([90, () => fig('wirt', 'f', 290, 92, 22, 0)]);
+  ysort(L);
+  cloudShadows(t);
+}
+
+function p3zug(t) {
+  const s = t * 90, bob = (s % 120) < 6 ? 1 : 0;
+  // Boden neben dem Zug rauscht vorbei (ganz unten)
+  rect(0, 214, W, 26, C.st1); for (let y = 214; y < H; y++) for (let x = 0; x < W; x++) if (hsh(Math.floor(x + s * 1.6), y, 4) < .2) px(x, y, C.st2); for (let x = -((s * 1.6) % 24); x < W; x += 24) rect(x, 226, 10, 14, C.wd1);
+  // Rückwand mit Fenstern
+  rect(0, 0, W, 16, C.tr0); for (let x = 57; x < W; x += 134) { rect(x, 4, 18, 6, C.st0); rect(x + 2, 5, 14, 4, NIGHT ? C.lamp : C.st3); }
+  rect(0, 16, W, 64, C.wd2); for (let x = 0; x < W; x += 20) vl(x, 16, 79, C.wd1); hl(0, W - 1, 16, C.wd3); rect(0, 64, W, 16, C.tr1); hl(0, W - 1, 64, C.gold);
+  for (let k = 0; k < 3; k++) { const wx = 38 + k * 134, wy = 28, ww = 56, wh = 32;
+    for (let y = wy; y < wy + wh; y++) { const f = (y - wy) / wh; for (let x = wx; x < wx + ww; x++) B[y * W + x] = NIGHT ? (f < .6 ? C.nsky1 : C.nsky2) : (f < .45 ? C.sky1 : C.sky2); }
+    for (let x = wx; x < wx + ww; x++) { const X = x + s * .15, y1 = Math.round(wy + 18 + Math.sin(X * .05) * 3); vl(x, y1, wy + wh - 1, C.hill1); const X2 = x + s * .6, y2 = Math.round(wy + 24 + Math.sin(X2 * .11) * 2); vl(x, y2, wy + wh - 1, C.gr2); }
+    for (let j = -1; j < 3; j++) { const tx = wx + ((j * 40 - s * .6) % 80 + 80) % 80; if (tx < wx + 3 || tx > wx + ww - 4) continue; circ(tx, wy + 20, 5, C.tree1); vl(tx, wy + 24, wy + 28, C.wd1); }
+    if (NIGHT) { for (let j = 0; j < 3; j++) { const lx = wx + (((j * 37 - s * .5) % 60) + 60) % 60; px(lx, wy + 24 + j, C.lit); } }
+    rect(wx - 2, wy - 2, ww + 4, 2, C.wd0); rect(wx - 2, wy + wh, ww + 4, 3, C.wd0); rect(wx - 2, wy, 2, wh, C.wd0); rect(wx + ww, wy, 2, wh, C.wd0); rect(wx + ww / 2 - 1, wy, 2, wh, C.wd1);
+    rect(wx - 4, 19, ww + 8, 2, C.st2); for (let j = 0; j < 2; j++) if ((k + j) % 3) { rect(wx + 6 + j * 26, 12, 18, 8, C.out); rect(wx + 7 + j * 26, 13, 16, 6, [C.rf2, C.wd3, C.shB, C.shG][(k + j) % 4]); } }
+  // Boden: Gang mit Läufer
+  rect(0, 80, W, 134, C.wd1); for (let y = 80; y < 214; y += 6) hl(0, W - 1, y, C.wd0); shadeRect(0, 80, W, 4);
+  rect(0, 124, W, 26, C.rug0); hl(0, W - 1, 125, C.rug2); hl(0, W - 1, 148, C.rug2); for (let x = -((s * 0) % 16); x < W; x += 16) { px(x + 8, 136, C.rug2); px(x + 7, 137, C.rug2); px(x + 9, 137, C.rug2); px(x + 8, 138, C.rug2); }
+  rect(0, 200, W, 14, C.tr0); hl(0, W - 1, 200, C.tr1); hl(0, W - 1, 201, C.gold);
+  const L = [];
+  // Abteile: Bänke einander gegenüber (Fahrgäste im Profil), oben an der Rückwand und unten an der Außenwand
+  const looks = [['frau', 'kind'], ['bauer', 'alte'], ['haendler', 'baeckerin'], ['wirt', 'frau']];
+  for (let k = 0; k < 3; k++) {
+    const cx = 66 + k * 134;
+    for (const [row, by] of [[0, 120], [1, 198]]) {
+      const yb = by - bob, bl = cx - 36, br = cx + 14;
+      L.push([yb - 40, () => { rect(cx - 10, yb - 32, 20, 14, C.out); rect(cx - 9, yb - 31, 18, 9, C.wd3); rect(cx - 9, yb - 22, 18, 3, C.wd1); if (!NIGHT) { rect(cx - 4, yb - 30, 5, 4, C.wht); px(cx + 4, yb - 29, C.red); } }]);
+      for (const [bx, side] of [[bl, 0], [br, 1]]) {
+        L.push([yb - 2, () => { rect(bx - 1, yb - 27, 24, 22, C.out); rect(bx, yb - 26, 22, 14, C.rf2); rect(bx, yb - 12, 22, 6, C.rf1); for (let y = yb - 24; y < yb - 13; y += 5) hl(bx + 2, bx + 19, y, C.rf1);
+          const rx = side ? bx + 18 : bx; rect(rx - 1, yb - 40, 6, 36, C.out); rect(rx, yb - 39, 4, 9, C.wd3); rect(rx, yb - 30, 4, 25, C.wd2); vl(rx + (side ? 0 : 3), yb - 30, yb - 6, C.wd1); }]);
+      }
+      const lk = looks[(k + row) % 4], ps = (k * 2 + row) % 4;
+      if (ps !== 3) L.push([yb, () => fig(lk[0], 's', bl + 12, yb - 22, 22, 0, false, { pose: 'sit' })]);
+      if (ps !== 1) L.push([yb, () => fig(lk[1], 's', br + 10, yb - 22, lk[1] === 'kind' ? 18 : 22, 0, true, { pose: 'sit' })]);
+      if (NIGHT) light(cx, yb - 24, 52, 36, 1);
+    }
+  }
+  // Schaffner im Gang, Kind am Fenster
+  const sx = ((t * 18) % 520) - 60; L.push([142, () => fig('schaffner', 's', sx, 142 - bob, 22, Math.floor(t * 6) % 4, false)]);
+  L.push([84, () => fig('kind', 'b', 133, 86 - bob, 18, 0)]);
+  ysort(L);
+}
+var P3 = { hof: p3hof, haus: p3haus, dorf: p3dorf, zug: p3zug };
+
+// ===== Perspektive 4: Isometrisch (Rauten 32×16) =====
+let OX = 200, OY = 30;
+const IP = (i, j, z = 0) => [OX + (i - j) * 16, OY + (i + j) * 8 - z];
+function q4(a, b, c, d, col) { poly([...a, ...b, ...c, ...d], col); }
+function edge(a, b, col = C.out) { line(a[0], a[1], b[0], b[1], col); }
+function isoTile(i, j, col, z = 0) { q4(IP(i, j, z), IP(i + 1, j, z), IP(i + 1, j + 1, z), IP(i, j + 1, z), col); }
+function isoQuad(i0, j0, i1, j1, col, z = 0) { q4(IP(i0, j0, z), IP(i1, j0, z), IP(i1, j1, z), IP(i0, j1, z), col); }
+function texRegion(i0, j0, i1, j1, from, to, p, seed) { const a = IP(i0, j1), b = IP(i1, j0), top = IP(i0, j0), bot = IP(i1, j1); speckle(a[0], top[1], b[0] - a[0], bot[1] - top[1], from, to, p, seed); }
+// Quader: Seiten links (j-Ebene) hell, rechts (i-Ebene) dunkel
+function isoBox(i, j, w, d, z0, h, top, left, right, ol = true) {
+  q4(IP(i, j + d, z0), IP(i + w, j + d, z0), IP(i + w, j + d, z0 + h), IP(i, j + d, z0 + h), left);
+  q4(IP(i + w, j, z0), IP(i + w, j + d, z0), IP(i + w, j + d, z0 + h), IP(i + w, j, z0 + h), right);
+  if (top !== null) q4(IP(i, j, z0 + h), IP(i + w, j, z0 + h), IP(i + w, j + d, z0 + h), IP(i, j + d, z0 + h), top);
+  if (ol) { edge(IP(i, j + d, z0), IP(i + w, j + d, z0)); edge(IP(i + w, j + d, z0), IP(i + w, j, z0)); edge(IP(i, j + d, z0), IP(i, j + d, z0 + h)); edge(IP(i + w, j, z0), IP(i + w, j, z0 + h)); edge(IP(i, j + d, z0 + h), IP(i, j, z0 + h)); edge(IP(i, j, z0 + h), IP(i + w, j, z0 + h)); }
+}
+function winL(i, j, z, w, h, lit = true) { const c = NIGHT && lit ? C.lit : C.glass; q4(IP(i, j, z), IP(i + w, j, z), IP(i + w, j, z + h), IP(i, j, z + h), C.wd0); q4(IP(i + .06, j, z + 1), IP(i + w - .06, j, z + 1), IP(i + w - .06, j, z + h - 1), IP(i + .06, j, z + h - 1), c); const m = IP(i + w / 2, j, z); vl(m[0], m[1] - h + 1, m[1], C.wd1); if (NIGHT && lit) { const p = IP(i + w / 2, j + .9, 0); light(p[0], p[1], 30, 15, 1); } }
+function winR(i, j, z, w, h, lit = true) { const c = NIGHT && lit ? C.lit : C.glass; q4(IP(i, j, z), IP(i, j + w, z), IP(i, j + w, z + h), IP(i, j, z + h), C.wd0); q4(IP(i, j + .06, z + 1), IP(i, j + w - .06, z + 1), IP(i, j + w - .06, z + h - 1), IP(i, j + .06, z + h - 1), c); const m = IP(i, j + w / 2, z); vl(m[0], m[1] - h + 1, m[1], C.wd1); if (NIGHT && lit) { const p = IP(i + .9, j + w / 2, 0); light(p[0], p[1], 30, 15, 1); } }
+function doorL(i, j, w, h, open) { q4(IP(i, j), IP(i + w, j), IP(i + w, j, h), IP(i, j, h), C.wd0); q4(IP(i + .05, j), IP(i + w - .05, j), IP(i + w - .05, j, h - 1), IP(i + .05, j, h - 1), open && NIGHT ? C.lit : C.wd2); if (open && NIGHT) { const p = IP(i + w / 2, j + .8); light(p[0], p[1], 34, 17, 1.1); } }
+function doorR(i, j, w, h, open) { q4(IP(i, j), IP(i, j + w), IP(i, j + w, h), IP(i, j, h), C.wd0); q4(IP(i, j + .05), IP(i, j + w - .05), IP(i, j + w - .05, h - 1), IP(i, j + .05, h - 1), open && NIGHT ? C.lit : C.wd2); if (open && NIGHT) { const p = IP(i + .8, j + w / 2); light(p[0], p[1], 34, 17, 1.1); } }
+// Haus mit Satteldach (First entlang i)
+function isoHouse(i, j, w, d, h, rh, o = {}) {
+  const wl = o.wall ?? C.pl2, wr = DARK[wl], rf = o.roof ?? C.rf1;
+  isoBox(i, j, w, d, 0, h, null, wl, wr);
+  if (o.timber !== false) { for (let u = 0; u <= w; u += w / 3) { const a = IP(i + u, j + d, 0), b = IP(i + u, j + d, h); line(a[0], a[1], b[0], b[1], C.wd1); } edge(IP(i, j + d, h * .55), IP(i + w, j + d, h * .55), C.wd1); edge(IP(i + w, j, h * .55), IP(i + w, j + d, h * .55), C.wd0); }
+  const e = .25;
+  poly([...IP(i + w, j, h), ...IP(i + w, j + d, h), ...IP(i + w, j + d / 2, h + rh)], wr);
+  edge(IP(i + w, j, h), IP(i + w, j + d / 2, h + rh)); edge(IP(i + w, j + d, h), IP(i + w, j + d / 2, h + rh));
+  q4(IP(i - e, j - e, h - 2), IP(i + w + e, j - e, h - 2), IP(i + w + e, j + d / 2, h + rh), IP(i - e, j + d / 2, h + rh), DARK[rf]);
+  q4(IP(i - e, j + d / 2, h + rh), IP(i + w + e, j + d / 2, h + rh), IP(i + w + e, j + d + e, h - 2), IP(i - e, j + d + e, h - 2), rf);
+  for (let f = .15; f < 1; f += .17) { const za = h + rh - (rh + 2) * f, jj = j + d / 2 + (d / 2 + e) * f; edge(IP(i - e, jj, za), IP(i + w + e, jj, za), C.rf0); }
+  edge(IP(i - e, j + d / 2, h + rh), IP(i + w + e, j + d / 2, h + rh), C.rf2); edge(IP(i - e, j + d + e, h - 2), IP(i + w + e, j + d + e, h - 2)); edge(IP(i + w + e, j + d + e, h - 2), IP(i + w + e, j + d / 2, h + rh)); edge(IP(i - e, j + d + e, h - 2), IP(i - e, j + d / 2, h + rh));
+  if (o.chimney) { const ci = i + o.chimney; isoBox(ci, j + d / 2 - .55, .45, .45, h + rh - 10, 18, C.st2, C.st1, C.st0); const p = IP(ci + .22, j + d / 2 - .3, h + rh + 9); smoke(p[0], p[1]); }
+}
+function isoTree(i, j, r, seed) { const p = IP(i + .5, j + .5); shade(p[0] + 3, p[1], r * .9, r * .4); tree(p[0], p[1], r, seed); }
+function isoFig(look, i, j, di, dj, h, fr, extra) { const p = IP(i, j); let v = 'fi', flip = false; if (di > 0) { v = 'fi'; } else if (dj > 0) { v = 'fi'; flip = true; } else if (di < 0) { v = 'bi'; flip = true; } else if (dj < 0) { v = 'bi'; } shade(p[0], p[1], 5, 2); fig(look, v, p[0], p[1], h, fr, flip, extra); }
+function isoSort(list) { list.sort((a, b) => a[0] - b[0]); SORTN += list.length; for (const [, f] of list) f(); }
+function isoPath(pts, speed, t, ph = 0) { const r = walker(pts, speed, t, ph); const k = pts; return r; }
+function isoWalker(pts, speed, t, ph = 0) {
+  let L = 0; const seg = []; for (let i = 0; i < pts.length - 1; i++) { const d = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); seg.push(d); L += d; }
+  let s = (t * speed + ph) % (2 * L), back = s > L; if (back) s = 2 * L - s;
+  for (let i = 0; i < seg.length; i++) if (s <= seg[i] || i === seg.length - 1) { const f = Math.min(1, s / seg[i]), a = pts[i], b = pts[i + 1], sg = back ? -1 : 1; return { i: a[0] + (b[0] - a[0]) * f, j: a[1] + (b[1] - a[1]) * f, di: Math.sign(b[0] - a[0]) * sg, dj: Math.sign(b[1] - a[1]) * sg }; } else s -= seg[i];
+}
+function slab(n, m, depth = 14, riverI = -1) {
+  q4(IP(0, m), IP(n, m), IP(n, m, -depth), IP(0, m, -depth), C.dirt1); q4(IP(n, 0), IP(n, m), IP(n, m, -depth), IP(n, 0, -depth), C.dirt0);
+  for (let k = 0; k < 40; k++) { const u = hsh(k, 1) * n, z = -2 - hsh(k, 2) * (depth - 3), p = IP(u, m, z); px(p[0], p[1], C.st1); const q = IP(n, hsh(k, 3) * m, z); px(q[0], q[1], C.st0); }
+  edge(IP(0, m), IP(n, m), C.gr1); edge(IP(n, 0), IP(n, m), C.gr1); edge(IP(0, m, -depth), IP(n, m, -depth)); edge(IP(n, 0, -depth), IP(n, m, -depth)); edge(IP(0, m), IP(0, m, -depth)); edge(IP(n, m), IP(n, m, -depth));
+  if (riverI >= 0) { const a = IP(riverI, m), b = IP(riverI + 1, m); for (let x = a[0]; x <= b[0]; x++) { const y0 = a[1] + (x - a[0]) / 2; for (let y = y0; y < y0 + depth + 6; y++) px(x, y, hsh(x, Math.floor(y - TM * 30)) < .3 ? C.wat3 : C.wat2); } }
+}
+function grassTiles(n, m, seed = 1) { for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) isoTile(i, j, hsh(i, j, seed) < .3 ? C.gr1 : C.gr2); texRegion(0, 0, n, m, C.gr2, C.gr3, .06, seed); texRegion(0, 0, n, m, C.gr1, C.gr2, .08, seed + 1); }
+
+function p4hof(t) {
+  sky(0, H); for (let k = 0; k < 3; k++) cloud(((k * 170 + t * 3) % 520) - 60, 20 + k * 30, 46); moon(360, 26);
+  OX = 196; OY = 36; const n = 12;
+  slab(n, n, 14, 8);
+  grassTiles(n, n, 2);
+  // Fluss entlang j bei i = 8
+  for (let j = 0; j < n; j++) { isoTile(8, j, C.wat1); }
+  { const a = IP(8, 0), b = IP(9, n); for (let y = a[1]; y < b[1]; y++) for (let x = IP(8, n)[0]; x < IP(9, 0)[0]; x++) { const i = y * W + x; if (B[i] === C.wat1) { const q = hsh(Math.floor(x + (TM * 16)), Math.floor(y + TM * 8), 3); if (q < .03) B[i] = C.wat2; else if (q < .035) B[i] = C.wat3; } } }
+  edge(IP(8, 0), IP(8, n), C.dirt0); edge(IP(9, 0), IP(9, n), C.dirt1);
+  // Wege, Garten, Weide
+  for (const [i, j] of [[2, 4], [2, 5], [2, 6], [3, 6], [4, 6], [5, 6], [6, 6], [7, 6], [9, 6], [10, 6], [11, 6]]) isoTile(i, j, C.sand);
+  texRegion(2, 4, 12, 7, C.sand, C.sand2, .1, 4);
+  for (let i = 0; i < 2; i++) for (let j = 6; j < 9; j++) { isoTile(i, j, C.dirt1); for (let u = .2; u < 1; u += .3) edge(IP(i + u, j + .1), IP(i + u, j + .9), C.dirt0); for (let u = .35; u < 1; u += .3) { const p = IP(i + u, j + .5); circ(p[0], p[1] - 2, 2, C.tree1); px(p[0] - 1, p[1] - 3, C.tree3); } }
+  const L = [];
+  L.push([5, () => isoHouse(1, 1, 4, 3, 30, 20, { chimney: 3 })]);
+  L.push([5.1, () => { winL(1.4, 4, 9, .9, 11); winL(3.6, 4, 9, .9, 11, false); doorL(2.3, 4, .9, 18, true); winR(5, 1.8, 9, .8, 11); }]);
+  L.push([13, () => { const b = 6; isoBox(8 - .1, b + .05, 1.2, .9, 0, 3, C.wd2, C.wd1, C.wd0); for (let u = 0; u < 1.2; u += .2) edge(IP(8 - .1 + u, b + .05, 3), IP(8 - .1 + u, b + .95, 3), C.wd1); }]);
+  for (const [i, j, r, sd] of [[6, 1, 14, 2], [0, 10, 13, 4], [5, 9, 12, 6], [11, 9, 13, 7], [11, 2, 11, 8]]) L.push([i + j + 1, () => isoTree(i, j, r, sd)]);
+  // Zaun um die Weide (i 9..12, j 0..5 und 7..12)
+  for (let j = 0; j <= n; j += 1) { if (j === 6) continue; L.push([9 + j + .2, () => { const a = IP(9.3, j, 0), b = IP(9.3, j, 9); line(a[0], a[1], b[0], b[1], C.wd1); if (j < n && j !== 5) { edge(IP(9.3, j, 7), IP(9.3, j + 1, 7), C.wd2); edge(IP(9.3, j, 3), IP(9.3, j + 1, 3), C.wd2); } }]); }
+  for (let k = 0; k < 4; k++) { const si = 10.2 + (k % 2) * .9 + Math.sin(t * .2 + k) * .2, sj = 1 + k * 2.4 + (k > 1 ? 1.5 : 0), p = IP(si, sj); L.push([si + sj, () => { shade(p[0], p[1], 6, 2); sheep('s', p[0], p[1], 1, ((t + k) % 4) < 1.5 ? 1 : 0, k % 2 === 0); }]); }
+  for (let k = 0; k < 2; k++) { const ci = 3.5 + k * .8 + Math.sin(t * .7 + k) * .3, cj = 5 + k * .3, p = IP(ci, cj); L.push([ci + cj, () => chicken(p[0], p[1], Math.floor(t * 4 + k), Math.cos(t * .7 + k) < 0)]); }
+  L.push([7 + 5, () => { const p = IP(7.2, 5.2); lampPost(p[0], p[1], 22, 1); if (NIGHT) LIGHTS[LIGHTS.length - 1].ry *= .55; }]);
+  const w = isoWalker([[2.5, 4.4], [2.5, 6.5], [11.5, 6.5]], .8, t);
+  L.push([w.i + w.j, () => { isoFig('bauer', w.i, w.j, w.di, w.dj, 18, Math.floor(t * 7) % 4, NIGHT ? { carry: 'laterne' } : {}); if (NIGHT) { const p = IP(w.i, w.j); light(p[0], p[1] - 4, 30, 16, 1); } }]);
+  isoSort(L);
+}
+
+function p4haus(t) {
+  rect(0, 0, W, H, C.out); OX = 200; OY = 62; const n = 8, Hh = 74;
+  // Rückwände
+  q4(IP(0, 0), IP(n, 0), IP(n, 0, Hh), IP(0, 0, Hh), C.wall2); q4(IP(0, 0), IP(0, n), IP(0, n, Hh), IP(0, 0, Hh), C.wall1);
+  for (let u = .5; u < n; u += .5) { edge(IP(u, 0, 18), IP(u, 0, Hh - 4), C.wall1); edge(IP(0, u, 18), IP(0, u, Hh - 4), C.wall0); }
+  q4(IP(0, 0), IP(n, 0), IP(n, 0, 18), IP(0, 0, 18), C.wd2); q4(IP(0, 0), IP(0, n), IP(0, n, 18), IP(0, 0, 18), C.wd1); edge(IP(0, 0, 18), IP(n, 0, 18), C.wd3); edge(IP(0, 0, 18), IP(0, n, 18), C.wd2);
+  q4(IP(0, 0, Hh), IP(n, 0, Hh), IP(n, -.3, Hh), IP(0, -.3, Hh), C.wd0); q4(IP(0, 0, Hh), IP(0, n, Hh), IP(-.3, n, Hh), IP(-.3, 0, Hh), C.wd0); q4(IP(0, 0, Hh), IP(-.3, -.3, Hh), IP(0, -.3, Hh), IP(0, 0, Hh), C.wd0);
+  edge(IP(0, 0), IP(0, 0, Hh), C.wall0);
+  // Boden
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) isoTile(i, j, (i + j) & 1 ? C.wd2 : C.wd2); for (let j = 0; j <= n; j += .5) edge(IP(0, j), IP(n, j), C.wd1); for (let i = 0; i < n; i += 2) for (let j = 0; j < n; j += .5) { const p = IP(i + ((j * 2) % 2) + .5, j); px(p[0], p[1], C.wd1); }
+  texRegion(0, 0, n, n, C.wd2, C.wd3, .03, 2);
+  // Fenster
+  winL(2, 0, 30, 1.6, 26); winL(4.4, 0, 30, 1.6, 26, false); winR(0, 4.8, 30, 1.6, 26);
+  if (NIGHT) { const p = IP(2.8, 0, 46); circ(p[0], p[1], 3, C.moon); }
+  // Bild, Regal
+  q4(IP(6.2, 0, 34), IP(7.4, 0, 34), IP(7.4, 0, 52), IP(6.2, 0, 52), C.gold); q4(IP(6.3, 0, 36), IP(7.3, 0, 36), IP(7.3, 0, 50), IP(6.3, 0, 50), C.hill1);
+  isoBox(0, 2.6, .4, 1.6, 44, 2, C.wd3, C.wd2, C.wd1); for (let k = 0; k < 4; k++) { const p = IP(.2, 2.8 + k * .38, 46); rect(p[0] - 1, p[1] - 6, 3, 6, [C.red, C.yel, C.shB, C.shG][k]); }
+  // Teppich
+  isoQuad(2.4, 3.2, 6.2, 6.6, C.rug0); isoQuad(2.7, 3.5, 5.9, 6.3, C.rug1); for (let u = 3; u < 5.8; u += .7) for (let v = 3.8; v < 6.2; v += .7) { const p = IP(u, v); px(p[0], p[1], C.rug2); px(p[0] - 1, p[1], C.rug2); px(p[0] + 1, p[1], C.rug2); }
+  const L = [];
+  // Herd an der linken Wand
+  L.push([2.2, () => { isoBox(0, 1, 1.2, 1.3, 0, 22, C.st2, C.st1, C.st0); const a = IP(1.2, 1.3, 3); q4(IP(1.2, 1.4, 4), IP(1.2, 2.1, 4), IP(1.2, 2.1, 14), IP(1.2, 1.4, 14), C.out); fire(IP(1.2, 1.55)[0] - 6, IP(1.2, 1.75)[1] - 5, 8, 6); const p = IP(.4, 1.6, 22); rect(p[0] - 2, p[1] - 52, 5, 52, C.st0); }]);
+  // Bett an der rechten Wand
+  L.push([7, () => { isoBox(5, 0, 2.6, 1.7, 0, 9, C.wht, C.wd2, C.wd1); isoBox(5, 0, 2.6, .25, 0, 20, C.wd1, C.wd2, C.wd0); isoBox(5.1, .3, 2.4, .6, 9, 3, C.wht, C.wool2, C.wool2, false); isoBox(5, .95, 2.6, .75, 9, 2, C.rf1, C.rf1, C.rf0, false); for (let u = 5.2; u < 7.5; u += .4) { const p = IP(u, 1.3, 11); px(p[0], p[1], C.rf2); } }]);
+  // Tisch mit Stühlen
+  L.push([7.6, () => { isoBox(3.3, 3.9, .7, .7, 0, 10, C.wd2, C.wd1, C.wd0); }]);
+  L.push([9.4, () => { isoBox(3.4, 4.2, 1.8, 1.2, 12, 2, C.wd3, C.wd2, C.wd1); for (const [a, b] of [[3.5, 4.3], [5, 4.3], [3.5, 5.2], [5, 5.2]]) isoBox(a, b, .14, .14, 0, 12, C.wd1, C.wd1, C.wd0, false); const p = IP(4, 4.8, 14); circ(p[0], p[1], 3, C.wht); px(p[0], p[1], C.rf3); const q = IP(4.7, 4.6, 14); rect(q[0], q[1] - 4, 3, 4, C.shB); if (NIGHT) candle(IP(4.6, 5.1, 14)[0], IP(4.6, 5.1, 14)[1]); }]);
+  L.push([11, () => { isoBox(5.6, 5.1, .7, .7, 0, 10, C.wd2, C.wd1, C.wd0); isoBox(5.6, 5.1, .15, .7, 10, 10, C.wd2, C.wd1, C.wd0); }]);
+  // Truhe, Pflanze
+  L.push([8.6, () => { isoBox(.1, 6.4, .9, 1.4, 0, 10, C.wd3, C.wd2, C.wd1); }]);
+  L.push([13.2, () => { isoBox(7, 6, .6, .6, 0, 8, C.rf2, C.rf2, C.rf1); const p = IP(7.3, 6.3, 8); circ(p[0], p[1] - 4, 6, C.tree1); circ(p[0] - 1, p[1] - 6, 3, C.tree2); }]);
+  L.push([10.5, () => { const p = IP(4.7, 5.9); cat(p[0], p[1], 1); }]);
+  const w = isoWalker([[1.8, 2], [2.4, 2.4], [2.4, 5.6], [5.2, 6.8]], .7, t, 1);
+  L.push([w.i + w.j, () => isoFig('bauer', w.i, w.j, w.di, w.dj, 20, Math.floor(t * 7) % 4)]);
+  isoSort(L);
+  // Abgeschnittene Vorderwände
+  isoBox(0, n, n, .25, 0, 6, C.wd1, C.wd0, C.wd0); isoBox(n, 0, .25, n + .25, 0, 6, C.wd1, C.wd0, C.wd0);
+  if (NIGHT) { const p = IP(4, 4, Hh); vl(p[0], p[1], p[1] + 20, C.st0); rect(p[0] - 4, p[1] + 20, 9, 6, C.lamp); light(p[0], p[1] + 60, 110, 60, .9); }
+}
+
+function p4dorf(t) {
+  sky(0, H); moon(40, 24); for (let k = 0; k < 2; k++) cloud(((k * 220 + t * 3) % 520) - 60, 24 + k * 30, 46);
+  OX = 200; OY = 40; const n = 12;
+  slab(n, n, 12);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) isoTile(i, j, C.st2);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) for (let a = .25; a < 1; a += .5) for (let b = .25; b < 1; b += .5) { const p = IP(i + a, j + b); rect(p[0] - 3, p[1] - 1, 6, 2, hsh(i * 4 + a * 4, j * 4 + b * 4) < .2 ? C.st3 : C.st2); px(p[0] - 3, p[1] + 1, C.st1); hl(p[0] - 2, p[0] + 2, p[1] + 1, C.st1); }
+  for (const [i, j] of [[0, 11], [1, 11], [0, 10], [11, 0], [11, 1], [10, 0], [11, 11], [10, 11], [11, 10]]) isoTile(i, j, C.gr2);
+  const L = [];
+  // Häuser an den hinteren Kanten
+  L.push([2.5, () => { isoHouse(0, 0, 3, 2.4, 30, 18, { roof: C.rf2, wall: C.sand2, timber: false, chimney: 2 }); winL(.4, 2.4, 8, 1.1, 12); doorL(1.9, 2.4, .8, 18, true); }]);
+  L.push([5.8, () => { isoHouse(4, 0, 3.6, 2.6, 40, 20, { roof: C.rf0, wall: C.pl1, chimney: .6 }); winL(4.3, 2.6, 22, .8, 10); winL(6.4, 2.6, 22, .8, 10, false); doorL(5.4, 2.6, .9, 20, true); winL(4.3, 2.6, 4, .8, 10); winR(7.6, .6, 22, .8, 10); }]);
+  L.push([9.2, () => { isoHouse(8.6, 0, 3, 2.2, 28, 16, { roof: C.st0, wall: C.glass2, timber: false }); winL(9, 2.2, 6, 1.4, 12); doorL(10.8, 2.2, .7, 18); }]);
+  L.push([5.5, () => { isoHouse(0, 3.4, 2.4, 3.2, 52, 18, { roof: C.st0, wall: C.st2, timber: false }); winR(2.4, 3.9, 30, .7, 14, false); winR(2.4, 5.4, 30, .7, 14, false); doorR(2.4, 4.6, .9, 22); }]);
+  L.push([9.4, () => { isoHouse(0, 7.4, 2.4, 2.6, 30, 16, { roof: C.rf1, wall: C.pl2, chimney: 1 }); winR(2.4, 7.8, 8, .8, 11); winR(2.4, 9.1, 8, .8, 11, false); }]);
+  // Brunnen
+  L.push([12.2, () => { const p = IP(6.6, 6.6); shade(p[0] + 4, p[1] + 6, 34, 14); ell(p[0], p[1] + 4, 32, 15, C.out); rect(p[0] - 32, p[1] - 4, 65, 8, C.out); ell(p[0], p[1] + 3, 31, 14, C.st1); rect(p[0] - 31, p[1] - 4, 63, 7, C.st1); ell(p[0], p[1] - 4, 31, 14, C.st3); ell(p[0], p[1] - 4, 27, 11, C.wat1); for (let k = 0; k < 3; k++) { const r = (t * 9 + k * 9) % 26; ell(p[0], p[1] - 4, 2 + r, (2 + r) * .45, C.wat2); ell(p[0], p[1] - 4, 1 + r, (1 + r) * .45, C.wat1); } rect(p[0] - 3, p[1] - 26, 7, 22, C.out); rect(p[0] - 2, p[1] - 25, 5, 21, C.st2); ell(p[0], p[1] - 26, 8, 3, C.st3); for (let k = 0; k < 8; k++) { const a = (t * 1.3 + k / 8) % 1, sx = k & 1 ? 1 : -1; px(p[0] + sx * a * 20, p[1] - 28 - Math.sin(a * Math.PI) * 8 + a * 20, C.wat3); } }]);
+  // Marktstand
+  L.push([9.3, () => { isoBox(4, 4.6, 2, .8, 0, 10, C.wd3, C.wd2, C.wd1); for (let k = 0; k < 5; k++) { const p = IP(4.3 + k * .35, 5, 10); circ(p[0], p[1] - 1, 2, [C.red, C.tree2, C.yel, C.rf3, C.red][k]); } for (const u of [4, 6]) isoBox(u, 4.6, .1, .1, 0, 26, C.wd1, C.wd1, C.wd0, false); for (let k = 0; k < 4; k++) q4(IP(4 + k * .5, 4.2, 30), IP(4.5 + k * .5, 4.2, 30), IP(4.5 + k * .5, 5.6, 24), IP(4 + k * .5, 5.6, 24), k & 1 ? C.wht : C.rf2); }]);
+  L.push([8.4, () => isoFig('haendler', 4.9, 4.2, 0, 1, 18, 0)]);
+  for (const [i, j] of [[3.5, 3.5], [9.5, 3.5], [3.5, 9.5], [9.5, 9.5]]) L.push([i + j, () => { const p = IP(i, j); lampPost(p[0], p[1], 22, 1); if (NIGHT) LIGHTS[LIGHTS.length - 1].ry *= .55; }]);
+  for (const [i, j, r, sd] of [[10.3, 10.3, 13, 2], [.4, 10.6, 12, 4], [10.8, .6, 11, 5]]) L.push([i + j + 1, () => isoTree(i, j, r, sd)]);
+  // Figuren
+  const fr = s => Math.floor(t * s) % 4;
+  if (!NIGHT) {
+    const a = t * .6, ki = 7.1 + Math.cos(a) * 2.6, kj = 7.1 + Math.sin(a) * 2.6;
+    L.push([ki + kj, () => isoFig('kind', ki, kj, -Math.sin(a) > 0 ? 1 : (Math.sin(a) > .5 ? -1 : 0), Math.cos(a) > 0 ? 1 : -1, 15, fr(10))]);
+    L.push([3 + 3.6, () => isoFig('baeckerin', 2.4, 3, 1, 0, 18, 0)]);
+    L.push([9.5 + 8.5, () => isoFig('frau', 9.5, 8.5, 0, -1, 18, 0)]); L.push([9.5 + 7.7, () => isoFig('alte', 9.5, 7.7, 0, 1, 18, 0)]);
+    const w = isoWalker([[1, 11.5], [8, 11.5], [8, 9]], .7, t, 3); L.push([w.i + w.j, () => isoFig('schaffner', w.i, w.j, w.di, w.dj, 18, fr(6))]);
+  } else { const w = isoWalker([[4, 11], [11, 11], [11, 4]], .7, t); L.push([w.i + w.j, () => { isoFig('haendler', w.i, w.j, w.di, w.dj, 18, fr(6), { carry: 'laterne' }); const p = IP(w.i, w.j); light(p[0], p[1] - 4, 28, 14, 1); }]); }
+  L.push([6, () => isoFig('wirt', 5.1, 3.1, 1, 0, 18, 0)]);
+  isoSort(L);
+}
+
+function p4zug(t) {
+  sky(0, H); moon(50, 24);
+  const s = t * 2.2; // gefahrene Kacheln
+  OX = 120 - (s % 1) * 16; OY = -40 - (s % 1) * 8; const base = Math.floor(s);
+  for (let i = -12; i < 34; i++) for (let j = -14; j < 28; j++) { const wi = i + base; const sc = IP(i, j); if (sc[0] < -40 || sc[0] > W + 40 || sc[1] < -24 || sc[1] > H + 16) continue; const q = hsh(wi, j, 5); let c = C.gr2; if (j >= 7 && j <= 8) c = C.st1; else if (q < .1) c = C.gr1; else if (j > 10 && j < 14 && (wi % 9 + 9) % 9 < 3) c = C.sand; else if (j < 4 && (wi % 13 + 13) % 13 < 4 && j > 0) c = C.wat1; isoTile(i, j, c); }
+  speckle(0, 0, W, H, C.gr2, C.gr3, .05, base % 7);
+  for (let i = -12; i < 34; i++) { const wi = i + base; if ((wi % 13 + 13) % 13 < 4) for (let j = 1; j < 4; j++) { const p = IP(i + .5, j + .5); if (hsh(wi, j) < .4) hl(p[0] - 3, p[0] + 2, p[1], C.wat2); } }
+  // Gleis
+  for (let i = -12; i < 34; i++) for (let u = 0; u < 1; u += .33) edge(IP(i + u, 7.2), IP(i + u, 7.8), C.wd1);
+  edge(IP(-12, 7.3), IP(34, 7.3), C.st3); edge(IP(-12, 7.7), IP(34, 7.7), C.st3);
+  const L = [];
+  for (let i = -12; i < 34; i++) { const wi = i + base; if (hsh(wi, 2) < .35) { const j = hsh(wi, 3) < .5 ? 3.5 + hsh(wi, 4) * 2.5 : 9.5 + hsh(wi, 4) * 3; const sc = IP(i, j); if (sc[0] > -30 && sc[0] < W + 30 && sc[1] > -10 && sc[1] < H + 40) L.push([i + j, () => isoTree(i, j, 9 + hsh(wi, 5) * 5, wi)]); } if (wi % 5 === 0) L.push([i + 6.2, () => { const a = IP(i, 6.3), b = IP(i, 6.3, 34); line(a[0], a[1], b[0], b[1], C.wd1); line(b[0] - 5, b[1] + 2, b[0] + 5, b[1] - 2, C.wd1); }]); }
+  // Zug: Lok vorn (größeres i), zwei Wagen, einer ohne Dach
+  const zi = base + 0, ti = 4 - (s % 1) * 0, bob = (t * 9 % 6) < 1 ? 1 : 0;
+  const ri = (x) => x + (s % 1); // fester Bildschirmplatz trotz Kachel-Verschiebung
+  const W0 = ri(7), W1 = ri(10.4), LK = ri(13.8);
+  L.push([W0 + 7.5 + 1.5, () => { isoBox(W0, 7.05, 3.2, .9, 4, 22, C.st1, C.tr1, C.tr0); for (let k = 0; k < 4; k++) winL(W0 + .25 + k * .75, 7.95, 13, .5, 7); const p = IP(W0 + .3, 7.95, 4); }]);
+  L.push([W1 + 7.5 + 1.5, () => { isoBox(W1, 7.05, 3.2, .9, 4, 8, C.wd2, C.tr1, C.tr0); q4(IP(W1, 7.05, 12), IP(W1 + 3.2, 7.05, 12), IP(W1 + 3.2, 7.05, 26), IP(W1, 7.05, 26), C.tr0); q4(IP(W1 + 3.2, 7.05, 12), IP(W1 + 3.2, 7.95, 12), IP(W1 + 3.2, 7.95, 26), IP(W1 + 3.2, 7.05, 26), C.tr0); edge(IP(W1, 7.05, 26), IP(W1 + 3.2, 7.05, 26), C.tr2); edge(IP(W1 + 3.2, 7.05, 26), IP(W1 + 3.2, 7.95, 26), C.tr2);
+    for (let k = 0; k < 4; k++) { isoBox(W1 + .2 + k * .78, 7.2, .25, .55, 12, 8, C.rf2, C.rf1, C.rf0, false); if (k < 3) { const p = IP(W1 + .65 + k * .78, 7.5, 12); fig(['frau', 'bauer', 'kind'][k], 'fi', p[0], p[1] + 4, 16, 0, true, { pose: 'sit' }); } }
+    q4(IP(W1, 7.95, 4), IP(W1 + 3.2, 7.95, 4), IP(W1 + 3.2, 7.95, 13), IP(W1, 7.95, 13), C.tr1); edge(IP(W1, 7.95, 13), IP(W1 + 3.2, 7.95, 13), C.gold); if (NIGHT) { const p = IP(W1 + 1.6, 7.5, 24); light(p[0], p[1] + 12, 50, 30, 1); } }]);
+  L.push([LK + 7.5 + 2, () => { isoBox(LK, 7.1, 1, .8, 4, 28, C.tr0, C.tr1, C.tr0); winL(LK + .2, 7.9, 18, .5, 8); isoBox(LK + 1, 7.15, 2.2, .7, 6, 18, C.tr1, C.tr1, C.tr0); for (let u = 1.5; u < 3.2; u += .6) edge(IP(LK + u, 7.85, 6), IP(LK + u, 7.85, 24), C.gold); isoBox(LK + 2.5, 7.3, .35, .35, 24, 12, C.st0, C.st0, C.out); const p = IP(LK + 3.2, 7.5, 14); rect(p[0] - 2, p[1] - 3, 5, 5, NIGHT ? C.lamp : C.glass2); if (NIGHT) for (let k = 1; k < 4; k++) { const q = IP(LK + 3.2 + k * 1.2, 7.5); light(q[0], q[1], 26, 13, 1.1 - k * .2); }
+    for (let k = 0; k < 10; k++) { const a = (t * .9 + k / 10) % 1, q = IP(LK + 2.7 - a * 9, 7.4 - a * 2, 40 + a * 30); circ(q[0], q[1], 2 + a * 8, NIGHT ? C.st1 : (a > .5 ? C.st3 : C.cloudS)); } }]);
+  for (const wi of [W0 + .5, W0 + 2.7, W1 + .5, W1 + 2.7, LK + .4, LK + 1.6, LK + 2.8]) L.push([wi + 8.5, () => { const p = IP(wi, 7.95, 3); circ(p[0], p[1], 3, C.out); circ(p[0], p[1], 2, C.st1); }]);
+  isoSort(L);
+}
+var P4 = { hof: p4hof, haus: p4haus, dorf: p4dorf, zug: p4zug };
+
+// ===== Perspektive 5: Bühne mit Bodentiefe (Fluchtpunkt) =====
+// Lochkamera: X seitlich, D Tiefe (1 = Bildunterkante), Y Höhe; 52 Einheiten = Figur ganz vorn
+let YH = 104, VX = 200;
+const PP = (X, D, Y = 0) => { const u = 1 / D; return [VX + X * u, YH + (H - YH) * u - Y * u]; };
+const uOf = D => 1 / D;
+function pq(a, b, c, d, col) { poly([...a, ...b, ...c, ...d], col); }
+function stFig(look, X, D, v, fr, flip, extra) { const p = PP(X, D), h = Math.max(14, Math.round(52 * uOf(D))); shade(p[0], p[1], Math.round(h * .22), Math.max(1, Math.round(h * .06))); fig(look, v, p[0], p[1], h, fr, flip, extra); return h; }
+function stSort(list) { list.sort((a, b) => b[0] - a[0]); SORTN += list.length; for (const [, f] of list) f(); }
+function stWalker(pts, speed, t, ph = 0) { // pts in (X, D); liefert Ansicht passend zur Laufrichtung
+  let L = 0; const seg = []; for (let i = 0; i < pts.length - 1; i++) { const d = Math.hypot(pts[i + 1][0] - pts[i][0], (pts[i + 1][1] - pts[i][1]) * 120); seg.push(d); L += d; }
+  let s = (t * speed + ph) % (2 * L), back = s > L; if (back) s = 2 * L - s;
+  for (let i = 0; i < seg.length; i++) if (s <= seg[i] || i === seg.length - 1) { const f = Math.min(1, s / seg[i]), a = pts[i], b = pts[i + 1], sg = back ? -1 : 1, dX = (b[0] - a[0]) * sg, dD = (b[1] - a[1]) * 120 * sg; const v = Math.abs(dX) > Math.abs(dD) ? 's' : dD < 0 ? 'f' : 'b'; return { X: a[0] + (b[0] - a[0]) * f, D: a[1] + (b[1] - a[1]) * f, v, flip: v === 's' && dX < 0 }; } else s -= seg[i];
+}
+// Bodenfläche mit perspektivischer Textur (weiter hinten feiner)
+function stGround(base, c1, c2, seed, p1 = .05) { for (let y = Math.ceil(YH) + 1; y < H; y++) { const u = (y - YH) / (H - YH), step = Math.max(1, Math.round(1 / u)); for (let x = 0; x < W; x++) { const wx = Math.floor((x - VX) / u / 3), wy = Math.floor(1 / u * 40); const q = hsh(wx, wy, seed); B[y * W + x] = q < p1 ? c1 : q < p1 * 1.6 ? c2 : base; } WR += W; } }
+function stRibbon(pts, wdt, col, edge) { // Band über den Boden (Weg, Fluss) aus Mittellinien-Punkten (X, D)
+  const L = [], R = []; for (const [X, D] of pts) { L.push(PP(X - wdt / 2, D)); R.push(PP(X + wdt / 2, D)); }
+  if (edge !== undefined) { const L2 = [], R2 = []; for (const [X, D] of pts) { L2.push(PP(X - wdt / 2 - 8, D)); R2.push(PP(X + wdt / 2 + 8, D)); } poly([...L2.flat(), ...R2.reverse().flat()], edge); }
+  poly([...L.flat(), ...R.reverse().flat()], col);
+}
+function wallQuadFront(X0, X1, D, Y0, Y1, col) { pq(PP(X0, D, Y0), PP(X1, D, Y0), PP(X1, D, Y1), PP(X0, D, Y1), col); }
+function wallQuadSide(X, D0, D1, Y0, Y1, col) { pq(PP(X, D0, Y0), PP(X, D1, Y0), PP(X, D1, Y1), PP(X, D0, Y1), col); }
+function winFront(X0, X1, D, Y0, Y1, lit = true) { const u = uOf(D); wallQuadFront(X0 - 4, X1 + 4, D, Y0 - 4, Y1 + 4, C.wd0); wallQuadFront(X0, X1, D, Y0, Y1, NIGHT && lit ? C.lit : C.glass); const a = PP((X0 + X1) / 2, D, Y0), b = PP((X0 + X1) / 2, D, Y1); line(a[0], a[1], b[0], b[1], C.wd1); const c = PP(X0, D, (Y0 + Y1) / 2), d = PP(X1, D, (Y0 + Y1) / 2); line(c[0], c[1], d[0], d[1], C.wd1); if (!(NIGHT && lit)) { const e = PP(X0 + (X1 - X0) * .7, D, Y1 - 3), f = PP(X0 + (X1 - X0) * .3, D, Y0 + 6); line(e[0], e[1], f[0], f[1], C.glass2); } if (NIGHT && lit) { const g = PP((X0 + X1) / 2, D - .25); light(g[0], g[1], 60 * u, 22 * u, 1); const h = PP((X0 + X1) / 2, D, (Y0 + Y1) / 2); light(h[0], h[1], 40 * u, 40 * u, .8); } }
+function winSide(X, D0, D1, Y0, Y1, lit = true) { wallQuadSide(X, D0 - .03, D1 + .03, Y0 - 4, Y1 + 4, C.wd0); wallQuadSide(X, D0, D1, Y0, Y1, NIGHT && lit ? C.lit : C.glass); const a = PP(X, (D0 + D1) / 2, Y0), b = PP(X, (D0 + D1) / 2, Y1); line(a[0], a[1], b[0], b[1], C.wd1); if (NIGHT && lit) { const g = PP(X + (X < 0 ? 40 : -40), (D0 + D1) / 2); light(g[0], g[1], 40 / D0, 14 / D0, 1); } }
+function stLamp(X, D) { const u = uOf(D), p = PP(X, D), top = PP(X, D, 120); rect(p[0] - Math.max(1, 2 * u), top[1], Math.max(2, 4 * u), p[1] - top[1], C.st0); const s = Math.max(3, Math.round(12 * u)); rect(top[0] - s / 2 - 1, top[1] - s - 1, s + 2, s + 2, C.out); rect(top[0] - s / 2, top[1] - s, s, s, NIGHT ? C.lamp : C.glass2); hl(top[0] - s / 2 - 2, top[0] + s / 2 + 1, top[1] - s - 2, C.st0); light(p[0], p[1], 140 * u, 40 * u, 1.1); light(top[0], top[1] - s / 2, 40 * u, 40 * u, .9); }
+
+function p5hof(t) {
+  YH = 100; VX = 200;
+  sky(0, YH + 2); moon(320, 28); for (let k = 0; k < 4; k++) cloud(((k * 150 + t * 3) % 520) - 60, 16 + (k * 13) % 34, 50 + k * 8);
+  mountains(0, 92, 40, C.mtn1, C.mtnS, 4, 80); hills(20, 96, 3, C.hill1, C.mtn1, YH + 4); treeLine(0, YH + 2, 16, 4, 6, 3, true);
+  stGround(C.gr2, C.gr1, C.gr3, 2);
+  // Fluss von hinten nach vorn rechts, Weg zur Haustür
+  const river = [[10, 14], [30, 8], [80, 5], [150, 3.2], [230, 2.1], [300, 1.4], [360, .95]];
+  stRibbon(river, 70, C.wat1, C.dirt1);
+  for (let y = YH + 2; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (B[i] !== C.wat1) continue; const u = (y - YH) / (H - YH), q = hsh(Math.floor((x - VX) / u / 4), Math.floor(1 / u * 60 - TM * 20), 5); if (q < .05) B[i] = C.wat2; else if (q < .058) B[i] = C.wat3; else if (q > .93) B[i] = C.wat0; }
+  stRibbon([[-150, 2.2], [-130, 1.8], [-60, 1.35], [10, 1.1], [40, .9]], 46, C.sand, C.sand2);
+  const L = [];
+  // Wohnhaus: Front zur Kamera, rechte Seitenwand fluchtet
+  L.push([2.25, () => {
+    const D0 = 2.2, D1 = 3.4, X0 = -330, X1 = -95, Hw = 110, Hr = 80;
+    wallQuadSide(X1, D0, D1, 0, Hw, C.pl1); pq(PP(X1, D0, Hw), PP(X1, D1, Hw), PP(X1, (D0 + D1) / 2, Hw + Hr), PP(X1, (D0 + D1) / 2, Hw + Hr), C.pl1); poly([...PP(X1, D0, Hw), ...PP(X1, D1, Hw), ...PP(X1, (D0 + D1) / 2, Hw + Hr)], C.pl1);
+    wallQuadSide(X1, D0, D1, 0, 14, C.st1); winSide(X1, 2.55, 2.95, 50, 85, false);
+    poly([...PP(X1 + 10, D0 - .05, Hw - 4), ...PP(X1 + 10, (D0 + D1) / 2, Hw + Hr), ...PP(X0 - 10, (D0 + D1) / 2, Hw + Hr), ...PP(X0 - 10, D0 - .05, Hw - 4)], C.rf1);
+    for (let k = 1; k < 6; k++) { const f = k / 6, a = PP(X1 + 10, D0 - .05 + ((D0 + D1) / 2 - D0 + .05) * f, Hw - 4 + (Hr + 4) * f), b = PP(X0 - 10, D0 - .05 + ((D0 + D1) / 2 - D0 + .05) * f, Hw - 4 + (Hr + 4) * f); line(a[0], a[1], b[0], b[1], C.rf0); }
+    const r1 = PP(X1 + 10, D0 - .05, Hw - 4), r2 = PP(X1 + 10, (D0 + D1) / 2, Hw + Hr); line(r1[0], r1[1], r2[0], r2[1], C.out);
+    wallQuadFront(X0, X1, D0, 0, Hw, C.pl2); wallQuadFront(X0, X1, D0, 0, 14, C.st1);
+    for (const X of [X0, X0 + 78, X0 + 157, X1 - 6]) wallQuadFront(X, X + 6, D0, 14, Hw, C.wd1); wallQuadFront(X0, X1, D0, Hw - 8, Hw, C.wd1); wallQuadFront(X0, X1, D0, 56, 62, C.wd1);
+    winFront(X0 + 20, X0 + 60, D0, 66, 96); winFront(X0 + 172, X0 + 212, D0, 66, 96, false);
+    wallQuadFront(-180, -132, D0, 0, 84, C.wd0); wallQuadFront(-176, -136, D0, 0, 80, NIGHT ? C.lit : C.wd2); if (NIGHT) { const g = PP(-156, D0 - .3); light(g[0], g[1], 70, 24, 1.1); }
+    const ch = PP(-140, (D0 + D1) / 2, Hw + Hr - 10), cs = 18 * uOf(D0); rect(ch[0] - 1, ch[1] - 30 * uOf(D0), cs + 2, 36 * uOf(D0), C.out); rect(ch[0], ch[1] - 29 * uOf(D0), cs, 34 * uOf(D0), C.st1); smoke(ch[0] + cs / 2, ch[1] - 32 * uOf(D0));
+    const lp = PP(-120, D0, 96); rect(lp[0] - 2, lp[1], 5, 6, NIGHT ? C.lamp : C.glass2); light(lp[0], lp[1] + 3, 30, 30, .9);
+  }]);
+  // Bäume, Weide hinter dem Fluss
+  for (const [X, D, r, sd] of [[-20, 4.2, 44, 3], [-420, 1.6, 50, 5], [260, 6, 40, 7], [420, 3.2, 48, 2]]) L.push([D, () => { const p = PP(X, D); shade(p[0] + 4, p[1], r * uOf(D) * .9, r * uOf(D) * .25); tree(p[0], p[1], r * uOf(D), sd); }]);
+  L.push([5.6, () => { for (let X = 120; X <= 520; X += 40) { const a = PP(X, 5.6), b = PP(X, 5.6, 40); rect(a[0] - 1, b[1], 2, a[1] - b[1], C.wd1); } const a = PP(120, 5.6, 30), b = PP(520, 5.6, 30), c = PP(120, 5.6, 15), d = PP(520, 5.6, 15); line(a[0], a[1], b[0], b[1], C.wd2); line(c[0], c[1], d[0], d[1], C.wd2); }]);
+  for (let k = 0; k < 4; k++) { const X = 190 + k * 70 + Math.sin(t * .3 + k) * 10, D = 4.6 + (k % 2) * .6; L.push([D, () => { const p = PP(X, D); sheep('s', p[0], p[1], 3 * uOf(D), ((t + k) % 4) < 1.5 ? 1 : 0, k % 2 === 1); }]); }
+  // Figur kommt von der Haustür nach vorn (Größe wächst mit der Nähe)
+  const f = stWalker([[-156, 2.15], [-130, 1.8], [-60, 1.35], [10, 1.12]], 34, t, 0);
+  L.push([f.D, () => { const h = stFig('bauer', f.X, f.D, f.v, Math.floor(t * 6) % 4, f.flip, NIGHT ? { carry: 'laterne' } : {}); if (NIGHT) { const p = PP(f.X, f.D); light(p[0], p[1] - h * .3, h * 1.4, h * .8, 1); } }]);
+  // Vordergrund: Gräser an den Rändern
+  L.push([.5, () => { for (let k = 0; k < 16; k++) { const x = k < 8 ? k * 6 : W - (k - 8) * 6, hgt = 18 + hsh(k, 3) * 22; for (let j = 0; j < 3; j++) line(x + j * 2, H, x + j * 3 + Math.sin(t * 1.3 + k) * 3, H - hgt + j * 4, j & 1 ? C.gr0 : C.tree0); } }]);
+  stSort(L);
+}
+
+function p5haus(t) {
+  YH = 92; VX = 200;
+  const Dn = 1, Db = 2.6, XL = -300, XR = 300, Hc = 330;
+  rect(0, 0, W, H, C.wd0);
+  // Decke, Seitenwände, Rückwand, Boden
+  pq(PP(XL, Dn, Hc), PP(XR, Dn, Hc), PP(XR, Db, Hc), PP(XL, Db, Hc), C.wd1);
+  for (let D = 1.2; D < Db; D += .35) { const a = PP(XL, D, Hc), b = PP(XR, D, Hc); rect(a[0], a[1] - 4 / D, b[0] - a[0], 8 / D, C.wd0); }
+  pq(PP(XL, Dn, 0), PP(XL, Db, 0), PP(XL, Db, Hc), PP(XL, Dn, Hc), C.wall1); pq(PP(XR, Dn, 0), PP(XR, Db, 0), PP(XR, Db, Hc), PP(XR, Dn, Hc), C.wall1);
+  for (let D = 1.05; D < Db; D += .12) { const a = PP(XL, D, 0), b = PP(XL, D, Hc); line(a[0], a[1], b[0], b[1], C.wall0); const c = PP(XR, D, 0), d = PP(XR, D, Hc); line(c[0], c[1], d[0], d[1], C.wall0); }
+  wallQuadFront(XL, XR, Db, 0, Hc, C.wall2); for (let X = XL + 20; X < XR; X += 30) wallQuadFront(X, X + 6, Db, 70, Hc, C.wall1);
+  wallQuadFront(XL, XR, Db, 0, 70, C.wd2); for (let X = XL; X < XR; X += 60) wallQuadFront(X + 6, X + 54, Db, 8, 62, C.wd1);
+  pq(PP(XL, Dn, 0), PP(XR, Dn, 0), PP(XR, Db, 0), PP(XL, Db, 0), C.wd2);
+  for (let X = XL; X <= XR; X += 40) { const a = PP(X, Dn), b = PP(X, Db); line(a[0], a[1], b[0], b[1], C.wd1); }
+  for (let D = 1.1; D < Db; D += .14) { const a = PP(XL, D), b = PP(XR, D); for (let x = Math.max(0, a[0]); x < Math.min(W, b[0]); x++) if (hsh(Math.floor((x - VX) * D / 40), Math.floor(D * 7)) < .5) px(x, a[1], C.wd3); }
+  // Kamin an der Rückwand
+  wallQuadFront(-90, 90, Db, 0, 150, C.st1); for (let Y = 10; Y < 150; Y += 14) for (let X = -90 + ((Y / 14) & 1) * 15; X < 90; X += 30) { const a = PP(X, Db, Y); rect(a[0], a[1], 1, 5, C.st0); } for (let Y = 0; Y < 150; Y += 14) { const a = PP(-90, Db, Y), b = PP(90, Db, Y); hl(a[0], b[0], a[1], C.st0); }
+  wallQuadFront(-55, 55, Db, 0, 70, C.out); { const a = PP(-48, Db, 4), b = PP(48, Db, 4); fire(a[0], a[1], b[0] - a[0], 18); }
+  wallQuadFront(-110, 110, Db, 150, 162, C.wd3); for (let k = 0; k < 4; k++) { const p = PP(-80 + k * 50, Db, 162); rect(p[0] - 3, p[1] - 10, 6, 10, C.out); rect(p[0] - 2, p[1] - 9, 4, 9, [C.gold, C.red, C.shB, C.wht][k]); }
+  wallQuadFront(-60, 60, Db, 190, 270, C.gold); wallQuadFront(-54, 54, Db, 196, 264, C.sky2); wallQuadFront(-54, 54, Db, 196, 222, C.gr2); { const p = PP(0, Db, 222); circ(p[0], p[1] - 4, 7, C.tree1); }
+  // Fenster links, Tür rechts
+  winSide(XL, 1.35, 1.95, 110, 240, false); if (NIGHT) { const p = PP(XL, 1.6, 200); circ(p[0] + 4, p[1], 5, C.moon); }
+  wallQuadSide(XR, 1.5, 2.1, 0, 200, C.wd0); wallQuadSide(XR, 1.54, 2.06, 0, 194, C.wd2); { const p = PP(XR, 1.6, 100); rect(p[0] - 6, p[1], 4, 4, C.gold); }
+  const L = [];
+  // Teppich, Tisch, Stuhl, Truhe
+  L.push([2.1, () => { pq(PP(-170, 1.35), PP(170, 1.35), PP(170, 2.3), PP(-170, 2.3), C.rug0); pq(PP(-150, 1.42), PP(150, 1.42), PP(150, 2.22), PP(-150, 2.22), C.rug1); for (let k = 0; k < 5; k++) { const p = PP(-100 + k * 50, 1.8); px(p[0], p[1], C.rug2); px(p[0] - 1, p[1], C.rug2); px(p[0] + 1, p[1], C.rug2); } }]);
+  L.push([1.8, () => { const T = 72; pq(PP(-60, 1.65, T), PP(130, 1.65, T), PP(130, 2.05, T), PP(-60, 2.05, T), C.wd3); wallQuadFront(-60, 130, 1.65, T - 10, T, C.wd1); for (const X of [-52, 116]) wallQuadFront(X, X + 12, 1.65, 0, T - 10, C.wd1); for (const X of [-52, 116]) wallQuadFront(X, X + 10, 2.0, 0, T - 10, C.wd0);
+    const pl = PP(0, 1.82, T); ell(pl[0], pl[1], 9, 3, C.out); ell(pl[0], pl[1], 8, 2, C.wht); const mu = PP(70, 1.8, T); rect(mu[0], mu[1] - 9, 6, 9, C.shB); if (NIGHT) { const c = PP(40, 1.85, T); candle(c[0], c[1]); light(c[0], c[1] + 20, 80, 30, 1); } }]);
+  L.push([2.25, () => { wallQuadFront(150, 230, 2.3, 0, 60, C.wd2); wallQuadFront(150, 230, 2.3, 50, 60, C.wd3); }]);
+  L.push([1.55, () => { wallQuadFront(-140, -90, 1.6, 0, 120, C.wd1); wallQuadFront(-140, -90, 1.6, 40, 48, C.wd2); }]);
+  L.push([1.45, () => { const p = PP(160, 1.45); cat(p[0], p[1], 1.6); }]);
+  const f = stWalker([[-230, 1.25], [-120, 1.3], [100, 1.35], [220, 1.7]], 30, t, 20);
+  L.push([f.D, () => stFig('bauer', f.X, f.D, f.v, Math.floor(t * 6) % 4, f.flip)]);
+  stSort(L);
+  if (NIGHT) { const p = PP(0, 1.7, Hc); vl(p[0], p[1], p[1] + 30, C.st0); rect(p[0] - 6, p[1] + 30, 13, 9, C.out); rect(p[0] - 5, p[1] + 31, 11, 7, C.lamp); light(p[0], p[1] + 130, 210, 120, .9); }
+}
+
+function p5dorf(t) {
+  YH = 100; VX = 200;
+  sky(0, YH + 2); moon(60, 24); for (let k = 0; k < 3; k++) cloud(((k * 170 + t * 3) % 520) - 60, 14 + k * 9, 50);
+  // Pflaster mit Fluchtlinien
+  stGround(C.st2, C.st1, C.st3, 4, .12);
+  for (let X = -600; X <= 600; X += 40) { const a = PP(X, .9), b = PP(X, 5); line(a[0], a[1], b[0], b[1], C.st1); }
+  for (let D = 1; D < 5; D *= 1.12) { const a = PP(-600, D), b = PP(600, D); hl(a[0], b[0], a[1], C.st1); }
+  const L = [];
+  // Hintere Häuserzeile mit Kirchturm
+  L.push([5, () => { const D = 5; const cols = [C.sand2, C.pl1, C.glass2, C.pl2]; for (let k = 0; k < 4; k++) { const X0 = -360 + k * 180 + (k > 1 ? 40 : 0), X1 = X0 + 140, Hh = 140 + (k % 2) * 40; wallQuadFront(X0, X1, D, 0, Hh, cols[k]); pq(PP(X0 - 10, D, Hh), PP(X1 + 10, D, Hh), PP(X1 - 20, D, Hh + 60), PP(X0 + 20, D, Hh + 60), [C.rf1, C.rf0, C.st0, C.rf2][k]); for (let w = 0; w < 3; w++) winFront(X0 + 16 + w * 42, X0 + 40 + w * 42, D, Hh - 60, Hh - 24, (k + w) % 2 === 0); }
+    wallQuadFront(-60, 60, D, 0, 320, C.st2); pq(PP(-70, D, 320), PP(70, D, 320), PP(0, D, 470), PP(0, D, 470), C.st0); poly([...PP(-70, D, 320), ...PP(70, D, 320), ...PP(0, D, 470)], C.st0); const c = PP(0, D, 270); circ(c[0], c[1], 6, C.out); circ(c[0], c[1], 5, C.pl2); px(c[0], c[1] - 2, C.ink); px(c[0] + 1, c[1], C.ink); wallQuadFront(-26, 26, D, 0, 90, C.wd1); }]);
+  // Seitliche Häuserzeilen (fluchten zum Fluchtpunkt)
+  const sideRow = (X, sgn) => { const segs = [[1, 2, C.pl2, 200, C.rf1], [2, 3.1, C.sand2, 170, C.rf2], [3.1, 5, C.glass2, 190, C.st0]]; for (const [D0, D1, col, Hh, rf] of segs) L.push([D0 + .01, () => { wallQuadSide(X, D0, D1, 0, Hh, col); wallQuadSide(X, D0, D1, 0, 16, C.st1); pq(PP(X, D0, Hh), PP(X, D1, Hh), PP(X - sgn * 60, D1, Hh + 50), PP(X - sgn * 60, D0, Hh + 50), rf); const e = PP(X, D0, 0), f = PP(X, D0, Hh); line(e[0], e[1], f[0], f[1], C.out);
+      for (let D = D0 + .15; D < D1 - .2; D += (D1 - D0) / 3) { winSide(X, D, D + (D1 - D0) * .14, Hh - 80, Hh - 30, hsh(D * 10 | 0, X) < .6); } wallQuadSide(X, D1 - (D1 - D0) * .3, D1 - (D1 - D0) * .12, 0, 90, NIGHT && sgn > 0 ? C.lit : C.wd1); }]); };
+  sideRow(-260, -1); sideRow(260, 1);
+  // Brunnen
+  L.push([2.4, () => { const p = PP(0, 2.4), u = uOf(2.4), rx = 80 * u, ry = 26 * u; shade(p[0] + 5, p[1] + 3, rx + 4, ry * .6); ell(p[0], p[1], rx + 1, ry + 1, C.out); rect(p[0] - rx - 1, p[1] - 22 * u, rx * 2 + 3, 22 * u, C.out); ell(p[0], p[1], rx, ry, C.st1); rect(p[0] - rx, p[1] - 22 * u, rx * 2 + 1, 22 * u, C.st1); ell(p[0], p[1] - 22 * u, rx, ry, C.st3); ell(p[0], p[1] - 22 * u, rx - 5, ry - 3, C.wat1); rect(p[0] - 3, p[1] - 80 * u, 7, 58 * u, C.st2); ell(p[0], p[1] - 80 * u, 14 * u, 4 * u, C.st3);
+    for (let k = 0; k < 12; k++) { const a = (t * 1.3 + k / 12) % 1, sx = k & 1 ? 1 : -1; px(p[0] + sx * a * rx * .8, p[1] - 84 * u - Math.sin(a * Math.PI) * 14 * u + a * 60 * u, C.wat3); } }]);
+  for (const [X, D] of [[-180, 1.3], [180, 1.3], [-180, 3], [180, 3]]) L.push([D, () => stLamp(X, D)]);
+  // Marktstand rechts
+  L.push([1.9, () => { wallQuadFront(110, 230, 1.9, 0, 50, C.wd2); wallQuadFront(110, 230, 1.9, 44, 54, C.wd3); for (let k = 0; k < 6; k++) { const p = PP(120 + k * 20, 1.9, 54); circ(p[0], p[1] - 2, 3, C.out); circ(p[0], p[1] - 2, 2, [C.red, C.tree2, C.yel][k % 3]); } for (let k = 0; k < 6; k++) pq(PP(105 + k * 21, 2, 130), PP(126 + k * 21, 2, 130), PP(126 + k * 21, 1.8, 112), PP(105 + k * 21, 1.8, 112), k & 1 ? C.wht : C.rf2); for (const X of [112, 228]) wallQuadFront(X, X + 4, 1.85, 0, 112, C.wd1); }]);
+  L.push([2.05, () => stFig('haendler', 170, 2.05, 'f', 0)]);
+  // Figuren in verschiedenen Tiefen
+  const fr = s => Math.floor(t * s) % 4;
+  if (!NIGHT) {
+    const w1 = stWalker([[-150, 1.15], [-60, 3.8]], 34, t, 0); L.push([w1.D, () => stFig('baeckerin', w1.X, w1.D, w1.v, fr(5), w1.flip)]);
+    const a = t * .8, kx = Math.cos(a) * 120, kd = 2.4 + Math.sin(a) * .35, kv = Math.abs(Math.cos(a)) < .5 ? (Math.sin(a) > 0 ? 'b' : 'f') : 's';
+    L.push([kd - .01, () => stFig('kind', kx, kd, Math.sin(a) > .4 ? 'b' : Math.sin(a) < -.4 ? 'f' : 's', fr(10), -Math.sin(a) < 0)]);
+    L.push([1.5, () => stFig('frau', 40, 1.5, 's', 0, false)]); L.push([1.52, () => stFig('alte', 90, 1.52, 's', 0, true)]);
+    const w2 = stWalker([[-220, 4.4], [200, 4.4]], 40, t, 50); L.push([w2.D, () => stFig('schaffner', w2.X, w2.D, w2.v, fr(6), w2.flip)]);
+  } else { const w = stWalker([[-100, 1.2], [60, 3.6]], 30, t); L.push([w.D, () => { const h = stFig('haendler', w.X, w.D, w.v, fr(5), w.flip, { carry: 'laterne' }); const p = PP(w.X, w.D); light(p[0], p[1], h * 1.5, h * .5, 1); }]); }
+  stSort(L);
+}
+
+function p5zug(t) {
+  YH = 104; VX = 200;
+  const XL = -200, XR = 200, Hc = 250, Dn = .8, De = 6, s = t * 1.4, sway = Math.round(Math.sin(t * 2.4) * 1);
+  VX = 200 + sway;
+  rect(0, 0, W, H, C.tr0);
+  // Decke mit Lampen, Gepäckablagen
+  pq(PP(XL, Dn, Hc), PP(XR, Dn, Hc), PP(XR, De, Hc), PP(XL, De, Hc), C.pl1); for (let D = 1; D < De; D += .7) { const a = PP(-40, D, Hc), b = PP(40, D, Hc); rect(a[0], a[1], b[0] - a[0], Math.max(1, 6 / D), NIGHT ? C.lamp : C.wht); if (NIGHT) light((a[0] + b[0]) / 2, a[1] + 60 / D, 120 / D, 80 / D, 1); }
+  // Seitenwände mit Fenstern; draußen zieht die Landschaft nach hinten
+  for (const X of [XL, XR]) { pq(PP(X, Dn, 0), PP(X, De, 0), PP(X, De, Hc), PP(X, Dn, Hc), C.tr1); pq(PP(X, Dn, 0), PP(X, De, 0), PP(X, De, 95), PP(X, Dn, 95), C.wd2); }
+  for (let k = 0; k < 7; k++) { const D0 = 1.05 + k * .7, D1 = D0 + .5; for (const X of [XL, XR]) {
+      const a = PP(X, D0, 110), b = PP(X, D1, 110), c = PP(X, D1, 210), d = PP(X, D0, 210); pq(PP(X, D0 - .03, 104), PP(X, D1 + .03, 104), PP(X, D1 + .03, 216), PP(X, D0 - .03, 216), C.wd0);
+      const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]); pq(a, b, c, d, C.glass);
+      for (let x = Math.ceil(x0); x < x1; x++) { const f = (x - a[0]) / (b[0] - a[0]), D = 1 / ((1 - f) / D0 + f / D1), yt = YH + (H - YH) / D - 210 / D, yb = YH + (H - YH) / D - 110 / D, hz = yt + (yb - yt) * .55; const band = Math.floor((D * 3 + s * 3) % 6);
+        for (let y = Math.ceil(yt); y < yb; y++) { const i = y * W + x; if (y < 0 || y >= H) continue; let c_; if (y < hz) c_ = NIGHT ? C.nsky1 : C.sky2; else c_ = NIGHT ? C.nsky0 : (y < hz + 3 ? C.hill1 : C.gr2); if (band === 0 && y > hz - (yb - yt) * .3) c_ = NIGHT ? C.ink : C.tree1; if (NIGHT && band === 3 && Math.abs(y - hz - 4) < 1 && hsh(k, x) < .2) c_ = C.lit; B[i] = c_; WR++; } }
+      const m = PP(X, (D0 + D1) / 2, 110), n = PP(X, (D0 + D1) / 2, 210); line(m[0], m[1], n[0], n[1], C.wd1);
+      const r1 = PP(X * .92, D0, 228), r2 = PP(X * .92, D1 + .2, 228); line(r1[0], r1[1], r2[0], r2[1], C.st2); } }
+  // Boden mit Läufer, Stirnwand mit Tür
+  pq(PP(XL, Dn, 0), PP(XR, Dn, 0), PP(XR, De, 0), PP(XL, De, 0), C.wd1); pq(PP(-45, Dn, 0), PP(45, Dn, 0), PP(45, De, 0), PP(-45, De, 0), C.rug0); { const a = PP(-38, Dn), b = PP(-38, De), c = PP(38, Dn), d = PP(38, De); line(a[0], a[1], b[0], b[1], C.rug2); line(c[0], c[1], d[0], d[1], C.rug2); }
+  wallQuadFront(XL, XR, De, 0, Hc, C.tr1); wallQuadFront(-40, 40, De, 0, 180, C.wd0); wallQuadFront(-34, 34, De, 0, 174, C.wd2); wallQuadFront(-24, 24, De, 100, 160, NIGHT ? C.nsky1 : C.glass);
+  const L = [];
+  // Sitzreihen links und rechts; Fahrgäste schauen zur Kamera
+  const pax = [['wirt', -1, .5], ['frau', 1, .5], ['schaffner', -1, 1.2], ['frau', -1, 1.6], ['bauer', 1, 2.3], ['alte', -1, 3.0], ['kind', 1, 3.7], ['haendler', -1, 4.4], ['baeckerin', 1, 1.6], ['wirt', 1, 4.4]].filter(r => r[0] !== 'schaffner');
+  for (let k = 0; k < 7; k++) { const D = 1.2 + k * .7; for (const sg of [-1, 1]) L.push([D, () => { const X0 = sg < 0 ? XL + 5 : 50, X1 = sg < 0 ? -50 : XR - 5; wallQuadFront(X0, X1, D, 0, 16, C.rf0); wallQuadFront(X0, X1, D, 16, 44, C.rf1); wallQuadFront(X0, X1, D, 40, 48, C.rf2); const e = PP(sg < 0 ? X1 : X0, D, 0), f = PP(sg < 0 ? X1 : X0, D, 48); line(e[0], e[1], f[0], f[1], C.out); }]); }
+  for (const [look, sg, Dp] of pax) L.push([Dp + .62, () => { const Dq = Dp + .62, X = sg * 115, p = PP(X, Dq, 22), h = Math.round(52 * uOf(Dq)); fig(look, 'f', p[0], p[1], look === 'kind' ? Math.round(h * .8) : h, 0, false, { pose: 'sit' }); if (NIGHT) light(p[0], p[1] - h * .4, h * 1.6, h * 1.2, 1); }]);
+  const cd = 5.2 - ((t * .35) % 4.2); L.push([cd, () => stFig('schaffner', 0, cd, 'f', Math.floor(t * 5) % 4, false)]);
+  stSort(L);
+}
+var P5 = { hof: p5hof, haus: p5haus, dorf: p5dorf, zug: p5zug };
+
+// ===== Bedienung =====
+const MM = .272; // mm pro Weltpixel auf dem 5″-Panel
+const SCENES = [['hof', 'Hof'], ['haus', 'Haus innen'], ['dorf', 'Dorf'], ['zug', 'Zug']];
+const g = (name) => (typeof globalThis[name] !== 'undefined' ? globalThis[name] : null);
+const PERSP = [
+  { id: 'seite', n: '1', name: 'Seitenansicht', sub: 'mit Parallax', S: () => g('P1'),
+    vorbild: 'Kingdom, Zugfenster, klassische Jump’n’Runs',
+    figur: 'Zelle 16 × 24, Figur ≈ 10 × 22 px (6 mm)', figPx: '22', raster: '16 × 16, eine Bodenlinie; Tiefe nur über Ebenen', richt: '2 (Profil, gespiegelt), dazu von vorn an Türen', richtN: '2',
+    plus: ['Parallax gibt Tiefe fast ohne Aufwand', 'Himmel, Wetter und Spiegelungen wirken groß', 'Nur ein Figurensatz im Profil', 'Zug sieht hier am besten aus'],
+    minus: ['Figuren laufen nur auf einer Linie, Begegnungen überlappen', 'Innenräume wirken flach wie eine Kulisse', 'Ein Dorfplatz mit vielen Leuten wird zur Menschenreihe'],
+    grafik: [2, 'Gering: Ebenen sind große, einfache Flächen; Figuren nur im Profil.'],
+    rechnen: [3, 'Keine Sortierung, aber 4–6 Ebenen übereinander: jede Zeile wird mehrfach beschrieben.'],
+    welt: [3, 'Gut für Zug und Straßen, schwach für Plätze und Häuser mit mehreren Räumen.'] },
+  { id: 'schnitt', n: '2', name: 'Querschnitt', sub: 'Puppenhaus', S: () => g('P2'),
+    vorbild: 'Fallout Shelter, Terraria, Sim-Tower',
+    figur: 'Zelle 16 × 24, Figur ≈ 10 × 20 px (5,5 mm)', figPx: '20', raster: '16 × 16, Stockwerk 3 Kacheln (48 px)', richt: '2 (Profil, gespiegelt), dazu von vorn zum Sitzen und Schlafen', richtN: '2–3',
+    plus: ['Alles gleichzeitig sichtbar: wer kocht, wer schläft, was im Keller lagert', 'Wege über Treppen und Stockwerke erzählen viel', 'Bestände (Keller, Regale) sind direkt zu sehen', 'Billig zu zeichnen: kaum Überdeckung'],
+    minus: ['Draußen (Weide, Fluss) wirkt wie ein Erdschnitt', 'Dorfplatz geht nur als Häuserzeile', 'Mehrere Stockwerke auf einem Bildschirm machen Räume niedrig'],
+    grafik: [3, 'Mittel: viele Räume und Möbel, aber nur eine Ansicht.'],
+    rechnen: [4, 'Eine Ebene, kaum Überdeckung, keine Sortierung. Sehr günstig.'],
+    welt: [4, 'Sehr gut für Häuser, Läden und den Zug; als einziger Stil draußen zu schwach.'] },
+  { id: 'draufsicht', n: '3', name: '3/4-Draufsicht', sub: 'leicht schräg von oben', S: () => g('P3'),
+    vorbild: 'Stardew Valley, Zelda, Pokémon',
+    figur: 'Zelle 16 × 24, Figur ≈ 10 × 22 px (6 mm)', figPx: '22', raster: '16 × 16 Kacheln, Wände eine Kachel hoch sichtbar', richt: '4 (vorn, hinten, Profil gespiegelt), 3 davon gezeichnet', richtN: '4 (3 gezeichnet)',
+    plus: ['Freie Wege in alle Richtungen: Weide, Fluss und Platz wirken natürlich', 'Viele Bewohner gleichzeitig ohne Gedränge', 'Licht und Schatten liegen glaubwürdig auf dem Boden', 'Bewährte Kachel-Technik, große Karten mit Kamerafahrt'],
+    minus: ['Häuser zeigen nur Dach und Front, das Innere erst nach Ortswechsel', 'Figuren eher klein, Gesichter nur angedeutet', 'Wenig Himmel: Wetter wirkt über Boden, Licht und Partikel'],
+    grafik: [3, 'Mittel: 3 Ansichten pro Figur und Tier, Kachelsätze mit Übergängen.'],
+    rechnen: [4, 'Kachelkarte und Y-Sortierung nach Fußpunkt (20–60 Objekte). Günstig.'],
+    welt: [5, 'Beste Wahl für große Außenorte mit vielen Bewohnern.'] },
+  { id: 'iso', n: '4', name: 'Isometrisch', sub: 'Rauten-Kacheln', S: () => g('P4'),
+    vorbild: 'SimCity 2000, Habbo, Die Sims 1',
+    figur: 'Zelle 16 × 24, Figur ≈ 8 × 18 px (5 mm)', figPx: '18', raster: 'Rauten 32 × 16 (2 : 1), Höhen in 8-px-Stufen', richt: '4 schräge (2 gezeichnet, gespiegelt), 8 für weiche Wege', richtN: '4 schräg (+4)',
+    plus: ['Wirkt am räumlichsten, Häuser als echte Körper', 'Schöner Überblick wie in einer Aufbausimulation', 'Räume wie bei den Sims: zwei Wände, Möbel stehen frei'],
+    minus: ['Alles muss schräg gezeichnet werden: Wände in zwei Richtungen, Möbel, Figuren', 'Tiefensortierung bei hohen und langen Objekten fehleranfällig', 'Figuren kleiner, Antippen auf Rauten ungenauer', 'Viel weniger Bodenfläche pro Bildschirm'],
+    grafik: [5, 'Hoch: jedes Objekt in Raum-Ansicht, doppelt so viele Kachelvarianten.'],
+    rechnen: [2, 'Überlappende Rauten, Sortierung aller Objekte pro Bild, Licht als Ellipsen.'],
+    welt: [3, 'Machbar, aber der Grafikaufwand frisst die Zeit für Lebendigkeit.'] },
+  { id: 'buehne', n: '5', name: 'Bühne mit Bodentiefe', sub: 'Point-and-Click', S: () => g('P5'),
+    vorbild: 'Monkey Island, Thimbleweed Park',
+    figur: 'Figur 26–52 px je nach Tiefe (7–14 mm)', figPx: '26–52', raster: 'kein Raster: gemalte Hintergründe mit Laufflächen-Maske', richt: '4 (vorn, hinten, Profil gespiegelt) in mehreren Größen', richtN: '4 × Größen',
+    plus: ['Größte Figuren mit Gesichtern und Mimik', 'Stimmungsvolle Orte wie ein Bühnenbild', 'Tiefe durch Größe wirkt auf 5″ sehr gut'],
+    minus: ['Jeder Ort ist ein Einzelbild: viel Malarbeit, kaum wiederverwendbar', 'Wenige Figuren gleichzeitig', 'Mehrere Größen pro Figur (oder unsaubere Pixel beim Skalieren)', 'Orte wachsen schwer mit Updates'],
+    grafik: [5, 'Hoch: jeder Ort von Hand gemalt, jede Figur in 3–4 Größen.'],
+    rechnen: [3, 'Hintergrund kopieren ist billig; Figuren in mehreren Größen kosten PSRAM.'],
+    welt: [2, 'Schön für wenige Schauplätze, schlecht für ein wachsendes Dorf.'] },
+  { id: 'mischung', n: '★', name: 'Mischung', sub: 'Empfehlung', mix: true, S: () => ({ hof: g('P3')?.hof, haus: g('P2')?.haus, dorf: g('P3')?.dorf, zug: g('P2')?.zug }), labels: { hof: '3/4', haus: 'Querschnitt', dorf: '3/4', zug: 'Querschnitt' } },
+];
+const $ = (id) => document.getElementById(id);
+const scr = $('screen'), sctx = scr.getContext('2d'), IMG = sctx.createImageData(W, H), IMG2 = sctx.createImageData(W, H);
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const st = { p: 0, s: 'hof', night: false, anim: !RM, seq: false, seqT0: 0, t: 3 };
+function placeholder() { rect(0, 0, W, H, C.ink); for (let k = 0; k < 40; k++) hl(0, W, k * 6, C.out); }
+function sceneFn(pi, s) { const S = PERSP[pi].S(); return (S && S[s]) || placeholder; }
+function renderInto(img, fn, t, night) { beginFrame(night, t); try { fn(t); } catch (e) { console.error(e); } const cols = composite(img); return { cols, wr: WR, sort: SORTN }; }
+
+// Reiter
+const tabs = $('tabs');
+PERSP.forEach((p, i) => { const b = document.createElement('button'); b.className = 'tab' + (p.mix ? ' mix' : ''); b.id = 'tab-' + p.id; b.innerHTML = `<span class="n">${p.n}</span><span>${p.name}</span>`; b.onclick = () => { setP(i); }; tabs.appendChild(b); });
+// Filmstreifen
+const strip = $('strip'), thumbs = {};
+SCENES.forEach(([k, label], i) => { const b = document.createElement('button'); b.className = 'thumb'; b.id = 'th-' + k; const c = document.createElement('canvas'); c.width = W; c.height = H; const l = document.createElement('span'); l.innerHTML = `${label}${i < 3 ? ' <span class="arrow">→</span>' : ''}`; b.append(c, l); b.onclick = () => { stopSeq(); st.s = k; sync(); }; strip.appendChild(b); thumbs[k] = { c, ctx: c.getContext('2d'), img: c.getContext('2d').createImageData(W, H), l }; });
+function drawThumbs() { const P = PERSP[st.p]; for (const [k, label] of SCENES) { const th = thumbs[k]; renderInto(th.img, sceneFn(st.p, k), 3, st.night); th.ctx.putImageData(th.img, 0, 0); th.l.innerHTML = `${label}${P.labels ? ` <span class="arrow">· ${P.labels[k]}</span>` : ''}${k !== 'zug' ? ' <span class="arrow">→</span>' : ''}`; } }
+function bar(n) { return `<span class="bar" aria-label="${n} von 5">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= n ? 'on' : ''}"></i>`).join('')}</span>`; }
+function info() {
+  const P = PERSP[st.p], el = $('info');
+  if (P.mix) { el.innerHTML = `<span class="eyebrow">Empfohlene Mischung</span><h2>3/4 draußen, Querschnitt drinnen</h2><dl class="facts"><dt>Hof, Dorf</dt><dd>3/4-Draufsicht, großer Ort, Kamera fährt mit</dd><dt>Haus, Zug</dt><dd>Querschnitt, ein Bildschirm, Landschaft als Parallax hinter dem Wagen</dd><dt>Figur</dt><dd>Zelle 16 × 24, Figur ≈ 10 × 22 px (6 mm)</dd><dt>Raster</dt><dd>16 × 16 rechteckig, keine Rauten</dd><dt>Richtungen</dt><dd>4 aus 3 gezeichneten Ansichten; der Querschnitt nutzt Profil und Vorderansicht derselben Figur</dd></dl><p class="note">Die Bildfolge zeigt den Weg Hof → Haus → Dorf → Zug mit Wechsel der Perspektive. Die Überblendung ist ein Pixel-Raster, wie es die Engine ohne Transparenz kann.</p><p class="note">Begründung unten unter „Mischung“.</p>`; return; }
+  el.innerHTML = `<span class="eyebrow">Perspektive ${P.n} · ${P.vorbild}</span><h2>${P.name}</h2>
+  <dl class="facts"><dt>Figur</dt><dd>${P.figur}</dd><dt>Raster</dt><dd>${P.raster}</dd><dt>Richtungen</dt><dd>${P.richt}</dd></dl>
+  <div class="meter"><span class="lbl">Grafikarbeit</span>${bar(6 - P.grafik[0])}<span></span><span class="txt">${P.grafik[1]}</span>
+  <span class="lbl">Rechenzeit</span>${bar(P.rechnen[0])}<span></span><span class="txt">${P.rechnen[1]}</span>
+  <span class="lbl">Eine Welt</span>${bar(P.welt[0])}<span></span><span class="txt">${P.welt[1]}</span></div><p class="note">Mehr Kästchen = weniger Aufwand bzw. besser geeignet.</p>
+  <div><h3>Auf 5″ gut</h3><ul class="pc plus">${P.plus.map(x => `<li>${x}</li>`).join('')}</ul></div>
+  <div><h3>Auf 5″ schwierig</h3><ul class="pc minus">${P.minus.map(x => `<li>${x}</li>`).join('')}</ul></div>`;
+}
+function table() {
+  $('cmp').innerHTML = PERSP.filter(p => !p.mix).map(p => `<tr class="${p.id === 'draufsicht' || p.id === 'schnitt' ? 'rec' : ''}"><th>${p.n} · ${p.name}</th><td class="num">${p.figPx} px · ${p.figPx.split('–').map(v => (v * MM).toFixed(1).replace('.', ',')).join('–')} mm</td><td>${p.richtN}</td><td>${bar(6 - p.grafik[0])}</td><td>${bar(p.rechnen[0])}</td><td>${bar(p.welt[0])}</td></tr>`).join('');
+}
+function setP(i) { st.p = i; stopSeq(); try { history.replaceState(null, '', '#' + PERSP[i].id); } catch (e) { } sync(); }
+function sync() {
+  PERSP.forEach((p, i) => $('tab-' + p.id).setAttribute('aria-pressed', i === st.p));
+  SCENES.forEach(([k]) => $('th-' + k).setAttribute('aria-pressed', k === st.s));
+  $('b-night').setAttribute('aria-pressed', st.night); $('b-night').textContent = st.night ? 'Nacht ☾' : 'Tag ☀';
+  $('b-anim').setAttribute('aria-pressed', st.anim); $('b-anim').textContent = st.anim ? 'Bewegung an' : 'Bewegung aus';
+  $('b-seq').setAttribute('aria-pressed', st.seq); $('b-seq').textContent = st.seq ? '■ Bildfolge stoppen' : '▶ Bildfolge Hof → Haus → Dorf → Zug';
+  info(); drawThumbs(); frame(true);
+}
+function stopSeq() { st.seq = false; }
+$('b-night').onclick = () => { st.night = !st.night; sync(); };
+$('b-anim').onclick = () => { st.anim = !st.anim; sync(); };
+$('b-seq').onclick = () => { st.seq = !st.seq; st.seqT0 = performance.now(); if (st.seq) st.s = 'hof'; sync(); };
+const SEQ_D = 3.6, FADE = .7;
+let last = 0;
+function frame(force) {
+  let fn = sceneFn(st.p, st.s), r;
+  if (st.seq) {
+    const e = (performance.now() - st.seqT0) / 1000, idx = Math.floor(e / SEQ_D) % 4, ph = e % SEQ_D;
+    if (SCENES[idx][0] !== st.s) { st.s = SCENES[idx][0]; SCENES.forEach(([k]) => $('th-' + k).setAttribute('aria-pressed', k === st.s)); }
+    fn = sceneFn(st.p, st.s); r = renderInto(IMG, fn, st.t, st.night);
+    if (ph < FADE) { // Raster-Überblendung vom vorigen Ort
+      const prev = SCENES[(idx + 3) % 4][0]; renderInto(IMG2, sceneFn(st.p, prev), st.t, st.night); const f = ph / FADE, a = IMG.data, b = IMG2.data;
+      for (let y = 0, i = 0; y < H; y++) for (let x = 0; x < W; x++, i++) if (f < bay(x >> 1, y >> 1)) { const j = i * 4; a[j] = b[j]; a[j + 1] = b[j + 1]; a[j + 2] = b[j + 2]; }
+    }
+  } else r = renderInto(IMG, fn, st.t, st.night);
+  sctx.putImageData(IMG, 0, 0);
+  const P = PERSP[st.p];
+  $('stats').innerHTML = `Farben im Bild <b>${r.cols}</b> / 240 · Schreibzugriffe <b>${(r.wr / N).toFixed(1).replace('.', ',')} ×</b> Bildfläche${r.sort ? ` · sortierte Objekte <b>${r.sort}</b>` : ''} · ${P.mix ? P.labels[st.s] : P.name}`;
+}
+function loop(now) { requestAnimationFrame(loop); if (now - last < 66) return; const dt = Math.min(.2, (now - last) / 1000); last = now; if (st.anim) st.t += dt; if (st.anim || st.seq) frame(); }
+const hashP = PERSP.findIndex(p => '#' + p.id === location.hash); if (hashP >= 0) st.p = hashP;
+table(); sync(); requestAnimationFrame(loop);
+
+</script>
+
+</body>
+</html>

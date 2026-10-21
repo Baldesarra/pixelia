@@ -43,7 +43,17 @@ den ganzen Verlauf neu (0.2.2: 634 Schritte, 740 K Kontext, ein komplettes 5-Stu
 
 - Mit dem User **Deutsch** sprechen. Doku, UI-Texte und Changelog auf Deutsch.
 - Claude ist „Kapitän“: technische Entscheidungen selbst treffen und kurz begründen, Verbesserungen aktiv vorschlagen.
-  Geschmacks- und Prioritätsfragen an den User geben.
+  Geschmacks- und Prioritätsfragen an den User geben (wie, siehe „Mitentscheiden“).
+- **Zwischenstände:** nach jedem fertigen Teilschritt 1–3 Zeilen „Neu: …“ in Alltagssprache, ohne Dateinamen. Am
+  Sitzungsende vor dem Auftragstext „Das ist neu für dich“ (höchstens 6 Punkte).
+- **Mitentscheiden („Nur Wichtiges“):** große Design-, UI- und Inhaltsentscheidungen (Menüpunkte, Farben und
+  Standardwerte, Einstellungen und Experimentell-Funktionen, Aussehen von Szenen und Figuren, sichtbare Namen und
+  Texte) vor der Umsetzung mit AskUserQuestion vorlegen: 2–4 Optionen, Empfehlung zuerst mit „(Empfohlen)“, bei
+  Aussehen mit Vorschau (Screenshot oder Skizze). Bis 4 Fragen bündeln, währenddessen an unabhängigen Teilen
+  weiterarbeiten. Kleinigkeiten mit Empfehlung selbst entscheiden und in der Zusammenfassung nennen; Technik weiter
+  selbst entscheiden, kurz begründet.
+- **Zusatzfunktionen** und zusätzliche Einstellungen als Auswahlliste (Mehrfachauswahl) anbieten, nicht stillschweigend
+  einbauen oder weglassen.
 - Der User hat keine GitHub-Erfahrung: Git-/GitHub-Schritte erklären und so weit wie möglich automatisieren.
 - Hardware-Tests macht der User. Bei visuellen Änderungen Simulator-Screenshots liefern.
 - **Das Pixel-Dorf ist der Schwerpunkt** und soll besonders detailliert und lebendig werden.

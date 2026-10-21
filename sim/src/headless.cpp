@@ -12,7 +12,7 @@
 #include "pixelia/engine/color.h"
 #include "pixelia/engine/png.h"
 #include "pixelia/engine/rng.h"
-#include "pixelia/engine/scene.h"
+#include "pixelia/engine/stage.h"
 #include "pixelia/engine/system_ui.h"
 #include "pixelia/engine/tiny_font.h"
 #include "sim.h"
@@ -48,20 +48,20 @@ struct Stats {
     double render_seconds = 0;
 };
 
-void step(pixelia::Scene& scene, pixelia::WorldClock& clock, Stats& st, uint64_t count) {
+void step(pixelia::Stage& stage, pixelia::WorldClock& clock, Stats& st, uint64_t count) {
     auto t0 = Clock::now();
     for (uint64_t i = 0; i < count; ++i) {
         clock.advance(pixelia::kTickUs);
-        scene.tick(clock);
+        stage.tick(clock);
     }
     st.ticks += count;
     st.tick_seconds += seconds_since(t0);
 }
 
-void render(const pixelia::Scene& scene, std::vector<uint8_t>& frame, Stats& st) {
+void render(const pixelia::Stage& stage, std::vector<uint8_t>& frame, Stats& st) {
     auto t0 = Clock::now();
     pixelia::Canvas canvas(frame.data(), kScreenWidth, kScreenHeight);
-    scene.render(canvas);
+    stage.render(canvas);
     st.renders++;
     st.render_seconds += seconds_since(t0);
 }
@@ -170,7 +170,7 @@ struct RgbImage {
     }
 };
 
-int contact_sheet(const Options& opt, pixelia::Scene& scene, pixelia::WorldClock& clock, Stats& st,
+int contact_sheet(const Options& opt, pixelia::Stage& stage, pixelia::WorldClock& clock, Stats& st,
                   std::vector<uint8_t>& frame) {
     const int n = std::max(1, opt.moments);
     // Zeitraffer: Ohne eigene Angabe läuft der Kontaktbogen mit 60x (eine Weltminute pro Sekunde)
@@ -197,10 +197,10 @@ int contact_sheet(const Options& opt, pixelia::Scene& scene, pixelia::WorldClock
         // vorspulen bis zum Moment (Schritte mit der Zeitraffer-Weite)
         int64_t per_tick = std::max<int64_t>(1, static_cast<int64_t>(pixelia::kTickUs * clock.speed()));
         int64_t remaining = moments[i] - clock.world_us();
-        if (remaining > 0) step(scene, clock, st, static_cast<uint64_t>((remaining + per_tick - 1) / per_tick));
-        render(scene, frame, st);
-        pixelia::indexed_to_rgb(frame.data(), kScreenWidth, kScreenHeight, scene.palette(), 1, opt.device_colors,
-                                rgb.data());
+        if (remaining > 0) step(stage, clock, st, static_cast<uint64_t>((remaining + per_tick - 1) / per_tick));
+        render(stage, frame, st);
+        pixelia::indexed_to_rgb(frame.data(), kScreenWidth, kScreenHeight, display_palette(stage), 1,
+                                opt.device_colors, rgb.data());
         int x = gap + (i % cols) * (kScreenWidth + gap);
         int y = header + (i / cols) * (kScreenHeight + label_h + gap);
         sheet.blit(rgb.data(), kScreenWidth, kScreenHeight, x, y);
@@ -216,6 +216,48 @@ int contact_sheet(const Options& opt, pixelia::Scene& scene, pixelia::WorldClock
     }
     std::printf("sim: Kontaktbogen %s (%dx%d, %d Momente über %.1f Tag(e), Zeitraffer %gx)\n",
                 opt.contact_sheet.c_str(), sheet.w, sheet.h, n, opt.span_days, clock.speed());
+    return 0;
+}
+
+// Bildfolge: count Bilder im Abstand von every Logik-Schritten, z. B. für Übergänge und Animationen
+int sequence(const Options& opt, pixelia::Stage& stage, pixelia::WorldClock& clock, Stats& st,
+             std::vector<uint8_t>& frame) {
+    const int n = std::max(1, opt.count);
+    const int cols = std::min(n, 4);
+    const int rows = (n + cols - 1) / cols;
+    const int gap = 6, header = 26;
+    RgbImage sheet(gap + cols * (kScreenWidth + gap), header + rows * (kScreenHeight + gap), 22, 22, 28);
+    char title[128];
+    std::snprintf(title, sizeof(title), "PIXELIA BILDFOLGE  %s  ALLE %d SCHRITTE", opt.go.empty() ? opt.scene.c_str()
+                                                                                                    : opt.go.c_str(),
+                  opt.every);
+    for (char* p = title; *p; ++p) *p = static_cast<char>(std::toupper(static_cast<unsigned char>(*p)));
+    sheet.text(title, gap, 8, 2, 230, 230, 236);
+    std::vector<uint8_t> rgb(static_cast<size_t>(kScreenWidth) * kScreenHeight * 3);
+    long t = 0;
+    for (int i = 0; i < n; ++i) {
+        const long k = i == 0 ? 1 : opt.every;  // erstes Bild nach einem Schritt (Wechsel wirkt im nächsten tick)
+        step(stage, clock, st, static_cast<uint64_t>(k));
+        t += k;
+        render(stage, frame, st);
+        pixelia::indexed_to_rgb(frame.data(), kScreenWidth, kScreenHeight, display_palette(stage), 1,
+                                opt.device_colors, rgb.data());
+        const int x = gap + (i % cols) * (kScreenWidth + gap);
+        const int y = header + (i / cols) * (kScreenHeight + gap);
+        sheet.blit(rgb.data(), kScreenWidth, kScreenHeight, x, y);
+        char label[48];
+        std::snprintf(label, sizeof(label), "+%ld %s", t,
+                      stage.transitioning() ? pixelia::transition_name(stage.transition()) : "");
+        for (char* p = label; *p; ++p) *p = static_cast<char>(std::toupper(static_cast<unsigned char>(*p)));
+        const int tw = pixelia::tiny_font::text_width(label) * 2;
+        sheet.rect(x + 4, y + kScreenHeight - 18, tw + 8, 14, 0, 0, 0);
+        sheet.text(label, x + 8, y + kScreenHeight - 15, 2, 255, 255, 255);
+    }
+    if (!write_file(opt.sequence, pixelia::encode_png_rgb(sheet.px.data(), sheet.w, sheet.h))) {
+        std::printf("FEHLER: %s nicht schreibbar\n", opt.sequence.c_str());
+        return 1;
+    }
+    std::printf("sim: Bildfolge %s (%d Bilder, alle %d Schritte)\n", opt.sequence.c_str(), n, opt.every);
     return 0;
 }
 
@@ -241,28 +283,127 @@ pixelia::ui::InfoCardData sample_info(const std::string& variant) {
     return d;
 }
 
+pixelia::Palette display_palette(const pixelia::Stage& stage) {
+    pixelia::Palette p = stage.palette();
+    pixelia::ui::apply_palette(p);  // 240–255 wie auf dem Gerät (feine Einblendungen der Orte nutzen sie)
+    return p;
+}
+
+bool setup_stage(const Options& opt, pixelia::Stage& stage) {
+    pixelia::add_standard_scenes(stage);
+    stage.use_own_buffers();
+    const int start = stage.find(opt.scene);
+    if (start < 0) return false;
+    stage.set_active(start);
+    stage.init(opt.seed);
+    if (opt.load >= 0) stage.set_load(opt.load);
+    stage.set_inspect(opt.inspect);
+    stage.set_follow(opt.follow);
+    for (size_t pos = 0; pos < opt.cmd.size();) {
+        size_t end = opt.cmd.find(',', pos);
+        if (end == std::string::npos) end = opt.cmd.size();
+        const std::string c = opt.cmd.substr(pos, end - pos);
+        if (!c.empty() && !stage.scene(start).command(c.c_str()))
+            std::fprintf(stderr, "sim: Befehl \"%s\" kennt der Ort %s nicht\n", c.c_str(),
+                         opt.scene.c_str());
+        pos = end + 1;
+    }
+    return true;
+}
+
+bool parse_go(const std::string& spec, const pixelia::Stage& stage, int* place, pixelia::Transition* t) {
+    const size_t colon = spec.find(':');
+    *place = stage.find(spec.substr(0, colon));
+    *t = pixelia::kDefaultTransition;
+    if (colon != std::string::npos && !pixelia::parse_transition(spec.substr(colon + 1), t)) return false;
+    return *place >= 0;
+}
+
+// Vergleichsbild (seit 0.5.2): je Zelle eine frische Bühne mit Ort, Uhrzeit und Befehlen, 2 s gelaufen
+int grid(const Options& opt) {
+    std::vector<std::string> cells;
+    for (size_t pos = 0; pos <= opt.cells.size();) {
+        size_t end = opt.cells.find(';', pos);
+        if (end == std::string::npos) end = opt.cells.size();
+        if (end > pos) cells.push_back(opt.cells.substr(pos, end - pos));
+        pos = end + 1;
+    }
+    if (cells.empty()) {
+        std::printf("FEHLER: --grid braucht --cells\n");
+        return 2;
+    }
+    const int n = static_cast<int>(cells.size()), cols = std::min(n, opt.cols), rows = (n + cols - 1) / cols;
+    const int gap = 6;
+    RgbImage sheet(gap + cols * (kScreenWidth + gap), gap + rows * (kScreenHeight + 22 + gap), 22, 22, 28);
+    std::vector<uint8_t> frame(pixelia::kScreenPixels), rgb(static_cast<size_t>(kScreenWidth) * kScreenHeight * 3);
+    for (int i = 0; i < n; ++i) {
+        std::string part[4];
+        size_t pos = 0;
+        for (int k = 0; k < 4; ++k) {
+            const size_t end = k < 3 ? cells[i].find('|', pos) : std::string::npos;
+            part[k] = cells[i].substr(pos, end == std::string::npos ? std::string::npos : end - pos);
+            if (end == std::string::npos) break;
+            pos = end + 1;
+        }
+        Options o = opt;
+        if (!part[1].empty()) o.scene = part[1];
+        if (!part[2].empty() && std::sscanf(part[2].c_str(), "%d:%d", &o.hour, &o.minute) != 2) return 2;
+        o.cmd = part[3];
+        for (char& ch : o.cmd)
+            if (ch == '+') ch = ',';
+        pixelia::Stage stage;
+        if (!setup_stage(o, stage)) return 2;
+        pixelia::WorldClock clock;
+        clock.set(o.day, o.hour, o.minute);
+        Stats st;
+        step(stage, clock, st, 60);
+        render(stage, frame, st);
+        pixelia::indexed_to_rgb(frame.data(), kScreenWidth, kScreenHeight, display_palette(stage), 1,
+                                opt.device_colors, rgb.data());
+        const int x = gap + (i % cols) * (kScreenWidth + gap), y = gap + (i / cols) * (kScreenHeight + 22 + gap);
+        sheet.blit(rgb.data(), kScreenWidth, kScreenHeight, x, y);
+        std::string label = part[0];
+        for (char& ch : label) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        sheet.text(label.c_str(), x + 2, y + kScreenHeight + 5, 2, 236, 236, 240);
+    }
+    if (!write_file(opt.grid, pixelia::encode_png_rgb(sheet.px.data(), sheet.w, sheet.h))) return 1;
+    std::printf("sim: Vergleichsbild %s (%dx%d, %d Zellen)\n", opt.grid.c_str(), sheet.w, sheet.h, n);
+    return 0;
+}
+
 int run_headless(const Options& opt) {
-    auto scene = pixelia::make_scene(opt.scene.c_str());
-    scene->init(opt.seed);
-    if (opt.load >= 0) scene->set_load(opt.load);
+    if (!opt.grid.empty()) return grid(opt);
+    pixelia::Stage stage;
+    if (!setup_stage(opt, stage)) return 2;
     pixelia::WorldClock clock;
     clock.set(opt.day, opt.hour, opt.minute);
     clock.set_speed(opt.speed);
-    std::printf("sim: Szene %s, Startwert %llu, Start %s, Zeitraffer %gx\n", scene->name(),
+    std::printf("sim: Ort %s, Startwert %llu, Start %s, Zeitraffer %gx\n", stage.scene(stage.active()).name(),
                 static_cast<unsigned long long>(opt.seed), world_time_text(clock).c_str(), clock.speed());
 
     Stats st;
     std::vector<uint8_t> frame(pixelia::kScreenPixels);
-    // Ein Schritt ohne Weltzeit bringt die Szene auf die Startzeit (Palette, Licht), ohne die Uhr zu verstellen
+    // Ein Schritt ohne Weltzeit bringt die Szenen auf die Startzeit (Palette, Licht), ohne die Uhr zu verstellen
     clock.advance(0);
-    scene->tick(clock);
-    if (opt.frames > 0) step(*scene, clock, st, static_cast<uint64_t>(opt.frames));
+    stage.tick(clock);
+    if (opt.frames > 0) step(stage, clock, st, static_cast<uint64_t>(opt.frames));
+    if (!opt.go.empty()) {
+        int place;
+        pixelia::Transition t;
+        if (!parse_go(opt.go, stage, &place, &t)) {
+            std::printf("FEHLER: --go %s: Ort oder Übergang unbekannt (Orte: %s; Übergänge: schnitt, ueberblendung, "
+                        "raster, abblenden)\n", opt.go.c_str(), pixelia::scene_names());
+            return 2;
+        }
+        stage.go(place, t);
+        if (opt.after > 0) step(stage, clock, st, static_cast<uint64_t>(opt.after));
+    }
 
     int rc = 0;
+    if (!opt.sequence.empty()) rc |= sequence(opt, stage, clock, st, frame);
     if (!opt.screenshot.empty()) {
-        render(*scene, frame, st);
-        pixelia::Palette palette = scene->palette();
-        pixelia::ui::apply_palette(palette);
+        render(stage, frame, st);
+        pixelia::Palette palette = display_palette(stage);
         if (!opt.screen.empty() && !render_screen(opt.screen, frame)) {
             std::printf("FEHLER: Systemanzeige \"%s\" gibt es nicht (setup, setup-leer, setup-fehler, update, "
                         "update-fertig, failed, message, toast, toast-lang, toast-ip, info, info-setup, "
@@ -281,9 +422,9 @@ int run_headless(const Options& opt) {
             rc = 1;
         }
     }
-    if (!opt.contact_sheet.empty()) rc |= contact_sheet(opt, *scene, clock, st, frame);
-    if (opt.screenshot.empty() && opt.contact_sheet.empty() && opt.frames == 0) {
-        std::printf("sim: nichts zu tun (--frames, --screenshot oder --contact-sheet angeben)\n");
+    if (!opt.contact_sheet.empty()) rc |= contact_sheet(opt, stage, clock, st, frame);
+    if (opt.screenshot.empty() && opt.contact_sheet.empty() && opt.sequence.empty() && opt.frames == 0) {
+        std::printf("sim: nichts zu tun (--frames, --screenshot, --sequence oder --contact-sheet angeben)\n");
     }
 
     std::printf("sim: Bericht: %llu Logik-Schritte (%.2f µs/Schritt), %llu Bilder (%.1f µs/Bild), Weltzeit jetzt %s\n",

@@ -11,13 +11,14 @@ export async function get<T>(path: string): Promise<T> {
   return (await r.json()) as T;
 }
 
-/** quiet: bei fehlender Anmeldung nicht nach dem PIN fragen (z. B. Farbwahl, die auch nur im Browser gilt) */
+/** quiet: bei fehlender Anmeldung nicht nach dem PIN fragen (z. B. Farbwahl, die auch nur im Browser gilt).
+ *  Ein Blob geht unverändert als Rumpf (z. B. das Testbild für /api/picture). */
 export async function post<T = Reply>(
   path: string,
-  data: Record<string, string | number> = {},
+  data: Record<string, string | number> | Blob = {},
   opts: { quiet?: boolean } = {},
 ): Promise<T> {
-  const body = () => new URLSearchParams(Object.entries(data).map(([k, v]) => [k, String(v)]));
+  const body = () => (data instanceof Blob ? data : new URLSearchParams(Object.entries(data).map(([k, v]) => [k, String(v)])));
   let r = await fetch(path, { method: 'POST', body: body(), headers: auth.headers() });
   if ((r.status === 401 || r.status === 429) && !opts.quiet) {
     const j = (await r.json()) as Reply;
@@ -182,7 +183,19 @@ export type ExpState = {
   std: PanelValues;
   mode: 'black' | 'bars' | 'frame' | 'motion' | 'touch' | 'engine';
   testS: number;
-  touch: { ok: boolean; down: boolean; x: number; y: number; corners: number; n: number };
+  pic?: boolean; // eigenes Testbild auf dem Display (seit 0.5.0)
+  // Orte der Bühne (seit 0.5.0): Liste, sichtbarer Ort, Übergang, Rundgang in s (0 = aus), Figuren (0 = Standard)
+  places?: { id: string; title: string }[];
+  place?: number;
+  trans?: 'schnitt' | 'ueberblendung' | 'raster' | 'abblenden';
+  tour?: number;
+  figures?: number;
+  follow?: boolean; // Blick folgt der Begleiterin durch Türen und Bildränder (seit 0.5.1)
+  inspect?: boolean; // Prüfansicht: Stellflächen, Benutzungspunkte, Ausgänge (seit 0.5.1)
+  minute?: number; // Testuhr (seit 0.5.2): Minute des Tages, Zeitraffer, echte Uhrzeit
+  speed?: number;
+  real?: boolean;
+  touch:{ ok: boolean; down: boolean; x: number; y: number; corners: number; n: number };
 };
 
 /** GET /api/perf (seit 0.2.2): Leistung, Messung alle 2 s; Task-Liste nur mit ?tasks=1 */

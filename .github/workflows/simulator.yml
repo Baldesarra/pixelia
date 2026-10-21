@@ -37,6 +37,9 @@ jobs:
             $S --headless --time 12:00 --frames 90 --screenshot out/mittag.png
             $S --headless --time 20:00 --frames 90 --screenshot out/abend.png
             $S --headless --time 00:00 --contact-sheet out/kontaktbogen.png --span-days 2
+            $S --headless --scene testort-wiese --frames 200 --screenshot out/testort-wiese.png
+            $S --headless --scene testort-raum --frames 200 --screenshot out/testort-raum.png
+            $S --headless --scene testort-wiese --frames 60 --go testort-raum --sequence out/wechsel-abblenden.png --every 4 --count 6
             for s in setup setup-fehler update update-fertig failed message toast-lang toast-ip info info-setup \
                      info-offline hold; do
               $S --headless --time 14:00 --screen "$s" --screenshot "out/system-$s.png"

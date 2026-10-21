@@ -14,7 +14,7 @@ idf_component_register(
     REQUIRES board engine
     PRIV_REQUIRES esp_driver_uart esp_driver_i2c esp_psram esp_timer spi_flash app_update esp_app_format
                   espcoredump esp_partition bootloader_support esp_bootloader_format nvs_flash esp_wifi esp_netif
-                  esp_event esp_http_server lwip esp_mm hal esp_driver_tsens mbedtls esp_http_client)
+                  esp_event esp_http_server lwip esp_mm hal esp_driver_tsens mbedtls esp_http_client esp_driver_dma)
 
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)
 file(GLOB_RECURSE _web_src CONFIGURE_DEPENDS "${PIXELIA_WEB_DIR}/src/*")

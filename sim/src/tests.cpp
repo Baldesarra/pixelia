@@ -1,7 +1,9 @@
 // Selbsttests der Engine-Bausteine ohne Hardware (--test), laufen auch in der CI.
 // gestures: Gestenerkennung (Tippen, langer Druck) mit nachgestellten Touch-Abläufen wie vom GT911.
 // redact: Passwort-Filter der Diagnose-Ausgaben (Blockgrenzen, JSON-Schreibweise, mehrere Geheimnisse).
+// stage: Bühne und Figuren-Bausteine (Determinismus, Rechnen ohne Zeichnen, Übergänge, Farbreihen, Animationen).
 
+#include <cstring>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -9,8 +11,13 @@
 #include <string>
 #include <vector>
 
+#include "pixelia/engine/light.h"
+#include "pixelia/engine/color.h"
 #include "pixelia/engine/gesture.h"
 #include "pixelia/engine/redact.h"
+#include "pixelia/engine/sprite.h"
+#include "pixelia/engine/stage.h"
+#include "pixelia/engine/test_places.h"
 #include "sim.h"
 
 namespace sim {
@@ -242,6 +249,461 @@ std::vector<Case> redact_cases() {
     };
 }
 
+// Bühne: gleiche Schritte = gleiche Bilder, Zeichnen ändert nichts, Übergänge, Sprites, Farbreihen, Animationen
+struct StageRun {
+    pixelia::Stage stage;
+    pixelia::WorldClock clock;
+    explicit StageRun(uint64_t seed, const char* start = "scrolltest") {
+        Options opt;
+        opt.scene = start;
+        opt.seed = seed;
+        setup_stage(opt, stage);
+        clock.advance(0);
+        stage.tick(clock);
+    }
+    void run(int ticks, bool render_each = false) {
+        for (int i = 0; i < ticks; ++i) {
+            clock.advance(pixelia::kTickUs);
+            stage.tick(clock);
+            if (render_each) frame();
+        }
+    }
+    // Bild als RGB (so vergleichen sich auch Bilder mit verschiedenen Paletten)
+    std::vector<uint8_t> frame() {
+        std::vector<uint8_t> idx(pixelia::kScreenPixels), rgb(pixelia::kScreenPixels * 3);
+        pixelia::Canvas c(idx.data(), pixelia::kScreenWidth, pixelia::kScreenHeight);
+        stage.render(c);
+        pixelia::indexed_to_rgb(idx.data(), pixelia::kScreenWidth, pixelia::kScreenHeight, display_palette(stage), 1,
+                                false, rgb.data());
+        return rgb;
+    }
+};
+
+// Anteil gleicher Bildpunkte (0 … 1)
+double same_share(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) {
+    size_t same = 0;
+    for (size_t i = 0; i < a.size(); i += 3) same += a[i] == b[i] && a[i + 1] == b[i + 1] && a[i + 2] == b[i + 2];
+    return static_cast<double>(same) * 3 / a.size();
+}
+
+std::string percent(double v) { return std::to_string(static_cast<int>(v * 100 + 0.5)) + " %"; }
+
+std::vector<Case> stage_cases() {
+    using pixelia::Transition;
+    return {
+        {"Gleicher Startwert und gleiche Wechsel ergeben dieselben Bilder",
+         [] {
+             StageRun a(7), b(7);
+             for (auto* r : {&a, &b}) {
+                 r->run(40);
+                 r->stage.go(1, Transition::Dissolve);
+                 r->run(9);
+             }
+             if (a.frame() != b.frame()) return std::string("mitten in der Überblendung verschieden");
+             for (auto* r : {&a, &b}) {
+                 r->run(300);
+                 r->stage.go(2, Transition::Pattern);
+                 r->run(400);
+             }
+             return a.frame() == b.frame() ? std::string() : "nach 750 Schritten verschieden";
+         }},
+        {"Anderer Startwert ergibt einen anderen Ablauf",
+         [] {
+             StageRun a(7, "testort-wiese"), b(8, "testort-wiese");
+             a.run(200);
+             b.run(200);
+             return a.frame() != b.frame() ? std::string() : "Bilder gleich";
+         }},
+        {"Zeichnen ändert den Ablauf nicht (jeden Schritt gezeichnet vs. nur am Ende)",
+         [] {
+             StageRun a(3), b(3);
+             for (int k = 0; k < 3; ++k) {
+                 a.stage.go((k + 1) % 3, Transition::Dissolve);
+                 b.stage.go((k + 1) % 3, Transition::Dissolve);
+                 a.run(250, true);
+                 b.run(250, false);
+             }
+             return a.frame() == b.frame() ? std::string() : "Bilder verschieden";
+         }},
+        {"Unsichtbare Orte rechnen weiter (Wechsel per Schnitt zeigt denselben Stand)",
+         [] {
+             StageRun a(5, "testort-raum"), b(5, "scrolltest");
+             a.run(901);
+             b.run(900);
+             b.stage.go(2, Transition::Cut);
+             b.run(1);
+             return a.frame() == b.frame() ? std::string() : "Raum nach 901 Schritten verschieden";
+         }},
+        {"Überblendung dauert 18 Schritte, die Mitte zeigt etwa zur Hälfte den neuen Ort",
+         [] {
+             StageRun a(9), cut(9);
+             a.run(30);
+             cut.run(30);
+             a.stage.go(1, Transition::Dissolve);
+             cut.stage.go(1, Transition::Cut);
+             a.run(9);
+             cut.run(9);
+             if (a.stage.transition() != Transition::Dissolve) return std::string("Paletten nicht zusammengelegt");
+             const double mid = same_share(a.frame(), cut.frame());
+             if (mid < 0.4 || mid > 0.75) return "Mitte: " + percent(mid) + " wie der neue Ort";
+             a.run(8);
+             cut.run(8);
+             if (!a.stage.transitioning()) return std::string("nach 17 Schritten schon fertig");
+             const double late = same_share(a.frame(), cut.frame());
+             if (late < 0.85) return "Schritt 17: erst " + percent(late);
+             a.run(1);
+             cut.run(1);
+             if (a.stage.transitioning()) return std::string("nach 18 Schritten nicht fertig");
+             return a.frame() == cut.frame() ? std::string() : "nach dem Übergang anders als per Schnitt";
+         }},
+        {"Raster und Überblendung zwischen zwei groben Orten",
+         [] {
+             for (Transition t : {Transition::Pattern, Transition::Dissolve}) {
+                 StageRun a(4, "testort-wiese"), cut(4, "testort-wiese");
+                 a.stage.go(2, t);
+                 cut.stage.go(2, Transition::Cut);
+                 a.run(9);
+                 cut.run(9);
+                 const double mid = same_share(a.frame(), cut.frame());
+                 if (a.stage.transition() != t) return std::string("Übergang ersetzt");
+                 if (mid < 0.4 || mid > 0.75) return std::string(pixelia::transition_name(t)) + ": " + percent(mid);
+             }
+             return std::string();
+         }},
+        {"Abblenden: in der Mitte schwarz",
+         [] {
+             StageRun a(2, "testort-wiese");
+             a.stage.go(0, Transition::Fade);
+             a.run(9);
+             const pixelia::Palette& p = a.stage.palette();
+             for (int i = 0; i < pixelia::kSceneColors; ++i)
+                 if (p[i].r || p[i].g || p[i].b) return "Farbe " + std::to_string(i) + " nicht schwarz";
+             return std::string();
+         }},
+        {"Verdoppeln 200×120 → 400×240",
+         [] {
+             std::vector<uint8_t> coarse(pixelia::kCoarsePixels), fine(pixelia::kScreenPixels, 0);
+             for (int i = 0; i < pixelia::kCoarsePixels; ++i) coarse[i] = static_cast<uint8_t>(i * 7 + i / 200);
+             pixelia::Canvas c(fine.data(), pixelia::kScreenWidth, pixelia::kScreenHeight);
+             pixelia::upscale2x(coarse.data(), c);
+             for (int y = 0; y < pixelia::kScreenHeight; ++y)
+                 for (int x = 0; x < pixelia::kScreenWidth; ++x)
+                     if (fine[y * pixelia::kScreenWidth + x] != coarse[(y / 2) * pixelia::kCoarseWidth + x / 2])
+                         return "falsch bei " + std::to_string(x) + "/" + std::to_string(y);
+             return std::string();
+         }},
+        {"Farbreihe ersetzt die Rampe, Index 0 bleibt durchsichtig, Spiegeln",
+         [] {
+             const uint8_t px[4] = {0, 20, 21, 5};
+             std::vector<uint8_t> buf(8, 9);
+             pixelia::Canvas c(buf.data(), 4, 2);
+             pixelia::Recolor r;
+             r.ramp(20, 40, 4).set(0, 77);
+             c.blit({px, 4, 1}, 0, 0, false, r.table());
+             c.blit({px, 4, 1}, 0, 1, true, r.table());
+             const std::vector<uint8_t> want = {9, 40, 41, 5, 5, 41, 40, 9};
+             return buf == want ? std::string() : std::string("Bildpunkte falsch");
+         }},
+        {"Animation: Schleife, einmal, hin und her",
+         [] {
+             using pixelia::AnimFrame;
+             using pixelia::AnimMode;
+             const AnimFrame f[] = {{0, 2}, {1, 1}, {2, 1}};
+             auto seq = [&](AnimMode m) {
+                 const pixelia::Animation anim{f, 3, m};
+                 pixelia::Animator an;
+                 an.play(&anim);
+                 std::string s;
+                 for (int i = 0; i < 9; ++i) {
+                     s += static_cast<char>('0' + an.frame());
+                     an.tick();
+                 }
+                 return s;
+             };
+             if (seq(AnimMode::Loop) != "001200120") return "Schleife " + seq(AnimMode::Loop);
+             if (seq(AnimMode::Once) != "001222222") return "einmal " + seq(AnimMode::Once);
+             if (seq(AnimMode::PingPong) != "001210012") return "hin und her " + seq(AnimMode::PingPong);
+             return std::string();
+         }},
+        {"Blickrichtungen: drei Ansichten, links gespiegelt",
+         [] {
+             using pixelia::Facing;
+             const auto l = pixelia::view_of(Facing::Left), r = pixelia::view_of(Facing::Right);
+             const bool ok = pixelia::view_of(Facing::Down).index == 0 && pixelia::view_of(Facing::Up).index == 1 &&
+                             r.index == 2 && !r.flip && l.index == 2 && l.flip;
+             return ok ? std::string() : std::string("Zuordnung falsch");
+         }},
+        // --- Raum und Baukasten (seit 0.5.1) ---
+        {"Kacheln: Legende, Boden deckend, Wand mit Durchsicht, versperrte Kacheln",
+         [] {
+             uint8_t px[3][pixelia::kTilePixels];
+             std::fill(px[0], px[0] + 64, 0);
+             std::fill(px[1], px[1] + 64, 5);
+             std::fill(px[2], px[2] + 64, 0);
+             px[2][0] = 9;  // Wand: nur ein Punkt gezeichnet
+             const uint8_t flags[3] = {0, 0, pixelia::kTileBlocks};
+             const pixelia::TileSet set{&px[0][0], flags, 3};
+             pixelia::TileMap m;
+             const char* floor[1] = {"..."};
+             const char* wall[1] = {" #"};
+             m.load(pixelia::kFloorLayer, floor, 1, " .#");
+             m.load(pixelia::kWallLayer, wall, 1, " .#");
+             std::vector<uint8_t> buf(pixelia::kCoarsePixels, 1);
+             pixelia::Canvas c(buf.data(), pixelia::kCoarseWidth, pixelia::kCoarseHeight);
+             m.draw(c, set, pixelia::kFloorLayer, true);
+             m.draw(c, set, pixelia::kWallLayer, false);
+             if (m.at(0, 0, 0) != 1 || m.at(1, 1, 0) != 2 || m.at(1, 0, 0) != 0) return std::string("Legende falsch");
+             if (buf[0] != 5 || buf[8] != 9 || buf[9] != 5 || buf[24] != 1) return std::string("Ebenen falsch gezeichnet");
+             if (!m.blocks(set, 1, 0) || m.blocks(set, 0, 0) || !m.blocks(set, -1, 0)) return std::string("Sperren falsch");
+             return std::string();
+         }},
+        {"Tiefe: Figur hinter dem Möbel verdeckt, davor sichtbar (auch eingebacken)",
+         [] {
+             const uint8_t block[16] = {7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7};
+             const uint8_t fig[4] = {3, 3, 3, 3};
+             auto run = [&](int fig_y, bool baked) {
+                 std::vector<uint8_t> buf(pixelia::kCoarsePixels, 0);
+                 pixelia::Canvas c(buf.data(), pixelia::kCoarseWidth, pixelia::kCoarseHeight);
+                 pixelia::DepthList l;
+                 if (baked) c.blit({block, 4, 4}, 10, 10);  // steht schon im Hintergrund
+                 l.add_at({block, 4, 4}, 10, 10, 13, false, nullptr, baked);
+                 l.add({fig, 2, 2}, 11, fig_y, 0, 1);  // Fußpunkt (11, fig_y)
+                 l.draw(c);
+                 return buf[(fig_y - 1) * pixelia::kCoarseWidth + 11];
+             };
+             for (bool baked : {false, true}) {
+                 if (run(12, baked) != 7) return std::string(baked ? "eingebacken: " : "") + "Figur dahinter sichtbar";
+                 if (run(14, baked) != 3) return std::string(baked ? "eingebacken: " : "") + "Figur davor verdeckt";
+             }
+             return std::string();
+         }},
+        {"Tiefe: Hintergrundbild plus Neuzeichnen ist pixelgleich mit allem jedes Bild (alle Testorte, 40 Figuren)",
+         [] {
+             for (const char* place : {"testort-wiese", "testort-raum", "testort-platz"}) {
+                 StageRun r(11, place);
+                 r.clock.set_time_of_day(23, 0);  // nachts: Licht an (Figuren im Lichtkreis, Lichtkarte beim Verdoppeln)
+                 r.stage.set_follow(false);
+                 r.stage.set_load(40);
+                 auto& tp = static_cast<pixelia::TestPlace&>(r.stage.scene(r.stage.active()));
+                 if (!tp.room().has_background()) return std::string(place) + ": kein Hintergrundbild";
+                 std::vector<uint8_t> a(pixelia::kCoarsePixels), b(pixelia::kCoarsePixels);
+                 pixelia::Canvas ca(a.data(), pixelia::kCoarseWidth, pixelia::kCoarseHeight);
+                 pixelia::Canvas cb(b.data(), pixelia::kCoarseWidth, pixelia::kCoarseHeight);
+                 for (int k = 0; k < 60; ++k) {
+                     r.run(7);
+                     if (k == 20) tp.command("ausbau");
+                     if (k == 40) tp.command("baustelle");
+                     tp.render(ca);
+                     tp.render_direct(cb);
+                     if (a != b) return std::string(place) + ": verschieden nach " + std::to_string(k * 7) + " Schritten";
+                     // Schichten (0.5.2): Puffer mit Müll vorbelegt, nur unter den bewegten Teilen kopiert
+                     std::vector<uint8_t> w(pixelia::kCoarsePixels, 0xEE), fa(pixelia::kScreenPixels),
+                         fb(pixelia::kScreenPixels);
+                     pixelia::Canvas cw(w.data(), pixelia::kCoarseWidth, pixelia::kCoarseHeight);
+                     pixelia::CoarseLayers layers;
+                     tp.render_layers(cw, layers);
+                     if (!layers.base) return std::string(place) + ": keine Schichten";
+                     pixelia::Canvas cfa(fa.data(), pixelia::kScreenWidth, pixelia::kScreenHeight);
+                     pixelia::Canvas cfb(fb.data(), pixelia::kScreenWidth, pixelia::kScreenHeight);
+                     pixelia::upscale2x(w.data(), cfa, &layers);
+                     pixelia::CoarseLayers flat = layers;  // gleiches Licht, ohne Hintergrund-Schicht
+                     flat.base = nullptr;
+                     pixelia::upscale2x(b.data(), cfb, &flat);
+                     if (!layers.light) return std::string(place) + ": keine Lichtkarte";
+                     if (fa != fb) return std::string(place) + ": Schichten verdoppelt verschieden, Schritt " + std::to_string(k * 7);
+                     pixelia::flatten_layers(w.data(), layers);
+                     if (w != b) return std::string(place) + ": Schichten zusammengelegt verschieden";
+                 }
+             }
+             return std::string();
+         }},
+        {"Ausbaustufen und „im Bau“ ändern das vorgezeichnete Bild, zurück ergibt wieder das gleiche",
+         [] {
+             pixelia::TestPlace p(pixelia::TestPlace::Kind::Room);
+             pixelia::WorldClock clock;
+             p.init(3);
+             p.enter();
+             const uint8_t* bg = p.room().background();
+             if (!bg) return std::string("kein Hintergrundbild");
+             const std::vector<uint8_t> before(bg, bg + pixelia::kCoarsePixels);
+             auto now = [&] { return std::vector<uint8_t>(bg, bg + pixelia::kCoarsePixels); };
+             p.command("ausbau");
+             p.tick(clock);
+             if (now() == before) return std::string("Ausbau ohne Wirkung");
+             p.command("ausbau");
+             p.tick(clock);
+             if (now() != before) return std::string("zwei Stufen weiter ist nicht wieder Stufe 0");
+             p.command("baustelle");
+             p.tick(clock);
+             if (now() == before) return std::string("im Bau ohne Wirkung");
+             const pixelia::Room& room = p.room();
+             const int bed = room.find_part(pixelia::PartKind::Bed), table = room.find_part(pixelia::PartKind::Table);
+             int tx, ty;
+             if (!room.building(bed) || !room.use_point(bed, 0, &tx, &ty, nullptr))
+                 return std::string("Bett im Bau: Arbeitsplatz fehlt");
+             if (room.use_point(table, 0, &tx, &ty, nullptr)) return std::string("Tisch im Bau noch benutzbar");
+             p.command("baustelle");
+             p.tick(clock);
+             p.leave();
+             if (p.room().has_background()) return std::string("Hintergrund nicht freigegeben");
+             return std::string();
+         }},
+        {"Wege: Breitensuche um Möbel herum, versperrtes Ziel (Bett) erreichbar, Erkennungsstück aufgelöst",
+         [] {
+             pixelia::TestPlace p(pixelia::TestPlace::Kind::Room);
+             p.init(5);
+             const pixelia::Room& room = p.room();
+             auto walk = [&](int x, int y, int gx, int gy) {
+                 constexpr int dx[4] = {0, 0, -1, 1}, dy[4] = {1, -1, 0, 0};
+                 for (int n = 0; n < 200; ++n) {
+                     pixelia::Facing d;
+                     if (x == gx && y == gy) return n;
+                     if (!room.step_toward(x, y, gx, gy, &d)) return -1;
+                     x += dx[static_cast<int>(d)];
+                     y += dy[static_cast<int>(d)];
+                     if (!(x == gx && y == gy) && !room.walkable(x, y)) return -2;
+                 }
+                 return -3;
+             };
+             const int n = walk(3, 10, 20, 6);
+             if (n != 21) return "Weg zum Bett: " + std::to_string(n) + " Schritte (erwartet 21)";
+             if (walk(20, 6, 21, 6) != 1) return std::string("Bett selbst nicht erreichbar");
+             if (walk(5, 6, 10, 9) < 0) return std::string("Tisch nicht erreichbar");
+             if (room.walkable(10, 8) || room.walkable(0, 6) || !room.walkable(10, 14))
+                 return std::string("Stellfläche, Wand oder Ausgang falsch");
+             int token = -1;
+             for (int i = 0; i < room.part_count(); ++i)
+                 if (room.part(i).part == pixelia::kSignaturePart) token = i;
+             if (token < 0 || !room.def(token)) return std::string("Erkennungsstück nicht aufgelöst");
+             return std::string();
+         }},
+        {"Ausgänge: Figuren wechseln über Tür und Bildrand den Ort, keine geht verloren; Blick folgt der Begleiterin",
+         [] {
+             auto total = [](StageRun& r) {
+                 int n = 0;
+                 for (const char* s : {"testort-wiese", "testort-raum", "testort-platz"})
+                     n += static_cast<pixelia::TestPlace&>(r.stage.scene(r.stage.find(s))).figure_count();
+                 return n;
+             };
+             StageRun a(21, "testort-wiese");
+             const int start = total(a);
+             int changes = 0, last = a.stage.active();
+             for (int k = 0; k < 400; ++k) {
+                 a.run(30);
+                 if (a.stage.active() != last) ++changes, last = a.stage.active();
+                 int guides = 0;
+                 for (const char* s : {"testort-wiese", "testort-raum", "testort-platz"})
+                     guides += static_cast<pixelia::TestPlace&>(a.stage.scene(a.stage.find(s))).has_guide();
+                 if (guides != 1) return "Begleiterin " + std::to_string(guides) + "-mal da";
+             }
+             if (a.stage.travels() < 20) return "nur " + std::to_string(a.stage.travels()) + " Reisen in 400 s";
+             if (total(a) != start) return "Figuren " + std::to_string(start) + " → " + std::to_string(total(a));
+             if (changes < 3) return "Blick folgte nur " + std::to_string(changes) + "-mal";
+             StageRun b(21, "testort-wiese");
+             b.stage.set_follow(false);
+             b.run(12000);
+             if (b.stage.active() != b.stage.find("testort-wiese")) return std::string("ohne Folgen trotzdem gewechselt");
+             if (b.stage.travels() != a.stage.travels()) return std::string("Reisen hängen vom Blick ab");
+             return std::string();
+         }},
+        // --- Farbe und Licht (seit 0.5.2) ---
+        {"Tageszeit: gleiche Uhr mit Zeitraffer ergibt dieselben Bilder, andere Uhrzeit eine andere Palette",
+         [] {
+             StageRun a(6, "testort-raum"), b(6, "testort-raum"), c(6, "testort-raum");
+             for (auto* r : {&a, &b, &c}) {
+                 r->clock.set_time_of_day(r == &c ? 5 : 17, 0);
+                 r->clock.set_speed(600);  // 300 Schritte = 100 Weltminuten
+             }
+             a.run(300, true);
+             b.run(300, false);
+             c.run(300, false);
+             if (a.frame() != b.frame()) return std::string("mit Zeitraffer verschieden");
+             return a.frame() != c.frame() ? std::string() : "17 Uhr und 5 Uhr gleich";
+         }},
+        {"Licht: tagsüber unsichtbar, nachts heller; Systemfarben 240–255 unberührt; Nacht nicht unter der Grenze",
+         [] {
+             pixelia::TestPlace p(pixelia::TestPlace::Kind::Room);
+             p.init(1);
+             p.enter();
+             const auto& pal = p.place_palette();
+             const int base = pal.base();
+             pixelia::WorldClock clk;
+             auto at = [&](int h, int m) {
+                 clk.set(0, h, m);
+                 p.tick(clk);
+                 return p.palette();
+             };
+             auto sum = [](pixelia::Color c) { return c.r + c.g + c.b; };
+             const pixelia::Palette day = at(12, 0), night = at(23, 30);
+             for (int i = 1; i < base; ++i) {
+                 if (pal.role(i) != pixelia::ColorRole::Normal) continue;
+                 if (sum(day[i]) != sum(day[2 * base + i])) return "tagsüber Lichtstufe sichtbar, Farbe " + std::to_string(i);
+                 if (sum(night[i]) > 30 && sum(night[2 * base + i]) <= sum(night[i]))
+                     return "nachts Lichtstufe nicht heller, Farbe " + std::to_string(i);
+             }
+             for (int i = pixelia::kSceneColors; i < 256; ++i)
+                 if (sum(night[i]) != 0) return "Systemfarbe " + std::to_string(i) + " verändert";
+             const pixelia::Ambient a = pixelia::daylight_preset(0).at(23LL * 3600 * 1000000);
+             if ((a.r + a.g + a.b) / 3 < pixelia::kDefaultNightFloor - 1) return std::string("Nacht unter der Grenze");
+             return p.room().light_count() > 0 && p.room().light_map() ? std::string() : "keine Lichtkarte";
+         }},
+        {"Überblendung mit wechselnden Paletten: Farben laufen weiter; nachts zu viele Farben, dann Abblenden",
+         [] {
+             StageRun a(4, "testort-wiese"), n(4, "testort-wiese");
+             a.clock.set_time_of_day(14, 0);
+             a.clock.set_speed(18000);
+             n.clock.set_time_of_day(23, 0);
+             for (auto* r : {&a, &n}) {
+                 r->run(1);
+                 r->stage.go(2, Transition::Dissolve);
+                 r->run(2);
+             }
+             if (a.stage.transition() != Transition::Dissolve) return std::string("tagsüber nicht überblendet");
+             const pixelia::Palette p1 = a.stage.palette();
+             a.run(8);
+             const pixelia::Palette p2 = a.stage.palette();
+             if (!a.stage.transitioning()) return std::string("Übergang schon vorbei");
+             if (std::memcmp(p1.data(), p2.data(), sizeof(p1)) == 0) return std::string("Palette steht während des Übergangs");
+             return n.stage.transition() == Transition::Fade ? std::string() : "nachts nicht abgeblendet";
+         }},
+        {"Farbrotation, Farbtabellen (Schatten, Mischung) und Lichtstufen der Tabellen",
+         [] {
+             pixelia::PlacePalette p(3);
+             const pixelia::Color cs[5] = {{200, 40, 40}, {40, 200, 40}, {40, 40, 200}, {120, 120, 120}, {60, 60, 60}};
+             for (int i = 0; i < 5; ++i) p.set(1 + i, cs[i]);
+             p.add_cycle({1, 3, 5});
+             pixelia::Palette o0{}, o5{}, o15{};
+             const pixelia::Ambient a;
+             p.apply(a, 0, o0);
+             p.apply(a, 5, o5);
+             p.apply(a, 15, o15);
+             if (o5[1].r != o0[2].r || o5[1].g != o0[2].g) return std::string("Rotation um einen Platz falsch");
+             if (std::memcmp(&o0[1], &o15[1], 3 * sizeof(pixelia::Color)) != 0) return std::string("nach 15 Schritten nicht zurück");
+             uint8_t t[256];
+             p.tint_table({0, 0, 0}, 128, t);
+             if (t[0] != 0 || t[4] != 5 || t[80 + 4] != 85 || t[250] != 250) return std::string("Schattentabelle falsch");
+             std::vector<uint8_t> bl(80 * 80);
+             p.blend_table(bl.data());
+             if (bl[4 * 80 + 4] != 4 || bl[4 * 80 + 5] != bl[5 * 80 + 4]) return std::string("Mischtabelle falsch");
+             return std::string();
+         }},
+        {"Betreten: nur sichtbare Orte haben ein Hintergrundbild, während der Überblendung beide",
+         [] {
+             StageRun r(2, "testort-wiese");
+             r.stage.set_follow(false);
+             const int w = r.stage.find("testort-wiese"), p = r.stage.find("testort-platz");
+             auto bg = [&](int i) { return static_cast<pixelia::TestPlace&>(r.stage.scene(i)).room().has_background(); };
+             if (!bg(w) || bg(p)) return std::string("Start falsch");
+             r.stage.go(p, pixelia::Transition::Dissolve);
+             r.run(2);
+             if (!bg(w) || !bg(p)) return std::string("Überblendung: nicht beide");
+             r.run(30);
+             if (bg(w) || !bg(p)) return std::string("nach dem Wechsel: alter Ort behält sein Bild");
+             return std::string();
+         }},
+    };
+}
+
 int run_group(const char* title, const std::vector<Case>& cases) {
     int failed = 0;
     for (const auto& c : cases) {
@@ -261,13 +723,14 @@ int run_group(const char* title, const std::vector<Case>& cases) {
 }  // namespace
 
 int run_tests(const std::string& which) {
-    if (which != "gestures" && which != "redact" && which != "all") {
-        std::printf("FEHLER: Test \"%s\" gibt es nicht (gestures, redact, all)\n", which.c_str());
+    if (which != "gestures" && which != "redact" && which != "stage" && which != "all") {
+        std::printf("FEHLER: Test \"%s\" gibt es nicht (gestures, redact, stage, all)\n", which.c_str());
         return 2;
     }
     int failed = 0;
     if (which == "gestures" || which == "all") failed += run_group("Gestentest", gesture_cases());
     if (which == "redact" || which == "all") failed += run_group("Passwort-Filter", redact_cases());
+    if (which == "stage" || which == "all") failed += run_group("Bühne", stage_cases());
     return failed ? 1 : 0;
 }
 

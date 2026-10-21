@@ -1,13 +1,110 @@
 [
   {
-    "v": "0.5.0",
-    "d": "",
-    "t": "",
-    "s": "",
-    "i": [
-      "Doku: Roadmap mit der Idee „Gemeinsames Setting“ (eine Welt, Orte als Module) und der Reihenfolge in 0.5.x: settingunabhängige Engine-Teile zuerst"
+    "v": "0.5.2",
+    "d": "2026-10-21",
+    "t": "Farbe und Licht",
+    "s": "Paletten je Ort mit Lichtstufen, Tageslicht nach Uhrzeit, Lampen als weiche Lichtkreise, Fenster am Abend, Wasser mit Farbrotation; Zeichnen direkt aus dem Hintergrund",
+    "n": [
+      "Engine: Palette je Ort mit drei Lichtstufen (light.h): 80 Grundfarben, Stufe 1 und 2 (Lampenlicht) rechnet die Engine; 240–255 bleiben der System-Oberfläche, Einblendungen auch nachts lesbar",
+      "Engine: Tageslicht nach Uhrzeit aus Stützpunkten (Farbe, Sättigung, Lampenwirkung, Himmel); Stimmung „natürlich“, Nacht „mittel“ mit Mindesthelligkeit 85/256 (Entscheidungen des Users)",
+      "Engine: Tageszeit-Schnittstelle über WorldClock; bis zur Weltzeit (0.5.6) füttert sie die Testuhr: echte Uhrzeit, Uhrzeit stellen, Zeitraffer",
+      "Engine: Rollen einzelner Farben: leuchtend (Fenster am Abend, Lampenschirm), Himmelsverlauf (Fenster von innen), fest; Farbrotation für Wasser und Flamme",
+      "Engine: Lichtkreise als Ellipse am Boden: hell bis zur Hälfte, dann weich im feinen Raster (2 × 2 Displaypunkte, Wunsch des Users); Figuren im Licht gleichmäßig nach dem Fußpunkt",
+      "Engine: Farbtabellen (Index → Index, 50-%-Mischung der Grundfarben) und durchscheinende Schatten; Raster-Hilfe dither4 für Verläufe",
+      "Engine: Verdoppeln direkt aus Hintergrundbild und bewegten Teilen (CoarseLayers); der Hintergrund wird nur noch unter Figuren kopiert, auch in der Überblendung",
+      "Engine: Testorte zeigen Licht und Tageszeit: Lampe als Lichtkreis (Raum, Platz), Fenster am Abend mit Lichtfleck (Wiese), Himmel in den Fenstern, Wasserbecken mit Farbrotation",
+      "Web: Karte „Orte“ mit Tageszeit-Schieber und Zeitraffer (Echt, 1×, 60×, 600×); POST /api/exp a=time&v=<Minute>|real, a=speed&v=<1–3600>, Werte in GET /api/exp",
+      "Simulator: --grid mit --cells und --cols für beschriftete Vergleichsbilder (Ort, Uhrzeit, Befehle); Ortsbefehle stimmung, tageslicht, nacht, licht fein|grob|hart [innen %]",
+      "Werkzeuge: Konsolenbefehl „bench mem“ misst den PSRAM-Durchsatz: 96 KB schreiben 2,4 ms (CPU wie DMA), lesen 1,4 ms",
+      "Doku: docs/STIL.md (Entwurf): Grundstimmung, Aufbau der Palette, Rampen, Sonderrollen, Licht, Schatten; Dunkelheit der Palette getrennt von der Hintergrundbeleuchtung"
     ],
-    "pr": [21]
+    "i": [
+      "Engine: Zeichnen am Tag schneller (Raum und Platz 3,8 statt 4,1–4,2 ms); Licht kostet nur bei Dunkelheit, die Lichtkarte entsteht einmal je Änderung (24 KB PSRAM je Ort)"
+    ],
+    "g": [
+      "Gerät: 29,8–30,3 fps, 0 Aussetzer; Zeichnen tagsüber 3,8–4,2 ms, nachts mit Licht 4,4–5,8 ms; 64 Figuren 7,1–9,4 ms",
+      "Gerät: Überblendung höchstens 12,5–16 ms mit den Standard-Figuren, mit 64 Figuren je Ort bis 19,7 ms (Grenze; Standard bleibt Abblenden)",
+      "Gerät: RAM 110 KB frei (Tiefstwert 103 KB), PSRAM 5,82 MB frei; Firmware 1,61 MB (26 % der App-Partition); Live-Vorschau mit Licht geprüft",
+      "Simulator: 22/22 Bühnen-Tests, neu: Tageszeit mit Zeitraffer deterministisch, Licht und Systemfarben, Überblendung mit wechselnden Paletten, Farbrotation und Farbtabellen"
+    ],
+    "h": [
+      "Engine: SIMD/PIE und DMA helfen beim Verdoppeln nicht, der Engpass ist das Schreiben in den PSRAM; großer Hebel wäre, dass das Display das grobe Bild selbst liest (Frage an den Planungs-Chat)",
+      "Engine: Überblendung nur, wenn beide Paletten zusammen ≤ 240 Farben brauchen; nachts mit Lampen meist nicht, dann wird abgeblendet"
+    ],
+    "pr": [27]
+  },
+  {
+    "v": "0.5.1",
+    "d": "2026-10-21",
+    "t": "Raum und Baukasten",
+    "s": "Kacheln in drei Ebenen, Tiefensortierung, Räume als Datenliste mit Ausbaustufen und „im Bau“, Türen und Bildränder als Ausgänge; drei verbundene Testorte",
+    "n": [
+      "Engine: Kacheln 8 × 8 (25 × 15 je Ort) in drei Ebenen Boden, Wand, Deko; Orte kommen als Textzeilen mit Legende, jede Ebene mit eigener Farbreihe (Tapete, Boden)",
+      "Engine: Tiefensortierung nach Fußpunkt (depth.h) für Figuren, Möbel und Deko gemeinsam, mit Tiefenversatz (Sitzen vor der Lehne) und Schatten",
+      "Engine: Raum-Baukasten (room.h): ein Ort ist eine Datenliste aus Teilen mit Kachel-Lage, Ausbaustufe, Farbreihe, Besitzer und Spiegelung (7 Byte je Teil), zur Laufzeit änderbar",
+      "Engine: Möbel-Daten: Art, Ebene (Boden, Wand, stehend), Stellfläche, Benutzungspunkte mit Blickrichtung und Haltung; Erkennungsstück als Platzhalter, den der Katalog über den Besitzer auflöst",
+      "Engine: Ausbaustufen (mehrere Stufen-Bilder je Teil) und Zustand „im Bau“: Bau-Bild (z. B. halbfertiges Bett) oder Materialstapel, benutzbar sind nur Arbeitsplätze",
+      "Engine: Hintergrundbild: beim Betreten wird alles Unbewegte einmal vorgezeichnet (24 KB PSRAM), beim Verlassen freigegeben; pro Bild nur Kopie plus bewegte Teile, pixelgleich mit „alles zeichnen“",
+      "Engine: Ausgänge an Türen und Bildrändern: die Bühne gibt Reisende im Zielort ab und wechselt mit Abblenden mit, wenn der Blick der Figur folgt",
+      "Engine: Wege auf dem Kachelraster per Breitensuche um Stellflächen herum; versperrte Ziele wie ein Bett bleiben erreichbar",
+      "Engine: Testorte Wiese, Raum, Platz aus Kacheln und Möbel-Teilen, über Tür und Bildrand verbunden; Figuren benutzen Fenster, Tisch und Bänke, eine Begleiterin führt den Blick",
+      "Web: Karte „Orte“: Knöpfe „Ausbau“ und „Im Bau“, Schalter „Blick folgt“ und „Prüfansicht“ (Stellflächen, Benutzungspunkte, Ausgänge); WLAN-Befehle „ort ausbau|baustelle|folgen|pruefen“",
+      "Werkzeuge: tools/screen.py holt ein Bildschirmfoto vom Display per WLAN; Konsolenbefehl „bench“ misst Verdoppeln und Kopie des Hintergrunds im PSRAM",
+      "Simulator: --cmd, --inspect, --no-follow; Selbsttest „stage“ mit 18 Fällen (Kacheln, Tiefe, Gleichheit mit Hintergrundbild, Ausbau, Wege, Ausgänge ohne Verlust, Betreten)"
+    ],
+    "i": [
+      "Engine: Testorte samt Figuren liegen im Grafik-Speicher (PSRAM) statt im internen RAM: am Gerät 111 statt 102–106 KB frei",
+      "Engine: Übergang-Typ nach scene.h verschoben (Ausgänge tragen ihn); Canvas zeichnet beschnitten (blit_clipped)",
+      "Doku: Update von GitHub 0.4.2-dev → 0.5.0 am Gerät nachgetragen (1574 KB in 17,3 s, RAM-Tiefstwert 78 KB); Phase B startet erst nach Schritt 6 der Setting-Werkstatt"
+    ],
+    "g": [
+      "Gerät: alle Testorte 30,3 fps, Zeichnen 4,1–4,2 ms (max 4,4); Raum mit 64 Figuren 6,8 ms (max 7,4), Überblendung höchstens 14,6 ms, 0 Aussetzer",
+      "Gerät: RAM 111 KB frei (Tiefstwert 104 KB), PSRAM 5,96 MB frei; Firmware 1,56 MB (26 % der App-Partition)",
+      "Gerät: Verdoppeln 200 × 120 → 400 × 240 kostet 2,96 ms, Kopie des Hintergrunds 0,99 ms pro Bild (Messung „bench“, Ausgangswert für 0.5.2)",
+      "Simulator: 18/18 Bühnen-Tests; 400 s Reisen zwischen drei Orten ohne verlorene Figur, der Blick folgt der Begleiterin"
+    ],
+    "h": [
+      "Engine: Die Möbel der Testorte sind neutrale Test-Grafiken (Stil „Formen“), nur auf der Seite Experimentell zu sehen; echte Grafiken folgen nach Setting und Stil-Leitfaden",
+      "Engine: Ausgänge am Bildrand sind bewusst nicht markiert (Entscheidung des Users); die Prüfansicht zeigt sie"
+    ],
+    "pr": [26]
+  },
+  {
+    "v": "0.5.0",
+    "d": "2026-10-21",
+    "t": "Bühne und Figuren",
+    "s": "Erster Baustein der Engine: mehrere Orte mit Übergängen, grobes Raster 200 × 120, Figuren mit Animationen und Farbreihen; Lavendel als Standardfarbe, Versionskarte, eigenes Testbild",
+    "n": [
+      "Engine: Bühne mit mehreren Orten; jeder behält Palette und Zustand, alle rechnen weiter, gezeichnet wird nur der sichtbare. Wechsel per Sprung mit Übergang, Standard Abblenden (0,6 s)",
+      "Engine: grobes Raster 200 × 120 für Orte, 2× ins 400 × 240-Bild verdoppelt; feine Einblendungen der Orte und der System-Oberfläche darüber",
+      "Engine: Übergänge Abblenden, Überblendung, Raster (beide Orte teilen sich währenddessen eine Palette, gleiche Farben zusammengelegt) und Schnitt",
+      "Engine: Figuren-Bausteine: Bildstreifen mit Fußpunkt, vier Blickrichtungen aus drei Ansichten, Animationen in Logik-Schritten (Schleife, einmal, hin und her)",
+      "Engine: Farbreihen per Umfärbe-Tabelle (256 Byte): eine Grafik einmal zeichnen, in vielen Farben zeigen, ohne Mehrkosten beim Zeichnen",
+      "Engine: Testorte Wiese und Raum als neutrale Platzhalter: Chibi-Figuren 16 × 32 (28 Bildpunkte hoch), Kisten, Kacheln 8 × 8, sechs Farbreihen, Tiefe nach Fußpunkt",
+      "Web: Karte „Orte (Vorschau)“ auf Experimentell: Ort, Übergang, Figuren je Testort (1–64), Rundgang alle 20 s; per WLAN-Befehl „ort“",
+      "Web: Versionskarte oben auf der Seite System mit „Pixelia“ und der installierten Version",
+      "Web: eigenes Testbild auf der Seite Experimentell: Bild wählen, Vorschau, „Auf dem Display zeigen“; der Browser passt pixelgenau auf 400 × 240 an und bildet auf ≤ 240 Farben ab",
+      "Display: POST /api/picture (96 000 Indizes + Palette) zeigt das Bild 2× statt der Welt, bis Tippen, „Beenden“ oder 30 min; Puffer nur im PSRAM (96 KB), nichts im Flash",
+      "Simulator: Bühne wie am Gerät, --go ORT[:ÜBERGANG], --sequence (Bildfolge), Tasten 1–9 und U im Fenster; Selbsttest „stage“ mit 11 Fällen",
+      "Doku: Skizzen zur Darstellung in docs/skizzen (v1–v5: fünf Perspektiven bis zur Wahl 3/4, Szene 200 × 120 grob, Figur 28), offline lauffähig, später als Easter Egg in der Weboberfläche"
+    ],
+    "i": [
+      "Web: Standardfarbe ab Werk Lavendel statt Moos (auch das Symbol im Browser-Tab); eine gespeicherte Wahl bleibt",
+      "Engine: Grafiken über eine eigene Speicherquelle (memory.h), auf dem Gerät im PSRAM; Sprites zeichnen schneller (Spiegeln und Farbreihe außerhalb der inneren Schleife)",
+      "Doku: Aufteilung von 0.5.x in 11 Patches (Phase A ohne, Phase B nach dem Setting), Prüfliste Baukasten und Asset-Quellen, Anforderungen der Setting-Werkstatt",
+      "Doku: Roadmap mit der Idee „Gemeinsames Setting“ (eine Welt, Orte als Module), Rückblick-Runde (Lavendel, Versionskarte, Pixel-Uhr), Regel „Zwischenstände und Mitentscheiden“"
+    ],
+    "f": [
+      "Engine: Im ersten Entwurf lagen grober Puffer und Grafiken im internen RAM, nur noch 68 KB frei; jetzt im PSRAM (+0,5 ms pro Bild), wieder 102–106 KB frei"
+    ],
+    "g": [
+      "Engine: am Gerät 30 fps ohne Aussetzer, ein Logik-Schritt pro Bild; Zeichnen Landschaft 4,2 ms, Wiese 4,2 ms (64 Figuren 5,9 ms), Raum 4,2 ms; RAM 102–106 KB, PSRAM 6,0 MB frei",
+      "Engine: Übergänge am Gerät: Abblenden ohne Mehrkosten (höchstens 4,3 ms pro Bild), Überblendung und Raster höchstens 13,7 ms",
+      "Simulator: 11 Bühnen-Tests bestehen: gleiche Bilder bei gleichem Startwert, Zeichnen ändert den Ablauf nicht, unsichtbare Orte rechnen weiter, Übergang genau 18 Schritte",
+      "Display: Testbild am Gerät pixelgenau (0 abweichende Pixel laut /api/screen), 30,3 fps, RAM 114 KB; nach „Beenden“ wieder 96 KB PSRAM frei; Tippen beendet es (vom User geprüft)",
+      "System: Firmware 1,61 MB (26 % der Partition), Weboberfläche 116 KB gzip"
+    ],
+    "pr": [21, 22, 23, 24]
   },
   {
     "v": "0.4.2",

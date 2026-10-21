@@ -41,14 +41,29 @@ Stand 2026-10-19. Anlass: Die Sitzung für 0.2.2 hat allein ein ganzes 5-Stunden
 6. Ist die Anzeige über 25 % und die Version noch nicht fertig, schreibst du: **„Bitte Übergabe schreiben.“**
    Das darfst du jederzeit schreiben, auch wenn Claude gerade arbeitet. Die Nachricht wird beim nächsten Schritt
    gelesen. Claude bringt dann zuerst die laufende Änderung sauber zu Ende (Code baut, nichts halb fertig),
-   sichert alles auf GitHub, trägt den Stand ins Repo ein und gibt dir einen kurzen Auftragstext.
+   sichert alles auf GitHub, trägt den Stand ins Repo ein und gibt dir zuerst eine Liste **„Das ist neu für dich“**
+   (höchstens 6 Punkte in Alltagssprache), danach einen kurzen Auftragstext.
    Nicht auf **Stopp** drücken: Das bricht mitten in einer Änderung ab.
 7. Neue Sitzung starten (Knopf **Neue Sitzung** in der Seitenleiste), den Auftragstext einfügen und abschicken.
    Die Denkstufe im Eingabefeld auf **Hoch** lassen, außer im Auftrag steht etwas anderes.
 
+**Zwischenstände und Mitentscheiden (seit 2026-10-20):**
+
+- Nach jedem fertigen Teilschritt schreibt Claude 1–3 Zeilen „Neu: …“ in Alltagssprache, ohne Dateinamen
+  (z. B. „Neu: Figuren können jetzt laufen und winken.“).
+- Große Design-, UI- und Inhaltsfragen (Menüpunkte, Farben und Standardwerte, Einstellungen und
+  Experimentell-Funktionen, Aussehen von Szenen und Figuren, sichtbare Namen und Texte) legt Claude dir **vor** der
+  Umsetzung als Auswahl vor: 2–4 Möglichkeiten, die Empfehlung zuerst, bei Aussehen mit Screenshot oder Skizze.
+  Bis zu 4 Fragen gebündelt; an unabhängigen Teilen arbeitet Claude weiter, während du antwortest.
+- Kleinigkeiten entscheidet Claude mit Empfehlung selbst und nennt sie in der Zusammenfassung. Technik entscheidet
+  Claude weiter selbst, mit kurzer Begründung.
+- Vorschläge für zusätzliche Funktionen oder Einstellungen kommen als Auswahlliste (mehrere ankreuzbar), nie
+  stillschweigend eingebaut oder weggelassen.
+
 ### C. Wenn die Version fertig ist
 
-8. Die Arbeits-Sitzung meldet „fertig“ und hat die Übergabe schon geschrieben (Roadmap, Changelog, Release).
+8. Die Arbeits-Sitzung meldet „fertig“ und hat die Übergabe schon geschrieben (Roadmap, Changelog, Release), mit der
+   Liste „Das ist neu für dich“ vor dem Auftragstext.
 9. Im Planungs-Chat kurz schreiben: **„0.3.0 ist fertig.“** Claude liest den Stand im Repo nach, nicht im Chat.
 10. Die alte Arbeits-Sitzung kannst du **archivieren** (Rechtsklick in der Seitenleiste). Weitermachen solltest du
     darin nicht, sie ist schon groß.
@@ -84,6 +99,7 @@ Lies zuerst CLAUDE.md (geschieht automatisch), docs/ROADMAP.md „Aktueller Stan
 dann docs/CODEMAP.md. Weitere Dateien nur gezielt.
 Umfang: <Liste der Punkte aus der Roadmap>
 Offen aus der letzten Sitzung: <Punkte oder „nichts“>
+Geplante Design-Fragen zu Beginn gebündelt stellen (Auswahl mit Empfehlung): <Liste oder „keine“>
 Fertig heißt: PR gemergt, Changelog-Eintrag, Roadmap und CODEMAP aktualisiert, Release <vX.Y.Z>, am Gerät geprüft.
 Obergrenze ca. 250 K Kontext, dann Übergabe schreiben.
 ```

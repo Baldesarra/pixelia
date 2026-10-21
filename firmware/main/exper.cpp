@@ -236,6 +236,8 @@ void set_enabled(bool on) {
     ESP_LOGW(TAG, "Experimentell %s", on ? "an" : "aus");
     if (on) return;
     end_test_locked();
+    ui::hide_picture();
+    gfx::reset_places();
     s_trial_until = 0;
     esp_timer_stop(s_trial_timer);
     save_panel(Panel{});
@@ -326,6 +328,18 @@ std::string state_json() {
     const Mode m = board::display::mode();
     j.str("mode", board::display::mode_name(m));
     j.num("testS", s_test_until ? std::max<int64_t>(0, (s_test_until - now + 999999) / 1000000) : -1);
+    j.boolean("pic", ui::picture_visible());
+    // Orte (Vorschau): Liste, sichtbarer Ort, Übergang, Rundgang in s, Figuren der Testorte (0 = Standard)
+    j.arr("places");
+    for (int i = 0; i < gfx::place_count(); ++i)
+        j.obj().str("id", gfx::place_id(i)).str("title", gfx::place_title(i)).end_obj();
+    j.end_arr();
+    j.num("place", gfx::place()).str("trans", pixelia::transition_name(gfx::transition()));
+    j.num("tour", gfx::tour()).num("figures", gfx::figures());
+    j.boolean("follow", gfx::follow()).boolean("inspect", gfx::inspect());
+    // Testuhr (seit 0.5.2): Tageszeit der Welt, Zeitraffer, echte Uhrzeit
+    j.num("minute", gfx::engine_stats(false).world_minute).num("speed", gfx::speed(), 0);
+    j.boolean("real", gfx::real_time());
     j.obj("touch").boolean("ok", tl.ok).boolean("down", tl.down).num("x", tl.x).num("y", tl.y);
     j.num("corners", tl.corners).num("n", tl.touches).end_obj();
     j.end_obj();

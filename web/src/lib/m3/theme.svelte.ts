@@ -23,6 +23,8 @@ export const SEEDS = [
   { hex: '#a07a00', name: 'Sonne' },
   { hex: '#b23a6b', name: 'Beere' },
 ];
+/** Ab Werk (seit 0.5.0, Rückblick-Runde): Lavendel; eine gespeicherte Wahl bleibt */
+export const DEFAULT_SEED = '#7a5aa6';
 
 /** Zusatzfarben: success = Grün (Behoben, OK), warning = Bernstein (Hinweise) → --pixelia-color-<name>[-container] */
 const CUSTOM = [
@@ -34,7 +36,7 @@ const KEY = 'pixelia.theme';
 const media = matchMedia('(prefers-color-scheme: dark)');
 
 function load(): { mode: ThemeMode; seed: string; style: ThemeStyle } {
-  const fallback = { mode: 'system' as ThemeMode, seed: SEEDS[0].hex, style: 'tonal' as ThemeStyle };
+  const fallback = { mode: 'system' as ThemeMode, seed: DEFAULT_SEED, style: 'tonal' as ThemeStyle };
   try {
     return { ...fallback, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') };
   } catch {
@@ -52,7 +54,7 @@ function hasStored(): boolean {
 
 class Theme {
   mode = $state<ThemeMode>('system');
-  seed = $state(SEEDS[0].hex);
+  seed = $state(DEFAULT_SEED);
   style = $state<ThemeStyle>('tonal');
   systemDark = $state(media.matches);
   /** Hatte dieser Browser schon eine eigene Wahl gespeichert? (Ein frischer Browser überträgt seinen Standard nicht) */
