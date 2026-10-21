@@ -212,9 +212,12 @@ Zug-Phase.
 - [ ] **0.5.2 Farbe und Licht** (xhigh): Paletten je Ort, Farbrampen (mit `docs/STIL.md`-Entwurf), Tag/Nacht,
       Farbrotation, Lichtkreise, Transparenztabellen, Himmelsverläufe, Rastereffekte
 - [ ] **0.5.3 Wetter und Partikel** (Hoch): Regen, Schnee, Nebel, Blitz, Wind
-- [ ] **0.5.4 Asset-Quelle** (Hoch): Werkzeug PNG → Paletten-Indizes, `assets/CREDITS.md` mit Prüfung; Quelle eingebettet
-      / LittleFS / microSD, Laden auf Kern 0 beim Ortswechsel hinter der Überblendung; SD-Karte messen (Tempo, keine
-      Aussetzer, Karte ziehen; braucht eine Karte im Gerät)
+- [ ] **0.5.4 Asset-Quelle** (xhigh, Speicher-Architektur): Werkzeug PNG → Paletten-Indizes, `assets/CREDITS.md` mit
+      Prüfung; Quelle eingebettet / LittleFS / microSD, Laden auf Kern 0 beim Ortswechsel hinter dem Abblenden; SD-Karte
+      messen (Tempo, keine Aussetzer, Karte ziehen; braucht eine Karte im Gerät). Speicher-Stufen (Entscheidung
+      2026-10-21): Ablage → Grafik-Speicher im PSRAM (Budget, Vorladen der Nachbarorte, Verdrängen) → Zeichnen;
+      Grundausstattung (immer geladen) getrennt von Ortspaketen; Kennungen statt Zeiger; gepackt abgelegt;
+      Ladezeit pro Ort messen (Flash, LittleFS, SD)
 - [ ] **0.5.5 Schrift und Einblendungen** (Hoch): Pixel-Schriften mit Umlauten, Kurzmeldungen, Info-Karten, Pixel-Uhr,
       Hinweis auf neue Version am Display, Ereignis-Bus, Touch-Gesten
 - [ ] **0.5.6 Dienste** (Hoch): Weltzeit (Tagesgerüst, Jahreszeit), Standort und Wetter (Open-Meteo), Nachtmodus,
