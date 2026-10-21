@@ -15,29 +15,29 @@
 
 | Schritt | Thema | Stand |
 |---|---|---|
-| 1 | Ideen des Users: Grundidee, Ton, Hauptfigur, Skript | Entwurf steht (dieses Dokument), Rückmeldung des Users ausstehend |
+| 1 | Ideen des Users: Grundidee, Ton, Hauptfiguren, Skript | weitgehend entschieden; offen: Vorgeschichte, Ideenliste, Taylors Profil prüfen |
 | 2 | Gebiete, Figuren, Reihenfolge | Vorschlag in Kapitel 3 und 4 |
 | 3 | Modularer Aufbau, Regie, Kamera | Vorschlag in Kapitel 13 und 15 |
-| 4 | Hardware-Eignung mit Zahlen (inkl. SD-Karte) | Vorschlag in Kapitel 16 |
+| 4 | Hardware-Eignung mit Zahlen (inkl. SD-Karte, Baukasten) | Vorschlag in Kapitel 16 |
 | 5 | Rahmenbedingungen für Claude | Vorschlag in Kapitel 17 |
 | 6 | Planung: späte 0.5.x-Patches, Phasen ab 0.6.x, PR | offen |
 
 ## Inhalt
 
 1. Grundidee, Ton und Epoche
-2. Die Hauptfigur und der Betrachter
+2. Die Hauptfiguren und der Betrachter
 3. Die Bewohner (Startbesetzung und Wachstum)
 4. Gebiete und Kapitel der Welt
 5. Figuren: Bedürfnisse, Eigenschaften, Fähigkeiten
-6. Entscheidungslogik
+6. Tagesgerüst und Entscheidungslogik
 7. Tiere
 8. Bestand, Wirtschaft und Bauen
 9. Zeit, Kalender, Wetter und Licht
 10. Ortszustände
-11. Tagesrhythmus, Abende und Ereignisse
+11. Abende und Ereignisse
 12. Eingreifen und Weboberfläche
 13. Kamera und Regie
-14. Perspektive (Platzhalter)
+14. Perspektive
 15. Modularer Aufbau und Stufen der Simulation
 16. Hardware-Rahmen mit Zahlen
 17. Rahmenbedingungen für Claude
@@ -50,151 +50,197 @@
 
 **Grundidee [entschieden]:** Eine einzige Welt, die von selbst lebt. Figuren versorgen sich, bauen ihr Zuhause aus,
 haben Launen, Beziehungen und Gewohnheiten, und die Welt verändert sich langsam über Wochen und Monate. Idle statt
-Spiel: Der Betrachter muss nichts tun, kann aber über die Weboberfläche zuschauen, Tipps geben und Wünsche äußern.
-Tiefe entsteht aus Zuständen, nicht aus Abläufen. Neue Gebiete kommen mit Updates in dieselbe Welt. Die bisherigen
+Spiel: Der Betrachter muss nichts tun, kann aber über die Weboberfläche zuschauen, Tipps geben und entscheiden. Tiefe
+entsteht aus Zuständen, nicht aus Abläufen. Neue Gebiete kommen mit Updates in dieselbe Welt. Die bisherigen
 getrennten Welten (Zugfenster, Dungeon-Held, Pixel-Liga, Inselwelt als eigene Welt) sind **verworfen**; das Projekt
-wird inhaltlich neu aufgezogen. Gute Ideen aus den alten Konzepten werden weiterverwendet (vor allem Inselwelt und
-Dorf).
+wird inhaltlich neu aufgezogen, gute Ideen aus den alten Konzepten werden weiterverwendet.
 
 **Ton [entschieden]:** gemütlich und bodenständig, warm, natürlich, kleine Reibung ohne Bestrafung. **Keine Magie.**
 
-**Epoche [Vorschlag]: „Frühe Dampfzeit auf dem Land“**, angelehnt an etwa 1840–1860, aber ein erfundenes Land:
+**Epoche [entschieden]: frühe Dampfzeit auf dem Land, um 1850**, in einem erfundenen Land:
 
-- Im Dorf ist der Alltag noch vorindustriell: Laternen in der Hand, Fackeln und Öllampen an den Häusern, Kerzen,
-  Kamine, Brunnen, Schmiede mit Esse, Pferdekarren, Handwerk. Das wirkt „mittelalterlich“ und ist trotzdem stimmig,
-  denn Dörfer sahen damals noch so aus.
-- Die Eisenbahn ist die einzige „moderne“ Technik und kommt von außen. Dampflok, Bahnwärterhaus, Signalmasten.
-- Kein Strom, keine Fabriken im Tal. Licht kostet Brennstoff (Öl, Talg, Holz) und ist damit Teil der Wirtschaft.
+- Im Dorf ist der Alltag vorindustriell: Laternen in der Hand, Fackeln und Öllampen an den Häusern, Kerzen, Kamine,
+  Brunnen, Pferdekarren. **Schmiede und Tischlerei sind echte Handarbeit**, nichts ist automatisiert, die Bewohner
+  arbeiten sichtbar.
+- Die Eisenbahn ist die einzige „moderne“ Technik und kommt von außen: Dampflok, Bahnwärterhaus, Signale.
+- Kein Strom, keine Fabriken im Ort. Licht kostet Brennstoff (Öl, Talg, Holz) und ist Teil der Wirtschaft.
+- Dinge heißen wie damals: Kisten und Säcke statt Kartons, Strohsack und Decken statt Schlafsack, Sofa oder Ofenbank
+  statt Couch.
 
-**Prämisse [Vorschlag]: „Das Dorf am Ende der Nebenbahn“** (Arbeitsname des Dorfs: *Erlengrund*):
+**Das Dorf heißt Pixelia [entschieden].**
 
-- Erlengrund lag an einer kleinen Nebenbahn, die zur Grube im Berg führte. Nach einem Wassereinbruch wurde die Grube
-  geschlossen, der Zug fuhr nicht mehr, die meisten Familien zogen weg. Übrig blieben eine Handvoll Leute. Häuser
-  stehen leer, der Dorfplatz verwildert, die Schienen wachsen zu.
-- Die Hauptfigur erbt den verfallenen Hof ihrer Großmutter am Dorfrand und zieht ein (das ist der ursprüngliche
-  „Mensch auf seinem Hof“).
-- Danach erwacht das Dorf langsam wieder, nicht durch eine Heldentat, sondern weil alle gemeinsam etwas tun: Häuser
-  werden bewohnbar, Leute ziehen zu, die Taverne wird wieder ein Ort für Abende, die Grube wird vorsichtig wieder
-  betreten, irgendwann wird die Bahn repariert und fährt hinaus.
+**Ausgangslage [entschieden]:** Pixelia ist am Anfang fast leer, viele Häuser stehen leer und verfallen, die
+Nebenbahn ist stillgelegt, der Bahnhof überwuchert, im Lokschuppen steht eine alte Dampflok. Die Hauptfigur Sykora
+will das Dorf wieder nach vorne bringen.
 
-Warum diese Prämisse trägt: Sie erklärt die Ausbaustufen (Ruine → bewohnbar → gemütlich), den Zuzug nur bei
-Wohnraum, den kaputten Bahnhof und die Grube als Sammelort. Und sie gibt den Updates einen Platz in der Welt: Jede
-neue Region liegt hinter der Strecke.
+**Vorgeschichte [offen]:** Die erste Fassung (Wassereinbruch in der Grube) ist verworfen. Ideen zur Auswahl, auch
+gemischt:
+
+1. *Drei harte Winter:* Ernten fielen aus, viele gingen „nur für ein Jahr“ in die Stadt und blieben. Ohne Fahrgäste
+   wurde die Bahn eingestellt. Später kehren manche zurück (Zuzug mit Geschichte). (Empfehlung von Claude)
+2. *Die Bahn fuhr vorbei:* Neue Hauptstrecke im Nachbartal, Händler und Familien zogen dorthin.
+3. *Erschöpfte Grube:* Erzbahn ohne Erz; tiefer liegt mehr, aber das Werkzeug fehlte.
+4. *Von der Landkarte verschwunden:* bei der Vermessung vergessen, keine Post, kein Zug; Besuch des Landvermessers als
+   Meilenstein.
+5. *Landflucht* in die Fabrikstädte.
+6. *Neugründung* an einer nie eröffneten Strecke.
 
 **Bogen über Monate [Vorschlag]**, keine feste Geschichte, sondern Meilensteine, deren Reihenfolge und Tempo aus der
 Simulation entstehen:
 
-1. *Ankommen:* Hof bewohnbar machen, Nachbarn kennenlernen, die Katze taucht auf.
-2. *Das Dorf erwacht:* Dorfplatz freilegen, Taverne ausbauen, erste Zuzüge, Schwarzes Brett.
-3. *Die alte Grube:* mit Wilhelm wieder hinein, Stollen sichern, Kohle und Erz für die Schmiede.
-4. *Die Strecke:* Schienen freilegen, Brücke flicken, Lok instand setzen.
-5. *Hinaus:* die erste Fahrt in eine neue Region (kommt als Update, siehe Kapitel 4).
+1. *Ankommen:* Sykoras Hof bewohnbar machen, Nachbarn, die Katze taucht auf.
+2. *Das Dorf erwacht:* Dorfplatz freilegen, Taverne ausbauen, Schwarzes Brett, erste Zuzüge.
+3. *Die Wahl:* Sykora wird Bürgermeister (Kapitel 2).
+4. *Die alte Grube:* mit Wilhelm wieder hinein, Stück für Stück tiefer (Kapitel 4).
+5. *Die Lok:* Instandsetzung in vielen Teilaufgaben (Kapitel 8), Strecke freilegen.
+6. *Hinaus:* die erste Fahrt in eine neue Region (kommt als Update).
 
 **Leitsätze für alle Inhalte:**
 
 - Jede sichtbare Veränderung hat eine Ursache im System.
 - Ruhe ist eine Tätigkeit (am Feuer sitzen, dem Regen zuhören).
-- Kleine Unfälle ja, Strafen nein. Niemand stirbt an Hunger, nichts verfällt, weil der Betrachter weg war.
-- Keine Fremden ohne Geschichte: Jede Figur, die man sieht, hat einen Namen, ein Zuhause oder einen Grund, hier zu sein.
+- Kleine Unfälle ja, Strafen nein. Niemand hungert, nichts verfällt, weil der Betrachter weg war.
+- Keine Fremden ohne Geschichte: Jede Figur hat einen Namen und ein Zuhause oder einen Grund, hier zu sein.
 
-**Offene Fragen:**
+## 2. Die Hauptfiguren und der Betrachter
 
-- Passt die Epoche, oder soll es noch älter wirken (dann wäre die Dampflok ein Anachronismus) bzw. etwas später?
-- Gefällt die Prämisse „verlassenes Dorf erwacht“? Name des Dorfs, des Tals, des Landes (bleibt „Pixelia“ das Land?).
+### Sykora [entschieden, Details Vorschlag]
 
-## 2. Die Hauptfigur und der Betrachter
+- **Mann, 30, freundlich**, auf dem Land aufgewachsen.
+- Will die Zügel in die Hand nehmen und das Dorf nach vorne bringen; **bewirbt sich als Bürgermeister**.
+- **In Taylor verliebt.**
+- Eine Figur unter vielen: keine Sonderkräfte, keine Sonderwerte. Er muss lernen, helfen und Vertrauen gewinnen.
+- [Vorschlag] Wohnt auf dem Hof am Dorfrand, den er geerbt oder günstig übernommen hat (je nach Vorgeschichte).
+  Startfähigkeiten: Holzarbeit geübt, Tierpflege und Gärtnern Anfänger, Lesen und Schreiben geübt (wichtig fürs Amt).
+  Führt ein Tagebuch, das sichtbar auf dem Tisch wächst. Schwäche: will zu viel auf einmal und vergisst dabei Pausen.
+- Erkennungsstücke: Tagebuch, Hut am Haken, später die Amtskette bzw. das Bürgermeisterbuch.
 
-**[entschieden]** Die Hauptfigur ist **eine Figur unter vielen**: keine Superkräfte, keine Sonderwerte, am Anfang
-kennt sie kaum jemand. Sie wird am meisten vom Betrachter beeinflusst. Die Kamera folgt ihr überwiegend.
+### Taylor [entschieden, ausführliches Profil Vorschlag]
 
-**[Vorschlag] Der Betrachter als Ratgeber:**
+Taylor ist neben Sykora die zweite Hauptfigur und bekommt deshalb das ausführlichste Profil.
 
-- **Tipps an die Hauptfigur** (Web, später auch per Touch): eine Aufgabe („hol Eier“, „geh mit in die Grube“),
-  einen Besuch („schau bei Martha vorbei“), ein Geschenk („bring Lene Blumen“), ein Bauprojekt, eine Entscheidung.
-- Ein Tipp ist ein **sehr starker Wunsch**, kein Befehl. Die Hauptfigur folgt fast immer, außer ein dringendes
-  Bedürfnis oder die Lage spricht dagegen (mitten in der Nacht, Sturm, erschöpft). Dann steht der echte Grund auf der
-  Info-Karte („Zu müde. Morgen früh.“) und der Tipp wird später erledigt.
-- **Liebe und Freundschaft:** Tipps steuern nur das Verhalten der Hauptfigur. Wie die andere Person reagiert, hängt
-  von deren Charakter, Laune und der Beziehung ab. Eine Annäherung braucht Zeit und kann auch scheitern; so bleibt
-  sie glaubwürdig.
-- **Bitten an andere Figuren:** über ihre Charakterkarte oder das Schwarze Brett. Sie werden angenommen, wenn Zeit,
-  Laune und die Beziehung zur Hauptfigur passen. Ein Nein hat einen sichtbaren Grund.
-- Gibt der Betrachter nichts vor, lebt die Hauptfigur selbstständig wie alle anderen.
-- Die Hauptfigur führt ein **Tagebuch** (wächst sichtbar auf dem Tisch, im Web lesbar).
+- **Frau, 30, blond, hübsch, freundlich, tierlieb.** Singt gerne in der Taverne und spielt dort ab und zu Gitarre.
+- **Beruf [entschieden]: Schäferin.** Hält Ziegen und Schafe am Dorfrand, liefert Milch und Wolle.
+- **Gefühle [entschieden]: Der Funke ist schon da.** Sie ist heimlich auch interessiert. Die Romanze ist ziemlich
+  sicher, offen sind Weg und Tempo.
+- [Vorschlag] **Aussehen:** langes blondes Haar, meist zum Zopf geflochten, im Sommer mit Strohhut; Schürzenkleid in
+  warmem Grün, Hirtenstab, Umhängetasche. Abends in der Taverne Haar offen und ein Tuch um die Schultern.
+- [Vorschlag] **Charakter:** herzlich, geduldig mit Tieren und Kindern, lacht viel und laut. Eigensinnig, wenn es um
+  ihre Tiere geht. Verträumt: vergisst beim Hüten oder Singen die Zeit. Etwas scheu, wenn es um eigene Gefühle geht,
+  deshalb braucht die Romanze Zeit.
+- [Vorschlag] **Herkunft und Ziel:** Tochter des alten Schäfers von Pixelia, hat die Herde nach ihm übernommen. Ist
+  geblieben, als andere gingen, weil die Tiere hier zuhause sind. Wünscht sich, dass auf der Weide wieder Lämmer
+  spielen und dass in der Taverne wieder volle Abende sind.
+- [Vorschlag] **Fähigkeiten zum Start:** Tierpflege Meisterin, Melken geübt, Musizieren und Singen geübt, Spinnen geübt,
+  Kräuterkunde Anfängerin (lernt bei Martha).
+- [Vorschlag] **Gewohnheiten:** singt beim Hüten, zählt abends ihre Tiere, bringt der Katze Milch, sitzt bei gutem
+  Wetter auf dem Hügel über der Weide. Bei Gewitter geht sie zu den Tieren in den Stall.
+- [Vorschlag] **Die Gitarre:** hat sie einst dem Kesselflicker gegen einen Winter voll Wolle abgetauscht; der
+  Kesselflicker erinnert sich daran, wenn er kommt.
+- [Vorschlag] **Beziehungen zum Start:** Hedwig ist wie eine Tante für sie, mit Martha teilt sie die Liebe zu
+  Pflanzen, mit Anton (Jäger) gibt es leise Reibung, weil er Tiere jagt.
+- **Wohnt:** Schäferhaus mit Stall am Dorfrand. Erkennungsstücke: Gitarre an der Wand, Hirtenstab an der Tür,
+  Schafsglocke, Wollkorb, Trockenblumen am Fenster.
 
-**Offene Fragen:** Name, Geschlecht, Alter, Aussehen und Charakter der Hauptfigur. Herkunft: Stadtkind, das aufs Land
-zieht, oder jemand, der als Kind hier die Sommer verbrachte?
+### Der Betrachter
+
+**[entschieden]** Der Betrachter beeinflusst Sykora am stärksten; die Kamera folgt ihm überwiegend.
+
+**Bürgermeister [entschieden]: Wahl als Meilenstein.**
+
+- Am Anfang führt Hedwig das Dorf kommissarisch.
+- Sykora sammelt Vertrauen, indem er hilft, baut und zuhört. Nach einigen Wochen ist Wahl auf dem Dorfplatz.
+- **Vor der Wahl:** Der Betrachter gibt Tipps an Sykora. **Nach der Wahl:** Der Betrachter entscheidet zusätzlich über
+  Bauvorhaben (Bauvorschläge der Bewohner, Kapitel 8).
+
+**Tipps [Vorschlag]:**
+
+- Ein Tipp an Sykora ist ein **sehr starker Wunsch**, kein Befehl: eine Aufgabe („hol Eier“, „geh mit in die Grube“),
+  ein Besuch, ein Geschenk, ein Projekt. Er folgt fast immer, außer ein dringendes Bedürfnis oder die Lage spricht
+  dagegen. Dann steht der echte Grund auf der Info-Karte („Zu müde. Morgen früh.“) und der Tipp wird später erledigt.
+- Bei Taylor steuern Tipps nur Sykoras Verhalten. Wie Taylor reagiert, hängt von ihrer Laune, ihrem Tag und der
+  Beziehung ab.
+- **Bitten an andere Figuren** über ihre Charakterkarte oder das Schwarze Brett; angenommen, wenn Zeit, Laune und die
+  Beziehung zu Sykora passen. Ein Nein hat einen sichtbaren Grund.
+- Ohne Eingriff lebt Sykora selbstständig wie alle anderen.
 
 ## 3. Die Bewohner (Startbesetzung und Wachstum)
 
-**[entschieden]** Jede Figur ist ein Charakter. Es laufen keine zufälligen Figuren herum, die man nie wieder sieht.
-Jede Figur wohnt in einem festen Haus, und jedes Haus ist im Dorf sichtbar.
+**[entschieden]** Jede Figur ist ein Charakter mit Job und wiedererkennbar. Keine zufälligen Statisten. Jede Figur
+wohnt in einem festen Haus, und jedes Haus ist im Dorf sichtbar. **Niemand altert, niemand stirbt, niemand zieht
+weg.** Alles bleibt, wie es ist; das Dorf wächst nur durch Zuzug.
 
-**[Vorschlag] Startbesetzung: 9 Menschen und eine Katze.** Namen, Alter und Rollen sind Entwürfe.
+**Startbesetzung [entschieden: Sykora, Taylor, Tischler, Bäckerin, Fischer, Jäger, Familie Brandt als altes Ehepaar
+mit dem Jäger als Sohn; Rest Vorschlag].** 13 Menschen und eine Katze in 11 Häusern. Namen außer Sykora und Taylor
+sind Vorschläge und jederzeit änderbar.
 
-| Figur | Rolle | Wohnt | Herkunft und Ziel | Bringt ins Dorf |
+| Figur | Rolle | Wohnt | Herkunft und Ziel | Erkennungsstücke |
 |---|---|---|---|---|
-| Hauptfigur (Name offen) | Neusiedler, lernt alles | Hof am Dorfrand (Erbe) | will ein eigenes ruhiges Leben | Hof, Garten, Tiere, Tagebuch |
-| Hedwig, 61 | Wirtin | Bretterbude am Platz (wird Taverne) | blieb, „weil einer das Licht anlassen muss“ | Abende, Essen, Geschichten, Gäste |
-| Konrad, 56 | Schmied | Schmiede | seit der Grube ohne Aufträge, grantig und gutherzig | Werkzeug, Reparaturen, bringt Fertigkeiten bei |
-| Martha, 72 | Kräuterfrau | Häuschen mit Garten | kennt jede Pflanze im Tal, hält eine Ziege | Kräuter, Medizin, Saatgut, Pflanzenhaus |
-| Wilhelm, 66 | Bergmann a. D. | Hütte am Hang | vermisst die Arbeit unter Tage | Wissen über die Grube, Lampen, Sicherheit |
-| Paul, 36 | Zimmermann | Haus der Familie Brandt | hält die Familie mit Gelegenheitsarbeit über Wasser | Bauprojekte, Holz |
-| Lene, 34 | Weberin, Näherin | Haus der Familie Brandt | will, dass Fritz eine Zukunft hier hat | Kleidung, Stoffe, Decken (Wolle) |
-| Fritz, 8 | Kind | Haus der Familie Brandt | neugierig, findet Dinge | Spiele, Fundstücke, Unfug |
-| Emil, 47 | Bahnwärter ohne Zug | Bahnwärterhaus am überwucherten Bahnhof | zieht jeden Tag die Bahnhofsuhr auf und träumt von der ersten Fahrt | Bahn-Bogen, Signale, Strecke |
-| Katze (Name vom Betrachter) | vollwertige Figur | streunt, später am Hof | erst scheu, wird zutraulich | siehe Kapitel 7 |
+| **Sykora**, 30 | Hauptfigur, will Bürgermeister werden | Hof am Dorfrand | auf dem Land aufgewachsen, will das Dorf voranbringen | Tagebuch, Hut am Haken |
+| **Taylor**, 30 | Schäferin, Sängerin | Schäferhaus mit Stall | Tochter des alten Schäfers, blieb wegen der Tiere | Gitarre an der Wand, Hirtenstab, Schafsglocke |
+| Hedwig, 61 | Wirtin, kommissarische Dorfvorsteherin | Taverne am Platz (wohnt oben) | blieb, „weil einer das Licht anlassen muss“ | Zapfhahn aus Messing, Kreidetafel mit Tagesgericht |
+| Konrad, 56 | Schmied | Schmiede | ohne Aufträge, grantig und gutherzig | Amboss, Hufeisen über der Tür |
+| Jakob, 41 | Tischler | Tischlerei | kam als Wandergeselle und blieb hängen | Hobelbank, Späne am Boden, halbfertiger Stuhl |
+| Greta, 38 | Bäckerin | Bäckerei mit Backofen | backt für ein Dorf, das kaum noch Kunden hat | Brotschieber, Mehlsäcke, Brezel am Schild |
+| Hannes, 52 | Fischer | Fischerhütte am Teich | wortkarg, kennt jedes Wetter | Reusen, Netze zum Trocknen, Boot am Steg |
+| Anton Brandt, 34 | Jäger | Jagdhütte am Waldrand | Sohn der Brandts, lieber im Wald als im Dorf | Geweih an der Wand, Felle, Bogen bzw. Flinte |
+| Paul Brandt, 68 | Zimmermann im Ruhestand, schnitzt | Haus der Brandts | kennt jedes Haus, weil er es mitgebaut hat | Schnitzbank, Holzfiguren auf dem Sims |
+| Lene Brandt, 66 | Weberin | Haus der Brandts | strickt für das ganze Dorf | Webstuhl, Garnkörbe |
+| Martha, 72 | Kräuterfrau | Häuschen mit Garten | kennt jede Pflanze im Tal, hält eine Ziege | Kräuterbündel an der Decke, Mörser |
+| Wilhelm, 66 | Bergmann a. D. | Hütte am Hang | vermisst die Arbeit unter Tage | Grubenlampe, Erzbrocken auf dem Tisch |
+| Emil, 47 | Bahnwärter ohne Zug | Bahnwärterhaus | zieht jeden Tag die Bahnhofsuhr auf, träumt von der ersten Fahrt | Signallaterne, Fahrplan an der Wand |
+| Katze (Name vom Betrachter) | vollwertige Figur | streunt, später bei Sykora oder Taylor | erst scheu, wird zutraulich | Lieblingskissen, Gabenhaufen |
 
-**Wiederkehrende Gäste [Vorschlag]**, alle mit Namen und Geschichte, kommen über die Straße und später mit dem Zug:
-die Händlerin mit ihrem Karren (alle paar Tage, Tausch), der Postbote aus dem Nachbardorf (Briefe am Schwarzen Brett),
-ein Kesselflicker auf Wanderschaft (selten, erzählt in der Taverne).
+Kinder gibt es zum Start nicht; Zugezogene können Kinder mitbringen, die Kinder bleiben.
 
-**Wachstum [Vorschlag]:**
+**Wiederkehrende Gäste [entschieden]**, alle mit Namen und Geschichte: die Händlerin mit ihrem Karren (alle paar
+Tage, Tausch), der Postbote aus dem Nachbardorf (Briefe am Schwarzen Brett), der Kesselflicker auf Wanderschaft
+(selten, erzählt in der Taverne). Später kommen Gäste mit dem Zug.
 
-- Neue Bewohner kommen **nur, wenn ein Haus bewohnbar ist**. Vorher kündigt ein Brief am Schwarzen Brett sie an.
-- Neue Figuren entstehen **einmal** (aus einer handgeschriebenen Liste oder aus Bausteinen mit Herkunft, Ziel und
-  Charakter) und bleiben für immer gespeichert. Wer wegzieht, wird verabschiedet und kann als Gast wiederkommen.
-- **Ziel im Endausbau des Tals: 30–40 Bewohner** in 15–20 Häusern, dazu 10–15 wiederkehrende Gäste. Begründung in
-  Kapitel 16. Spätere Regionen bringen ihre eigenen Bewohner mit.
-
-**Offene Fragen:** Altern, Geburt, Tod? (Vorschlag: Kinder werden langsam älter, Erwachsene altern sichtbar kaum,
-niemand stirbt; Wegzug ist möglich.) Gefällt die Startbesetzung, fehlt eine Rolle (z. B. Bäckerin, Pfarrer, Lehrerin)?
+**Wachstum [entschieden]:** Endausbau **30–40 Bewohner in etwa 20 Häusern**, manche wohnen zu zweit (z. B. die
+Brandts). Neue Bewohner kommen erst, wenn ein neues Haus gebaut ist. Sie ziehen in eine **Notunterkunft** ein, danach
+wird Raum für Raum ausgebaut (Kapitel 8). Neue Figuren entstehen **einmal** (aus einer handgeschriebenen Liste oder aus
+Bausteinen mit Herkunft, Ziel und Charakter) und bleiben für immer.
 
 ## 4. Gebiete und Kapitel der Welt
 
-**[entschieden]** Dorf bleibt das Herz. Der Zug ist vor allem Reisemittel. Dungeons sind enthalten, aber zum
-Rohstoffe-Sammeln, nicht zum Kämpfen. Neue Gebiete kommen mit Updates, wenn dem User etwas fehlt. Orte werden nach
-und nach zugänglich.
+**[entschieden]** Das Dorf ist das Herz. Der Zug ist vor allem Reisemittel. Die Grube (der „Dungeon“) dient zum
+Rohstoffe-Sammeln, ohne Kampf. Neue Gebiete kommen mit Updates. Orte werden nach und nach zugänglich.
 
 **[Vorschlag] Übersicht der ersten und wichtigsten Gebiete:**
 
-| Kapitel | Gebiet | Ansichten (Orte) | Zugang | Zweck |
+| Kapitel | Gebiet | Orte (je ein Bild) | Zugang | Zweck |
 |---|---|---|---|---|
-| Start | **Hof der Hauptfigur** | Stube mit Kamin und Küche, Schlafkammer, Hofplatz, Garten, Weide, Bach mit Steg; später Werkstatt, Vorratskeller, Stall | ab Tag 1 | Zuhause, Selbstversorgung, Tiere, Katze |
-| Start | **Dorf Erlengrund** | Dorfplatz mit Brunnen, Kerbstein und Schwarzem Brett; Taverne (innen); Wohnhäuser; Schmiede (innen); Marthas Garten; Vorratsscheune | ab Tag 1 | Gemeinschaft, Abende, Handwerk, Bauprojekte |
-| Start | **Umgebung** | Waldrand und Wald, Bach und Teich, Wiesen und Feld | ab Tag 1 | Holz, Pilze, Beeren, Wasser, Fisch, Lehm |
-| 2 | **Bahnhof** (überwuchert) | Bahnsteig, Bahnwärterhaus, Güterschuppen, Lokschuppen | sichtbar ab Tag 1, Ausbau ab Kapitel 2 | Bahn-Bogen, später Handel und Reisen |
-| 3 | **Die alte Grube** | Stolleneingang, Stollen im Querschnitt mit Lampenlicht, Kohleflöz, abgesoffener Teil | nach Werkzeug und Lampen | Kohle, Erz, Stein, Ton, Fundstücke |
+| Start | **Sykoras Hof** | Stube mit Kamin und Küche, Schlafkammer, Hofplatz, Garten, Weide, Bach mit Steg; später Werkstatt, Vorratskeller, Stall | ab Tag 1 | Zuhause, Selbstversorgung, Katze |
+| Start | **Dorf Pixelia** | Dorfplatz mit Brunnen, Kerbstein und Schwarzem Brett; mehrere Häuserzeilen; Taverne, Schmiede, Tischlerei, Bäckerei (innen); Schäferhaus und Weide; Vorratsscheune | ab Tag 1 | Gemeinschaft, Abende, Handwerk, Bauprojekte |
+| Start | **Umgebung** | Waldrand und Wald, Teich und Bach, Wiesen und Feld, Jagdhütte | ab Tag 1 | Holz, Pilze, Beeren, Wild, Wasser, Fisch, Lehm |
+| 2 | **Bahnhof** (überwuchert) | Bahnsteig, Bahnwärterhaus, Güterschuppen, Lokschuppen | sichtbar ab Tag 1, Ausbau ab Kapitel 2 | Lok-Bogen, später Handel und Reisen |
+| 3 | **Die alte Grube** | Stolleneingang, mehrere Stollenabschnitte, Kohleflöz, tiefe Sohle | stufenweise über Werkzeug und Fähigkeiten | Kohle, Erz, Stein, Ton, Fundstücke |
 | 3 | **Berghang** | Steinbruch, Aussichtspunkt | mit Wilhelm | Stein, Ausflüge, Lieblingsort |
-| 4 | **Die Strecke** | zugewachsene Gleise, Brücke, Tunnel, Abteil im fahrenden Zug | nach Werkzeug aus der Schmiede | Reparatur-Bogen, Zugfahrt |
+| 4 | **Die Strecke** | zugewachsene Gleise, Brücke, Tunnel, Abteil im fahrenden Zug | nach der Lok | Zugfahrt |
 | 5+ | **Neue Regionen (Updates)** | z. B. Marktstadt, Küste, See, Bergdorf | mit dem Zug | wählt der User, wenn es soweit ist |
 
-**Sonderorte [Vorschlag], verstreut und selten:** die Grabstelle eines Unbekannten am Waldrand (ein langes Rätsel
-ohne Magie: Fundstücke aus Grube, Wald und Briefen erzählen über Monate, wer das war), ein verlassener Planwagen, die
-Ruine auf dem Hügel, eine Höhle hinter dem Wasserfall.
+**Sonderorte [Vorschlag], verstreut und selten:** die Grabstelle eines Unbekannten am Waldrand (langes Rätsel ohne
+Magie: Fundstücke aus Grube, Wald und Briefen erzählen über Monate, wer das war), ein verlassener Planwagen, die Ruine
+auf dem Hügel, eine Höhle hinter dem Wasserfall.
 
-**Die Grube statt Idle-Dungeon [Vorschlag]:** Expeditionen mit einer kleinen Gruppe (Hauptfigur, Wilhelm, wer Lust
-und Zeit hat). Kein Kampf. Spannung entsteht aus Licht, Wasser und Gestein: Die Lampe geht zur Neige und man muss
-umkehren, ein Stollen ist gesperrt, bis Stützbalken gebaut sind, Wasser steigt, bis eine Pumpe da ist, ein seltener
-Fund (Fossil, Kristall, altes Werkzeug eines Bergmanns). Ausbau: Stützbalken, Pumpe, Lore, Leiter, Lampenstation.
-Technisches Glanzstück wird die Lichtdarstellung (Lampenkegel in der Dunkelheit).
+**Die Grube [entschieden: an bestimmten Stellen geht es nur mit Werkzeug oder Fähigkeit weiter; Rest Vorschlag]:**
+Expeditionen mit einer kleinen Gruppe (Sykora, Wilhelm, wer Lust und Zeit hat). Kein Kampf. Spannung entsteht aus
+Licht, Wasser und Gestein. Jedes Tor ist im Bild sichtbar, so wird die Grube über Wochen tiefer:
+
+| Hindernis | Braucht | Kommt von |
+|---|---|---|
+| dunkle Stollen | Grubenlampe und Öl | Konrad (Lampe), Händlerin (Öl) |
+| verschütteter Gang | Spitzhacke, Bergbau geübt | Konrad, Wilhelm bringt es bei |
+| brüchige Decke | Stützbalken | Jakob, Holz aus dem Wald |
+| senkrechter Schacht | Leiter, Seil | Jakob, Lene (Seil) |
+| abgesoffener Abschnitt | Pumpe mit Lederdichtungen | Konrad, Anton (Leder) |
+| schwere Funde | Lore auf Schienen | Konrad, Jakob |
 
 **Regel für Updates [Vorschlag]:** Jedes Projekt lässt sich mit dem vorhandenen Inhalt abschließen. Was auf ein Update
-wartet, ist in der Welt plausibel versperrt (z. B. „hinter dem Tunnel ist die Strecke verschüttet“). Der reparierte
-Zug fährt schon vor dem ersten Regionen-Update, nämlich zu einer Nachbarstadt außerhalb des Bildes (Handel, Gäste,
-Briefe). Mit dem Update wird diese Stadt zu einem echten Ort.
-
-**Offene Fragen:** Reihenfolge Grube vor Bahn oder umgekehrt? Welche Region soll die erste hinter der Strecke sein?
+wartet, ist in der Welt plausibel versperrt (z. B. „hinter dem Tunnel ist die Strecke verschüttet“). Die fertige Lok
+fährt schon vor dem ersten Regionen-Update, nämlich zu einer Nachbarstadt außerhalb des Bildes (Handel, Gäste, Briefe).
+Mit dem Update wird diese Stadt ein echter Ort.
 
 ## 5. Figuren: Bedürfnisse, Eigenschaften, Fähigkeiten
 
@@ -202,90 +248,111 @@ Briefe). Mit dem Update wird diese Stadt zu einem echten Ort.
 Gesellschaft, Neugier, Hygiene. Dazu **Wünsche** („ein Bett statt Stroh“) und **Mangelzustände** („kalt“, „Werkzeug
 fehlt“), die in Bauvorschläge einfließen.
 
-**Eigenschaften jeder Figur [übernommen, ergänzt]:**
+**Eigenschaften jeder Figur [übernommen, ergänzt]:** Name, Alter, Aussehen (Baukasten), Rolle bzw. Beruf, Zuhause;
+Herkunft und Ziel; 2–3 Charakterzüge; Interessen (gewichtet, verändern sich langsam); Fähigkeiten; Erinnerungen (einige
+sichtbar als Gegenstand); **Erkennungsstücke** im eigenen Haus; Beziehungen zu anderen Figuren in Stufen fremd →
+bekannt → vertraut → hilft, dazu Familie, Zuneigung, Rivalität.
 
-- Name, Alter, Aussehen (Baukasten), Rolle bzw. Beruf, Zuhause
-- Herkunft und Ziel: woher, warum hier, was will sie
-- 2–3 **Charakterzüge** (Frühaufsteherin, gesellig, ordentlich, ängstlich, stur …) [Ergänzung]
-- **Interessen**, unterschiedlich gewichtet, verändern sich langsam durch Erfahrung
-- **Fähigkeiten** (siehe unten)
-- **Erinnerungen:** Anlass, Person, Ort, Gegenstand. Einige werden sichtbar (Gegenstand im Regal)
-- **Beziehungen:** Stufen fremd → bekannt → vertraut → hilft; dazu Familie, Zuneigung, Rivalität
-
-**Fähigkeiten [Vorschlag]: Alle Figuren haben sie, nicht nur die Hauptfigur.**
+**Fähigkeiten [Vorschlag]: alle Figuren haben sie.**
 
 - Stufen statt Zahlen: *unbekannt, Anfänger, geübt, Meister*. Jede Stufe schaltet Tätigkeiten frei (Flechten
-  geübt → Körbe), es gibt keine reinen Zahlenboni. Intern zählt ein kleiner Erfahrungswert pro Fähigkeit.
-- Gelernt wird durch Zuschauen, gemeinsames Arbeiten, Ausprobieren und Gezeigt-Bekommen. Wer einem anderen etwas
-  beibringt, kommt ihm dabei näher: Fähigkeiten und Beziehungen wachsen zusammen.
-- Etwa 24 Fähigkeiten zum Start, zum Beispiel: Kochen, Backen, Holzarbeit, Zimmern, Mauern, Schmieden, Reparieren,
-  Flechten, Nähen, Weben, Gärtnern, Kräuterkunde, Pilzkunde, Tierpflege, Melken, Fischen, Bergbau, Lampen und Licht,
-  Erzählen, Musizieren, Lesen und Schreiben, Bahntechnik.
-- Kosten: rund 50 Byte pro Figur. Für alle Figuren problemlos.
+  geübt → Körbe). Intern zählt ein kleiner Erfahrungswert.
+- Gelernt wird durch Zuschauen, gemeinsames Arbeiten, Ausprobieren und Gezeigt-Bekommen. Dabei wächst die Beziehung
+  **zwischen den beiden Figuren** (Konrad bringt Sykora das Schmieden bei, nach Wochen an der Esse sind sie Freunde).
+- Etwa 24 Fähigkeiten zum Start: Kochen, Backen, Holzarbeit, Tischlern, Zimmern, Mauern, Schmieden, Reparieren,
+  Flechten, Spinnen, Weben, Nähen, Gärtnern, Kräuterkunde, Pilzkunde, Tierpflege, Melken, Fischen, Jagen, Bergbau,
+  Musizieren, Erzählen, Lesen und Schreiben, Bahntechnik.
 
-## 6. Entscheidungslogik
+## 6. Tagesgerüst und Entscheidungslogik
 
-**[übernommen]** Nutzenbewertung statt Skript, Wiederholungsbremse, leichte Streuung, deterministischer Zufall mit
-Startwert, Eingriffe aus dem Web als starker Wunsch.
+**[übernommen]** Nutzenbewertung, Wiederholungsbremse, leichte Streuung, deterministischer Zufall mit Startwert,
+Eingriffe als starker Wunsch.
 
-**[Vorschlag] Verbesserung: ein Gerüst plus Nutzenbewertung.** Reine Nutzenbewertung wirkt oft ziellos (Figuren
-pendeln zwischen Tätigkeiten). Deshalb drei Ebenen:
+**Tagesgerüst [entschieden]:** Tätigkeiten haben **Zeitfenster**:
 
-1. **Tagesgerüst:** Schlaf, Mahlzeiten, Arbeitszeit nach Rolle, Rituale (morgens Tee, abends Laterne anzünden). Je
-   nach Charakter, Jahreszeit und Wetter verschoben.
+- Schlafen nur nachts; tagsüber höchstens ein Nickerchen (Sofa, Ofenbank, im Gras).
+- Gearbeitet wird nur tagsüber; nachts arbeitet niemand.
+- Taverne, Feiern und Musik nur abends.
+
+[Vorschlag] Zeitfenster hängen an der Tageszeit der Welt und verschieben sich mit Jahreszeit und Charakter
+(Frühaufsteher, Nachteule). Ausnahme zum Besprechen: Greta beginnt in der Morgendämmerung mit dem Backen.
+
+**Aufbau der Entscheidung [Vorschlag]:**
+
+1. **Tagesgerüst:** Schlaf, Mahlzeiten, Arbeitszeit nach Rolle, Rituale (morgens Tee, abends Laterne anzünden).
 2. **Aufgaben der Gemeinschaft:** Was das Dorf braucht, steht als Aufgabe auf einer Liste (Holz für die Taverne,
-   Balken für die Baustelle, Wasser holen). Wer Zeit und die passende Fähigkeit hat, übernimmt.
-3. **Nutzenbewertung** für die Lücken und die Freizeit: Bedürfnisse, Interessen, Beziehungen, Wetter, Tageszeit und
+   Balken für die Baustelle). Wer Zeit und die passende Fähigkeit hat, übernimmt.
+3. **Nutzenbewertung** für die Lücken und die Freizeit: Bedürfnisse, Interessen, Beziehungen, Wetter, Tageszeit,
    Wiederholungsbremse.
 
 Jede Entscheidung speichert ihren **Grund** in einem Satz für die Info-Karte. Eingriffe des Betrachters werden mit
-Zeitpunkt protokolliert, damit Läufe mit Startwert reproduzierbar bleiben (wichtig für den Langzeit-Test).
+Zeitpunkt protokolliert, damit Läufe mit Startwert reproduzierbar bleiben.
 
 ## 7. Tiere
 
 **Katze [übernommen]:** vollwertige Figur mit Namen vom Betrachter, eigenem Tagesablauf nach Jahreszeit und Wetter,
 wanderndem Lieblingsplatz, Gaben (Blatt, Feder, Maus, Stein), die zu Erinnerungen werden, Eifersucht, eigenen
-Beziehungen, einmaligen Momenten (erster Schnee). Kein Altern, aber sie wird mit der Zeit ruhiger und anhänglicher.
-[Ergänzung] Sie taucht erst nach einigen Tagen auf und wählt selbst, bei wem sie bleibt (meist bei der Hauptfigur,
-wenn die sie füttert, aber nicht zwingend).
+Beziehungen, einmaligen Momenten (erster Schnee). Kein Altern, wird mit der Zeit ruhiger und anhänglicher. [Vorschlag]
+Taucht erst nach einigen Tagen auf und wählt selbst, bei wem sie bleibt.
 
 **Wildtiere [übernommen]:** wiederkehrende Einzeltiere mit Vertrauensstufen (scheu, wartet, zutraulich, kommt auf
-Ruf). [Vorschlag] Fuchs mit hellem Schwanzende, Reh mit Kitz im Frühling, Igel im Herbst unter dem Laubhaufen, eine
-Krähe, die Glänzendes sammelt, die Eule am Bahnhof, Glühwürmchen im Sommer.
+Ruf). [Vorschlag] Fuchs mit hellem Schwanzende, Reh mit Kitz im Frühling, Igel im Herbst, eine Krähe, die Glänzendes
+sammelt, die Eule am Bahnhof, Glühwürmchen im Sommer.
 
-**Nutztiere [übernommen]:** Hühner, Ziege, Kuh, Schafe mit eigenem Rhythmus, liefern Eier, Milch, Wolle. Keine
-Pflichtversorgung durch den Betrachter. [Vorschlag] Nutztiere sind einfache Figuren mit Namen, Farbe und einer Vorliebe
-(das Huhn, das immer ausbüxt), ohne volles Gedächtnis.
+**Nutztiere [übernommen]:** Hühner, Ziegen, Kuh, Schafe mit eigenem Rhythmus; liefern Eier, Milch, Wolle. Keine
+Pflichtversorgung durch den Betrachter. [Vorschlag] Taylors Herde gehört zu den ersten Tieren. Nutztiere sind einfache
+Figuren mit Namen, Farbe und einer Vorliebe (das Schaf, das immer ausbüxt), ohne volles Gedächtnis.
 
 ## 8. Bestand, Wirtschaft und Bauen
 
-**Bestand [übernommen]:** sammeln, lagern, verarbeiten, verbrauchen. Jede Ware hat Menge und Ort. Einzelstücke
-(Werkzeug, Möbel, Fundstücke) mit Herkunft und Zustand, gleichartige Waren als Mengen. Lager mit Kapazität.
-Verarbeitung verbraucht exakt. Sammelertrag hängt von Ort, Jahreszeit, Ortszustand, Energie der Figur und Zufall ab.
-Vorräte sind sichtbar.
+**Bestand [übernommen]:** sammeln, lagern, verarbeiten, verbrauchen. Jede Ware hat Menge und Ort. Einzelstücke mit
+Herkunft und Zustand, gleichartige Waren als Mengen. Lager mit Kapazität. Verarbeitung verbraucht exakt.
+Sammelertrag hängt von Ort, Jahreszeit, Ortszustand, Energie der Figur und Zufall ab. Vorräte sind sichtbar.
 
-**[Vorschlag] Ein Warenbuch für die ganze Welt.** Alle Orte buchen nur darüber. So stimmt die Bilanz auch, wenn Kohle
-aus der Grube ins Dorf getragen wird oder Waren mit dem Zug reisen.
+**[Vorschlag]** Ein **Warenbuch für die ganze Welt**; alle Orte buchen nur darüber. **Kein Geld am Anfang:** Tausch,
+Geschenke, Gemeinschaftslager in der Scheune, jeder Haushalt hat zusätzlich ein eigenes Lager; die Händlerin tauscht
+gegen Waren von außen. Geld kann später mit der Bahn kommen.
 
-**[Vorschlag] Kein Geld am Anfang.** Im fast leeren Dorf gibt es Tausch, Geschenke und ein Gemeinschaftslager in der
-Scheune; jeder Haushalt hat zusätzlich ein eigenes Lager. Die Händlerin tauscht gegen Waren von außen. Geld kann
-später mit der Bahn kommen.
+**Bauen [übernommen]:** Projekte brauchen Material, Arbeit und Zeit; jeder Ausbau verändert das Leben; kein fester
+Bauplan; Anpassung aus Nutzung (oft am Feuer → Windschutz). **Bauvorschläge** der Bewohner hängen am Schwarzen Brett
+und im Web; der Betrachter (als Bürgermeister) antwortet mit Ja, Nein oder Später; **ohne Antwort nach 24 Stunden
+entscheiden die Bewohner selbst**.
 
-**Bauen [übernommen]:** Projekte brauchen Material, Arbeit und Zeit, jeder Ausbau verändert das Leben, kein fester
-Bauplan, Anpassung aus Nutzung (oft am Feuer → Windschutz). Ausbaustufen für Gebäude, Räume und Gegenstände.
+**Großprojekte bestehen aus Teilaufgaben [entschieden].** Jede Teilaufgabe hat eigenes Material, eigene Fähigkeit und
+einen sichtbaren Zwischenstand. Das verknüpft die Systeme: Die Lok braucht Kohle aus der Grube, Holz vom Tischler, Leder
+vom Jäger, Eisen vom Schmied.
 
-**Bauvorschläge [übernommen, Wunsch des Users]:** Bewohner schlagen Projekte vor (aus Mangel, Wunsch oder Nutzung).
-Der Vorschlag hängt am Schwarzen Brett und erscheint im Web. Der Betrachter antwortet mit Ja, Nein oder Später.
-**Ohne Antwort nach 24 Stunden entscheiden die Bewohner selbst.**
+**[Vorschlag] Die Dampflok** (das längste Projekt, öffnet später neue Gebiete):
+
+| Teilaufgabe | Braucht |
+|---|---|
+| Lokschuppen freischneiden, Tor gangbar machen | Werkzeug, Holzarbeit |
+| Rost abklopfen und Kessel ölen | Drahtbürsten (Konrad), Öl |
+| Kessel entkalken und Druckprobe | Essig, Wasser, Schmieden geübt |
+| Siederohre ersetzen | Eisen, Kohle, Konrad (Meister) |
+| Radlager neu ausgießen | Weißmetall aus Erz der Grube, Schmieden |
+| Kolben und Stopfbuchsen neu packen | Hanf, Talg |
+| Bremsklötze aus Hartholz | Eichenholz, Jakob |
+| Pfeife, Laternen, Manometer instand setzen | Messing, Reparieren |
+| Wasserkran am Bahnhof reparieren | Lederdichtungen (Anton), Pumpe |
+| Kohle bunkern | Kohle aus der Grube |
+| Gleise freilegen, verfaulte Schwellen ersetzen | Eichenholz, Schienennägel (Konrad) |
+| Weiche und Signal gangbar machen | Reparieren, Emil (Bahntechnik) |
+| Probefahrt im Bahnhof, dann bis zum Tunnel | alles oben |
+
+**[entschieden] Hausbau mit Notunterkunft:** Ein neues Haus wird gebaut, dann zieht jemand ein. Erst ist es eine
+Notunterkunft (Kisten, Säcke, Strohsack, überall Gerümpel und Baumaterial). Danach entstehen Stück für Stück die
+Räume: Küche (Feuerstelle → Herd), Schlafkammer (Strohsack → Bett), Stube (Kisten → Tisch und Bank → Ofen und Sofa),
+Waschkammer (Zuber → Bad).
 
 **[Vorschlag] Dauer in echter Zeit:**
 
 | Größe | Beispiele | Dauer |
 |---|---|---|
-| klein | Regal, Windschutz, Bank, Zaun flicken | 1–3 Tage |
-| mittel | Raum, Werkbank, Hühnerstall, Dorfplatz freilegen | 1–2 Wochen |
-| groß | Taverne zur Schenke, Scheune, Haus bewohnbar machen | 3–6 Wochen |
-| sehr groß | Lok und Strecke instand setzen | 2–3 Monate (Teilprojekte mit eigenen Zwischenständen) |
+| klein | Regal, Windschutz, Bank, Zaun flicken, ein Möbelstück | 1–3 Tage |
+| mittel | ein Raum, Werkbank, Hühnerstall, Dorfplatz freilegen | 1–2 Wochen |
+| groß | Haus bis zur Notunterkunft, Taverne zur Schenke, Scheune | 3–6 Wochen |
+| sehr groß | Lok und Strecke | 2–3 Monate, in Teilaufgaben |
 
 **Ausbaustufen im Dorf [übernommen aus dem Skript]:**
 
@@ -293,33 +360,50 @@ Der Vorschlag hängt am Schwarzen Brett und erscheint im Web. Der Betrachter ant
 |---|---|---|
 | Dorfplatz mit Kerbstein und Brunnen | verwildert, freigelegt, gepflastert, Marktplatz | Treffpunkt, Märkte, Feste |
 | Taverne | Bretterbude, Schenke, Gasthaus mit Zimmern | Abende, Erzählungen, Gäste übernachten |
-| Wohnhäuser (pro Haushalt) | Ruine, bewohnbar, gemütlich, persönlich | Schlafqualität, Wärme, Zuzug |
+| Wohnhäuser (pro Haushalt) | Ruine bzw. Neubau, Notunterkunft, Räume ausgebaut, gemütlich, persönlich | Schlafqualität, Wärme, Zuzug |
 | Werkstatt, Schmiede | Werkzeugkiste, Werkbank, Esse | Reparaturen, Werkzeug, Ausrüstung für die Grube |
 | Pflanzenhaus | Frühbeetkasten, Glasanbau, Gewächshaus | Kräuter, Gemüse im Winter, Saatgut |
 | Vorratsscheune | offener Unterstand, Scheune, Keller | Lagerkapazität |
 | Bahnhof | überwuchert, Bahnsteig frei, Warteraum, Güterschuppen | Bahnverkehr, Handel |
-| Badehaus (spät) | Waschzuber, Badehaus mit Ofen | Hygiene, weniger Krankheit, Gesellschaft |
+| Badehaus (spät) | Waschzuber, Badehaus mit Ofen | Hygiene, Gesellschaft |
 | Schwarzes Brett | ein Brett, überdachte Tafel | Wünsche, Bauvorschläge, Briefe; Spiegel der Weboberfläche |
 
-[Ergänzung] Der Hof der Hauptfigur bekommt dieselbe Stufenlogik: Feuerstelle → Herd → Küche, Strohlager → Bett,
-Zaun → Hühnerstall → Stall.
+### Innenräume und Möbel als Baukasten [entschieden: Wunsch des Users]
+
+- **Innenräume aus Teilen:** Wände, Böden, Fenster, Türen, Möbel und Deko sind einzelne Teile. Ein Raum ist eine
+  Datenliste, welches Teil wo steht. So entstehen 20 verschiedene Häuser ohne 20 gemalte Bilder.
+- **Ausbaustufen über den Baukasten:** Möbel und Räume haben Stufen (Strohsack → Bett, Kisten → Tisch); ein Ausbau
+  tauscht oder ergänzt Teile.
+- **Farbliche Unterschiede:** Bett, Sofa, Vorhänge, Tapete usw. gibt es in Farbvarianten. [Vorschlag, Technik] Umgesetzt
+  über **Palettentausch**: Ein Möbelstück wird einmal gezeichnet, die Farbe kommt aus einer austauschbaren Farbreihe.
+  Kostet keinen zusätzlichen Speicher pro Farbe.
+- **Erkennungsstücke:** Jedes Haus bekommt eigene Farben, Tapete, Boden und 3–5 Erkennungsstücke seiner Bewohner
+  (Gitarre bei Taylor, Geweih beim Jäger, Mehlsäcke bei der Bäckerin; Tabelle in Kapitel 3).
+- **Sykoras Haus ist anpassbar:** Haustyp, Farben und Möbel (z. B. Auswahl aus mehreren Sofas) in der Weboberfläche
+  wählbar. [Vorschlag] Eine Auswahl wird zum kleinen Projekt: Sykora muss das Möbel bauen, tauschen oder streichen, das
+  kostet Zeit und Material (Farbe von der Händlerin, Holz vom Tischler). Optional später auch für Taylor.
+- **Eigene Möbel des Users [prüfen in 0.5.x]:** Der User zeichnet Möbelstücke nach Vorgaben (Maße im Raster, Palette)
+  und lädt sie über die Weboberfläche hoch oder bringt sie per Update ins Repo. Siehe Kapitel 16.
 
 ## 9. Zeit, Kalender, Wetter und Licht
 
+**[entschieden]**
+
+- **Tageszeit = echte Zeit**, mehrere Lichtstufen von Morgen bis Nacht.
+- **Jahreszeiten beschleunigt:** 7 echte Tage pro Jahreszeit (einstellbar), ein Weltjahr = 4 Wochen.
+- **Wetter wird simuliert**, passend zur Weltjahreszeit, und kann sich **viermal am Tag ändern**: morgens, mittags,
+  abends, nachts. Übergänge sind weich (Wolken ziehen auf, Regen setzt langsam ein).
+
 **[Vorschlag]**
 
-- **Tageszeit = echte Zeit.** Mehrere Lichtstufen von Morgen bis Nacht, je eigene Palette und Aktivitätsprofil.
-- **Jahreszeiten beschleunigt:** Standard 7 echte Tage pro Jahreszeit (einstellbar), ein Weltjahr = 4 Wochen.
-- **Wetter wird simuliert, passend zur Weltjahreszeit**, mit weichen Übergängen (Sonne, Regen, Schnee, Wind, Nebel,
-  Gewitter). Echtes Wetter vom Standort passt nicht zu beschleunigten Jahreszeiten (Schnee im Juli); es kann eine
-  Option werden, wenn die Jahreszeiten auf „echt“ stehen.
-- **Kalender der Welt:** Jahr 1 beginnt mit der Ankunft der Hauptfigur. Feste entstehen aus dem Leben (fertiger Raum,
-  erste Ernte, Jahrestag der Ankunft, neue Figur) und aus wenigen Jahresfesten (Frühlingsmarkt, Erntefest,
-  Lichterabend zur Wintersonnenwende).
+- Wetterarten: Sonne, bewölkt, Regen, Schnee, Wind, Nebel, Gewitter. Ein Gewitter darf auch einmal mitten in einer
+  Wetterzeit kommen (Sommernachmittag).
+- **Kalender der Welt:** Jahr 1 beginnt mit dem ersten Tag. Feste entstehen aus dem Leben (fertiger Raum, erste Ernte,
+  Wahl, erste Zugfahrt, Jahrestag) und aus wenigen Jahresfesten (Frühlingsmarkt, Erntefest, Lichterabend zur
+  Wintersonnenwende).
 - **Erstlinge** jeder Jahreszeit (erste Schwalbe, erster Schnee) werden einmalig als Erinnerung gespeichert.
-- **Licht als System [Ergänzung]:** Laternen, Fackeln, Kerzen und Kamine brauchen Brennstoff aus dem Warenbuch. Das
-  abendliche Anzünden ist ein Ritual, ein leerer Ort bleibt dunkel. Das passt zur Epoche und zur Lichttechnik der
-  Engine (Lichttabellen).
+- **Licht als System:** Laternen, Fackeln, Kerzen und Kamine brauchen Brennstoff aus dem Warenbuch. Das abendliche
+  Anzünden ist ein Ritual, ein leerer Ort bleibt dunkel.
 
 ## 10. Ortszustände
 
@@ -328,7 +412,7 @@ Zaun → Hühnerstall → Stall.
 | Zustand | Verhalten | Sichtbar als |
 |---|---|---|
 | Feuer, Glut | brennt mit Brennstoff, kühlt langsam ab | Flamme, Glut, Asche, Rauch aus dem Schornstein |
-| Licht [Ergänzung] | brennt, solange Öl oder Talg reicht | Fenster hell oder dunkel, Fackel an oder aus |
+| Licht | brennt, solange Öl oder Talg reicht | Fenster hell oder dunkel, Fackel an oder aus |
 | Wasser | steigt bei Regen, sinkt bei Verbrauch | Füllstand in Fass oder Brunnen |
 | Pflanzen | wachsen nach Jahreszeit, Wasser, Licht | Spross, Blüte, Frucht |
 | Nässe | steigt bei Regen, trocknet langsam | Tropfen, Pfützen, dunkles Holz |
@@ -336,62 +420,60 @@ Zaun → Hühnerstall → Stall.
 | Abnutzung | steigt mit Nutzung | ausgetretene Wege, glatte Sitzplätze |
 | Verschleiß | Dinge gehen kaputt und werden repariert | wackelnder Stuhl, Loch im Dach, geklebte Tasse |
 
-Ortszustände laufen weiter, wenn niemand hinschaut (Glut kühlt ab, Brot wird alt). Schaltet man in ein leeres Haus,
-sieht man genau diesen Zustand: Kamin aus, Fenster dunkel, die Katze allein auf dem Stuhl.
+Ortszustände laufen weiter, wenn niemand hinschaut. Schaltet man in ein leeres Haus, sieht man genau diesen Zustand:
+Kamin aus, Fenster dunkel, die Katze allein auf dem Stuhl.
 
-## 11. Tagesrhythmus, Abende und Ereignisse
+## 11. Abende und Ereignisse
 
-**[übernommen]** Tags arbeiten, abends zusammensitzen, nachts schlafen. Rituale, die sich mit Jahreszeit und Wetter
-verschieben. **Abende als emotionales Herz:** gemeinsames Essen, Gespräche (visuell), Musik, Spiele, Geschichten,
-Schweigen; jeder Abend anders. Ereignisse: kleine Unfälle ohne Strafe, Probleme mit Folgen, seltene Beobachtungen,
-Freude ohne Zweck, Ruhe als Ereignis. Zeit sichtbar machen: wachsendes Notizbuch, selbst gepflanzter Baum,
-Steinhaufen mit Fundstücken.
+**[übernommen]** Rituale verschieben sich mit Jahreszeit und Wetter. **Abende als emotionales Herz:** gemeinsames
+Essen, Gespräche (visuell), Musik (Taylor singt), Spiele, Geschichten, Schweigen; jeder Abend anders. Ereignisse:
+kleine Unfälle ohne Strafe, Probleme mit Folgen, seltene Beobachtungen, Freude ohne Zweck, Ruhe als Ereignis. Zeit
+sichtbar machen: wachsendes Tagebuch, selbst gepflanzter Baum, Steinhaufen mit Fundstücken.
 
-**[Vorschlag]** Ein **Ereignis-Regisseur** pro Welt (nicht pro Ort) wählt nach Verlauf, Spannungsbogen und Sperrzeiten
-aus (LEBENDIGKEIT Regel 6). Ereignisse stehen als Daten in Seltenheitsstufen von häufig bis legendär.
+**Texte [entschieden]:** eher kurz; ab und zu ein Gedanke oder Satz sichtbar.
+
+**[Vorschlag]** Ein **Ereignis-Regisseur** für die ganze Welt wählt nach Verlauf, Spannungsbogen und Sperrzeiten aus
+(LEBENDIGKEIT Regel 6). Ereignisse stehen als Daten in Seltenheitsstufen.
 
 ## 12. Eingreifen und Weboberfläche
 
 **[übernommen]** Anzeigen: Charakterkarten (Bedürfnisse, Stimmung, Rolle, Fähigkeiten, Interessen, Beziehungen,
-Wünsche), Lager (Waren, Mengen, Lagerorte mit Kapazität, Einzelstücke mit Herkunft), Bauprojekte mit Fortschritt und
+Wünsche), Lager (Waren, Mengen, Lagerorte, Einzelstücke mit Herkunft), Bauprojekte mit Teilaufgaben, Fortschritt und
 Material, Logbuch (vor allem was während der Abwesenheit passiert ist), Live-Vorschau (vorhanden).
 
-Eingreifen: Tipps an die Hauptfigur, Bitten an andere (Kapitel 2), Bauvorschläge beantworten (Kapitel 8), Kamera
-umschalten (Kapitel 13), Namen vergeben (Katze, Tiere, Hauptfigur).
+Eingreifen: Tipps an Sykora, Bitten an andere (Kapitel 2), Bauvorschläge beantworten (ab der Wahl), Kamera umschalten
+(Kapitel 13), Namen vergeben, Sykoras Haus einrichten (Kapitel 8), eigene Möbel hochladen (falls machbar).
 
-**Schwarzes Brett [übernommen]:** die Brücke zwischen Dorf und Weboberfläche. Was dort hängt (Wünsche, Aushänge zu
-Projekten, Briefe aus Nachbardörfern), erscheint gleichzeitig im Web. [Ergänzung] Beantwortete Zettel werden im Dorf
-abgenommen, so sieht man die eigene Antwort in der Welt.
+**Schwarzes Brett [übernommen]:** die Brücke zwischen Dorf und Weboberfläche. Was dort hängt, erscheint gleichzeitig
+im Web. [Vorschlag] Beantwortete Zettel werden im Dorf abgenommen.
 
 **[Vorschlag] Touch am Gerät:** Figur antippen → Info-Karte mit Grund; Gebäude antippen → wer ist drin; Wischen →
-nächste Ansicht; langes Halten auf einer Figur → „Folgen“.
+nächster Ort; langes Halten auf einer Figur → „Folgen“.
 
 ## 13. Kamera und Regie
 
-**[entschieden]** Die Kamera zeigt überwiegend die Hauptfigur und geht mit ihr auf Reisen. Der Betrachter kann
-jederzeit zu jedem bekannten Ort schalten, auch dorthin, wo gerade niemand ist (leeres Haus, Kamin aus).
+**[entschieden]** Die Kamera zeigt überwiegend Sykora und geht mit ihm auf Reisen. Der Betrachter kann jederzeit zu
+jedem bekannten Ort schalten, auch dorthin, wo niemand ist (leeres Haus, Kamin aus).
 
 **[Vorschlag]**
 
-- Modus **„Hauptfigur“** (Standard): Die Kamera folgt ihr von Ort zu Ort. Schläft sie, schwenkt die Regie behutsam zu
+- Modus **„Sykora“** (Standard): folgt ihm von Ort zu Ort. Schläft er, schwenkt die Regie behutsam zu Taylor, zu
   Nachteulen, Tieren oder der Taverne und kehrt morgens zurück.
-- Modus **„Frei“**: per Touch oder Web zu jedem Ort; das Dorf hat mehrere Ansichten zum Durchschalten (Platz,
-  Häuserzeile, Bahnhof …). Ohne weitere Eingabe nach einer einstellbaren Zeit (z. B. 10 min) zurück zur Hauptfigur.
-- Modus **„Folge X“**: jede andere Figur.
-- **Kurzmeldungen** von anderen Orten nur bei Wichtigem („Die Gruppe kehrt aus der Grube zurück“), höchstens wenige pro
-  Stunde.
+- Modus **„Frei“**: per Touch oder Web zu jedem Ort; das Dorf hat mehrere Orte zum Durchschalten (Platz,
+  Häuserzeilen, Bahnhof …). Nach einer einstellbaren Zeit ohne Eingabe (z. B. 10 min) zurück zu Sykora.
+- Modus **„Folge X“**: jede andere Figur, z. B. Taylor.
+- **Kurzmeldungen** von anderen Orten nur bei Wichtigem, höchstens wenige pro Stunde.
 
-## 14. Perspektive (Platzhalter)
+## 14. Perspektive
 
-**[offen]** Die Entscheidung kommt aus der parallelen Sitzung mit Perspektiv-Beispielen (Hof, Haus, Dorf, Zug, je Tag
-und Nacht). Deren Empfehlung: 3/4-Draufsicht für Außenorte, Querschnitt für Gebäude und Zug, ein gemeinsamer
-Figurensatz (Figur ≈ 10×22 Pixel, 4 Richtungen), keine Isometrie.
+**[Stand laut User, Entscheidung aus der Perspektiv-Sitzung]** Die Darstellung wird **deutlich größer**, damit auch
+kleine Dinge wie Tassen erkennbar sind. Dafür ist jeder Ort **ein ganzes Bild ohne Scrollen**; man wechselt zwischen
+Orten bzw. Hintergründen statt durch eine große Karte zu fahren. Genaue Maße (Figurengröße, Raster) kommen aus der
+Perspektiv-Sitzung und landen im Stil-Leitfaden (`docs/STIL.md`, 0.5.x).
 
-**Wichtig für das Setting:** Viele Ideen leben von **kleinen Dingen** (Stein auf der Fensterbank, geklebte Tasse,
-Katze auf dem Werkstück). Bei einer Figur von 22 Pixeln Höhe ist eine Tasse 2–3 Pixel groß. Das geht, wenn
-Gegenstände als klare Zeichen mit eigener Farbe gestaltet werden und die Info-Karte bzw. das Logbuch sie erklärt.
-Innenräume sollten deshalb eher **größer** dargestellt werden (Querschnitt mit wenigen Räumen pro Bild) als im Maßstab
-der Dorfansicht.
+Folgen fürs Setting: Ein Ort fasst weniger Figuren und Häuser. Das Dorf besteht deshalb aus mehreren Orten
+(Dorfplatz, Häuserzeilen, Bahnhof), und jedes Haus hat eigene Innenorte. Figuren wechseln den Ort durch Türen und
+Bildränder.
 
 ## 15. Modularer Aufbau und Stufen der Simulation
 
@@ -399,34 +481,36 @@ der Dorfansicht.
 
 Grundsätze:
 
-1. **Welt = gemeinsamer Zustand:** Uhr, Wetter, Figuren, Warenbuch, Chronik, Verbindungen, Aufgabenliste. Gespeichert
-   als Ganzes.
-2. **Ort = Modul:** bringt Darstellung, Karte, ortstypische Tätigkeiten und Ereignisse als Daten mit, dazu seinen
-   Ortszustand (Bauzustand, Beete, Feuer, Grubenstollen). Ein Ort greift nie direkt auf einen anderen zu.
+1. **Welt = gemeinsamer Zustand:** Uhr, Wetter, Figuren, Warenbuch, Chronik, Verbindungen, Aufgabenliste, Projekte.
+   Gespeichert als Ganzes.
+2. **Ort = ein Bild = Modul-Baustein:** bringt Hintergrund, Baukasten-Einrichtung, Wege- und Benutzungspunkte,
+   ortstypische Tätigkeiten und Ereignisse als Daten mit, dazu seinen Ortszustand. Ein Gebiet (Hof, Dorf, Grube) ist
+   eine Gruppe von Orten. Ein Ort greift nie direkt auf einen anderen zu.
 3. **Eine Figur ist immer an genau einem Ort** oder auf genau einer Verbindung. Ein Wechsel ist eine Übergabe in einem
    Schritt, nie eine Kopie.
-4. **Verbindungen sind Daten:** Ort A + Punkt, Ort B + Punkt, Art (Tür, Weg, Brücke, Bahnhof, Stolleneingang),
-   Reisezeit, Bedingungen (nur bei Tag, erst nach Bau, Zug nach Fahrplan). Fahrzeuge sind bewegliche Orte.
+4. **Verbindungen sind Daten:** Ort A + Punkt, Ort B + Punkt, Art (Tür, Bildrand, Weg, Bahnhof, Stolleneingang),
+   Reisezeit, Bedingungen (nur bei Tag, erst nach Bau, Werkzeug nötig, Zug nach Fahrplan). Fahrzeuge sind bewegliche
+   Orte.
 5. **Neues Gebiet ohne Umbau:** neuer Ordner, Daten, eine Zeile Registrierung. Ein alter Speicherstand lädt weiter.
+6. **Grafiken über eine austauschbare Asset-Quelle** (Flash oder SD-Karte), Kapitel 16.
 
 Stufen der Simulation:
 
 | Stufe | Wo | Takt | Was simuliert wird |
 |---|---|---|---|
-| **Voll** | sichtbarer Ort, Kern 1 | 30 Hz | Wegfindung, Animation, Begegnungen, Mikro-Ereignisse, Kamera |
-| **Grob** | alle anderen Orte, Kern 0, niedrige Priorität | ~1 Hz | Tätigkeiten als Zeitblöcke mit derselben Wirkung, Position nur als Zone, Ortszustände |
+| **Voll** | sichtbarer Ort, Kern 1 | 30 Hz | Wege, Animation, Begegnungen, Mikro-Ereignisse |
+| **Grob** | alle anderen Orte, Kern 0, niedrige Priorität | ~1 Hz | Tätigkeiten als Zeitblöcke mit derselben Wirkung, Ortszustände |
 | **Nachholen** | nach dem Einschalten | einmalig, in Minutenschritten | begrenzt und plausibel (Regel 10) |
 
 Schlüssel: **gleiche Wirkung, andere Darstellung.** Tätigkeiten buchen Waren, Bedürfnisse, Fähigkeiten und
 Erinnerungen in beiden Stufen identisch. Schaltet man zu einem Ort, werden die Figuren an die passende Stelle ihrer
-laufenden Tätigkeit gesetzt. Pixelgenau gleiche Bewegungen in beiden Stufen sind weder möglich noch nötig; die Bilanz
-muss exakt sein. Das ersetzt die Formulierung „Hintergrund- und Live-Simulation liefern dieselben Ergebnisse“
-(PROJEKTPLAN 4.5).
+laufenden Tätigkeit gesetzt. Die Bilanz muss exakt sein, die Bewegung nicht. Das ersetzt die Formulierung
+„Hintergrund- und Live-Simulation liefern dieselben Ergebnisse“ (PROJEKTPLAN 4.5).
 
-Engine-Teile, die das braucht (letzte 0.5.x-Patches): Weltzustand mit Figuren, Warenbuch und Aufgabenliste,
-Orts-Graph mit Verbindungen als Daten, Modul-Schnittstelle für Orte, Übergaben zwischen Stufen und Kernen (nur an
-Takt-Grenzen, über eine Warteschlange), Regie und Kamera-Modi, Speicherstand als Ganzes, Asset-Quelle Flash oder
-SD-Karte.
+Engine-Teile, die das braucht (letzte 0.5.x-Patches): Weltzustand mit Figuren, Warenbuch, Aufgabenliste und Projekten
+mit Teilaufgaben; Orts-Graph mit Verbindungen als Daten; Modul-Schnittstelle für Orte und Gebiete; Übergaben zwischen
+Stufen und Kernen (nur an Takt-Grenzen, über eine Warteschlange); Regie und Kamera-Modi; Speicherstand als Ganzes;
+Innenraum-Baukasten mit Palettentausch; Asset-Quelle Flash oder SD.
 
 ## 16. Hardware-Rahmen mit Zahlen
 
@@ -441,47 +525,51 @@ frei ~7,7 MB mit Engine; Flash-Schreiben während der Animation ohne Aussetzer; 
 
 | Posten | Schätzung | Folgerung |
 |---|---|---|
-| Datensatz pro Figur (Stammdaten, Zustand, Bedürfnisse, Tagesgerüst, Besitz, 24 Fähigkeiten, 24 Beziehungen, 32 Erinnerungen) | 0,5–1 KB | 300 Figuren ≈ 0,3 MB PSRAM: **RAM ist nicht die Grenze** |
-| Figurengrafik (Baukasten zur Laufzeit) | Teile-Atlas 0,1–0,3 MB, ~9 KB pro sichtbarer Figur | 40 sichtbare Figuren ≈ 0,4 MB |
-| Aktiver Ort (Karte mehrere Bildschirme, Ebenen, Kacheln, Objekte, Wegnetz) | 0,3–1 MB | ein aktiver Ort plus ein vorgeladener Nachbar |
-| Inaktiver Ort (nur Ortszustand inkl. Abnutzung pro Kachel) | 2–20 KB | 50 Orte < 1 MB |
-| Logik voller Ort (40 Figuren à ~15 µs, 2 Wegsuchen pro Bild à 0,3–1 ms) | 1–3 ms pro Bild | mit Zeichnen 4–8 ms bleibt man unter 12 ms |
-| Grobe Stufe (5–20 µs pro Figur, 1 Hz) | 300 Figuren ≈ 6 ms pro Sekunde | < 1 % von Kern 0 |
-| Nachholen 8 h aus, Minutenschritte | 480 × 300 Figuren × 20 µs ≈ 3 s | unkritisch, Obergrenze trotzdem nötig |
-| Speicherstand gesamt | 0,3–0,6 MB roh, ~0,15–0,25 MB gepackt | passt vielfach in `storage` |
-| Flash-Verschleiß (250 KB alle 10 min, 100 000 Löschzyklen, LittleFS verteilt) | ~9 Durchläufe der Partition pro Tag | rechnerisch > 25 Jahre |
+| Datensatz pro Figur (Stammdaten, Zustand, Bedürfnisse, Tagesgerüst, Besitz, 24 Fähigkeiten, 24 Beziehungen, 32 Erinnerungen) | 0,5–1 KB | 40 Figuren ≈ 40 KB: **RAM ist nicht die Grenze** |
+| Ein Ort (ein Bild, Hintergrund 400×240 + Teile + Wegpunkte) | 0,1–0,3 MB im PSRAM | aktiver Ort plus vorgeladene Nachbarn |
+| Innenraum als Baukasten-Liste | ~0,5 KB pro Raum | 20 Häuser × 4 Räume ≈ 40 KB |
+| Möbel- und Teile-Atlas für alle Innenräume | 0,3–0,6 MB | einmal für alle Häuser; Farbvarianten per Palettentausch kosten nichts |
+| Zum Vergleich: jeder Raum als eigenes Bild | 20–40 KB gepackt pro Raum, 60 Räume ≈ 2 MB | im Flash knapp, auf SD egal; Baukasten bleibt besser wegen der Ausbaustufen |
+| Inaktiver Ort (nur Ortszustand) | 1–10 KB | 100 Orte < 1 MB |
+| Logik voller Ort (bis 15 Figuren im Bild) | < 1 ms pro Bild | viel Luft |
+| Grobe Stufe (5–20 µs pro Figur, 1 Hz) | 40 Figuren < 1 ms pro Sekunde | vernachlässigbar |
+| Speicherstand gesamt | 0,1–0,3 MB roh, < 0,1 MB gepackt | passt vielfach in `storage` |
+| Flash-Verschleiß (100 KB alle 10 min, 100 000 Löschzyklen, LittleFS verteilt) | ~4 Durchläufe der Partition pro Tag | rechnerisch Jahrzehnte |
 
-**Wie viele Personen? [Vorschlag]** Technisch gehen 300 und mehr. Die echten Grenzen sind andere:
+**Personen [entschieden]:** 30–40 Bewohner, jeder mit Charakter, Job und wiedererkennbar. Technisch gingen weit mehr;
+die echten Grenzen sind Wiedererkennbarkeit, Platz für sichtbare Häuser und Schreibarbeit. **Fähigkeiten** haben alle
+Figuren (~50 Byte pro Figur).
 
-1. **Wiedererkennbarkeit:** Bei etwa 10×22 Pixeln unterscheidet man Figuren an Silhouette, Haaren, Kleidung und
-   Farbe. Ein Baukasten liefert hunderte Kombinationen, aber ein Mensch merkt sich ungefähr 30–40 Figuren als
-   Persönlichkeiten. (Vergleich: Stardew Valley hat rund 30 Dorfbewohner mit eigenem Tagesablauf.)
-2. **Häuser:** Jede Figur wohnt in einem sichtbaren Haus. Ein Dorf über mehrere Ansichten fasst etwa 15–20 Häuser,
-   also mit Familien 30–45 Menschen.
-3. **Inhalt:** Jede Figur braucht Herkunft, Ziel, Tagesgerüst und eigene Gedanken- und Dialogzeilen (10–20 eigene plus
-   allgemeine). Das ist Schreibarbeit pro Figur.
+**SD-Karte [entschieden]: erst ohne Karte arbeiten, später bei Bedarf alles auf die Karte umziehen.** Bedingung: Die
+Engine liest Grafiken und Inhalte von Anfang an über eine **austauschbare Asset-Quelle** (Flash oder SD). Dann ist der
+spätere Umzug nur Kopieren und Umschalten, auch für fertige Orte. Ein Ort lädt von der Karte in ~0,1–0,3 s (SPI,
+~1–2 MB/s), beim Ortswechsel hinter einer Überblendung auf Kern 0. Nach dem Umzug braucht die Welt die Karte; fehlt sie,
+zeigt das Gerät einen Hinweis.
 
-Empfehlung: **Start mit 9, Endausbau des Tals 30–40 Bewohner plus 10–15 wiederkehrende Gäste.** Das deckt auch das
-Ziel „≥ 40 Bewohner“ der Charta ab. Spätere Regionen bringen eigene Bewohner, die meist in der groben Stufe laufen.
+| Nutzung der Karte | Eignung |
+|---|---|
+| Grafiken und Inhaltspakete | sehr gut, hebt die Flash-Grenze auf (neben der Firmware ~3 MB) |
+| Chronik, Logbuch, Tagebuch als Archiv | sehr gut |
+| Sicherungskopien des Speicherstands | gut |
+| eigene Möbel des Users | gut |
+| der Speicherstand selbst | nein: bleibt im internen Flash (LittleFS, stromausfallsicher) |
+| Laden während des Zeichnens | nein: nur beim Ortswechsel |
 
-**Fähigkeitswerte:** alle Figuren (Kapitel 5), rund 50 Byte pro Figur.
+Vorher messen (0.5.x): Lesegeschwindigkeit, keine Bildaussetzer während des Lesens, Ziehen der Karte. Pins laut
+Community-Angabe 10/11/12/13 (SPI), noch nicht getestet.
 
-**SD-Karte [Vorschlag]:** Das Board hat einen microSD-Halter (SPI, Pins 10/11/12/13 laut Community-Angabe, noch nicht
-getestet). Einschätzung:
+**Eigene Möbel des Users [Vorschlag, in 0.5.x prüfen]:** Technisch machbar.
 
-| Nutzung | Eignung | Begründung |
-|---|---|---|
-| **Grafiken und Inhalte (Asset-Pakete)** | sehr gut | hebt die eigentliche Grenze auf: In der App-Partition sind neben der Firmware nur ~3 MB für Grafiken frei (reicht für etwa 10–15 Orte), auf einer Karte sind es Gigabyte |
-| **Chronik, Logbuch, Tagebuch als Archiv** | sehr gut | jahrelange Geschichte ohne Platzsorgen (~1–5 KB pro Tag) |
-| **Sicherungskopien des Speicherstands** | gut | zusätzliche Kopie, z. B. täglich, zum Mitnehmen und Wiederherstellen |
-| **Der Speicherstand selbst** | nein | FAT auf SD-Karten verträgt Stromausfälle schlecht; der Spielstand bleibt im internen Flash (LittleFS, stromausfallsicher) |
-| **Laden während des Zeichnens** | nein | SPI liest realistisch ~1–2 MB/s; ein Ort (0,5 MB) lädt in ~0,3–0,5 s, also beim Ortswechsel hinter einer Überblendung, auf Kern 0 ins PSRAM |
-
-Vorgehen: Die Engine liest Grafiken von Anfang an über eine **Asset-Quelle**, die Flash oder SD sein kann. Hof und
-Dorf passen in den Flash, das Gerät läuft also auch ohne Karte. Die SD-Karte wird sofort für Archiv und Sicherungen
-genutzt und später für weitere Gebiete. Neue Inhaltspakete kommen wie Firmware-Updates von GitHub (z. B. 10 MB in
-~90 s). Vorher in 0.5.x messen: Lesegeschwindigkeit, keine Bildaussetzer während des Lesens, Verhalten beim Ziehen
-der Karte.
+- **Vorgaben:** Maße in ganzen Rastereinheiten (genaue Zahlen nach der Perspektiv-Entscheidung im Stil-Leitfaden),
+  nur Farben aus der Pixelia-Palette bzw. aus einer austauschbaren Farbreihe (dann gibt es automatisch Farbvarianten),
+  transparenter Hintergrund, optional Ausbaustufen als weitere Bilder gleicher Größe.
+- **Dazu Daten:** Name, Art (Bett, Sitz, Tisch, Regal, Deko), Stellfläche und **Benutzungspunkte** (wo eine Figur
+  sitzt oder liegt). Ohne diese Punkte kann keine Figur das Möbel benutzen.
+- **Weg 1, Weboberfläche:** PNG hochladen, die Oberfläche zeigt eine Vorschau im Raum, prüft Maße und Farben, rechnet
+  fremde Farben auf die Palette um und speichert das Möbel auf SD oder im Flash (wenige KB pro Stück).
+- **Weg 2, Update:** Der User gibt die PNG an Claude, sie kommt ins Repo (`assets/`, eigene Werke) und mit dem nächsten
+  Update auf alle Geräte.
+- Speicherstände verweisen auf Möbel per Kennung; wird ein eigenes Möbel gelöscht, ersetzt ein Standardmöbel es.
 
 ## 17. Rahmenbedingungen für Claude
 
@@ -491,37 +579,36 @@ Arbeits-Sitzungen **entscheiden selbst** (und begründen kurz im PR):
 
 - technische Umsetzung, Datenformate, Algorithmen, Aufteilung auf Kerne, Speicherlayout
 - Zahlenwerte für Balance (Dauer, Verbrauch, Wahrscheinlichkeiten), solange der Langzeit-Test sie belegt
-- neue Inhalte innerhalb eines beschlossenen Gebiets (Ereignisse, Tätigkeiten, Gedanken, Gegenstände), passend zum
-  Ton und zur Epoche
+- neue Inhalte innerhalb eines beschlossenen Gebiets (Ereignisse, Tätigkeiten, Gedanken, Gegenstände), passend zu Ton
+  und Epoche
 - Nebenfiguren und Gäste mit Namen und Charakter, solange sie zum Setting passen
 - Grafikdetails im Rahmen von Stil-Leitfaden und Perspektive
 
-**Zurück an den User** (als Frage oder in ROADMAP „Offen“):
+**Zurück an den User** (als Auswahlfrage mit Empfehlung oder in ROADMAP „Offen“):
 
 - neues Gebiet, Wegfall eines Gebiets, Reihenfolge der Gebiete und Phasen
-- Ton, Epoche, Magie, die großen Bögen (Grube, Bahn, Grabstelle)
-- Hauptfigur und Startbesetzung (Namen, Wesen, Schicksal), Altern und Tod
+- Ton, Epoche, Magie, die großen Bögen (Wahl, Grube, Lok, Grabstelle)
+- Sykora, Taylor und die Startbesetzung (Namen, Wesen, Beziehungen)
 - alles, was diesem Dokument widerspricht oder es ändert
 - Abweichung von LEBENDIGKEIT.md oder vom Hardware-Budget
 
 **Immer:** Inhalte als Daten, nicht im Code; Verbindungen zwischen Orten nur über den Weltzustand und den
-Ereignis-Bus; nur berichten, was gebaut und im Langzeit-Test geprüft ist; keine anachronistische Technik und keine
-Magie.
+Ereignis-Bus; nur berichten, was gebaut und im Langzeit-Test geprüft ist; keine Technik nach 1850 außer der Bahn,
+keine Magie, kein Altern, kein Tod, kein Wegzug.
 
 ## 18. Offene Fragen
 
-Nach Dringlichkeit:
-
-1. **Prämisse und Epoche** (Kapitel 1): „Verlassenes Dorf erwacht“, frühe Dampfzeit um 1850?
-2. **Hauptfigur** (Kapitel 2): Name, Geschlecht, Alter, Charakter, Herkunft.
-3. **Startbesetzung** (Kapitel 3): passt sie, fehlt jemand? Altern, Geburt, Tod?
-4. **Reihenfolge** (Kapitel 4): Grube vor Bahn oder umgekehrt? Erste Region hinter der Strecke?
-5. **Zeit** (Kapitel 9): Tageszeit echt, Jahreszeit 7 Tage, Wetter simuliert?
+1. **Vorgeschichte** (Kapitel 1): welche der Ideen, oder eine Mischung?
+2. **Ideenliste von Claude:** Katze als Kupplerin zwischen Sykora und Taylor; Taylors Lieder wachsen mit dem Dorf
+   (Lieder über echte Ereignisse, im Web lesbar); Vertrauen der Bewohner in Sykora (entscheidet die Wahl, spiegelt die
+   Entscheidungen des Bürgermeisters); Lok taufen per Abstimmung am Schwarzen Brett.
+3. **Taylors Profil** (Kapitel 2): passt der Entwurf?
+4. **Reihenfolge** (Kapitel 4): Grube vor Lok oder umgekehrt? Erste Region hinter der Strecke?
+5. **Greta in der Morgendämmerung** als Ausnahme vom Tagesgerüst?
 6. **Geld** (Kapitel 8): erst Tausch, Geld später?
 7. **Nachholen** nach dem Ausschalten: wie lange (Vorschlag: höchstens 24 h)?
-8. **Perspektive** je Ort (Kapitel 14), aus der Perspektiv-Sitzung.
-9. **Charta:** Die Mindestziele für Zug, Dungeon, Liga und Inselwelt (LEBENDIGKEIT Kapitel 2) passen nicht mehr. Vorschlag:
-   Dorf-Ziele bleiben, dazu neue Ziele für Hof, Grube, Bahn und für die Welt als Ganzes.
+8. **Charta:** Die Mindestziele für Zug, Dungeon, Liga und Inselwelt (LEBENDIGKEIT Kapitel 2) passen nicht mehr.
+   Vorschlag: Dorf-Ziele bleiben (bis auf „Wegzug“), dazu neue Ziele für Hof, Grube, Lok und die Welt als Ganzes.
 
 ## 19. Entscheidungen
 
@@ -530,11 +617,19 @@ Fest beschlossene Punkte dieser Werkstatt. Am Ende als Zeilen ins Entscheidungsp
 | Datum | Entscheidung | Begründung |
 |---|---|---|
 | 2026-10-20 | **Gemeinsames Setting:** eine Welt mit Gebieten als Modulen, ein sichtbarer Ort voll simuliert, die anderen vereinfacht im Hintergrund, Figuren wechseln zwischen Orten | Idee des Users (ROADMAP-Backlog) |
-| 2026-10-20 | **Alte Welten verworfen** (Zugfenster, Dungeon-Held, Pixel-Liga, Inselwelt als eigene Welten); Projekt wird inhaltlich neu aufgezogen, gute Ideen werden weiterverwendet | Entscheidung des Users |
+| 2026-10-20 | **Alte Welten verworfen** (Zugfenster, Dungeon-Held, Pixel-Liga, Inselwelt als eigene Welten); Projekt inhaltlich neu, gute Ideen werden weiterverwendet | Entscheidung des Users |
 | 2026-10-20 | **Ton:** gemütlich, bodenständig, keine Magie | Entscheidung des Users |
-| 2026-10-20 | **Dorf bleibt Herz**; Zug vor allem Reisemittel; Grube bzw. Dungeon zum Sammeln von Rohstoffen, ohne Kampf; neue Gebiete per Update | Entscheidung des Users |
-| 2026-10-20 | **Hauptfigur** ist eine Figur unter vielen ohne Sonderkräfte, wird vom Betrachter am stärksten beeinflusst (Tipps), Kamera folgt ihr überwiegend | Entscheidung des Users |
-| 2026-10-20 | **Kamera frei umschaltbar** zu jedem bekannten Ort, auch zu leeren Orten mit ihrem echten Zustand | Entscheidung des Users |
-| 2026-10-20 | **Feste Bewohner:** jede Figur ein Charakter mit festem, sichtbarem Haus; keine zufälligen Statisten | Entscheidung des Users |
+| 2026-10-20 | **Dorf bleibt Herz**; Zug vor allem Reisemittel; Grube zum Sammeln von Rohstoffen, ohne Kampf, Weiterkommen nur mit Werkzeug oder Fähigkeit; neue Gebiete per Update | Entscheidung des Users |
+| 2026-10-20 | **Kamera** folgt überwiegend der Hauptfigur, frei umschaltbar zu jedem bekannten Ort, auch zu leeren Orten mit ihrem echten Zustand | Entscheidung des Users |
+| 2026-10-20 | **Feste Bewohner:** jede Figur ein Charakter mit Job und festem, sichtbarem Haus; keine zufälligen Statisten | Entscheidung des Users |
 | 2026-10-20 | **Bauvorschläge** der Bewohner im Web beantworten; ohne Antwort nach 24 h entscheiden sie selbst | Wunsch des Users (Skript) |
-| 2026-10-20 | **SD-Karte** steht zur Verfügung und darf für Daten und Grafiken eingeplant werden | Angabe des Users |
+| 2026-10-21 | **Epoche um 1850**, Handwerk ist echte Handarbeit, die Bahn ist die einzige moderne Technik; Dorf heißt **Pixelia**; Vorgeschichte mit Wassereinbruch verworfen | Entscheidung des Users |
+| 2026-10-21 | **Sykora** (Mann, 30, freundlich, vom Land) ist die Hauptfigur, verliebt in **Taylor** (Schäferin, 30, blond, tierlieb, singt und spielt Gitarre in der Taverne), zweite Hauptfigur; der Funke ist bei ihr schon da | Entscheidung des Users |
+| 2026-10-21 | **Bürgermeister per Wahl** als Meilenstein: vorher Tipps an Sykora, danach entscheidet der Betrachter auch über Bauvorhaben | Entscheidung des Users |
+| 2026-10-21 | **Startbesetzung** mit Tischler, Bäckerin, Fischer, Jäger und den Brandts als altem Ehepaar; Endausbau **30–40 Bewohner in ~20 Häusern**; wiederkehrende Gäste | Entscheidung des Users |
+| 2026-10-21 | **Niemand altert, stirbt oder zieht weg** | Entscheidung des Users |
+| 2026-10-21 | **Tagesgerüst mit Zeitfenstern** (Schlaf nachts, Arbeit tags, Taverne und Feste abends); **Wetter** viermal am Tag änderbar; Jahreszeit 7 echte Tage | Entscheidung des Users |
+| 2026-10-21 | **Großprojekte in Teilaufgaben** (z. B. Dampflok); **Hausbau mit Notunterkunft**, danach Raum für Raum | Entscheidung des Users |
+| 2026-10-21 | **Innenräume und Möbel als Baukasten** mit Ausbaustufen, Farbvarianten und Erkennungsstücken; Sykoras Haus in der Weboberfläche anpassbar | Wunsch des Users |
+| 2026-10-21 | **Austauschbare Asset-Quelle:** erst ohne SD-Karte, später bei Bedarf alles auf die Karte, Laden beim Ortswechsel hinter einer Überblendung | Entscheidung des Users |
+| 2026-10-21 | **Perspektive größer, ein Bild pro Ort, kein Scrollen** (aus der Perspektiv-Sitzung) | Angabe des Users |
