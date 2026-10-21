@@ -447,6 +447,13 @@ Eingreifen: Tipps an Sykora, Bitten an andere (Kapitel 2), Bauvorschläge beantw
 **Schwarzes Brett [übernommen]:** die Brücke zwischen Dorf und Weboberfläche. Was dort hängt, erscheint gleichzeitig
 im Web. [Vorschlag] Beantwortete Zettel werden im Dorf abgenommen.
 
+**Briefe mit Text [Wunsch des Users, 2026-10-21, auszuarbeiten]:** Briefe (vom Postboten, aus Nachbardörfern, von
+Bewohnern untereinander) haben echten Text und eine eigene Ansicht, ähnlich der „Vorschau“ bei den Katzen im
+CYD-Projekt Pixelpfote. Der User bringt eine Beispieldatei mit.
+
+**Gedanken der Bewohner [Wunsch des Users, 2026-10-21]:** Was eine Figur gerade denkt (mit echtem Grund aus der
+Simulation), ist auf der Info-Karte am Gerät und in der Weboberfläche lesbar, dort auch als Verlauf.
+
 **[Vorschlag] Touch am Gerät:** Figur antippen → Info-Karte mit Grund; Gebäude antippen → wer ist drin; Wischen →
 nächster Ort; langes Halten auf einer Figur → „Folgen“.
 
@@ -607,7 +614,9 @@ keine Magie, kein Altern, kein Tod, kein Wegzug.
 5. **Greta in der Morgendämmerung** als Ausnahme vom Tagesgerüst?
 6. **Geld** (Kapitel 8): erst Tausch, Geld später?
 7. **Nachholen** nach dem Ausschalten: wie lange (Vorschlag: höchstens 24 h)?
-8. **Charta:** Die Mindestziele für Zug, Dungeon, Liga und Inselwelt (LEBENDIGKEIT Kapitel 2) passen nicht mehr.
+8. **Briefe und Gedanken** (Kapitel 12): Wer schreibt wem, wie oft, wie lang? Ansicht nach der Beispieldatei des
+   Users (Pixelpfote-Vorschau). Vorgemerkt für die Themen Figuren, Gedächtnis, Wohnen und Besitz.
+9. **Charta:** Die Mindestziele für Zug, Dungeon, Liga und Inselwelt (LEBENDIGKEIT Kapitel 2) passen nicht mehr.
    Vorschlag: Dorf-Ziele bleiben (bis auf „Wegzug“), dazu neue Ziele für Hof, Grube, Lok und die Welt als Ganzes.
 
 ## 19. Entscheidungen
