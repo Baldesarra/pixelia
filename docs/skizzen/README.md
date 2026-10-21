@@ -3,17 +3,24 @@
 Wegwerf-Skizzen aus der Planung, aufbewahrt als Zeugnis, wie Pixelia entstanden ist. Später sollen sie als
 „Easter Egg“ über einen Knopf in der Weboberfläche erreichbar sein (siehe ROADMAP, Backlog).
 
-Beide Seiten sind eigenständige HTML-Dateien ohne Abhängigkeiten: Doppelklick genügt, sie laufen offline. Die Bilder
+Alle Seiten sind eigenständige HTML-Dateien ohne Abhängigkeiten: Doppelklick genügt, sie laufen offline. Die Bilder
 werden im Browser prozedural in echten 400 × 240 Pixeln mit 8-Bit-Palette gezeichnet und ohne Glättung verdoppelt,
-so wie auf dem 5″-Display. Es ist kein Engine- oder Firmware-Code.
+so wie auf dem 5″-Display; ab v4 entsteht jede Szene in 200 × 120 groben Bildpunkten und wird ein weiteres Mal verdoppelt. Es ist kein Engine- oder Firmware-Code.
 
 | Datei | Stand | Inhalt |
 |---|---|---|
 | [perspektiven-v1.html](perspektiven-v1.html) | 2026-10-20 | Fünf Perspektiven im Vergleich (Seitenansicht mit Parallax, Querschnitt, 3/4-Draufsicht, Isometrie, Bühne mit Bodentiefe), je Hof, Haus, Dorf, Zug, Tag und Nacht, Bildfolge, Vergleichstabelle |
 | [szenen-v2.html](szenen-v2.html) | 2026-10-20 | Die gewählte Mischung mit fester Kamera: außen 3/4 (Hof, Dorf West, Dorf Ost), innen nahe Seitenansicht (Küche, Wohnzimmer, Zugabteil) |
+| [figuren-v3.html](figuren-v3.html) | 2026-10-20 | Chibi-Figuren mit 28 px, zehn Bewohner, Küche und Wohnzimmer je in Seiten- und 3/4-Ansicht, Hof, Zugabteil, Küche mit doppelt so nahem Bild |
+| [massstab-v4.html](massstab-v4.html) | 2026-10-20 | Der gewählte Maßstab: Szene in 200 × 120 groben Bildpunkten, Figur 28 hoch; Küche, Wohnzimmer, Zugabteil mit Gang |
+| [dorfansicht-v5.html](dorfansicht-v5.html) | 2026-10-21 | Große Orte: Dorfbereich „Dorfplatz“ in voller Größe und eine Dorfübersicht mit Mini-Figuren (verworfen: die Übersicht gibt es nur als Karte im Menü) |
+
+**Ergebnis (2026-10-21):** 3/4-Draufsicht für alle Orte, feste Kamera, ein Bildschirm pro Bereich oder Raum, Wechsel
+per Sprung; Szenen in 200 × 120 groben Bildpunkten, Figur 28 im Chibi-Stil mit 4 Blickrichtungen; keine Isometrie.
+Eintrag im Entscheidungsprotokoll (PROJEKTPLAN Kapitel 14) folgt in der Arbeits-Sitzung 0.5.x.
 
 Die Zahlen unter den Bildern (Farben, Schreibzugriffe, sortierte Objekte, geänderte Pixel) zählt die Skizze selbst
 im Browser. Sie sind Anhaltspunkte, keine Messungen am ESP32-S3.
 
-Hinweise für die spätere Einbindung in die Weboberfläche: Die Dateien zusammen sind etwa 315 KB groß, gzip-gepackt
+Hinweise für die spätere Einbindung in die Weboberfläche: Die Dateien zusammen sind etwa 920 KB groß, gzip-gepackt
 deutlich weniger. Ohne Internet fallen die Schriften auf Systemschriften zurück; das ist gewollt (keine CDNs).
