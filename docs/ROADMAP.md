@@ -11,8 +11,8 @@
 | **Letzte Version** | 0.4.2 „Experimentell, Live-Vorschau, Leistung“ (2026-10-20, PR #20), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.4.2). Am Gerät: mit Live-Vorschau 29,7–30,3 fps, RAM 115 KB, 0 Aussetzer; Stromsparmodus 30 Hz mit Rückfall nach 15 s; Download nach 932 KB abgebrochen ohne Neustart. Davor 0.4.1 „Update von GitHub“ (2026-10-20, PR #19), [Release auf GitHub](https://github.com/Baldesarra/pixelia/releases/tag/v0.4.1); davor Vorschau v0.4.1-beta.1 und 0.4.0 „Versionsverlauf und Diagnose“ (PR #17, #18). Zweiter echter Durchlauf im Kanal Stabil (0.4.1-beta.1 → 0.4.1 über GitHub): 1522 KB in 15,8 s (Verbindung 3,2 s, 121 KB/s), 30,0–30,2 fps, RAM-Tiefstwert 91 KB; Probelauf bestanden, danach 30,3 fps, RAM 117/111 KB |
 | **Repo** | https://github.com/Baldesarra/pixelia (öffentlich, alle Rechte vorbehalten) |
 | **Installieren** | Web-Flasher https://baldesarra.github.io/pixelia/ (Chrome/Edge, USB), danach WLAN im Setup-Modus einrichten |
-| **Nächster Schritt** | 0.5.x Engine: erst Aufteilung in Patches vorschlagen und vom User bestätigen lassen, dann 0.5.0; frische Arbeits-Sitzung, Denkstufe Extra Hoch (xhigh) |
-| **Offen** | Sichtprüfung am Display durch den User: Stromsparmodus (Panel 30 Hz: flimmert es?), Touch-Test, Displaytests; Rückfall mit einem von GitHub geladenen kaputten Image nicht eigens geprüft (gleicher Weg wie beim Upload, dort geprüft; ein absichtlich kaputtes Release wäre für alle im Kanal Vorschau sichtbar); Captive Portal unter iOS einmal ansehen (Android und Windows geprüft); Screenshot-Läufe schreiben die Standard-Farbwahl aufs Gerät, solange es noch keine hat (harmlos); Geräteliste: kopflose Screenshot-Läufe legen jedes Mal ein neues Gerät an (harmlos, älteste fallen raus); Planungs-Chat: gemeinsames Setting ausarbeiten (vor Modul-Schnittstelle in 0.5.x); Perspektive entschieden (2026-10-21, 3/4-Draufsicht, siehe Backlog); Prüfliste Baukasten/Asset-Quellen geprüft (0.5.x), offen für `docs/STIL.md`: Aufteilung der Palette in Farbrampen (Grundlage für Farbreihen und eigene Möbel); Aufteilung von 0.5.x mit den Anforderungen der Setting-Werkstatt wartet auf die Bestätigung des Users; `docs/SETTING.md` noch nicht auf main (Branch `claude/setting-3f92c5`); Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
+| **Nächster Schritt** | 0.5.0 Fundament in Arbeit (Branch `engine-0.5.0`); Aufteilung von 0.5.x bestätigt (11 Patches, siehe unten) |
+| **Offen** | Sichtprüfung am Display durch den User: Stromsparmodus (Panel 30 Hz: flimmert es?), Touch-Test, Displaytests; Rückfall mit einem von GitHub geladenen kaputten Image nicht eigens geprüft (gleicher Weg wie beim Upload, dort geprüft; ein absichtlich kaputtes Release wäre für alle im Kanal Vorschau sichtbar); Captive Portal unter iOS einmal ansehen (Android und Windows geprüft); Screenshot-Läufe schreiben die Standard-Farbwahl aufs Gerät, solange es noch keine hat (harmlos); Geräteliste: kopflose Screenshot-Läufe legen jedes Mal ein neues Gerät an (harmlos, älteste fallen raus); Planungs-Chat: gemeinsames Setting ausarbeiten (vor Modul-Schnittstelle in 0.5.x); Perspektive entschieden (2026-10-21, 3/4-Draufsicht, siehe Backlog); Prüfliste Baukasten/Asset-Quellen geprüft (0.5.x), offen für `docs/STIL.md`: Aufteilung der Palette in Farbrampen (Grundlage für Farbreihen und eigene Möbel); `docs/SETTING.md` noch nicht auf main (Branch `claude/setting-3f92c5`); Inselwelt-Konzept auf 400×240 überarbeiten; mehrere Layout-Vorschläge für Dorf und Insel |
 | **Aktualisiert** | 2026-10-20 |
 
 Messergebnisse und geprüfte Pinbelegung: [HARDWARE.md](HARDWARE.md). Kurz: 30 fps stabil bei 60 Hz Panel, Zeichnen
@@ -193,27 +193,42 @@ In drei Patches (Entscheidung 2026-10-20, eine Arbeits-Sitzung pro Patch):
 
 ## 0.5.x – Engine
 
-Reihenfolge: Settingunabhängige Engine-Teile kommen zuerst (Sprites, Tilemaps, Kamera, Paletten, Licht, Wetter,
-Partikel, Schrift, Asset-Pipeline, Dienste, Simulator, Langzeit-Test). Modul-Schnittstelle, Regie und gemeinsamer
-Weltzustand (Figuren über Orte hinweg, Hintergrund-Simulation inaktiver Orte) kommen in die letzten Patches, erst nach
-der Setting-Entscheidung (Backlog 2026-10-20).
+Aufteilung in 11 Patches, vom User bestätigt am 2026-10-21 (Entscheidungsprotokoll). Phase A ist settingunabhängig
+und geht sofort los; Phase B wartet, bis `docs/SETTING.md` auf main ist. Jeder Patch ist eine eigene Arbeits-Sitzung
+(< ~250 K Kontext) und wird im Simulator und am Gerät gemessen (fps, Bildzeit, RAM, PSRAM). Kamerafahrten und Parallax
+als Hauptmittel entfallen, weil nichts scrollt (Perspektive 2026-10-21); braucht der Zug Parallax, kommt es mit der
+Zug-Phase.
 
-- [ ] Sprites, Animationen, Tilemaps, Kamera, Parallax
-- [ ] Paletten, Tag/Nacht, Farbrotation, Lichttabellen, Transparenztabellen, Rastereffekte
-- [ ] Partikel und Wetter (Regen, Schnee, Nebel, Blitz)
-- [ ] Pixel-Schriften mit Umlauten, Overlays, Kurzmeldungen, Info-Karten
-- [ ] Dienste: Weltzeit, Standort (Open-Meteo-Geokodierung), Wetter (Open-Meteo), Ereignis-Bus, Regie, Nachtmodus
-- [ ] Modul-Schnittstelle für Welten, Schema → automatische Einstellungsseiten
-- [ ] Touch-Gesten und Einstellungen
-- [ ] Asset-Pipeline (PNG → Palette), `assets/CREDITS.md`, `docs/STIL.md`
-- [ ] Browser-Simulator auf GitHub Pages, Screenshots im Pull Request
-- [ ] **Langzeit-Test** im Simulator (Zeitraffer, Bericht, Blick-Test, Kontaktbogen, **Bilanz-Test**) und
-      **Inhaltszähler**, automatisch in jedem Welt-PR ([LEBENDIGKEIT.md](LEBENDIGKEIT.md) Kapitel 3)
-- [ ] **Ereignis-Regisseur** als Engine-Baustein (Spannungsbogen, Sperrzeiten, Kontext Tageszeit/Wetter/Jahreszeit)
-- [ ] **Gedächtnis-Bausteine** (LEBENDIGKEIT.md Regel 10), von allen Welten nutzbar: Bestände mit Menge und Standort und
-      exakter Bilanz, unterbrechbare Vorhaben, Besuchs- und Ereignisverlauf, Zustände mit Zeitbezug, atomares Speichern
-      mit begrenztem Nachholen; dazu Beziehungen und Erinnerungen für Figuren
-- [ ] Demo-Szene als Test
+**Phase A (settingunabhängig)**
+
+- [ ] **0.5.0 Fundament** (xhigh): Bühne mit mehreren Szenen, Wechsel per Sprung mit Überblendung; Simulation ohne
+      Zeichnen; Szene im groben Raster 200 × 120 (internes RAM), 2× in 400 × 240, Einblendungen fein; Sprites und
+      Animationen; Farbreihen per Umfärbe-Tabelle; neutrale Testszene; Determinismus-Test im Simulator. Web: Lavendel
+      als Standardfarbe, Versionskarte auf Seite System. Eigenes Testbild (Vorschau) ✅
+- [ ] **0.5.1 Raum und Baukasten** (xhigh): Kacheln 8 × 8 grob, 25 × 15 pro Bildschirm, mehrere Ebenen; Tiefensortierung;
+      Innenraum-Baukasten (Raum = Datenliste: Teil, Lage, Stufe, Farbreihe, Besitzer), Ausbaustufen, Möbel-Daten
+      (Art, Stellfläche, Benutzungspunkte); Türen und Bildränder als Ausgänge
+- [ ] **0.5.2 Farbe und Licht** (xhigh): Paletten je Ort, Farbrampen (mit `docs/STIL.md`-Entwurf), Tag/Nacht,
+      Farbrotation, Lichtkreise, Transparenztabellen, Himmelsverläufe, Rastereffekte
+- [ ] **0.5.3 Wetter und Partikel** (Hoch): Regen, Schnee, Nebel, Blitz, Wind
+- [ ] **0.5.4 Asset-Quelle** (Hoch): Werkzeug PNG → Paletten-Indizes, `assets/CREDITS.md` mit Prüfung; Quelle eingebettet
+      / LittleFS / microSD, Laden auf Kern 0 beim Ortswechsel hinter der Überblendung; SD-Karte messen (Tempo, keine
+      Aussetzer, Karte ziehen; braucht eine Karte im Gerät)
+- [ ] **0.5.5 Schrift und Einblendungen** (Hoch): Pixel-Schriften mit Umlauten, Kurzmeldungen, Info-Karten, Pixel-Uhr,
+      Hinweis auf neue Version am Display, Ereignis-Bus, Touch-Gesten
+- [ ] **0.5.6 Dienste** (Hoch): Weltzeit (Tagesgerüst, Jahreszeit), Standort und Wetter (Open-Meteo), Nachtmodus,
+      Helligkeitskurve; Download von GitHub robuster (Abbruch ohne Fortschritt, Weitermachen per HTTP-Range)
+- [ ] **0.5.7 Browser-Simulator und Langzeit-Test** (Hoch): Simulator auf GitHub Pages, Screenshots im PR, Zeitraffer,
+      Bericht, Blick-Test, Kontaktbogen
+
+**Phase B (nach der Setting-Entscheidung)**
+
+- [ ] **0.5.8 Orte und Stil** (xhigh): Phase A nachprüfen und anpassen; Schnittstelle für Orte und Gebiete, Schema →
+      Einstellungsseiten; `docs/STIL.md` mit Format für eigene Möbel (Upload danach)
+- [ ] **0.5.9 Gemeinsamer Weltzustand** (xhigh): Figuren, Warenbuch, Aufgaben, Projekte; sichtbarer Ort voll, Rest grob
+      mit gleicher Wirkung; Gedächtnis-Bausteine (LEBENDIGKEIT.md Regel 10), atomares Speichern
+- [ ] **0.5.10 Regie und Nachweis** (Hoch): Ereignis-Regisseur, **Bilanz-Test** und **Inhaltszähler** automatisch in
+      jedem Welt-PR ([LEBENDIGKEIT.md](LEBENDIGKEIT.md) Kapitel 3), Demo-Szene
 
 **Prüfliste Baukasten und Asset-Quellen** (Wunsch des Users über den Planungs-Chat, geprüft 2026-10-21, vor dem Bau
 von Asset-Pipeline und „Raum“). Alle Punkte sind machbar; Kosten bezogen auf die Szene in 200 × 120 groben Bildpunkten.
