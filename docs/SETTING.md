@@ -18,7 +18,7 @@
 
 | Schritt | Thema | Stand |
 |---|---|---|
-| 1 | Ideen des Users: Grundidee, Ton, Hauptfiguren, Skript | entschieden; offen: Namen der Bewohner |
+| 1 | Ideen des Users: Grundidee, Ton, Hauptfiguren, Skript | entschieden (Namen bleiben, 2026-10-21) |
 | 2 | Gebiete, Figuren, Reihenfolge | entschieden bis auf die Reihenfolge Grube/Lok (Kapitel 18) |
 | 2a | Wirtschaft: Waren, Berufe, Lager, Werkzeuge, Wünsche, Dauer, Protokoll | Grundsätze entschieden, Startwerte Vorschlag ([WIRTSCHAFT.md](WIRTSCHAFT.md), Kapitel 8) |
 | 3 | Modularer Aufbau, Regie, Kamera | entschieden (Kapitel 13 und 15) |
@@ -101,6 +101,8 @@ damals schwerer war als Bleiben. Der Zug ist durch die fehlende Benutzung kaputt
   **Güterschuppen das erste Lager**. Darin liegt noch Fracht, die für die Bergdörfer bestimmt war und nie ankam (Mehl,
   Kartoffeln, Salz, Lampenöl, Seile, Nägel, einfache Werkzeuge): der Restvorrat, der den ersten Frühling trägt
   (WIRTSCHAFT.md Kapitel 12). Jedes Haus, jede Werkstatt und Sykoras Hof müssen erst gebaut werden.
+  **Zu Beginn finden die meisten Zusammenkünfte in der Taverne im Speisewagen statt** [entschieden, Wunsch des
+  Users]: Dort kocht Gustav für alle, dort wird gegessen, erzählt und gesungen.
 - **Warum der Zug wieder fahren soll:** Niemand will mehr weg. Die Lok wird repariert, damit Pixelia **angebunden**
   ist: Waren, Gäste, Briefe, neue Bewohner. Erst fährt sie bis zur nächsten Stadt hinter den zugewachsenen Gleisen,
   später (mit Updates) weiter; irgendwann wird vielleicht auch der Tunnel wieder frei.
@@ -211,7 +213,8 @@ weg.** Alles bleibt, wie es ist; das Dorf wächst nur durch Zuzug.
 **Startbesetzung [entschieden: Sykora, Taylor, Tischler, Bäckerin, Fischer, Jäger, Familie Brandt als altes Ehepaar
 mit dem Jäger als Sohn; dazu ein Bauernpaar und ein Waldarbeiter (2026-10-21); Rest ebenfalls entschieden].**
 16 Menschen und eine Katze. Vierzehn von ihnen sind Reisende aus dem gestrandeten Zug, zwei lebten schon vorher hier.
-**Namen außer Sykora und Taylor werden noch überarbeitet** (Kapitel 18), die Tabelle zeigt den alten Stand.
+**Namen [entschieden 2026-10-21]:** Die Namen bleiben, wie sie sind. Die neuen Figuren heißen **Fritz** und **Ida**
+(Bauernpaar) und **Veit** (Waldarbeiter); [Vorschlag von Claude, änderbar].
 
 | Figur | Rolle | Woher, warum im Zug | Schläft am Anfang | Baut sich später | Erkennungsstücke |
 |---|---|---|---|---|---|
@@ -228,9 +231,9 @@ mit dem Jäger als Sohn; dazu ein Bauernpaar und ein Waldarbeiter (2026-10-21); 
 | Anton Brandt, 34 | Jäger | Sohn der Brandts; hat im Winter alle mit Wild versorgt | Abteil der Familie | Jagdhütte am Waldrand mit Räucherkammer | Geweih an der Wand, Felle, Flinte über dem Kamin, Fallen |
 | Martha, 72 | Kräuterfrau | **lebte schon hier**, half mit Kräutern durch den Winter | eigene Hütte am Waldrand | Kräutergarten, Pflanzenhaus | Kräuterbündel an der Decke, Mörser |
 | Hannes, 52 | Fischer, schneidet Schilf für Dächer | **lebte schon hier**, wortkarg, kennt jedes Wetter | eigene Hütte am See | Steg, Bootsschuppen, Räucherofen | Reusen, Netze zum Trocknen, Boot am Steg |
-| Bauer, ~40 (Name folgt) | Bauer: Felder, Hühner, später Mühle | Auswanderer auf dem Weg zum Hafen nach Amerika, Saatgut im Gepäck | Gepäckwagen | Bauernhof mit Scheune und Feldern | Saatgutkiste, Sense an der Wand |
-| Bäuerin, ~38 (Name folgt) | Bäuerin: Gemüse, Hühner, Raps und Öl | wie ihr Mann; „wir wollten neues Land, jetzt haben wir es hier“ | Gepäckwagen | Bauernhof | Hühnerkorb, Einmachgläser, Bild vom Schiff, das sie nie bestiegen haben |
-| Waldarbeiter, ~25 (Name folgt) | Holzfäller und Köhler | wollte im Sägewerk der Stadt arbeiten; kräftig, still | Warteraum | Holzfällerhütte am Waldrand (ein Raum) mit Holzstapel, später Meiler | Axt im Hackklotz, Holzstapel, rußige Hände |
+| Fritz, ~40 | Bauer: Felder, Hühner, später Mühle | Auswanderer auf dem Weg zum Hafen nach Amerika, Saatgut im Gepäck | Gepäckwagen | Bauernhof mit Scheune und Feldern | Saatgutkiste, Sense an der Wand |
+| Ida, ~38 | Bäuerin: Gemüse, Hühner, Raps und Öl | wie ihr Mann; „wir wollten neues Land, jetzt haben wir es hier“ | Gepäckwagen | Bauernhof | Hühnerkorb, Einmachgläser, Bild vom Schiff, das sie nie bestiegen haben |
+| Veit, ~25 | Holzfäller und Köhler | wollte im Sägewerk der Stadt arbeiten; kräftig, still | Warteraum | Holzfällerhütte am Waldrand (ein Raum) mit Holzstapel, später Meiler | Axt im Hackklotz, Holzstapel, rußige Hände |
 | Katze (Name vom Betrachter) | vollwertige Figur | streunt im Bahnhof herum, niemand weiß woher | wo es warm ist | bleibt bei Sykora oder Taylor | Lieblingskissen, Gabenhaufen |
 
 Kinder gibt es zum Start nicht; Zugezogene können Kinder mitbringen, die Kinder bleiben.
@@ -247,8 +250,9 @@ Kinder gibt es zum Start nicht; Zugezogene können Kinder mitbringen, die Kinder
   und am späten Nachmittag sieht er nach seinen Bienen, dazwischen ist er im Lokschuppen. Die Bienen liefern Honig
   (macht froh) und Wachs (gute Kerzen).
 
-**Wiederkehrende Gäste [entschieden]**, alle mit Namen und Geschichte: die Händlerin, die im Sommer mit ihrem Maultier
-über den Bergpass kommt (Tausch, Post, Neuigkeiten), der Kesselflicker auf Wanderschaft (selten, erzählt in der
+**Wiederkehrende Gäste [entschieden]**, alle mit Namen und Geschichte: **Dora**, die Händlerin, die mit ihrem Maultier
+über den Bergpass kommt, solange er offen ist (Tausch, Post, Neuigkeiten), **Quirin**, der Kesselflicker auf
+Wanderschaft (selten, erzählt in der
 Taverne). Später kommen Gäste mit dem Zug.
 
 **Wachstum [entschieden]:** Endausbau **30–40 Bewohner in etwa 20 Häusern**, manche wohnen zu zweit (z. B. die
@@ -279,6 +283,59 @@ Rohstoffe-Sammeln, ohne Kampf. Neue Gebiete kommen mit Updates. Orte werden nach
 **Sonderorte [entschieden], verstreut und selten:** die Grabstelle eines Unbekannten am Waldrand (langes Rätsel ohne
 Magie: Fundstücke aus Grube, Wald und Briefen erzählen über Monate, wer das war), ein verlassener Planwagen, die Ruine
 auf dem Hügel, eine Höhle hinter dem Wasserfall.
+
+### Das Museum: ein Naturalienkabinett [entschieden, Wunsch des Users 2026-10-21; Details Vorschlag]
+
+**Idee des Users:** Im Museum leben eine Handvoll Fische, Insekten und andere Tiere im Aquarium oder Terrarium. Tippt
+man ein Tier an, öffnet sich eine **Infokarte mit Pixel-Art-Bild und echten Angaben**. Das Museum füllt sich nach und
+nach durch Spenden der Bewohner: Hannes bringt alle paar Tage einen neuen Fisch, Anton Insekten und so weiter.
+
+**Passt zur Zeit:** Um 1850 hießen solche Sammlungen **Naturalienkabinett**, und Mitte der 1850er wurde das Aquarium in
+Europa gerade Mode. Ein Museum ist in Pixelia also kein Fremdkörper, sondern genau das, was gebildete Leute damals
+anlegten.
+
+**Ausbaustufen:**
+
+| Stufe | Was | Braucht |
+|---|---|---|
+| 1 | Kuriositätenregal im Warteraum des Bahnhofs: Steine, Federn, gepresste Pflanzen; ein Holzzuber als Schaubecken für den ersten Fisch | Bretter |
+| 2 | Naturalienkabinett im Wartesaal mit Glaskästen, erstem Aquarium und Terrarium | Glas von der Händlerin (Aquarium 6, Terrarium 4), Bretter, Kalk |
+| 3 | Eigenes Museum am Dorfplatz mit Aquarienwand und Terrarien (Großbau, Bonuswunsch) | Stein, Glas, Bretter |
+
+**Sammlungen und Spender** (Startliste mit echten Arten aus Bergland, Wald und See; etwa 45 Stücke):
+
+| Sammlung | Spender | Beispiele |
+|---|---|---|
+| Fische (Aquarium) | Hannes, alle paar Tage ein neuer | Bachforelle, Äsche, Hecht, Flussbarsch, Rotauge, Schleie, Elritze, Groppe, Aal, Quappe |
+| Insekten (Terrarium) | Anton, Martha, Sykora | Hirschkäfer, Alpenbock, Schwalbenschwanz, Tagpfauenauge, Großes Heupferd, Gebänderte Prachtlibelle, Glühwürmchen (nur in Sommernächten), Maikäfer, Rote Waldameise |
+| Amphibien, Reptilien, Weichtiere | Anton, Martha, Hannes | Feuersalamander, Bergmolch, Erdkröte, Laubfrosch, Zauneidechse, Blindschleiche, Weinbergschnecke, Edelkrebs |
+| Pflanzen (Herbarium) [Idee angenommen] | Martha | Arnika, Enzian, Frauenschuh, Edelweiß, Bärlauch, Fingerhut, Wollgras |
+| Steine, Mineralien, Fossilien [Idee angenommen] | Wilhelm (Steinbruch, Grube) | Bergkristall, Pyrit („Katzengold“), Bleiglanz, Ammonit, Farnabdruck aus der Steinkohle, Belemnit („Donnerkeil“); manche Funde gehören zum Rätsel der Grabstelle |
+| Fundstücke der Katze [Idee angenommen] | die Katze | blaue Eichelhäher-Feder, Schneckenhaus, Hühnergott (Stein mit Loch) |
+
+- **Wie Funde entstehen:** nebenbei bei der Arbeit, mit Ort, Jahreszeit, Tageszeit, Wetter und Seltenheit als
+  Bedingung (Glühwürmchen nur in Sommernächten, Feuersalamander nach Regen, Fossilien erst in der Grube). Über alle
+  Spender kommt etwa **alle 2–3 Tage ein neues Stück**; nach drei bis vier Monaten ist die Startliste fast voll. Neue
+  Gebiete per Update bringen neue Arten (z. B. die Küste).
+- **Infokarte:** großes Pixel-Art-Bild, Name (deutsch und wissenschaftlich), Herkunft und Lebensraum, Größe, Alter
+  (wie alt die Art werden kann), kurze Beschreibung und ein Fun-Fact. **Alle Angaben sind echt.** Die Inhalts-Sitzung
+  schreibt sie aus verlässlichen Quellen und nennt diese im PR; nichts wird erfunden. Die Karte ist Wissen für den
+  Betrachter und darf deshalb auch Heutiges nennen („heute streng geschützt“).
+- **Spender und Fundmoment [Idee angenommen]:** Auf der Karte steht auch, wer das Stück wann und wo gefunden hat, mit
+  einem Satz des Spenders („Den hab ich im Morgengrauen am Steg erwischt.“). Der Bewohner behält den Fund als
+  Erinnerung und ist stolz, wenn er im Museum vorbeischaut.
+- **Pflege:** Paul Brandt wird Kustos: Er füttert die Tiere (Würmer und Wasserflöhe vom Teich, keine Ware), schnitzt
+  Schildchen und Rahmen, Martha berät ihn. Kein Tier stirbt; die Karte nennt das echte Alter der Art.
+- **Besucher:** Bewohner gehen in ihrer Freizeit hin (stillt die Neugier), Spender zeigen anderen ihren Fund.
+- **Bedienung:** am Gerät ein Tier oder Stück antippen → Infokarte; in der Weboberfläche eine Museumsseite mit allen
+  gefundenen Stücken, ihren Karten und Spendern.
+- **Beispiel einer Infokarte** (Fakten vor der Umsetzung noch einmal prüfen): **Feuersalamander** (*Salamandra
+  salamandra*) · Mittel- und Südeuropa, feuchte Laubwälder im Bergland · 15–20 cm · in der Natur über 20 Jahre, in
+  Menschenobhut über 50 Jahre · schwarz mit gelben Flecken, die warnen: Seine Haut ist giftig. · Fun-Fact: Das Weibchen
+  legt keine Eier, sondern setzt fertige Larven in kühle Bäche ab. · Gespendet von Anton, Tag 34, nach einem
+  Sommerregen am Waldbach: „Saß einfach auf dem Weg und hat mich angeguckt.“
+- **Daten pro Stück:** Kennung, Sammlung, Namen, Herkunft, Größe, Alter, Text, Fun-Fact, Quellen, Fundbedingungen,
+  mögliche Finder, kleines Bild (fürs Aquarium, mit Schwimm-Animation) und großes Bild (für die Karte).
 
 **Die Grube [entschieden: an bestimmten Stellen geht es nur mit Werkzeug oder Fähigkeit weiter; Rest Vorschlag]:**
 Expeditionen mit einer kleinen Gruppe (Sykora, Wilhelm, wer Lust und Zeit hat). Kein Kampf. Spannung entsteht aus
@@ -332,7 +389,8 @@ Eingriffe als starker Wunsch.
 - Taverne, Feiern und Musik nur abends.
 
 [entschieden] Zeitfenster hängen an der Tageszeit der Welt und verschieben sich mit Jahreszeit und Charakter
-(Frühaufsteher, Nachteule). Ausnahme zum Besprechen: Greta beginnt in der Morgendämmerung mit dem Backen.
+(Frühaufsteher, Nachteule). [entschieden] Die Bäckerin backt in der Morgendämmerung, damit das Brot zum Frühstück da ist. Wer wann welche
+Arbeit macht, steht als Arbeitsrhythmus der Berufe in [WIRTSCHAFT.md](WIRTSCHAFT.md) Kapitel 8.
 
 **Aufbau der Entscheidung [entschieden]:**
 
@@ -375,7 +433,9 @@ Die Wirtschaft ist so umfangreich geworden, dass sie eine eigene Datei hat (2026
 
 - **[entschieden, Wunsch des Users]** Kein Geld, auch nicht später mit der Bahn. Alles kommt aus echter Arbeit; jedes
   Haus, jedes Bett und jede Mahlzeit verbraucht Waren. Jeder Beruf liefert in sein eigenes Lager, wer etwas braucht,
-  holt es selbst (Kausalkette). Gleichgewicht ohne Überfluss und ohne Leere. Niemand verhungert (Standardsuppe).
+  holt es selbst (Kausalkette). Gleichgewicht ohne Überfluss und ohne Leere. Niemand verhungert: Die Standardsuppe
+  gibt es am **Suppenkessel im Speisewagen**, Bewohner holen sie sich und essen zu Hause. Die Taverne kocht tagsüber
+  ein Tagesgericht für den Abend.
   Werkzeuge vom Schmied nutzen sich ab. Lagerplätze mit Reichweite und Chronik in der Weboberfläche.
 - **[entschieden, Wunsch des Users]** **Sichtbare Bestände:** Was im Lager liegt, sieht man Stück für Stück im Bild,
   **jeder Brotlaib einzeln in der Auslage der Bäckerei** (WIRTSCHAFT.md Kapitel 6).
@@ -439,70 +499,82 @@ Notunterkunft (Kisten, Säcke, Strohsack, überall Gerümpel und Baumaterial). D
 Räume: Küche (Feuerstelle → Herd), Schlafkammer (Strohsack → Bett), Stube (Kisten → Tisch und Bank → Ofen und Sofa),
 Waschkammer (Zuber → Bad).
 
-### Dauer in echter Zeit [neu gefasst 2026-10-21: Regeln entschieden (Wunsch des Users), Zahlen Vorschlag]
+### Dauer in echter Zeit [entschieden 2026-10-21: halbierte Zeiten (Wunsch des Users); Einzelzahlen Vorschlag]
 
-**Regeln des Users:** Kleine Arbeiten dauern einen Tag und stehen im Tagebuch der Weboberfläche (wer hat was
-gemacht). Jedes Möbelstück baut der Tischler, deshalb hängt die Dauer eines Raums von seinen Möbeln ab; **ein Raum
-dauert insgesamt höchstens 1–2 Wochen**. Es wird an mehreren Häusern gleichzeitig gebaut, und der Tischler beliefert
-mehrere Häuser parallel. **Pro Haus entsteht immer nur ein Raum zur Zeit.** Ausbaustufen sind etwas Eigenes.
+**Regeln des Users:** Kleine Arbeiten sind am selben Tag erledigt und stehen im Tagebuch der Weboberfläche (wer hat
+was gemacht). Jedes Möbelstück baut der Tischler, deshalb hängt die Dauer eines Raums von seinen Möbeln ab. Es wird an
+mehreren Häusern gleichzeitig gebaut, und der Tischler beliefert mehrere Häuser parallel. **Pro Haus entsteht immer nur
+ein Raum zur Zeit.** Ausbaustufen sind etwas Eigenes. Die Jahreszeit bleibt bei 7 Tagen.
+
+**Halbiert [entschieden]:** Fortschritt soll schneller sichtbar sein. Spätere Gebiete aus Updates dürfen langsamer
+wachsen. Die Zeiten sind gegenüber dem ersten Entwurf halbiert:
 
 | Art | Beispiele | Dauer | Wer |
 |---|---|---|---|
-| Kleine Arbeit | Dach flicken, Zaun reparieren, Regal aufhängen, Fenster abdichten, Werkzeug schärfen | **1 Tag** (sichtbar 1–4 Stunden) | Bewohner selbst, Sykora, Paul |
-| Möbelstück | Hocker, Regal: ½ Tag · Tisch, Bank, Truhe: 1 Tag · Bett, Schrank: 2 Tage · Sofa: 2 Tage + 1 Tag Polster (Lene) | ½–3 Tage | Jakob |
-| Raum: Rohbau | Wände, Boden, Fenster, Tür, Feuerstelle | 3–4 Tage | Bautrupp (2–3 Leute) |
-| Raum: Einrichten | 3–5 Möbel, Jakob fängt schon während des Rohbaus an | 3–6 Tage | Jakob, Bautrupp stellt auf |
-| **Raum gesamt** | Küche, Schlafkammer, Stube, Waschkammer | **7–10 Tage, höchstens 14** | |
-| Neues Haus bis zur Notunterkunft | Fundament, Wände, Dach, Tür, Strohsack | 5–7 Tage | Bautrupp |
-| Haus fertig | Notunterkunft + 3 Räume nacheinander | etwa 4–6 Wochen | |
-| Ausbaustufe Möbel | Strohsack → Bett, Bank → Sofa, Farbe wechseln | 1–3 Tage | Jakob, Lene |
-| Ausbaustufe Raum | Lehmboden → Dielen, Glas ins Fenster, Tapete, Ofen statt Feuerstelle | 2–4 Tage; der Raum bleibt benutzbar | Bautrupp, Jakob |
-| Ausbaustufe Haus | Holzhütte → Fachwerkhaus → Steinhaus | 2–3 Wochen pro Stufe, Raum für Raum; die Bewohner wohnen weiter darin | Bautrupp, Wilhelm (Stein) |
-| Werkstatt, Stall | Backofen, Esse, Hühnerstall, Meiler | 1–2 Wochen | Bautrupp + Handwerker |
-| Großbau | Taverne → Schenke am Platz, Scheune, Wassermühle | 3–5 Wochen in Teilaufgaben | alle mit Zeit |
-| Lok und Strecke | 13 Teilaufgaben (oben) | 2–3 Monate, jede Teilaufgabe 3–7 Tage | Emil, Konrad, Jakob u. a. |
+| Kleine Arbeit | Dach flicken, Zaun reparieren, Regal aufhängen, Fenster abdichten, Werkzeug schärfen | **am selben Tag** (sichtbar 1–4 Stunden) | Bewohner selbst, Sykora, Paul |
+| Möbelstück | Hocker, Regal: 2 Stunden · Tisch, Bank, Truhe: ½ Tag · Bett, Schrank: 1 Tag · Sofa: 1 Tag + ½ Tag Polster (Lene) | 2 Stunden bis 1½ Tage | Jakob |
+| Raum: Rohbau | Wände, Boden, Fensterladen, Tür, Feuerstelle | 1½–2 Tage | Bautrupp (2–3 Leute) |
+| Raum: Einrichten | 3–5 Möbel; Jakob fängt schon während des Rohbaus an | 2–3 Tage | Jakob, Bautrupp stellt auf |
+| **Raum gesamt** | Küche, Schlafkammer, Stube, Waschkammer | **4–5 Tage, höchstens 7** | |
+| Neues Haus bis zur Notunterkunft | Fundament, Wände, Dach, Tür, Strohsack | 2–3 Tage | Bautrupp |
+| **Grundhaus** (Holzhütte) | Notunterkunft + 1–2 Räume mit einfachen Möbeln | **1½–2 Wochen** | |
+| Haus mit allen Räumen | Grundhaus + weitere Räume | 2–3 Wochen | |
+| Ausbaustufe Möbel | Strohsack → Bett, Bank → Sofa, Farbe wechseln | ½–1½ Tage | Jakob, Lene |
+| Ausbaustufe Raum | Lehmboden → Dielen, Leinen oder Glas ins Fenster, Kalkanstrich, Ofen statt Feuerstelle | 1–2 Tage; der Raum bleibt benutzbar | Bautrupp, Jakob |
+| Ausbaustufe Haus | Holzhütte → Fachwerkhaus → Steinhaus | 1–1½ Wochen pro Stufe, Raum für Raum; die Bewohner wohnen weiter darin | Bautrupp, Wilhelm (Stein) |
+| Werkstatt, Stall | Backofen, Esse, Hühnerstall, Meiler | 4–7 Tage | Bautrupp + Handwerker |
+| Großbau | Taverne → Schenke am Platz, Scheune, Wassermühle, Museum | 1½–2½ Wochen in Teilaufgaben | alle mit Zeit |
+| Lok und Strecke | 13 Teilaufgaben (oben) | 5–6 Wochen, jede Teilaufgabe 2–4 Tage | Emil, Konrad, Jakob u. a. |
 
-**Damit kein Raum länger als zwei Wochen dauert:**
+**Ablauf über die Monate [entschieden, Rückfrage des Users]:**
 
-- Jakob arbeitet die Aufträge **reihum** ab, nicht Haus für Haus, so wartet niemand ewig. Faustregel: Ein Tischler
-  schafft etwa zwei Räume gleichzeitig in 10 Tagen; mit Paul Brandt als Helfer für einfache Stücke (Hocker, Bänke,
-  Regale) etwa drei.
+| Zeitraum | Was entsteht |
+|---|---|
+| Monat 0–2 | **Grundhäuser (Holzhütten) für alle 16 Startbewohner** und ihre Werkstätten, noch ohne Ausbaustufen; erste Felder und Ernte; die Wahl |
+| Monat 2 bis 5–6 | Zuzügler und ihre Häuser, Ausbaustufen nach der Wunschliste (Fachwerk, Steinhaus, Glasfenster, Federbett, Badehaus), Großbauten (Taverne am Platz, Wassermühle, Museum), Grube und Lok |
+| ab Monat 5–6 | **Endausbau** mit etwa 20 Häusern; danach weitere Bonuswünsche und neue Gebiete per Update |
+
+**Damit kein Raum länger als eine Woche dauert:**
+
+- Jakob arbeitet die Aufträge **reihum** ab, nicht Haus für Haus; so wartet niemand ewig. Faustregel: Ein Tischler
+  schafft etwa einen eingerichteten Raum alle 2 Tage, mit Paul Brandt als Helfer für einfache Stücke (Hocker, Bänke,
+  Regale) etwa alle 1½ Tage.
 - Die Bauplanung beginnt nur so viele Räume gleichzeitig, wie Bautrupp und Tischler schaffen; die nächsten Wünsche
   warten in der Wunschliste.
 - Hat Jakob keinen Auftrag, baut er **einfache Möbel auf Vorrat** (Hocker, Bänke), die beim nächsten Raum sofort
   bereitstehen.
-- Beispiel Haus der Bäckerin: Notunterkunft 6 Tage, Backstube 10 Tage, Schlafkammer 8 Tage, Stube 10 Tage, also nach
-  gut 5 Wochen fertig. Der Ausbau zum Steinhaus kommt später und dauert etwa 3 Wochen.
+- Beispiel Haus der Bäckerin: Notunterkunft 3 Tage, Backstube 5 Tage, Schlafkammer 4 Tage, also Grundhaus nach knapp 2
+  Wochen; die Stube folgt mit 5 Tagen. Der Ausbau zum Steinhaus kommt später und dauert etwa 1½ Wochen.
 - Material je Bauabschnitt: [WIRTSCHAFT.md](WIRTSCHAFT.md) Kapitel 7.
 
-**Geht das, wenn jeder auch seinen Beruf hat? [Prüfung 2026-10-21, Tempo entschieden]** Ja. Die Rechnung in Personentagen
-(ein Mensch, ein Arbeitstag):
+**Geht das, wenn jeder auch seinen Beruf hat? [Prüfung 2026-10-21, für die halbierten Zeiten neu gerechnet]** Ja. Die
+Rechnung in Personentagen (ein Mensch, ein Arbeitstag). Weil die Zeit gestaucht ist wie beim Weltjahr, ist auch die
+Arbeit pro Bauabschnitt kleiner gerechnet; die Zahl der Hände bleibt gleich:
 
 | Posten | Arbeit |
 |---|---|
-| Notunterkunft | ~12 Personentage (Bautrupp), keine Möbel vom Tischler nötig |
-| Raum: Rohbau | ~8 Personentage (Bautrupp) |
-| Raum: Möbel | ~3,5 Tischler-Tage plus ½ Tag Bretter sägen |
+| Notunterkunft | ~6 Personentage (Bautrupp), keine Möbel vom Tischler nötig |
+| Raum: Rohbau | ~4 Personentage (Bautrupp) |
+| Raum: Möbel | ~1¾ Tischler-Tage plus ¼ Tag Bretter sägen |
 | Bautrupp zum Start | Sykora (ganzer Tag), Paul (gut ½ Tag, er ist 68) und Helfer aus der **Luft der Berufe**: Weil jeder Beruf 1,2- bis 1,5-mal so viel schafft wie nötig, hat er Stunden übrig. Zusammen etwa **2,5–3 Personentage pro Tag** |
-| Tischler | Jakob, mit Paul für einfache Stücke: etwa ein eingerichteter Raum alle 3–4 Tage |
 
-- **Folge für ein Haus:** Notunterkunft in 4–5 Tagen, Rohbau eines Raums in ~3 Tagen, eingerichtet nach 7–10 Tagen. Die
-  Regeln (1 Tag, höchstens 14 Tage pro Raum, ein Raum pro Haus) sind einhaltbar.
-- **Gleichzeitig** laufen typisch ein Rohbau und ein bis zwei Räume beim Einrichten, in verschiedenen Häusern.
-- **Folge für das ganze Dorf:** Mit einem Bautrupp entsteht etwa **alle 4–5 Tage eine Notunterkunft oder ein Raum**.
-  Bis alle 16 Startbewohner ein fertiges Haus und ihre Werkstatt haben (etwa 17 Neubauten und 25 Räume), vergehen etwa
-  **4–5 Monate**. Danach kommen die Zuzügler, der Bautrupp wächst mit ihnen; der **Endausbau mit 20 Häusern ist nach
-  etwa 10–12 Monaten** erreicht. Es gibt also fast immer irgendwo eine Baustelle.
+- **Folge fürs Dorf:** Etwa **alle 2–2½ Tage eine Notunterkunft oder ein Raum**. Für die Startbewohner sind das etwa 17
+  Neubauten (Notunterkünfte, Werkstätten, Ställe) und 20 Räume, zusammen ~180 Personentage, also **rund 2 Monate**.
+  Danach wächst der Bautrupp mit den Zuzüglern; Endausbau nach **5–6 Monaten**.
+- **Was sich in der Wirtschaft ändert:** Was pro Tag gegessen und verheizt wird, hängt an der Uhr und bleibt gleich.
+  Was pro Tag **verbaut** wird (Bauholz, Bretter, Steine, Nägel, Lehm, Schilf), verdoppelt sich. Ausgeglichen durch:
+  kleinere Materialmengen für die Hütten, mehr Bauholz pro Waldarbeiter-Tag, mehr Steine aus dem Steinbruch und
+  **Holznägel** von Jakob für Dachstuhl und Fachwerk, die Eisen sparen. Im Winter bremst der Schnee den Bau; dann
+  braucht der Waldarbeiter seine Kraft fürs Brennholz. Neue Bilanz in [WIRTSCHAFT.md](WIRTSCHAFT.md) Kapitel 12.
 - **Sichtbare Folge von Tipps:** Schickt der Betrachter Sykora in die Grube, fehlt er dem Bautrupp, und der Bau geht
   langsamer. Grube und Lok kosten Arbeitskraft, die dann am Bau fehlt; die Reihenfolge der Wunschliste entscheidet mit.
-- **[entschieden 2026-10-21]** Dieses Tempo bleibt so.
 
 **Ausbaustufen im Dorf [übernommen aus dem Skript]:**
 
 | Ort | Stufen | Was er verändert |
 |---|---|---|
 | Feuerstelle vor dem Bahnhof → Dorfplatz | Feuerstelle, Platz mit Brunnen, gepflastert, Marktplatz | Treffpunkt, Märkte, Feste |
-| Taverne | Speisewagen, Schenke am Platz, Gasthaus mit Zimmern | Abende, Erzählungen, Gäste übernachten |
+| Taverne | Speisewagen, Schenke am Platz, Gasthaus mit Zimmern; der Speisewagen bleibt danach Suppenküche | Abende, Erzählungen, Gäste übernachten |
 | Wohnhäuser (pro Haushalt) | Schlafplatz im Abteil oder Warteraum, Neubau als Notunterkunft, Räume ausgebaut, gemütlich, persönlich | Schlafqualität, Wärme, Zuzug |
 | Werkstatt, Schmiede | Werkzeugkiste, Werkbank, Esse | Reparaturen, Werkzeug, Ausrüstung für die Grube |
 | Pflanzenhaus | Frühbeetkasten, Glasanbau, Gewächshaus | Kräuter, Gemüse im Winter, Saatgut |
@@ -568,7 +640,7 @@ Kamin aus, Fenster dunkel, die Katze allein auf dem Stuhl.
 
 ## 11. Abende und Ereignisse
 
-**[übernommen]** Rituale verschieben sich mit Jahreszeit und Wetter. **Abende als emotionales Herz:** gemeinsames
+**[übernommen]** Rituale verschieben sich mit Jahreszeit und Wetter. **Zu Beginn finden die meisten Abende in der Taverne im Speisewagen statt** [entschieden]. **Abende als emotionales Herz:** gemeinsames
 Essen, Gespräche (visuell), Musik (Taylor singt), Spiele, Geschichten, Schweigen; jeder Abend anders. Ereignisse:
 kleine Unfälle ohne Strafe, Probleme mit Folgen, seltene Beobachtungen, Freude ohne Zweck, Ruhe als Ereignis. Zeit
 sichtbar machen: wachsendes Tagebuch, selbst gepflanzter Baum, Steinhaufen mit Fundstücken.
@@ -615,7 +687,8 @@ Material, Logbuch (vor allem was während der Abwesenheit passiert ist), Live-Vo
 [entschieden, Wunsch des Users 2026-10-21] Dazu: **Lager** (jeder Lagerplatz mit Füllstand, Zu- und Abgängen und
 Reichweite), **Wunschliste** mit Emils Rat, **Tagebuch des Dorfs** (wer hat was gemacht, z. B. „Konrad hat das Dach der
 Taverne geflickt“), Tauschkiste und nächster Besuch der Händlerin, Anteil Standardsuppe, unter Diagnose das
-**Wirtschafts-Protokoll** zum Herunterladen (WIRTSCHAFT.md Kapitel 15).
+**Wirtschafts-Protokoll** zum Herunterladen (WIRTSCHAFT.md Kapitel 15), die **Museumsseite** mit allen gefundenen
+Stücken, Infokarten und Spendern (Kapitel 4).
 
 Eingreifen: Tipps an Sykora, Bitten an andere (Kapitel 2), Wunschliste ordnen (ab der Wahl), Kamera umschalten
 (Kapitel 13), Namen vergeben, Sykoras Haus einrichten (Kapitel 8), eigene Möbel hochladen (falls machbar).
@@ -631,7 +704,7 @@ CYD-Projekt Pixelpfote. Der User bringt eine Beispieldatei mit.
 Simulation), ist auf der Info-Karte am Gerät und in der Weboberfläche lesbar, dort auch als Verlauf.
 
 **[entschieden] Touch am Gerät:** Figur antippen → Info-Karte mit Grund; Gebäude antippen → wer ist drin; Wischen →
-nächster Ort; langes Halten auf einer Figur → „Folgen“.
+nächster Ort; langes Halten auf einer Figur → „Folgen“; Tier oder Stück im Museum antippen → Infokarte (Kapitel 4).
 
 ## 13. Kamera und Regie
 
@@ -714,6 +787,7 @@ frei ~7,7 MB mit Engine; Flash-Schreiben während der Animation ohne Aussetzer; 
 | Möbel- und Teile-Atlas für alle Innenräume | 0,3–0,6 MB | einmal für alle Häuser; Farbvarianten per Palettentausch kosten nichts |
 | Zum Vergleich: jeder Raum als eigenes Bild | 20–40 KB gepackt pro Raum, 60 Räume ≈ 2 MB | im Flash knapp, auf SD egal; Baukasten bleibt besser wegen der Ausbaustufen |
 | Inaktiver Ort (nur Ortszustand) | 1–10 KB | 100 Orte < 1 MB |
+| Museum: ~45 Stücke mit Text (~1 KB), kleinem Bild und großem Kartenbild (~4 KB) | ~0,25 MB | über die Asset-Quelle, später SD-Karte |
 | Warenbuch (~70 Waren × ~40 Lagerplätze × 2 Byte) plus ~300 Einzelstücke (Werkzeuge, Möbel mit Zustand) | ~10 KB | vernachlässigbar |
 | Sichtbare Bestände (Stellplätze, z. B. 20–40 Brotlaibe als einzelne kleine Bilder) | wenige Sprites mehr pro Ort | vernachlässigbar (48 Sprites zusammen 4,1 ms) |
 | Wirtschafts-Protokoll (~1000 Bewegungen pro Welttag, gepackt ~25 KB) | 14 Tage Einzelbewegungen + 60 Tage Tageswerte ≈ 1,5 MB in LittleFS | passt; mit SD-Karte unbegrenzt |
@@ -797,17 +871,13 @@ keine Magie, kein Altern, kein Tod, kein Wegzug.
 1. **Ideenliste von Claude:** Katze als Kupplerin zwischen Sykora und Taylor; Taylors Lieder wachsen mit dem Dorf
    (Lieder über echte Ereignisse, im Web lesbar); Vertrauen der Bewohner in Sykora (entscheidet die Wahl, spiegelt die
    Entscheidungen des Bürgermeisters); Lok taufen per Abstimmung am Schwarzen Brett.
-2. **Namen der Bewohner** (Kapitel 3): werden überarbeitet; nicht alle passen oder sind einprägsam. Dazu Namen für
-   Bauer, Bäuerin, Waldarbeiter, Händlerin und Kesselflicker.
-3. **Reihenfolge** (Kapitel 4): Grube vor Lok oder umgekehrt? Erste Region hinter der Strecke?
-4. **Greta in der Morgendämmerung** als Ausnahme vom Tagesgerüst? (Mit der Wirtschaft spricht viel dafür: Brot zum
-   Frühstück.)
-5. **Wirtschaft** ([WIRTSCHAFT.md](WIRTSCHAFT.md)): Warenliste, Startwerte, Händlerin, Kipppunkte, Startvorrat und
-   die Wunschliste (Kapitel 8) sind Vorschläge und warten auf das OK des Users.
-6. **Nachholen** nach dem Ausschalten: wie lange (Vorschlag: höchstens 24 h)?
-7. **Briefe und Gedanken** (Kapitel 12): Wer schreibt wem, wie oft, wie lang? Ansicht nach der Beispieldatei des
+2. **Reihenfolge** (Kapitel 4): Grube vor Lok oder umgekehrt? Erste Region hinter der Strecke?
+3. **Wirtschaft** ([WIRTSCHAFT.md](WIRTSCHAFT.md)): Warenliste, Startwerte, Händlerin, Kipppunkte, Startvorrat,
+   Arbeitsrhythmus der Berufe und die Wunschliste (Kapitel 8) sind Vorschläge und warten auf das OK des Users.
+4. **Nachholen** nach dem Ausschalten: wie lange (Vorschlag: höchstens 24 h)?
+5. **Briefe und Gedanken** (Kapitel 12): Wer schreibt wem, wie oft, wie lang? Ansicht nach der Beispieldatei des
    Users (Pixelpfote-Vorschau). Vorgemerkt für die Themen Figuren, Gedächtnis, Wohnen und Besitz.
-8. **Charta:** Die Mindestziele für Zug, Dungeon, Liga und Inselwelt (LEBENDIGKEIT Kapitel 2) passen nicht mehr.
+6. **Charta:** Die Mindestziele für Zug, Dungeon, Liga und Inselwelt (LEBENDIGKEIT Kapitel 2) passen nicht mehr.
    Vorschlag: Dorf-Ziele bleiben (bis auf „Wegzug“), dazu neue Ziele für Hof, Grube, Lok und die Welt als Ganzes.
 
 ## 19. Entscheidungen
@@ -855,5 +925,12 @@ Fest beschlossene Punkte dieser Werkstatt. Am Ende als Zeilen ins Entscheidungsp
 | 2026-10-21 | **Wirtschaft in eigener Datei** [WIRTSCHAFT.md](WIRTSCHAFT.md): Waren mit Quelle und Zweck, Kausalketten, Notlösungen, Bilanz-Check | Umfang (Claude, Technik) |
 | 2026-10-21 | **Sichtbare Bestände:** jedes Stück im Lager einzeln im Bild, z. B. jeder Brotlaib in der Auslage | Wunsch des Users |
 | 2026-10-21 | **Wirtschafts-Protokoll** für das Balancing: Bedarf, Verbrauch, Herstellung, Arbeitszeit, Versorgung, Bau als CSV, Auswertung per Bericht | Wunsch des Users |
-| 2026-10-21 | **Bautempo:** etwa alle 4–5 Tage eine Notunterkunft oder ein Raum; Startbewohner nach ~4–5 Monaten fertig, Endausbau nach ~10–12 Monaten | Entscheidung des Users |
+| 2026-10-21 | **Bautempo:** etwa alle 4–5 Tage eine Notunterkunft oder ein Raum; Startbewohner nach ~4–5 Monaten fertig, Endausbau nach ~10–12 Monaten (am selben Tag ersetzt durch die halbierten Zeiten, siehe unten) | Entscheidung des Users |
 | 2026-10-21 | **Prüfen statt raten:** jede Wirtschaftsänderung im Zeitraffer gegen feste Prüfgrößen prüfen; ohne grünen Bericht kein Merge | ausdrücklicher Wunsch des Users |
+| 2026-10-21 | **Bauzeiten halbiert:** Raum 4–5 Tage (höchstens 7), Notunterkunft 2–3 Tage; Grundhäuser (Holzhütten) aller Startbewohner nach ~2 Monaten, danach Zuzug und Ausbaustufen, Endausbau nach ~5–6 Monaten; Jahreszeit bleibt 7 Tage | Wunsch des Users: Fortschritt schneller sichtbar, spätere Gebiete dürfen langsamer wachsen |
+| 2026-10-21 | **Museum als Naturalienkabinett:** echte Tiere in Aquarium und Terrarium, Infokarte mit Pixel-Art und echten Angaben, füllt sich durch Spenden der Bewohner; dazu Spender und Fundmoment auf der Karte, Steine, Fossilien und Pflanzen, Fundstücke der Katze | Wunsch des Users |
+| 2026-10-21 | **Standardsuppe am Suppenkessel im Speisewagen**, Bewohner holen sie und essen zu Hause; die Taverne kocht tagsüber ein Tagesgericht für den Abend | Wunsch des Users, Ort von Claude gewählt (Kessel aus dem Winter) |
+| 2026-10-21 | **Zu Beginn treffen sich die meisten in der Taverne im Speisewagen** | Wunsch des Users |
+| 2026-10-21 | **Namen bleiben**; neue Figuren Fritz und Ida (Bauernpaar), Veit (Waldarbeiter), Dora (Händlerin), Quirin (Kesselflicker) | Entscheidung des Users, neue Namen von Claude vorgeschlagen |
+| 2026-10-21 | **Die Bäckerin backt in der Morgendämmerung** | Hinweis des Users (abends backen ist unrealistisch) |
+| 2026-10-21 | **Erträge anheben statt Quellen vervielfachen:** reicht eine Ware nicht, steigt erst der Ertrag pro Tier, Acker oder Beruf, bevor mehr Tiere oder Äcker ins Bild kommen | Wunsch des Users |

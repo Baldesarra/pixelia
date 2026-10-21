@@ -24,7 +24,7 @@
 5. Kausalketten
 6. Lager, Wege und sichtbare Bestände
 7. Verbrauch
-8. Herstellung, Jahreslauf und Natur
+8. Herstellung, Arbeitsrhythmus, Jahreslauf und Natur
 9. Notlösungen statt Mangel
 10. Werkzeuge
 11. Händlerin und Tausch
@@ -62,6 +62,9 @@
      Bäckerin mit Handmühle etwa 30.
   2. **Jede Menge ist im Bild glaubhaft:** ein Holzstapel, 20 Laibe in der Auslage, ein Dutzend Säcke in der Scheune.
   3. **Jede Ware hat eine Quelle und einen Zweck.** Nichts fällt vom Himmel, nichts wird nur gesammelt, um zu liegen.
+- **Ertrag anheben statt Quellen vervielfachen [entschieden, Wunsch des Users]:** Reicht eine Ware nicht, steigt zuerst
+  der Ertrag pro Tier, Acker oder Beruf. Mehr Tiere oder Äcker kommen nur dazu, solange es im Bild glaubhaft bleibt
+  (keine 200 Schafe auf der Weide). Die Werte unten sind schon danach eingestellt.
 
 | Einheit | Bedeutung |
 |---|---|
@@ -74,17 +77,17 @@
 | Krug | Milch oder Öl |
 | Bund | Stroh, Heu, Schilf |
 | Stück | Kerze, Seife, Stoff, Kleidung, Werkzeug, Möbel |
-| Wolle | 1 Schaf gibt 10 Wolle pro Schur; 1 Wolle wird zu 1 Garn, 2 Garn zu 1 Stoff |
+| Wolle | 1 Schaf gibt 12 Wolle pro Schur; 1 Wolle wird zu 1 Garn, 2 Garn zu 1 Stoff |
 
 ## 3. Berufe: wer was liefert [Vorschlag]
 
-Namen nach dem alten Stand; sie werden noch überarbeitet (SETTING.md Kapitel 18).
+Namen wie in SETTING.md Kapitel 3; neu sind Fritz und Ida (Bauernpaar), Veit (Waldarbeiter) und Dora (Händlerin).
 
 | Figur | liefert | eigenes Lager | holt sich vor allem |
 |---|---|---|---|
-| Waldarbeiter | Rundholz, Stämme, Hartholz (Eiche), Reisig, Rinde, Kienspan; im Meiler Holzkohle und Teer | Holzplatz an der Holzfällerhütte, Meiler | Brot, Essen |
-| Bauer | Weizen, Stroh, Saatgut, Heu (mit Taylor); später Gerste, Hanf, Mehl aus der Wassermühle | Scheune | Stiele, Werkzeug |
-| Bäuerin | Kartoffeln, Gemüse, Raps → Rüböl (Ölpresse), Eier, Federn | Erdkeller, Hühnerstall, Ölkammer | Kleie für die Hühner |
+| Veit (Waldarbeiter) | Rundholz, Stämme, Hartholz (Eiche), Reisig, Rinde, Kienspan; im Meiler Holzkohle und Teer | Holzplatz an der Holzfällerhütte, Meiler | Brot, Essen |
+| Fritz (Bauer) | Weizen, Stroh, Saatgut, Heu (mit Taylor); später Gerste, Hanf, Mehl aus der Wassermühle | Scheune | Stiele, Werkzeug |
+| Ida (Bäuerin) | Kartoffeln, Gemüse, Raps → Rüböl (Ölpresse), Eier, Federn | Erdkeller, Hühnerstall, Ölkammer | Kleie für die Hühner |
 | Taylor | Milch, Käse, Wolle, Garn (spinnt beim Hüten), Mist, Heu (mit dem Bauern) | Schäferhaus, Käsekammer | Labkraut, Salz, Heu |
 | Greta | Brot (mahlt anfangs selbst mit der Handmühle: Mehl und Kleie) | Auslage, Mehlkammer | Weizen, Rundholz |
 | Gustav | Mahlzeiten (anfangs für alle), später Bier | Speisekammer, Keller | alle Zutaten |
@@ -93,10 +96,10 @@ Namen nach dem alten Stand; sie werden noch überarbeitet (SETTING.md Kapitel 18
 | Martha | Kräuter, Pilze, Beeren, Wildgemüse, wilder Hopfen, Labkraut; zieht Kerzen, siedet Seife | Kräuterhütte | Talg, Wachs, Rüböl, Asche, Garn (Dochte) |
 | Emil | Honig, Wachs (Bienen); Arbeit an der Lok | Emils Haus | – |
 | Konrad | Werkzeuge, Nägel, Beschläge, Drahtbürsten, Fallen, Haken, Lampen, Lok-Teile; später Eisen aus Erz | Schmiede | Eisen, Holzkohle, Stiele |
-| Jakob | Bretter, Möbel, Stiele, Schubkarren, Fässer, Zuber, Eimer, Leitern, Dreschflegel, Spinnrad, Webstuhl, Ölpresse (mit Konrad) | Tischlerei | Stämme, Hartholz, Nägel |
+| Jakob | Bretter, Möbel, Holznägel, Stiele, Schubkarren, Fässer, Zuber, Eimer, Leitern, Dreschflegel, Spinnrad, Webstuhl, Ölpresse (mit Konrad) | Tischlerei | Stämme, Hartholz, Nägel |
 | Wilhelm | Bruchstein, Kalkstein, Kalk (Kalkofen); später aus der Grube Erz, Kohle, Blei, Ton | Steinbruch | Holz für den Kalkofen |
 | Lene | Garn, Stoff, Kleidung, Decken, Polster, Seile und Leinen (aus Hanf), Netze, Dochte | Haus der Brandts | Wolle, Hanf |
-| Paul | Bautrupp (Zimmermann), einfache Möbel, Schnitzfiguren zum Tauschen | – | Holzreste |
+| Paul | Bautrupp (Zimmermann), einfache Möbel, Schnitzfiguren zum Tauschen; Kustos des Museums | – | Holzreste |
 | Sykora | Bautrupp, eigener Hof (Garten, später Obst), hilft überall | – | – |
 | **alle** | nebenbei Reisig, Lehm, Sand, Laubstreu, Wildgemüse; jeder Haushalt **spaltet sein Brennholz** am eigenen Hackklotz und pflegt ab dem eigenen Haus einen Garten | – | – |
 
@@ -116,6 +119,7 @@ und See ist keine Ware: Es ist unbegrenzt, aber das Holen mit Eimer oder Fass ko
 | Stamm (Bauholz) | Waldarbeiter | Bretter, Balken, Dachstuhl, Stützbalken der Grube, Leitern | Start |
 | Hartholz (Eiche) | Waldarbeiter, langsamer (halbe Leistung) | Bremsklötze, Schwellen, Lore, Pflug, Werkbank | Start |
 | Bretter | Jakob (1 Stamm → 6 Bretter) | Möbel, Dielen, Türen, Fensterläden, Fässer | Start |
+| Holznägel | Jakob, aus Hartholz-Resten | Dachstuhl und Fachwerk; sparen Eisen | Start |
 | Rinde | Nebenprodukt beim Bauholz | Gerberlohe für Leder | Start |
 | Holzkohle | Waldarbeiter, Meiler (2 Rundholz → 1 Holzkohle) | Esse der Schmiede, Rennofen | Meiler gebaut |
 | Teer, Pech | Nebenprodukt des Meilers | Fackeln, Boot und Schwellen abdichten, Seile teeren | Meiler gebaut |
@@ -152,7 +156,7 @@ und See ist keine Ware: Es ist unbegrenzt, aber das Holen mit Eimer oder Fass ko
 
 | Ware | Quelle | Wofür | Ab |
 |---|---|---|---|
-| Heu | Taylor und Bauer mähen die Wiesen (2 Mahden) | Winterfutter für die Tiere | Sommer 1 |
+| Heu | Taylor und Fritz mähen die Wiesen (2 Mahden à 80 Bund) | Winterfutter für die Tiere | Sommer 1 |
 | Stroh | Bauer, beim Dreschen | Strohsack, Streu, Lehmputz | Restvorrat, dann ab Ernte |
 | Laubstreu | alle, im Herbst | Streu im Stall (Ersatz für Stroh) | Herbst 1 |
 | Mist | Taylors Stall, Hühner | Dünger (+20 % Ernte) | Start |
@@ -203,7 +207,8 @@ Jede Kette ist im Bild zu sehen: Menschen gehen, tragen, arbeiten, und die Lager
   Gemeinschaftsaufgabe) → Dreschen: Weizen, Stroh, Saatgut fürs nächste Jahr → Greta holt abends Weizen → Mühle: Mehl
   und Kleie (für die Hühner) → Backen am Morgen (Backofen braucht Brennholz) → **jeder Laib einzeln in der Auslage** →
   die Haushalte holen ihn → Frühstück; altbackene Laibe → Brotsuppe oder Hühner.
-- **Mittag- und Abendessen:** Kartoffeln und Gemüse aus dem Erdkeller + Fleisch oder Fisch aus der Räucherkammer +
+- **Mittag- und Abendessen** (zu Hause, sonst Taverne, sonst Suppenkessel): Kartoffeln und Gemüse aus dem Erdkeller +
+  Fleisch oder Fisch aus der Räucherkammer +
   Kräuter → Küche (Herd braucht Holz) → Mahlzeit; anfangs kocht Gustav für alle.
 - **Milch und Käse:** Wiese → Heu → Taylors Tiere → Milch → Käse (Labkraut von Martha, für Hartkäse Salz) → Keller.
 - **Licht:** Kaminfeuer; Kienspan; Talg (Anton) oder Wachs (Emil) + Docht (Lene) → Kerzen (Martha); Raps → Ölpresse →
@@ -270,9 +275,16 @@ Brauerei verbrauchen je Brand bzw. Sud einmalig 20–40 Brennholz.
 **Essen:** drei Mahlzeiten am Tag. Das **Wunschmenü** pro Person und Tag: ½ Laib Brot, 2 Portionen Kartoffeln oder
 Gemüse, 1 Portion Fleisch, Fisch, Eier oder Käse, ½ Krug Milch.
 
+- **Wo gegessen wird [entschieden, Wunsch des Users]:**
+  1. **Zu Hause**, wer eine Küche, Zutaten und Zeit hat.
+  2. **In der Taverne:** Gustav kocht **tagsüber** ein Tagesgericht aus Zutaten, die er selbst holt; abends wird es
+     ausgegeben, an alle ohne eigenes Essen und an alle, die zum Zusammensein kommen. Es gibt so viele Portionen, wie er
+     gekocht hat; Reste gibt es am nächsten Mittag. Anfangs, solange kaum ein Haus eine Küche hat, kocht er im
+     Speisewagen alle Mahlzeiten für alle.
+  3. **Am Suppenkessel im Speisewagen** gibt es die Standardsuppe (Kapitel 9), wenn es sonst nichts gibt.
 - **Ersatzregel:** Fehlt eine Zutat, nimmt der Koch eine andere essbare Ware (Fisch statt Fleisch, Kartoffeln statt
-  Brot, Waldkost statt Gemüse). Erst wenn im Hausvorrat und im erreichbaren Lager nichts Essbares mehr ist, gibt es die
-  Standardsuppe.
+  Brot, Waldkost statt Gemüse). Erst wenn im Hausvorrat, beim Erzeuger in Reichweite und in der Taverne nichts
+  Essbares mehr ist, gibt es die Standardsuppe.
 - **Abwechslung macht froh:** Drei Tage dasselbe senkt die Laune leicht; Honig, Käse und Kaffee heben sie.
 
 | Weiterer Verbrauch | Menge |
@@ -289,8 +301,8 @@ Gemüse, 1 Portion Fleisch, Fisch, Eier oder Käse, ½ Krug Milch.
 
 | Bauabschnitt | Material |
 |---|---|
-| Notunterkunft (ein Raum) | 12 Stämme, 20 Bretter, 10 Lehm, 5 Sand, 6 Schilf, 14 Bruchstein (Fundament, Feuerstelle), 30 Nägel |
-| Raum anbauen (Rohbau) | 8 Stämme, 20 Bretter, 10 Lehm, 5 Sand, 4 Schilf, 6 Bruchstein, 20 Nägel |
+| Notunterkunft (ein Raum) | 8 Stämme, 18 Bretter, 8 Lehm, 4 Sand, 6 Schilf, 10 Bruchstein (Fundament, Feuerstelle), 15 Nägel, 30 Holznägel |
+| Raum anbauen (Rohbau) | 6 Stämme, 18 Bretter, 8 Lehm, 4 Sand, 4 Schilf, 4 Bruchstein, 10 Nägel, 20 Holznägel |
 | Möbel | Hocker 2 Bretter · Bank 4 Bretter · Tisch 6 Bretter, 8 Nägel · Truhe 6 Bretter, 2 Beschläge · Bett 8 Bretter, 6 Nägel + Strohsack (1 Stoff, 4 Stroh) · Schrank 10 Bretter, 2 Beschläge · Sofa 6 Bretter, 2 Stoff, 4 Wolle |
 | Fenster | Standard: Laden aus 2 Brettern; Stufe 2: geöltes Leinen (1 Leinen, 1 Rüböl); Stufe 3 (Bonus): 2 Glas |
 | Steinhaus, je Raum | 30 Bruchstein, 6 Kalk, 10 Sand, 4 Bretter |
@@ -302,30 +314,76 @@ Fisch und frisches Fleisch 30 % (deshalb Räuchern), Eier 5 %, Gemüse und Karto
 frisch, dann bis zum 6. Tag altbacken (Brotsuppe), danach Hühnerfutter. Korn, Mehl, Käse, Geräuchertes, Holz und alles
 Übrige verdirbt nicht. Was verdirbt, wird als Abgang „verdorben“ gebucht.
 
-## 8. Herstellung, Jahreslauf und Natur [Vorschlag, Startwerte]
+## 8. Herstellung, Arbeitsrhythmus, Jahreslauf und Natur [Vorschlag, Startwerte]
 
 Leistung pro Arbeitstag (etwa 8 Stunden) bei Fähigkeit „geübt“ und gutem Werkzeug:
 
 | Beruf | Leistung |
 |---|---|
-| Waldarbeiter | 3 Bäume → 120 Rundholz **oder** 2 Bäume → 8 Stämme (Hartholz: 4); Meiler anlegen ½ Tag → nach 2 Tagen 30 Holzkohle und 3 Pech |
+| Veit (Waldarbeiter) | 3 Bäume → 120 Rundholz **oder** 3 Bäume → 12 Stämme (Hartholz: 6); Meiler anlegen ½ Tag → nach 2 Tagen 30 Holzkohle und 3 Pech |
 | alle nebenbei | 2–3 Reisig pro Person und Tag (im Winter kaum) |
 | Haushalt, Holz spalten | 15 Brennholz pro Stunde (ein Haus braucht im Winter etwa 45 Minuten am Tag) |
-| Bauer und Bäuerin | je Acker etwa 7 Arbeitstage pro Weltjahr; das Paar schafft 6 Äcker, mit Erntehilfe 7–8; Ertrag je Acker: 12 Sack Weizen + 20 Stroh, 300 Portionen Kartoffeln, 200 Portionen Gemüse, 40 Krüge Rüböl; Mist und Asche als Dünger +20 %; von jeder Ernte bleibt Saatgut zurück (etwa ein Zehntel) |
+| Bauer und Bäuerin | je Acker etwa 7 Arbeitstage pro Weltjahr; das Paar schafft 6 Äcker, mit Erntehilfe 7–8; Ertrag je Acker: 15 Sack Weizen + 25 Stroh, 400 Portionen Kartoffeln, 250 Portionen Gemüse, 50 Krüge Rüböl; Wiese: 80 Bund Heu pro Mahd; Mist und Asche als Dünger +20 %; von jeder Ernte bleibt Saatgut zurück (etwa ein Zehntel) |
 | Greta | Ofenladung 20 Laibe in etwa 3 Stunden; Handmühle 1 Sack in 3 Stunden; mit der Wassermühle mahlt sie nicht mehr selbst |
-| Anton | im Schnitt 10 Portionen Fleisch (Fallen und Flinte; nur Fallen: 6), alle 5 Tage ein Fell und 4 Talg |
-| Hannes | 8–15 Portionen Fisch (Winter 4–6); im Winter 15 Bund Schilf pro Tag |
-| Taylor | 10 Krüge Milch (Winter 5); Schur: 10 Wolle pro Schaf; nebenbei 2 Garn beim Hüten |
+| Anton | im Schnitt 12 Portionen Fleisch (Fallen und Flinte; nur Fallen: 7), 2 Talg pro Tag, alle 5 Tage ein Fell |
+| Hannes | 10–18 Portionen Fisch (Winter 5–8); im Winter 15 Bund Schilf pro Tag |
+| Taylor | 10 Krüge Milch (Winter 5); Schur: 12 Wolle pro Schaf; nebenbei 2 Garn beim Hüten |
 | Lene | 4 Garn **oder** 2 Stoff **oder** 3 Stück nähen pro Tag; zusammen mit Taylor etwa 1,5 Stoff pro Tag |
 | Martha | 20 Kerzen oder 15 Seife pro Tag, dazu Kräuter und Waldkost |
 | Emil | Bienen 1–2 Stunden am Tag; Honigernte Ende Sommer: 3 Völker → 30 Honig, 10 Wachs |
 | Konrad | 2 neue Werkzeuge **oder** 40 Nägel **oder** 12 Werkzeuge schärfen |
 | Jakob | 1 Stamm → 6 Bretter in einer Stunde; Möbel siehe SETTING.md Kapitel 8 „Dauer“ |
-| Wilhelm | 6 Bruchstein (er ist 66; ein Steinmetz schafft später 12) |
+| Wilhelm | 8 Bruchstein (er ist 66; ein Steinmetz schafft später 12) |
 
 **Faktoren:** Fähigkeit (Anfänger 0,6 · geübt 1,0 · Meister 1,3) × Werkzeug (keins 0,4 · stumpf 0,7 · gut 1,0 ·
 Stahl 1,3) × Wetter (Regen 0,8 und Schnee 0,6 für Feld und Bau; Holzfällen ist Winterarbeit und wird nicht gebremst) ×
 Kraft und Laune (0,8–1,1). Helfer ohne den Beruf arbeiten als Anfänger.
+
+### Arbeitsrhythmus: wer wann was macht [Vorschlag]
+
+**Braucht es das, oder nimmt es Leben aus der Welt?** Wir brauchen es, aber als **Rhythmus, nicht als Schleife**.
+Eine Schleife ist eine feste Abfolge, die abläuft, egal was los ist; die wäre leblos. Ein Rhythmus ist eine Gewohnheit,
+wie sie echte Handwerker hatten: Der Bäcker backt vor dem Frühstück, der Fischer fährt im Morgengrauen raus, der Jäger
+sitzt in der Abenddämmerung an. Gerade das macht die Welt glaubwürdig: Morgens riecht es nach Brot. Lebendig wird sie
+durch die **Abweichungen mit Grund**: Greta backt eine zweite Ladung, weil die Auslage mittags leer ist; Veit spaltet
+statt zu fällen, weil es stürmt; Hannes bleibt länger draußen, weil die Fische beißen; ein Tipp oder ein Ereignis
+unterbricht. Das ist genau „Systeme statt Schleifen“ aus LEBENDIGKEIT.md. Fürs Balancing ist der Rhythmus nötig, weil
+er bestimmt, **wann** eine Ware da ist (Brot zum Frühstück, nicht abends).
+
+**So funktioniert es:**
+
+- Jeder Beruf hat **Arbeitsschritte als Daten**: Schritt, Ort, Werkzeug, Menge pro Stunde, Blocklänge (etwa 1–2
+  Stunden), **bevorzugtes Zeitfenster**, Bedingungen (Wetter, Material da, Lagerplatz frei) und einen Ersatzschritt.
+- Für jeden Block wählt die Figur den Schritt mit der höchsten Bewertung: Passung zum Zeitfenster × Dringlichkeit
+  (Reichweite der Ware, Kapitel 13) × Bedingungen × Charakter (Frühaufsteher, gründlich, gesellig) × Laune × kleine
+  Streuung, dazu die Wiederholungsbremse. Das Zeitfenster ist eine Vorliebe, kein Zwang.
+- Die Tagesleistung aus der Tabelle oben ist die Summe der Blöcke. Das Protokoll (Kapitel 15) schreibt jeden Block
+  mit; so sieht man, ob ein Beruf zur falschen Zeit oder zu wenig arbeitet.
+
+**Rhythmus der Berufe** (Morgendämmerung je nach Jahreszeit etwa 5–7 Uhr; mittags eine Pause):
+
+| Wer | Morgens | Vormittag | Nachmittag | Abend | Bei Regen, im Winter |
+|---|---|---|---|---|---|
+| Greta (Bäckerin) | Ofen anheizen, backen; gegen 7 Uhr liegen die frischen Laibe in der Auslage | mahlen; zweite Ladung nur, wenn die Auslage leer wird | Weizen für morgen holen, Holz spalten | Sauerteig für morgen ansetzen (kurz), dann frei | gleich (drinnen) |
+| Veit (Waldarbeiter) | Bäume fällen | fällen | aufarbeiten: entasten, ablängen, Rundholz stapeln, Stämme entrinden | brennt ein Meiler, kurz nachsehen | Sturm: Holzplatz ordnen, Werkzeug, Setzlinge; Winter: Hauptzeit fürs Fällen |
+| jeder Haushalt | Wasser und Brot holen | Beruf | auf dem Heimweg Rundholz mitnehmen | Holz spalten (30–45 min), Kamin anzünden, kochen | – |
+| Taylor (Schäferin) | melken, Herde austreiben | hüten, nebenbei spinnen; jeden zweiten Tag Käse machen | hüten | eintreiben, melken, Tiere zählen | Gewitter: bei den Tieren im Stall; Winter: Stall und Heu |
+| Fritz und Ida (Bauernhof) | Hühner füttern, Eier sammeln | Feldarbeit nach Jahreszeit (in den kühlen Stunden) | Hof: dreschen, Ölpresse, Garten | Hühner einsperren | Regen: in der Scheune dreschen, Geräte richten; Erntetage ganztags mit Erntehilfe |
+| Gustav (Wirt) | steht später auf | Zutaten holen, Tagesgericht ansetzen | Mittagessen ausgeben (anfangs für alle), Abendessen kochen | **Taverne: sein Hauptdienst** | – |
+| Anton (Jäger) | Fallen in der Morgendämmerung kontrollieren | zerlegen, räuchern, gerben | Fallen stellen, Rinde holen | Ansitz in der Abenddämmerung, wenn das Wild unterwegs ist | Regen: gerben, Fallen richten |
+| Hannes (Fischer) | Reusen leeren, angeln im Morgengrauen | Fang ausnehmen, räuchern | Netze flicken | – | Winter: Eisfischen, Schilf schneiden |
+| Martha (Kräuter) | – | Kräuter sammeln, sobald der Tau getrocknet ist | trocknen, Kerzen ziehen, Seife sieden | Tee für Kranke | Regen: Kerzen, Seife, Tee |
+| Konrad (Schmied) | Esse anheizen | schmieden (große Stücke) | schärfen und reparieren: Werkzeug wird morgens gebracht und nachmittags abgeholt | – | gleich |
+| Jakob (Tischler) | Bretter sägen | Möbel bauen | Möbel bauen, am späten Nachmittag ausliefern | – | gleich |
+| Wilhelm (Steinbruch) | – | Steine brechen | nach der Mittagsruhe behauen und sortieren | – | Regen: Werkzeug, alte Grubenpläne |
+| Lene (Weberin) | – | am Webstuhl beim Fenster (Tageslicht) | weben, nähen | spinnen in der **Spinnstube** (gesellig) | gleich |
+| Paul (Kustos) | Tiere im Museum füttern | Bautrupp | schnitzen (Schildchen, Figuren) | – | Regen: schnitzen |
+| Emil | Bienen | Lok | Lok, danach Bienen | Rat geben, Taverne | Regen: Lok im Schuppen |
+| Bautrupp (Sykora, Paul, Helfer) | – | bauen | bauen; Helfer kommen, wenn ihre eigenen Lager voll sind | – | Regen: innen statt Dach; Schnee bremst |
+
+**Ausnahmen vom Tagesgerüst** (sonst gilt: nachts arbeitet niemand, abends ist frei): Greta in der Morgendämmerung,
+Gustav abends in der Taverne, Antons Ansitz in der Abenddämmerung, ein kurzer Blick auf den Meiler. **Leise
+Handarbeit am Abend** (Spinnstube, Schnitzen, Flicken) ist Freizeit mit kleinem Ertrag, wie damals üblich.
 
 **Jahreslauf** (eine Jahreszeit = 7 Tage):
 
@@ -362,9 +420,15 @@ Notlösungen kosten Laune oder Kraft und werden im Protokoll gezählt, denn sie 
 
 **Standardsuppe [entschieden, Wunsch des Users; Details Vorschlag]:**
 
-- Gibt es für eine Mahlzeit gar nichts Essbares (auch nicht nach der Ersatzregel), gibt es die Standardsuppe, im Dorf
-  „Wassersuppe“: Wasser, Brennnesseln und Wildkräuter vom Wegrand. **Sie braucht keine Ware aus dem Warenbuch** und ist
-  deshalb immer verfügbar. **Niemand hungert.**
+- Gibt es für eine Mahlzeit gar nichts Essbares (auch nicht nach der Ersatzregel und nicht in der Taverne), gibt es
+  die Standardsuppe, im Dorf „Wassersuppe“: Wasser, Brennnesseln und Wildkräuter vom Wegrand. **Sie braucht keine
+  Ware aus dem Warenbuch** und ist deshalb immer verfügbar. **Niemand hungert.**
+- **Wo [entschieden, Wunsch des Users; Ort von Claude gewählt]:** am **Suppenkessel im Speisewagen**. Es ist der
+  Kessel, der im langen Winter alle satt gehalten hat. Wer Hunger hat und zu Hause nichts kochen kann (keine Zutaten
+  oder keine Zeit, z. B. an Erntetagen), geht mit einem Henkeltopf hin, schöpft und isst zu Hause. Wenn die Taverne
+  später an den Dorfplatz zieht, bleibt der Speisewagen als Suppenküche stehen.
+- Der Kessel hängt über dem Herd im Speisewagen, der ohnehin brennt; später heizt man ihn mit Reisig, und wer Suppe
+  holt, bringt einen Arm voll mit. So bleibt die Suppe unabhängig vom Warenbuch.
 - **Folgen:** sättigt nur halb (der Hunger kommt früher), Kraft und Laune sinken, die Arbeit geht etwas langsamer.
   Einmal stört sie kaum, ab dem dritten Mal hintereinander deutlich. Dann erscheint der Gedanke „Schon wieder
   Wassersuppe …“ und am Schwarzen Brett ein Zettel („Wir brauchen Brot!“), der eine Gemeinschaftsaufgabe anstößt.
@@ -415,7 +479,7 @@ Jeder Beruf braucht Werkzeug vom Schmied (Eisen, Stiel von Jakob) oder vom Tisch
   Neuigkeiten.
 - **Sie nimmt:** Käse, Wolle, Stoff, Felle, Leder, Honig, Wachs, Paul Brandts Schnitzfiguren, Kräuter.
 - **Nur sie bringt**, jeweils mit Notlösung (Kapitel 9): Salz (Pökeln, Hartkäse), Glas (Fenster, Laternen,
-  Gewächshaus), Messing (Lok-Armaturen, Lampen), Zinn (Weißmetall), Papier und Tinte (Sykoras Tagebuch, Briefe; am
+  Gewächshaus, Aquarium und Terrarien im Museum), Messing (Lok-Armaturen, Lampen), Zinn (Weißmetall), Papier und Tinte (Sykoras Tagebuch, Briefe; am
   Brett ersatzweise Holztäfelchen), Essig (Kessel der Lok entkalken), Pulver (Flinte), bunte Farbe (selbst gibt es
   Kalkweiß, Ocker aus Lehm und Pflanzenfarben von Martha), Kaffee und Gewürze (Laune).
 - **Antwort auf die Frage nach dem Öl:** Nichts Lebenswichtiges hängt allein an ihr. **Das Grubenlicht kommt aus dem
@@ -425,39 +489,43 @@ Jeder Beruf braucht Werkzeug vom Schmied (Eisen, Stiel von Jakob) oder vom Tisch
 
 ## 12. Bilanz-Check und Kipppunkte [Vorschlag]
 
-Geprüft für zwei Zeitpunkte: **Start** (erstes Weltjahr, 16 Menschen, im Mittel etwa 7 Feuerstellen) und
+Geprüft für zwei Zeitpunkte: **Start** (erstes Weltjahr, 16 Menschen, im Mittel etwa 8 Feuerstellen) und
 **Endausbau** (40 Menschen, 20 Häuser). Ziel ist überall **Herstellung = 1,2- bis 1,5-mal Bedarf**. Die Luft ist
-Freizeit und Arbeitskraft für den Bau (SETTING.md Kapitel 8, „Dauer“).
+Freizeit und Arbeitskraft für den Bau (SETTING.md Kapitel 8, „Dauer“). **Neu gerechnet für die halbierten Bauzeiten**
+(2026-10-21): Essen und Heizen hängen an der Uhr und bleiben gleich; was pro Tag verbaut wird, verdoppelt sich und ist
+durch kleinere Hütten, Holznägel und höhere Erträge ausgeglichen.
 
 | Ware | Start: Bedarf → Herstellung | Endausbau: Bedarf → Herstellung | Was der Endausbau braucht |
 |---|---|---|---|
-| Brennholz pro Tag | ~70 (Winter ~95) → 120 Rundholz + ~30 Reisig; die Luft geht ins Bauholz | ~180 (Winter ~260) → 2 × 120 + ~60 Reisig | zweiter Waldarbeiter, Herbstvorrat, Steinhäuser, Kohle |
-| Bauholz pro Tag | ~3 Stämme → Rest des Waldarbeiter-Tags (4–5) | ~6 → knapp | Meister oder Stahlaxt, Köhler übernimmt den Meiler |
-| Brot pro Tag | 8 Laibe → 20 | 20 → 20 (nur mit Wassermühle 30) | Wassermühle |
-| Weizen pro Weltjahr | 25 Sack (mit Saatgut) → 3 Äcker = 36 | 61 → 5 Äcker mit Dünger = 72 | zweite Bauernfamilie mit Ochse |
-| Kartoffeln und Gemüse pro Tag | 32 → ~37 (2 Kartoffeläcker, 1 Gemüsefeld, 3 Gärten, Waldkost) | 80 → ~100 (4 + 2 Äcker, 20 Gärten) | Hausgärten an jedem Haus |
-| Fleisch, Fisch, Eier, Käse pro Tag | 16 → 25 | 40 → ~42, im Winter knapp | mehr Hühner, Käse, Räuchervorrat, zweiter Fischer |
-| Milch pro Tag | 8 → 10 | 20 → ~23 | Herde wächst mit Lämmern, später eine Kuh |
-| Wolle pro Weltjahr | 62 → 80 (8 Schafe) | 157 → 200 (20 Schafe) | Lämmer (+3 pro Weltjahr) bis die Weide voll ist |
+| Brennholz pro Tag | ~75 (Winter ~125) → 120 Rundholz + ~30 Reisig (Winter ~15); im ersten Winter knapp, deshalb Herbstvorrat | ~180 (Winter ~260) → 2 × 120 + ~60 Reisig | zweiter Waldarbeiter, Herbstvorrat, Steinhäuser, Kohle |
+| Bauholz pro Tag | ~4½ Stämme → 12 pro Waldarbeiter-Tag; Veit ist damit zu ~80 % ausgelastet | ~7 → Rest der zwei Waldarbeiter-Tage | im Winter bremst Schnee den Bau, dann geht die Kraft ins Brennholz |
+| Brot pro Tag | 8 Laibe → 20 | 20 → 20 (mit Wassermühle 30) | Wassermühle |
+| Weizen pro Weltjahr | 25 Sack (mit Saatgut) → 2 Äcker = 30 | 61 → 4 Äcker mit Dünger = 72 | Ochse und Pflug |
+| Kartoffeln und Gemüse pro Tag | 32 → ~46 (2 Kartoffeläcker, 1 Gemüsefeld, 3 Gärten, Waldkost) | 80 → ~98 (3 + 1 Äcker, 20 Gärten) | Hausgärten an jedem Haus |
+| Fleisch, Fisch, Eier, Käse pro Tag | 16 → 30 (Überschuss wird geräuchert oder getauscht) | 40 → ~47 | mehr Hühner, Käse, Räuchervorrat |
+| Milch pro Tag | 8 → 10 | 20 → ~23 | Herde 14 Schafe und 6 Ziegen, eine Kuh |
+| Wolle pro Weltjahr | 62 → 96 (8 Schafe à 12) | 157 → 168 (14 Schafe) + Leinen aus Hanf | Lämmer, bis 14 Schafe |
 | Stoff pro Tag | 1,1 → 1,5 | 2,8 → 1,5 | Weberin oder Schneiderin |
-| Licht pro Weltjahr | 245 Abende → 120 Kerzen + 400 Lampenabende (1 Raps-Acker) | 700 → 120 + 800 (2 Raps-Äcker), abzüglich Öl für Seife | zweiter Raps-Acker |
-| Heu pro Weltjahr | 120 Bund → 2 Wiesen = 240 | 280 → 3 Wiesen = 360 | dritte Wiese |
-| Stroh pro Weltjahr | ~70 → 60 + Laubstreu | ~180 → 120 + Laubstreu | Laubstreu ist im Endausbau normal |
-| Bruchstein pro Tag | ~2,5 → 6 | ~8 (Steinhäuser) → 6 | Steinmetz |
-| Eisen pro Weltjahr | 20 → 40 Alteisen (einmalig) + bis 40 von der Händlerin | 45 → 40 + Grube | Erz aus der Grube |
+| Licht pro Weltjahr | 245 Abende → 264 Kerzen (Talg, Wachs) + 500 Lampenabende (1 Raps-Acker) | 700 → 264 + 1000 (2 Raps-Äcker), abzüglich Öl für Seife | zweiter Raps-Acker |
+| Heu pro Weltjahr | 120 Bund → 1 Wiese = 160 | ~260 → 2 Wiesen = 320 | zweite Wiese |
+| Stroh pro Weltjahr | ~70 → 50 + Laubstreu | ~180 → 125 + Laubstreu | Laubstreu ist im Endausbau normal |
+| Bruchstein pro Tag | ~3 → 8 | ~12 (Steinhäuser) → 8 + Steinmetz 12 | Steinmetz |
+| Schilf pro Weltjahr | ~55 → 105 (Hannes im Winter) | ~85 → 105 | später Ziegeldächer |
+| Eisen pro Weltjahr | ~21 (Holznägel sparen Nägel) → 40 Alteisen (einmalig) + bis 40 von der Händlerin | ~48 → 40 + Grube | Erz aus der Grube |
 | Schmiede-Arbeit pro Tag | ~0,5 Konrad-Tage → 1 | ~1,1 → 1 | Stahlwerkzeug oder ein Lehrling |
 
 **Kipppunkte:** Bis wohin reicht jeder Beruf der Startbesetzung? Das ist die Grundlage für die handgeschriebene
-Zuzugsliste. Es ist **kein Automatismus**; die Idee „Zuzug nach Engpass“ hat der User nicht gewählt.
+Zuzugsliste. Es ist **kein Automatismus**; die Idee „Zuzug nach Engpass“ hat der User nicht gewählt. Mit den halbierten
+Bauzeiten werden die Kipppunkte früher erreicht (in Monaten), aber bei denselben Einwohnerzahlen.
 
 | Beruf | reicht bis etwa | dann |
 |---|---|---|
 | 1 Waldarbeiter | 11 Häuser | zweiter Waldarbeiter oder Köhler |
 | Greta mit Handmühle | 30 Menschen | Wassermühle am Bauernhof |
-| Bauernpaar mit Erntehilfe | 25–30 Menschen | zweite Bauernfamilie, Ochse und Pflug |
+| Fritz und Ida mit Erntehilfe | 25 Menschen | Ochse und Pflug (bis ~35), danach eine zweite Bauernfamilie |
 | Lene und Taylor (Spinnen, Weben) | 20 Menschen | Weberin oder Schneiderin |
-| Anton, Hannes, Hühner | 25 Menschen | mehr Hühner, Käse, Fischer |
-| 1 Raps-Acker | 15 Häuser | zweiter Acker |
+| Anton, Hannes, Hühner | 30 Menschen | mehr Hühner, Käse, Fischer |
+| 1 Raps-Acker | 17 Häuser | zweiter Acker |
 | Wilhelm | Bauen ohne Steinhäuser | Steinmetz |
 | Konrad mit Eisenwerkzeug | 35 Menschen | Stahlwerkzeug oder Lehrling (z. B. Sykora) |
 | Jakob | bestimmt das Bautempo (SETTING.md Kapitel 8) | zweiter Tischler macht den Ausbau schneller |
@@ -512,7 +580,7 @@ Mahlzeit Standardsuppe; das ist gewollt und erzählt, wie schwer der Anfang war.
 | P3 | **Standardsuppe selten** | im ersten Frühling höchstens jede 4. Mahlzeit, **danach höchstens 5 % pro Weltwoche**; kein Haushalt 3 Tage am Stück |
 | P4 | **Notlösungen selten** | nach dem ersten Weltjahr Kienspan höchstens 20 % der Lichtabende, kalte Abende (Holzmangel) höchstens 2 % |
 | P5 | **Gesunde Auslastung** | jede Person arbeitet im Mittel 50–90 % ihrer Arbeitszeit; kein Beruf 3 Tage am Stück über 100 %; Warten auf Material höchstens 10 % |
-| P6 | **Bautempo** | kleine Arbeit ≤ 1 Tag, Notunterkunft ≤ 7 Tage, Raum ≤ 14 Tage (Ziel 7–10) |
+| P6 | **Bautempo** | kleine Arbeit am selben Tag, Notunterkunft ≤ 4 Tage, Raum ≤ 7 Tage (Ziel 4–5), Grundhäuser aller Startbewohner nach ~2 Monaten |
 | P7 | **Werkzeug** | höchstens 20 % der Arbeitszeit mit stumpfem Werkzeug |
 | P8 | **Verderb** | höchstens 10 % der verderblichen Herstellung |
 | P9 | **Natur** | Wald, Wild, Fische und Wiesen schrumpfen über eine Weltwoche nicht dauerhaft |
@@ -604,7 +672,7 @@ weil ein leeres Lager sonst einfach „nichts verbraucht“.
 
 ## 16. Offene Punkte
 
-1. **Startwerte, Warenliste, Händlerin, Kipppunkte** (diese Datei): warten auf das OK des Users.
+1. **Startwerte, Warenliste, Händlerin, Kipppunkte, Arbeitsrhythmus** (diese Datei): warten auf das OK des Users.
 2. **Ruhetag** [Idee]: ein freier Tag pro Weltwoche (Platz, Ausflüge, Feste). Senkt die Kapazität um ein Siebtel; die
    Startwerte haben dafür genug Luft.
 3. **Gerste und Bier:** ab wann (erstes Herbstfest oder später)?
