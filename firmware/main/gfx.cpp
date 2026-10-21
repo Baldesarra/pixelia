@@ -18,6 +18,7 @@
 #include "pixelia/engine/memory.h"
 #include "pixelia/engine/stage.h"
 #include "pixelia/engine/system_ui.h"
+#include "pixelia/engine/test_places.h"
 #include "net.h"
 #include "ui.h"
 
@@ -58,7 +59,11 @@ std::atomic<int> s_figures{0};     // Figuren der Testorte, 0 = Standard
 int s_sprites_applied = -1;
 int s_figures_applied = -1;
 uint32_t s_tour_ticks = 0;
-std::atomic<int> s_req_cmd{0};     // Befehl an den sichtbaren Ort: 1 = ausbau, 2 = baustelle
+// Befehle an die Bühne (seit 0.5.3 beliebige Texte: Wetter, Ortsbefehle), übernommen vor dem nächsten Logik-Schritt
+constexpr int kCmdSlots = 4, kCmdLen = 48;
+portMUX_TYPE s_cmd_lock = portMUX_INITIALIZER_UNLOCKED;
+char s_cmds[kCmdSlots][kCmdLen];
+int s_cmd_first = 0, s_cmd_count = 0;
 std::atomic<bool> s_follow{true};  // Blick folgt der Begleiterin (Bühne, seit 0.5.1)
 std::atomic<bool> s_inspect{false};
 int s_shown_place = -1;            // zuletzt gemeldeter Ort (Wechsel durch Ausgänge ins Log)
@@ -266,10 +271,19 @@ void apply_place_requests(int ticks) {
     }
     if (const bool f = s_follow.load(std::memory_order_relaxed); f != s_stage.follow()) s_stage.set_follow(f);
     if (const bool v = s_inspect.load(std::memory_order_relaxed); v != s_stage.inspect()) s_stage.set_inspect(v);
-    if (const int c = s_req_cmd.exchange(0); c > 0) {
-        const char* cmd = c == 1 ? "ausbau" : "baustelle";
-        const bool ok = s_stage.scene(s_stage.active()).command(cmd);
-        ESP_LOGI(TAG, "Befehl %s an %s: %s", cmd, s_stage.scene(s_stage.active()).name(), ok ? "ok" : "unbekannt");
+    for (;;) {
+        char cmd[kCmdLen];
+        portENTER_CRITICAL(&s_cmd_lock);
+        const bool have = s_cmd_count > 0;
+        if (have) {
+            std::memcpy(cmd, s_cmds[s_cmd_first], kCmdLen);
+            s_cmd_first = (s_cmd_first + 1) % kCmdSlots;
+            --s_cmd_count;
+        }
+        portEXIT_CRITICAL(&s_cmd_lock);
+        if (!have) break;
+        const bool ok = s_stage.command(cmd);
+        ESP_LOGI(TAG, "Befehl \"%s\" an %s: %s", cmd, s_stage.scene(s_stage.active()).name(), ok ? "ok" : "unbekannt");
     }
     const auto t = static_cast<pixelia::Transition>(s_transition.load(std::memory_order_relaxed));
     const int req = s_req_place.exchange(-1);
@@ -427,6 +441,10 @@ void gfx_task(void* arg) {
         board::display::present(s_pal565);
 
         uint32_t render_us = static_cast<uint32_t>(t2 - t1);
+        const pixelia::Scene& shown = s_stage.scene(s_stage.active());
+        const int particles = std::strncmp(shown.name(), "testort-", 8) == 0
+                                  ? static_cast<const pixelia::TestPlace&>(shown).weather().particles()
+                                  : 0;
         portENTER_CRITICAL(&s_stats_lock);
         s_stats.frames++;
         s_stats.render_us_sum += render_us;
@@ -436,6 +454,10 @@ void gfx_task(void* arg) {
         s_stats.tick_hist[ticks < 2 ? ticks : 2]++;
         s_stats.world_minute = s_clock.hour() * 60 + s_clock.minute();
         s_stats.world_day = s_clock.day();
+        s_stats.weather = static_cast<int>(s_stage.weather().kind());
+        s_stats.weather_pct = (s_stage.weather().strength() * 100 + 127) / 255;
+        s_stats.inner_light = s_stage.environment().lights.any_on("testort-raum");
+        s_stats.particles = particles;
         portEXIT_CRITICAL(&s_stats_lock);
     }
 }
@@ -485,9 +507,16 @@ int tour() { return s_tour_s.load(); }
 void set_figures(int n) { s_figures.store(std::clamp(n, 0, 64)); }
 int figures() { return s_figures.load(); }
 bool place_command(const char* cmd) {
-    const int c = std::strcmp(cmd, "ausbau") == 0 ? 1 : std::strcmp(cmd, "baustelle") == 0 ? 2 : 0;
-    if (c) s_req_cmd.store(c);
-    return c != 0;
+    const size_t n = cmd ? std::strlen(cmd) : 0;
+    if (n == 0 || n >= kCmdLen) return false;
+    portENTER_CRITICAL(&s_cmd_lock);
+    const bool ok = s_cmd_count < kCmdSlots;
+    if (ok) {
+        std::memcpy(s_cmds[(s_cmd_first + s_cmd_count) % kCmdSlots], cmd, n + 1);
+        ++s_cmd_count;
+    }
+    portEXIT_CRITICAL(&s_cmd_lock);
+    return ok;
 }
 void set_follow(bool on) { s_follow.store(on); }
 bool follow() { return s_follow.load(); }

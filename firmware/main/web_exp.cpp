@@ -7,6 +7,7 @@
 //   GET  /api/screen  aktuelles Bild 400×240 als Paletten-Indizes, PackBits-gepackt (Aufbau siehe screen_get)
 //   POST /api/picture eigenes Testbild zeigen (seit 0.5.0, Aufbau siehe picture_post)
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 
@@ -16,6 +17,7 @@
 #include "esp_timer.h"
 #include "exper.h"
 #include "pixelia/engine/canvas.h"
+#include "pixelia/engine/weather.h"
 #include "ui.h"
 #include "web_internal.h"
 
@@ -101,11 +103,21 @@ esp_err_t exp_post(httpd_req_t* req) {
             gfx::set_tour(field(body, "s", 0));
             return reply(req, true, gfx::tour() ? "Rundgang an" : "Rundgang aus");
         }
-        if (a == "cmd") {  // seit 0.5.1: ausbau, baustelle (Testraum)
+        if (a == "cmd") {  // seit 0.5.1: ausbau, baustelle; seit 0.5.3 jeder Bühnenbefehl (innenlicht um, blitz …)
             std::string v;
             if (!form_value(body, "v", &v) || !gfx::place_command(v.c_str()))
-                return reply(req, false, "Befehl unbekannt");
-            return reply(req, true, v == "ausbau" ? "Nächste Ausbaustufe" : "Im Bau umgeschaltet");
+                return reply(req, false, "Befehl nicht angenommen");
+            return reply(req, true, v == "ausbau"      ? "Nächste Ausbaustufe"
+                                    : v == "baustelle" ? "Im Bau umgeschaltet"
+                                                       : "Befehl gesendet");
+        }
+        if (a == "weather") {  // seit 0.5.3: Wetter-Teststeuerung, v = Art, p = Stärke in %
+            std::string v;
+            pixelia::WeatherKind k;
+            if (!form_value(body, "v", &v) || !pixelia::parse_weather(v, &k)) return reply(req, false, "Wetter unbekannt");
+            const std::string cmd = "wetter " + v + " " + std::to_string(std::clamp(field(body, "p", 100), 0, 100));
+            gfx::place_command(cmd.c_str());
+            return reply(req, true, "Wetter gesetzt");
         }
         if (a == "follow") {
             gfx::set_follow(field(body, "v", 1) != 0);

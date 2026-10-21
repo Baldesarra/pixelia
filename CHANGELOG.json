@@ -7,7 +7,23 @@
     "n": [
       "Doku: docs/SETTING.md, Zwischenstand der Setting-Werkstatt: Vorgeschichte, 16 feste Bewohner, Emil als Ratgeber, Wunschliste statt 24-h-Regel, Bautempo (Raum 7–10 Tage, Endausbau ~1 Jahr)",
       "Doku: docs/WIRTSCHAFT.md: ~70 Waren ohne Geld mit Kausalketten, Notlösungen, Bilanz-Check und Kipppunkten, Wirtschafts-Protokoll (CSV) und Prüfgrößen P1–P11 („Prüfen statt raten“)",
-      "Doku: Setting und Wirtschaft ergänzt: Museum als Naturalienkabinett, Bauzeiten halbiert (Grundhäuser nach ~2 Monaten), Arbeitsrhythmus der Berufe, Suppenkessel im Speisewagen, höhere Erträge"
+      "Doku: Setting und Wirtschaft ergänzt: Museum als Naturalienkabinett, Bauzeiten halbiert (Grundhäuser nach ~2 Monaten), Arbeitsrhythmus der Berufe, Suppenkessel im Speisewagen, höhere Erträge",
+      "Engine: Wetter für alle Orte (weather.h): Sonne, bewölkt, Regen, Schnee, Nebel, Gewitter, Wind; weiche Übergänge (erst ziehen Wolken auf, dann setzt Regen ein), Böen und Blitze deterministisch",
+      "Engine: Partikelsystem (particles.h): Obergrenze 512 je Ort im PSRAM, nur solange der Ort betreten ist; Regen mit Spritzern, Schnee klein und groß, Blätter im Wind; fein gezeichnet über allem",
+      "Engine: Schleier über Farbtabellen beim Verdoppeln, fein gerastert: ziehende Nebelbänke, Regenschleier, Wolkenschatten an sonnigen Tagen; Dunst und Blitz über die Palette, 240–255 bleiben unberührt",
+      "Engine: Innenräume zeigen das Wetter in den Fenstern: grauer Himmel, Nebel, Blitz und fallender Regen bzw. Schnee nur über dem Glas",
+      "Engine: Lichtquellen der Orte mit Zustand an/aus (environment.h), auch für unsichtbare Orte; Fenster am Außenort leuchten nachts nur, wenn im Raum dahinter Licht brennt (Wunsch des Users)",
+      "Web: Karte „Orte“ mit Wetter-Knöpfen, Stärke, Schalter „Licht innen“ und Blitz; POST /api/exp a=weather&v=<Art>&p=<%>, a=cmd für alle Bühnenbefehle; weather, weatherPct, innen, particles in GET",
+      "System: Konsole „wetter [Art [%] [sofort]]“ und „ort cmd <Befehl>“; Befehle an die Bühne als Warteschlange mit freiem Text (Stage::command) statt zwei fester Befehle",
+      "Simulator: Bühnenbefehle wetter, blitz, blitze, wind in --cmd; --frames gilt auch für --grid; 4 neue Bühnen-Tests"
+    ],
+    "g": [
+      "Simulator: 26/26 Bühnen-Tests, neu: Determinismus mit Gewitter, Tageszeit und Ortswechsel, weiche Übergänge, Obergrenze der Partikel (Regen 300 %), Systemfarben beim Blitz, Fensterlicht innen ↔ außen",
+      "Display: am Gerät 29,8–30,3 fps; Zeichnen Sonne 5,7 ms (ohne Wolken 4,4), Regen 8,0, Schnee 7,2, Nebel 9,1, Bewölkt 10,1, Gewitter nachts 8,7, 64 Figuren mit Regen bis 16,0 ms (Grenze 20); RAM 109 KB, PSRAM 5,79 MB frei"
+    ],
+    "h": [
+      "Engine: Entscheidungen des Users nach animierten Vergleichsbildern: Regen als Striche, Schnee gemischt, Nebel dicht, Blitze zufällig alle 12–30 s bei vollem Gewitter",
+      "Engine: Während einer Überblendung (nicht Standard) fehlen die Schleier, drinnen auch die Partikel im Fenster; Abblenden zeigt alles"
     ],
     "pr": [28, 29]
   },

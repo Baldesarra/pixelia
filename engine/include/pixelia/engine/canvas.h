@@ -45,6 +45,13 @@ struct CoarseLayers {
     const uint8_t* light = nullptr;
     std::array<uint8_t, kCoarseHeight> lx0{}, lx1{};
     uint8_t light_base = 0;  // Grundfarben je Lichtstufe
+    // Schleier (seit 0.5.3, Wetter: Nebelbänke, Regenschleier, Wolkenschatten): Farbtabelle (Index → Index, z. B.
+    // PlacePalette::tint_table) mit Anteil 0 … 16 je Feld von 4 × 4 groben Bildpunkten (veil_grid, kVeilW × kVeilH),
+    // beim Verdoppeln fein gerastert nach dem Licht angewendet. nullptr = kein Schleier
+    static constexpr int kVeilCell = 4;
+    static constexpr int kVeilW = kCoarseWidth / kVeilCell, kVeilH = kCoarseHeight / kVeilCell;
+    const uint8_t* veil_table = nullptr;
+    const uint8_t* veil_grid = nullptr;
 };
 
 // Zeichnen im Licht (seit 0.5.2, light.h): Grundfarben 1 … base − 1 auf eine Lichtstufe heben, je Bildpunkt aus

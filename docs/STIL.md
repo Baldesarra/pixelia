@@ -86,6 +86,19 @@ Streifen aus 4 Farben zeichnen, die Rotation lässt es fließen.
   so bleibt Gras unter dem Schatten Gras.
 - Für Nebel, Regen und Glas gibt es Tönungstabellen und eine 50-%-Mischtabelle der Grundfarben (`PlacePalette`).
 
+## 7. Wetter (seit 0.5.3)
+
+- Jeder Ort legt fest, mit welchen Grundfarben das Wetter gezeichnet wird (`WeatherLook`): Regen (hell, bläulich
+  wie Glas), Spritzer und Schnee (fast weiß), zwei Blattfarben. In den Testorten sind das vorhandene Farben; echte
+  Orte reservieren dafür 3–4 Grundfarben.
+- Regen als Striche, Schnee gemischt (klein und groß), Nebel dicht, Blitze alle 12–30 s (Entscheidungen des Users).
+  Partikel sind fein (2 × 2 Displaypunkte) und stehen im Licht des Ortes.
+- Nebel, Regenschleier und Wolkenschatten sind Farbtabellen (`tint_table`) mit feinem Raster. Die Tabellen suchen
+  die nächste Grundfarbe: Je mehr Grautöne und dunkle Varianten ein Ort hat, desto weicher wirken sie.
+- Innenräume: Das Fensterglas trägt die Rolle Himmel; nur dort erscheinen Regen und Schnee, der Himmel wird grau.
+  Fenster nach draußen leuchten nachts nur, wenn im Raum dahinter Licht brennt. Glasfarben gelten je Farbe: Fenster
+  zu verschiedenen Räumen brauchen eigene Glasfarben.
+
 ## Offen (für 0.5.8)
 
 - Format und Zeichenanleitung für eigene Möbel (Maße im Raster, welche Rampen, Umriss).

@@ -24,6 +24,7 @@
 #include <string_view>
 
 #include "pixelia/engine/canvas.h"
+#include "pixelia/engine/environment.h"
 #include "pixelia/engine/scene.h"
 #include "pixelia/engine/world_clock.h"
 
@@ -73,6 +74,15 @@ public:
     void set_inspect(bool on);
     bool inspect() const { return inspect_; }
 
+    // Umgebung aller Orte (seit 0.5.3): Wetter und Lichtquellen; das Wetter rechnet tick() vor den Orten
+    Environment& environment() { return env_; }
+    const Environment& environment() const { return env_; }
+    Weather& weather() { return env_.weather; }
+    const Weather& weather() const { return env_.weather; }
+    // Prüfbefehl: „wetter <art> [0–100] [sofort]“, „wind links|rechts“, „blitz“, „blitze <min s> [max s]“ wirken auf die Bühne,
+    // alles andere geht an den sichtbaren Ort (Scene::command). false = unbekannt
+    bool command(const char* cmd);
+
     void tick(const WorldClock& clock);
     void set_load(int load);  // Lastregler der sichtbaren Szene
 
@@ -96,6 +106,7 @@ private:
 
     std::array<std::unique_ptr<Scene>, kMaxScenes> scenes_{};
     int count_ = 0;
+    Environment env_{};
     int active_ = 0;
     int from_ = -1;     // Szene, von der aus gewechselt wird (−1 = kein Übergang)
     int pending_ = -1;  // angeforderter Wechsel für den nächsten tick()

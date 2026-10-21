@@ -47,6 +47,10 @@ struct SkyKey {
 struct Ambient {
     int r = 256, g = 256, b = 256, sat = 256, lamp = 0;
     Color sky_top{110, 170, 240}, sky_bottom{190, 220, 250};
+    // Dunst (seit 0.5.3, Wetter): alle Farben außer „fest“ um haze/256 Richtung haze_color; Lampenlicht und
+    // leuchtende Farben scheinen nachts durch (schwächer gedämpft)
+    int haze = 0;
+    Color haze_color{200, 204, 210};
 };
 
 class Daylight {
@@ -97,6 +101,8 @@ public:
     void set_glow(int i, Color night);     // bei Dunkelheit diese Farbe, nicht abgedunkelt
     void set_sky(int first, int count);    // Himmelsverlauf: first = oben
     void set_fixed(int i);                 // immer gleich
+    // Leuchten an/aus (seit 0.5.3): aus = normale Farbe, die Nachtfarbe von set_glow bleibt gemerkt
+    void set_glow_on(int i, bool on);
     bool add_cycle(const ColorCycle& c);   // false = voll oder ungültig
     void set_lamp(Color tint) { lamp_ = tint; }      // Farbe des Lampenlichts (oberste Stufe voll)
     void set_exposure(int k256) { exposure_ = k256; }  // Umgebungslicht dieses Ortes (Innenräume < 256)

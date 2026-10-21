@@ -12,6 +12,8 @@
 
 namespace pixelia {
 
+struct Environment;
+
 // Übergang beim Ortswechsel (Bühne, stage.h); hier, weil auch Ausgänge eines Ortes ihn tragen
 enum class Transition : uint8_t {
     Cut,       // Schnitt: sofort
@@ -57,8 +59,13 @@ public:
     virtual int scale() const { return 1; }
     // Benutzte Paletteneinträge 0 … colors() − 1 (für die gemeinsame Palette während einer Überblendung)
     virtual int colors() const { return kSceneColors; }
+    // Feine bewegte Teile (seit 0.5.3: Wetter-Partikel) nach dem Verdoppeln, auch während eines Übergangs. layers =
+    // Schichten aus render_layers (Licht); remap = gemeinsame Palette einer Überblendung (nullptr = keine)
+    virtual void render_fine(Canvas& /*fine*/, const CoarseLayers& /*layers*/, const uint8_t* /*remap*/) const {}
     // Feine Einblendungen der Szene (Text, Markierungen) in 400×240, nach dem Verdoppeln gezeichnet
     virtual void render_overlay(Canvas& /*fine*/) const {}
+    // Umgebung (seit 0.5.3, environment.h: Wetter, Lichtquellen aller Orte); setzt die Bühne vor init()
+    virtual void set_environment(Environment* /*env*/) {}
     // Wird sichtbar bzw. ist nicht mehr zu sehen (seit 0.5.1; z. B. Hintergrundbild vorzeichnen und freigeben).
     // Während eines Übergangs sind beide Orte „betreten“.
     virtual void enter() {}

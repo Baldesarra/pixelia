@@ -203,6 +203,21 @@ void PlacePalette::apply(const Ambient& a, uint64_t tick, Palette& out) const {
         }
         for (int k = 0; k < levels_; ++k) out[k * base_ + i] = c;
     }
+    if (a.haze <= 0) return;
+    // Dunst (Wetter): Lampenlicht scheint durch, je Stufe weniger gedämpft
+    for (int i = 0; i < base_; ++i) {
+        if (role_[i] == ColorRole::Fixed) continue;
+        const int h = role_[i] == ColorRole::Glow ? a.haze * (256 - a.lamp / 2) >> 8 : a.haze;
+        for (int k = 0; k < levels_; ++k) {
+            Color& c = out[k * base_ + i];
+            c = lerp(c, a.haze_color, h * (4 - k) >> 2);
+        }
+    }
+}
+
+void PlacePalette::set_glow_on(int i, bool on) {
+    if (i <= 0 || i >= base_ || role_[i] == ColorRole::Sky || role_[i] == ColorRole::Fixed) return;
+    role_[i] = on ? ColorRole::Glow : ColorRole::Normal;
 }
 
 int PlacePalette::nearest(Color c) const {

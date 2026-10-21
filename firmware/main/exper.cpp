@@ -13,6 +13,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "json.h"
+#include "pixelia/engine/weather.h"
 #include "nvs.h"
 #include "settings.h"
 #include "ui.h"
@@ -340,6 +341,10 @@ std::string state_json() {
     // Testuhr (seit 0.5.2): Tageszeit der Welt, Zeitraffer, echte Uhrzeit
     j.num("minute", gfx::engine_stats(false).world_minute).num("speed", gfx::speed(), 0);
     j.boolean("real", gfx::real_time());
+    // Wetter (seit 0.5.3): Art, Stärke, Licht im Testraum, Partikel am sichtbaren Ort
+    const gfx::EngineStats es = gfx::engine_stats(false);
+    j.str("weather", pixelia::weather_name(static_cast<pixelia::WeatherKind>(es.weather)));
+    j.num("weatherPct", es.weather_pct).boolean("innen", es.inner_light).num("particles", es.particles);
     j.obj("touch").boolean("ok", tl.ok).boolean("down", tl.down).num("x", tl.x).num("y", tl.y);
     j.num("corners", tl.corners).num("n", tl.touches).end_obj();
     j.end_obj();

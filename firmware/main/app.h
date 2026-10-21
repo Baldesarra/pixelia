@@ -65,6 +65,10 @@ struct EngineStats {
     bool buffers_in_psram;
     bool buffers_ready;
     int sprites;
+    int weather;      // Wetter (seit 0.5.3): pixelia::WeatherKind, Stärke in %
+    int weather_pct;
+    bool inner_light;  // Licht im Testraum (Fenster der Wiese)
+    int particles;     // Partikel am sichtbaren Ort
 };
 void start(const board::display::Timing& timing);
 void request_reconfigure(const board::display::Timing& timing);
@@ -87,8 +91,10 @@ void set_tour(int seconds);  // automatischer Rundgang: alle n Sekunden der näc
 int tour();
 void set_figures(int n);  // Figuren der Testorte 1–64, 0 = Standard des Ortes
 int figures();
-// Testorte (seit 0.5.1): Befehl an den sichtbaren Ort („ausbau“, „baustelle“), wirkt im nächsten Logik-Schritt
-bool place_command(const char* cmd);  // false = unbekannter Befehl
+// Befehl an die Bühne (Stage::command), wirkt im nächsten Logik-Schritt: Wetter („wetter regen 80“, „blitz“) und
+// Ortsbefehle („ausbau“, „baustelle“, „innenlicht um“ …). Seit 0.5.3 beliebiger Text bis 47 Zeichen, das Ergebnis
+// steht im Log; false = leer, zu lang oder Warteschlange (4) voll
+bool place_command(const char* cmd);
 void set_follow(bool on);  // Blick folgt der Begleiterin durch Türen und Bildränder (Standard an)
 bool follow();
 void set_inspect(bool on);  // Prüfansicht: Stellflächen, Benutzungspunkte, Ausgänge

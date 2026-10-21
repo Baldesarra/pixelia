@@ -303,7 +303,7 @@ bool setup_stage(const Options& opt, pixelia::Stage& stage) {
         size_t end = opt.cmd.find(',', pos);
         if (end == std::string::npos) end = opt.cmd.size();
         const std::string c = opt.cmd.substr(pos, end - pos);
-        if (!c.empty() && !stage.scene(start).command(c.c_str()))
+        if (!c.empty() && !stage.command(c.c_str()))
             std::fprintf(stderr, "sim: Befehl \"%s\" kennt der Ort %s nicht\n", c.c_str(),
                          opt.scene.c_str());
         pos = end + 1;
@@ -356,7 +356,7 @@ int grid(const Options& opt) {
         pixelia::WorldClock clock;
         clock.set(o.day, o.hour, o.minute);
         Stats st;
-        step(stage, clock, st, 60);
+        step(stage, clock, st, opt.frames > 0 ? static_cast<uint64_t>(opt.frames) : 60);
         render(stage, frame, st);
         pixelia::indexed_to_rgb(frame.data(), kScreenWidth, kScreenHeight, display_palette(stage), 1,
                                 opt.device_colors, rgb.data());

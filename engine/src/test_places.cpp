@@ -675,7 +675,9 @@ constexpr Exit kSquareExits[] = {
 };
 
 // Lichtkreise (seit 0.5.2): Wiese vor den Fenstern, Raum und Platz um die Lampe (Mitte am Fuß, grobe Bildpunkte)
-constexpr LightCircle kFieldLights[] = {{80, 37, 22, 9, 190}, {120, 37, 22, 9, 190}};
+// Seit 0.5.3 gehören die Fenster der Wiese zum Raum dahinter (leuchten nur, wenn dort Licht brennt)
+constexpr const char* kRoomName = "testort-raum";
+constexpr WindowLight kFieldWindows[] = {{{80, 37, 22, 9, 190}, kRoomName}, {{120, 37, 22, 9, 190}, kRoomName}};
 constexpr LightCircle kRoomLights[] = {{188, 100, 58, 38, 255}};
 constexpr LightCircle kSquareLights[] = {{100, 56, 64, 40, 255}};
 
@@ -785,6 +787,39 @@ void TestPlace::build_palette() {
     p.set_exposure(kind_ == Kind::Room ? 220 : 256);
     // Schatten durchscheinend: jede Farbe ein Stück Richtung Dunkelviolett (Farbtabelle)
     p.tint_table({24, 18, 34}, 96, shadow_);
+    // Wetter (seit 0.5.3): Regen hellblau wie Glas, Schnee und Spritzer weiß, Blätter gelb und holzbraun; drinnen
+    // nur in den Fenstern (Glas mit Himmelsverlauf)
+    WeatherLook look;
+    look.outdoor = outdoor();
+    look.rain = kGlass;
+    look.splash = kBloom;
+    look.snow = kBloom;
+    look.leaf[0] = kBloom + 1;
+    look.leaf[1] = kWood + 1;
+    if (kind_ == Kind::Room) {
+        look.window_first = kSky;
+        look.window_count = 2;
+    }
+    weather_.configure(look, p);
+    apply_glow();
+}
+
+bool TestPlace::lights_on() const {
+    if (!env_) return true;
+    return kind_ == Kind::Field ? env_->lights.any_on(kRoomName) : env_->lights.on(name(), 0);
+}
+
+void TestPlace::apply_glow() {
+    // Licht aus: Lampenschirm bzw. Fensterglas leuchtet nachts nicht
+    const bool on = lights_on();
+    if (kind_ == Kind::Field) {
+        pal_.set_glow_on(kSky, on);
+        pal_.set_glow_on(kSky + 1, on);
+    } else {
+        pal_.set_glow_on(kFlame, on);
+        pal_.set_glow_on(kFlame + 1, on);
+        pal_.set_glow_on(kGlow, on);
+    }
 }
 
 void TestPlace::build_room() {
@@ -834,19 +869,31 @@ void TestPlace::spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, 
 }
 
 void TestPlace::apply_lights() {
-    const LightCircle* l = kind_ == Kind::Field ? kFieldLights : kind_ == Kind::Room ? kRoomLights : kSquareLights;
-    const int n = kind_ == Kind::Field ? 2 : 1;
+    // Lichtkreise der brennenden Quellen; die Fenster der Wiese nach dem Licht im Raum dahinter (environment.h)
     std::array<LightCircle, Room::kMaxLights> c{};
-    for (int i = 0; i < n; ++i) {
-        c[i] = l[i];
-        if (light_inner_ >= 0) c[i].inner = static_cast<uint8_t>(light_inner_);
+    int n = 0;
+    auto add = [&](LightCircle l) {
+        if (light_inner_ >= 0) l.inner = static_cast<uint8_t>(light_inner_);
+        c[n++] = l;
+    };
+    if (kind_ == Kind::Field) {
+        for (const WindowLight& w : kFieldWindows)
+            if (!env_ || env_->lights.any_on(w.room)) add(w.circle);
+    } else if (lights_on()) {
+        add(kind_ == Kind::Room ? kRoomLights[0] : kSquareLights[0]);
     }
     room_.set_lights(c.data(), n, pal_.base(), pal_.levels(), light_style_);
+    apply_glow();
+    lights_version_ = env_ ? env_->lights.version() : 0;
 }
 
 void TestPlace::init(uint64_t seed) {
     kit();
     rng_.reseed(seed);
+    seed_ = seed;
+    enters_ = 0;
+    ticks_ = 0;
+    if (env_ && kind_ != Kind::Field) env_->lights.declare(name(), 1);  // Lampe bzw. Laterne
     build_palette();
     pal_.apply(daylight_.at(12 * 3600 * 1000000LL), 0, palette_);
     build_room();
@@ -976,10 +1023,14 @@ void TestPlace::reached(int i) {
 }
 
 void TestPlace::tick(const WorldClock& clock) {
-    // Palette zur Tageszeit (Tageslicht, Lampen, Fenster, Himmel) und Farbrotation
-    const Ambient a = daylight_.at(clock.us_of_day());
+    // Palette zur Tageszeit (Tageslicht, Lampen, Fenster, Himmel), Wetter und Farbrotation
+    ticks_ = clock.ticks();
+    if (env_ && env_->lights.version() != lights_version_) apply_lights();  // Licht an/aus, auch unsichtbar
+    Ambient a = daylight_.at(clock.us_of_day());
+    if (env_) env_->weather.apply(a, outdoor());
     pal_.apply(a, clock.ticks(), palette_);
     room_.set_light_on(a.lamp > 0);
+    if (env_) weather_.tick(env_->weather);  // Partikel nur, solange der Ort betreten ist
     if (load_pending_) apply_load();
     room_.tick();
     for (int i = 0; i < count_;) {
@@ -1060,9 +1111,51 @@ void TestPlace::arrive(const Travel& t) {
     f.wait = static_cast<uint16_t>(rng_.range(10, 40));
 }
 
+void TestPlace::enter() {
+    room_.enter();
+    // eigener Startwert je Betreten: deterministisch, ändert den Zufall der Figuren nicht
+    if (env_) weather_.enter(env_->weather, seed_ ^ (0xA5A5ULL + enters_++) * 0x9E3779B97F4A7C15ULL);
+}
+
+void TestPlace::leave() {
+    room_.leave();
+    weather_.leave();
+}
+
 bool TestPlace::command(const char* cmd) {
     if (!cmd) return false;
     int n = 0;
+    char word[12] = {};
+    if (std::sscanf(cmd, "innenlicht %11s", word) == 1) {
+        const std::string_view w(word);
+        if (!env_ || (w != "an" && w != "aus" && w != "um")) return false;
+        env_->lights.set_all(kRoomName, w == "um" ? !env_->lights.any_on(kRoomName) : w == "an");
+        return true;
+    }
+    if (std::sscanf(cmd, "regen %11s", word) == 1) {
+        const std::string_view w(word);
+        if (w != "striche" && w != "tropfen" && w != "fein") return false;
+        weather_.set_rain_style(w == "striche" ? RainStyle::Streaks
+                                : w == "tropfen" ? RainStyle::Drops
+                                                 : RainStyle::Fine);
+        return true;
+    }
+    if (std::sscanf(cmd, "schnee %11s", word) == 1) {
+        const std::string_view w(word);
+        if (w != "gemischt" && w != "klein" && w != "gross") return false;
+        weather_.set_snow_style(w == "gemischt" ? SnowStyle::Mixed
+                                : w == "klein"  ? SnowStyle::Small
+                                                : SnowStyle::Large);
+        return true;
+    }
+    if (std::sscanf(cmd, "dichte %d", &n) == 1) {
+        weather_.set_density(n);
+        return true;
+    }
+    if (std::sscanf(cmd, "nebelbaenke %d", &n) == 1) {
+        weather_.set_fog_scale(n);
+        return true;
+    }
     if (std::sscanf(cmd, "stimmung %d", &n) == 1) {
         mood_ = std::clamp(n, 0, 2);
         build_palette();
@@ -1143,6 +1236,15 @@ void TestPlace::draw(Canvas& c, bool with_background, CoarseLayers* layers) cons
 }
 
 void TestPlace::render(Canvas& c) const { draw(c, true); }
+
+void TestPlace::render_layers(Canvas& work, CoarseLayers& out) const {
+    draw(work, true, &out);
+    if (env_) weather_.layers(out, env_->weather, ticks_);
+}
+
+void TestPlace::render_fine(Canvas& fine, const CoarseLayers& layers, const uint8_t* remap) const {
+    weather_.draw(fine, layers, remap);
+}
 
 void TestPlace::render_overlay(Canvas& fine) const {
     if (inspect_) room_.draw_inspect(fine, ui::kTextDim, ui::kPrimary, ui::kSuccess, ui::kWarning);
