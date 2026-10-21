@@ -5,17 +5,36 @@
     "t": "",
     "s": "",
     "n": [
-      "Web: eigenes Testbild auf der Seite Experimentell: Bild wählen, Vorschau, „Auf dem Display zeigen“; der Browser dekodiert, passt pixelgenau auf 400 × 240 an und bildet auf ≤ 240 Farben ab",
-      "Display: POST /api/picture (96 000 Indizes + Palette) zeigt das Bild 2× statt der Welt, bis Tippen, „Beenden“ oder 30 min; Puffer nur im PSRAM (96 KB), nichts im Flash"
+      "Engine: Bühne mit mehreren Orten; jeder behält Palette und Zustand, alle rechnen weiter, gezeichnet wird nur der sichtbare. Wechsel per Sprung mit Übergang, Standard Abblenden (0,6 s)",
+      "Engine: grobes Raster 200 × 120 für Orte, 2× ins 400 × 240-Bild verdoppelt; feine Einblendungen der Orte und der System-Oberfläche darüber",
+      "Engine: Übergänge Abblenden, Überblendung, Raster (beide Orte teilen sich währenddessen eine Palette, gleiche Farben zusammengelegt) und Schnitt",
+      "Engine: Figuren-Bausteine: Bildstreifen mit Fußpunkt, vier Blickrichtungen aus drei Ansichten, Animationen in Logik-Schritten (Schleife, einmal, hin und her)",
+      "Engine: Farbreihen per Umfärbe-Tabelle (256 Byte): eine Grafik einmal zeichnen, in vielen Farben zeigen, ohne Mehrkosten beim Zeichnen",
+      "Engine: Testorte Wiese und Raum als neutrale Platzhalter: Chibi-Figuren 16 × 32 (28 Bildpunkte hoch), Kisten, Kacheln 8 × 8, sechs Farbreihen, Tiefe nach Fußpunkt",
+      "Web: Karte „Orte (Vorschau)“ auf Experimentell: Ort, Übergang, Figuren je Testort (1–64), Rundgang alle 20 s; per WLAN-Befehl „ort“",
+      "Web: Versionskarte oben auf der Seite System mit „Pixelia“ und der installierten Version",
+      "Web: eigenes Testbild auf der Seite Experimentell: Bild wählen, Vorschau, „Auf dem Display zeigen“; der Browser passt pixelgenau auf 400 × 240 an und bildet auf ≤ 240 Farben ab",
+      "Display: POST /api/picture (96 000 Indizes + Palette) zeigt das Bild 2× statt der Welt, bis Tippen, „Beenden“ oder 30 min; Puffer nur im PSRAM (96 KB), nichts im Flash",
+      "Simulator: Bühne wie am Gerät, --go ORT[:ÜBERGANG], --sequence (Bildfolge), Tasten 1–9 und U im Fenster; Selbsttest „stage“ mit 11 Fällen",
+      "Doku: Skizzen zur Darstellung in docs/skizzen (v1–v5: fünf Perspektiven bis zur Wahl 3/4, Szene 200 × 120 grob, Figur 28), offline lauffähig, später als Easter Egg in der Weboberfläche"
     ],
     "i": [
-      "Doku: Roadmap mit der Idee „Gemeinsames Setting“ (eine Welt, Orte als Module) und der Reihenfolge in 0.5.x: settingunabhängige Engine-Teile zuerst",
-      "Doku: Perspektive vor Tilemaps und Kamera festlegen, Rückblick-Runde eingeplant (Lavendel, Versionskarte, Pixel-Uhr), Regel „Zwischenstände und Mitentscheiden“"
+      "Web: Standardfarbe ab Werk Lavendel statt Moos (auch das Symbol im Browser-Tab); eine gespeicherte Wahl bleibt",
+      "Engine: Grafiken über eine eigene Speicherquelle (memory.h), auf dem Gerät im PSRAM; Sprites zeichnen schneller (Spiegeln und Farbreihe außerhalb der inneren Schleife)",
+      "Doku: Aufteilung von 0.5.x in 11 Patches (Phase A ohne, Phase B nach dem Setting), Prüfliste Baukasten und Asset-Quellen, Anforderungen der Setting-Werkstatt",
+      "Doku: Roadmap mit der Idee „Gemeinsames Setting“ (eine Welt, Orte als Module), Rückblick-Runde (Lavendel, Versionskarte, Pixel-Uhr), Regel „Zwischenstände und Mitentscheiden“"
+    ],
+    "f": [
+      "Engine: Im ersten Entwurf lagen grober Puffer und Grafiken im internen RAM, nur noch 68 KB frei; jetzt im PSRAM (+0,5 ms pro Bild), wieder 102–106 KB frei"
     ],
     "g": [
-      "Display: Testbild am Gerät pixelgenau (0 abweichende Pixel laut /api/screen), 30,3 fps ohne Aussetzer, RAM 114 KB; nach „Beenden“ wieder 4,0 ms Zeichenzeit und 96 KB PSRAM frei; Tippen beendet es (vom User geprüft)"
+      "Engine: am Gerät 30 fps ohne Aussetzer, ein Logik-Schritt pro Bild; Zeichnen Landschaft 4,2 ms, Wiese 4,2 ms (64 Figuren 5,9 ms), Raum 4,2 ms; RAM 102–106 KB, PSRAM 6,0 MB frei",
+      "Engine: Übergänge am Gerät: Abblenden ohne Mehrkosten (höchstens 4,3 ms pro Bild), Überblendung und Raster höchstens 13,7 ms",
+      "Simulator: 11 Bühnen-Tests bestehen: gleiche Bilder bei gleichem Startwert, Zeichnen ändert den Ablauf nicht, unsichtbare Orte rechnen weiter, Übergang genau 18 Schritte",
+      "Display: Testbild am Gerät pixelgenau (0 abweichende Pixel laut /api/screen), 30,3 fps, RAM 114 KB; nach „Beenden“ wieder 96 KB PSRAM frei; Tippen beendet es (vom User geprüft)",
+      "System: Firmware 1,61 MB (26 % der Partition), Weboberfläche 116 KB gzip"
     ],
-    "pr": [21]
+    "pr": [21, 22, 23, 24]
   },
   {
     "v": "0.4.2",

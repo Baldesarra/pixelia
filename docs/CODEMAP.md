@@ -21,10 +21,14 @@
 
 | Datei | Aufgabe |
 |---|---|
-| `canvas.h` | Zeichenfläche 400×240, 1 Byte pro Pixel (Paletten-Index) |
+| `canvas.h` | Zeichenfläche 400×240, 1 Byte pro Pixel (Paletten-Index); grobes Raster `kCoarseWidth/Height` 200×120, `kSceneColors` 240; `blit` mit Spiegeln und Farbreihe |
 | `color.h` | Palette RGB888 ↔ RGB565 |
-| `scene.h`, `scenes.cpp` | Schnittstelle `pixelia::Scene` (tick/render), `make_scene("scrolltest")` |
-| `scroll_test.h` | Testszene mit Tag/Nacht, Wolken, Parallax, Vögeln |
+| `scene.h`, `scenes.cpp` | Schnittstelle `pixelia::Scene` (tick rechnet, render zeichnet nur; `scale()` 1 = fein, 2 = grob, `colors()`, `render_overlay()` fein), `make_scene`, `add_standard_scenes` (scrolltest, testort-wiese, testort-raum) |
+| `stage.h` | Bühne (seit 0.5.0): mehrere Orte, alle rechnen, sichtbarer wird gezeichnet; `go()` mit Übergang (Abblenden Standard, Überblendung, Raster, Schnitt; gemeinsame Palette während der Überblendung), `upscale2x` |
+| `sprite.h` | Bildstreifen mit Fußpunkt, `Facing`/`view_of` (4 Richtungen aus 3 Ansichten), `Animation`/`Animator` in Logik-Schritten, `Recolor` (Farbreihe, 256 Byte) |
+| `memory.h` | Speicher für Grafiken (`asset_alloc`), auf dem Gerät PSRAM |
+| `test_places.h` | Testorte Wiese und Raum (grob, Platzhalter-Figuren, Kisten, sechs Farbreihen; Lastregler = Figuren) |
+| `scroll_test.h` | Testszene „Landschaft“ mit Tag/Nacht, Wolken, Parallax, Vögeln (fein, Farben 0–79) |
 | `world_clock.h` | Weltzeit mit Zeitraffer (`kTicksPerSecond = 30`) |
 | `system_ui.h` | Systemanzeigen: Setup, Update, Meldung, Kurzmeldung, Info-Karte, Halte-Anzeige (Paletten 240–255) |
 | `font.h`, `tiny_font.h` | Systemschrift 5×7 mit Umlauten; 3×5-Prüfschrift |
@@ -43,7 +47,7 @@ Probelauf).
 | Datei | Aufgabe |
 |---|---|
 | `app.h` | gemeinsame Schnittstellen: `sysinfo`, `hwtest`, `gfx`, `perf`, `console`; Kerne `kGfxCore=1`, `kSystemCore=0` |
-| `gfx.cpp` | Grafik-Task (Kern 1): Panel anlegen, Szene ticken/rendern, Systemanzeigen darüber, Puffertausch; `grab()` kopiert für die Live-Vorschau das fertige Bild samt Palette vor dem Tausch (seit 0.4.2) |
+| `gfx.cpp` | Grafik-Task (Kern 1): Panel anlegen, Bühne ticken/rendern (seit 0.5.0; Orte, Übergang, Rundgang, Figuren als Anfragen anderer Tasks; grober Puffer und Grafiken im PSRAM), Systemanzeigen darüber, Puffertausch; `grab()` kopiert für die Live-Vorschau das fertige Bild samt Palette vor dem Tausch (seit 0.4.2) |
 | `ui.h` (in `gfx.cpp`) | Systemanzeigen von jeder Task aus ein-/ausblenden (`toast`, `show_update`, `show_info` …); seit 0.5.0 `show_picture`/`hide_picture` (eigenes Testbild, Anzeige 5, eigene Sperre `s_pic_lock`, die Welt rechnet weiter) |
 | `input.cpp/.h` | Touch → Gesten → Aktionen (Info-Karte), Daten der Info-Karte, Zurücksetzen am Gerät (Knopf 3 s halten: PIN entfernen, Werksreset) |
 | `hwtest.cpp` | I²C-Scan, Touch-Task (Polling alle 20 ms), geführte Tests `tour`, Flash-Last, Helligkeit; `touch_live()` für den Touch-Test |
@@ -122,6 +126,7 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
 - NVS-Namensräume: `pixelia` (Einstellungen inkl. `ui`, Update-Kanal `upd_ch`, seit 0.4.2 `upd_auto`, `upd_last`,
   `upd_new`, Experimentell `exp`, Panel-Werte `panel`, Startzähler `exp_boot`), `wifi` (Netze, Setup-Passwort, Hinweise), `auth` (Salz und Hash des PINs), `ota` (Rückfall-Grund),
   `diag` (Startzähler `boot`, Reset-Historie `r00`–`r15`), `clients` (Blob `list`: bis 12 Browser, je 92 Byte).
+- PSRAM (seit 0.5.0): Engine-Puffer 2 × 96 KB, grober Puffer der Orte 2 × 24 KB, Grafiken über `asset_alloc` (~10 KB Testorte).
 - PSRAM No-Init: Log-Puffer (Lage hängt an der Codegröße). RTC-Speicher No-Init: Log-Sicherung 6 KB, Herzschlag.
 
 ## Schnittstellen
@@ -137,8 +142,10 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
   Versionen, nur mit Experimentell), `/api/update/cancel` (seit 0.4.2), alle mit PIN; Fortschritt im Status
   (`ota.src = github`), dazu `ota.avail` (neuere Version) und `ota.ghSeq` (neuer Stand von `/api/update`).
 - **Experimentell und Vorschau** (`web_exp.cpp`, seit 0.4.2): `GET /api/exp`, `POST /api/exp` (`a=on|off|panel|confirm|
-  revert|reset|test|picoff`, mit PIN außer `revert`), `GET /api/screen`, `POST /api/picture` (seit 0.5.0, mit PIN, nur
-  mit Experimentell; `pic` in `/api/exp`); Status `set.exp`.
+  revert|reset|test|picoff`, mit PIN außer `revert`; seit 0.5.0 Orte `a=place&n`, `a=trans&v`, `a=tour&s`, `a=figures&n`,
+  nur mit Experimentell; `places`, `place`, `trans`, `tour`, `figures` in `/api/exp`), `GET /api/screen`, `POST /api/picture`
+  (seit 0.5.0, mit PIN, nur mit Experimentell; `pic` in `/api/exp`); Status `set.exp`.
+- **Konsole, Orte** (seit 0.5.0): `ort [Nr|Kennung] [Übergang]`, `ort rundgang <s>`, `ort figuren <n>`, `buf grob int|psram` (Messung).
 - **Ausgehend:** `https://api.github.com/repos/Baldesarra/pixelia/releases`, Dateien über `github.com/…/releases/download/`
   → `release-assets.githubusercontent.com`. Ohne Token: 60 Abfragen pro Stunde und IP.
 - **Fernwartung** (`web_diag.cpp`): siehe HARDWARE.md „Fernwartung per WLAN“.
@@ -146,8 +153,9 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
 
 ## Simulator (`sim/src/`)
 
-`main.cpp` (Befehlszeile), `window.cpp` (SDL3, Maus = Touch), `headless.cpp` (Screenshot, Zeitraffer, Kontaktbogen,
-`--screen` für Systemanzeigen), `tests.cpp` (`--test gestures|redact|all`, läuft in der CI).
+`main.cpp` (Befehlszeile), `window.cpp` (SDL3, Maus = Touch, Tasten 1–9 Ort, U Übergang), `headless.cpp` (Bühne wie am
+Gerät, Screenshot, Zeitraffer, Kontaktbogen, `--go ORT[:ÜBERGANG]`, `--sequence` Bildfolge, `--screen` für Systemanzeigen),
+`tests.cpp` (`--test gestures|redact|stage|all`, läuft in der CI).
 
 ## Werkzeuge (`tools/`, Windows)
 
