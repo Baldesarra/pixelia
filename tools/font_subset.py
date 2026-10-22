@@ -2,7 +2,8 @@
 """Roboto Flex für die Weboberfläche reduzieren (einmalig bzw. bei neuen Zeichen ausführen).
 
 Quelle: @fontsource-variable/roboto-flex (OFL 1.1) aus web/node_modules (npm ci in web/).
-Behalten werden nur die Achsen wght (300–900) und wdth (75–125); opsz und slnt werden festgelegt.
+Behalten werden nur die Achsen wght (400–800) und wdth (100–120, seit 0.5.4 enger: 33 → 21 KB); opsz und slnt
+werden festgelegt.
 Zeichen: druckbares ASCII plus deutsche Sonderzeichen und ein paar Satzzeichen (ZEICHEN unten).
 Ergebnis: web/src/assets/roboto-flex-pixelia.woff2 (im Repo, die CI braucht fonttools daher nicht).
 
@@ -35,7 +36,7 @@ def main() -> None:
     sub.subset(font)
     # erst reduzieren, dann Achsen festlegen (umgekehrt scheitert fonttools an .notdef)
     font = instancer.instantiateVariableFont(
-        font, {"wght": (300, 900), "wdth": (75, 125), "opsz": 14, "slnt": 0})
+        font, {"wght": (400, 800), "wdth": (100, 120), "opsz": 14, "slnt": 0})
     DST.parent.mkdir(parents=True, exist_ok=True)
     font.flavor = "woff2"
     font.save(DST)

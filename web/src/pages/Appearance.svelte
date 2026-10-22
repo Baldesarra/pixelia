@@ -1,6 +1,8 @@
 <script lang="ts">
-  // Seite „Darstellung“: hell/dunkel, Farbstil, Akzentfarbe (dynamische Farben) und eine kleine Vorschau
+  // Seite „Darstellung“: hell/dunkel, Farbstil, Akzentfarbe (dynamische Farben, auf dem Gerät gespeichert), seit 0.5.4
+  // Ansicht, Schriftgröße, Startseite und Bewegung (nur dieser Browser, lib/prefs.svelte.ts) und eine kleine Vorschau
   import {
+    Switch,
     Button,
     ButtonGroup,
     Card,
@@ -15,6 +17,7 @@
     type ThemeStyle,
   } from '../lib/m3';
   import { themeSync } from '../lib/theme-sync.svelte';
+  import { prefs, type FontSize, type StartPage } from '../lib/prefs.svelte';
 
   const modes: { value: ThemeMode; label: string; icon: 'brightness_auto' | 'light_mode' | 'dark_mode' }[] = [
     { value: 'system', label: 'System', icon: 'brightness_auto' },
@@ -26,6 +29,19 @@
     { value: 'vibrant', label: 'Lebhaft' },
     { value: 'expressive', label: 'Expressiv' },
   ];
+  const views = [
+    { value: 'schmal', label: 'Schmal', icon: 'width_normal' as const },
+    { value: 'breit', label: 'Breit', icon: 'width_wide' as const },
+  ];
+  const fonts: { value: FontSize; label: string }[] = [
+    { value: 's', label: 'Klein' },
+    { value: 'm', label: 'Normal' },
+    { value: 'l', label: 'Groß' },
+  ];
+  const starts: { value: StartPage; label: string }[] = [
+    { value: 'uebersicht', label: 'Übersicht' },
+    { value: 'welt', label: 'Welt' },
+  ];
   const round = shapePath('circle');
   const cookie = shapePath('cookie9');
   let demo = $state(0.62);
@@ -34,7 +50,7 @@
 
 <div class="cols">
   <Card>
-    <h2>Helligkeit</h2>
+    <h2>Hell oder dunkel</h2>
     <ButtonGroup options={modes} bind:value={theme.mode} label="Hell oder dunkel" />
     <h2>Farbstil</h2>
     <ButtonGroup options={styles} bind:value={theme.style} label="Farbstil" />
@@ -68,6 +84,24 @@
         <Button variant="tonal" icon="lock_open" onclick={() => themeSync.save(true)}>Speichern</Button>
       </div>
     {/if}
+  </Card>
+
+  <Card>
+    <h2>Ansicht</h2>
+    <ButtonGroup options={views} bind:value={() => (prefs.wide ? 'breit' : 'schmal'), (v: string) => (prefs.wide = v === 'breit')} label="Ansicht" />
+    <p class="hint">Schmal: Karten untereinander und die Leiste unten, wie am Handy. Breit: Leiste links und Karten nebeneinander, für große Bildschirme.</p>
+    <h2>Schriftgröße</h2>
+    <ButtonGroup options={fonts} bind:value={prefs.font} label="Schriftgröße" />
+    <h2>Startseite</h2>
+    <ButtonGroup options={starts} bind:value={prefs.start} label="Startseite" />
+    <div class="switch-row">
+      <span>
+        Bewegung reduzieren
+        <span class="hint">Ohne Animationen beim Seitenwechsel, ohne Wellen und Puls</span>
+      </span>
+      <Switch label="Bewegung reduzieren" checked={prefs.reduce} onchange={(v) => (prefs.reduce = v)} />
+    </div>
+    <p class="hint">Ansicht, Schrift, Startseite und Bewegung gelten nur für diesen Browser, die Farben für alle.</p>
   </Card>
 
   <Card variant="outlined">
@@ -106,6 +140,20 @@
 </div>
 
 <style>
+  .switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .switch-row > span {
+    display: grid;
+  }
+  .switch-row .hint {
+    margin: 2px 0 0;
+    font: var(--md-sys-typescale-body-small);
+  }
   .cols {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));

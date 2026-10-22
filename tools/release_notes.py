@@ -8,6 +8,12 @@ Aufruf:
   python tools/release_notes.py --check         Format aller Einträge prüfen (läuft in der CI)
   python tools/release_notes.py --embed OUT.cpp Changelog-Block für die Firmware erzeugen (läuft im Firmware-Build)
 
+Kurzfassung „k“ (seit 0.5.4): {"s": Unterzeile, "n"/"i"/"f"/"r": Neu, Verbessert, Behoben, Entfernt}, jeder Punkt
+„Stichwort: Satz“ in Alltagssprache, vollständig (nichts auslassen), aber ohne Messwerte, Prüfungen und PR-Nummern.
+Nur sie zeigt die Oberfläche (Versionsverlauf, Vorschau vor dem Update), darunter der Link „Alle Details auf GitHub“.
+In den Release-Notes steht sie als Abschnitt „### Kurz gesagt“ ganz oben (Unterzeile kursiv, Abschnitte fett), so
+kommt sie auch bei Updates von GitHub ans Gerät. In die Firmware wird nur die Kurzfassung eingebettet (v, d, t, k).
+
 Exit 1, wenn die Version fehlt, unvollständig ist (Datum, Titel, Untertitel) oder die Prüfung scheitert.
 
 Changelog-Block (seit 0.4.0): CHANGELOG.json ohne Leerraum, gzip, mit festem Kopf als ein konstantes Feld in der
@@ -17,7 +23,7 @@ Weboberfläche den Verlauf einer gewählten Update-Datei vor dem Hochladen lesen
   0  16  Marker „PIXELIA:CHLOG:v1“ (ASCII)
   16  4  Länge der gzip-Daten (uint32, little endian)
   20  4  CRC-32 der gzip-Daten (uint32, little endian; schützt die Suche vor zufälligen Treffern)
-  24  …  gzip-Daten (JSON-Liste wie CHANGELOG.json)
+  24  …  gzip-Daten (JSON-Liste, seit 0.5.4 nur v, d, t, s, k je Version)
 """
 
 import gzip
@@ -41,7 +47,16 @@ SECTIONS = [
     ("h", "Hinweise"),
 ]
 TEXT_KEYS = {"v", "d", "t", "s"}
-ALLOWED_KEYS = TEXT_KEYS | {key for key, _ in SECTIONS} | {"pr"}
+ALLOWED_KEYS = TEXT_KEYS | {key for key, _ in SECTIONS} | {"pr", "k"}
+# Kurzfassung für die Oberfläche
+SHORT_TITLE = "Kurz gesagt"
+SHORT_SECTIONS = [key for key, _ in SECTIONS[:4]]  # n, i, f, r
+SHORT_MAX_ITEMS, SHORT_CHARS, SHORT_SUB_CHARS = 16, 170, 60
+# Messwerte gehören nach GitHub: Zahl mit Einheit (ms, fps, KB, %, Hz …) ergibt eine Warnung
+MEASURE_RE = re.compile(r"\d\s*(?:ms|µs|fps|[KMG]B|KB/s|Hz|MHz|dBm|°C)(?![A-Za-z])|\d\s*%")
+EMBED_KEYS = ("v", "d", "t", "k")
+# Stichwort der Kurzfassung: ein bis drei Wörter, z. B. „Wetter: “, „Regen und Schnee: “, „Gerät und Speicher: “
+SHORT_AREA_RE = re.compile(r"^[A-ZÄÖÜ][\w-]*(?: [\w-]+){0,2}: \S")
 
 VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -65,8 +80,10 @@ def version_key(version):
     return (int(major), int(minor), int(patch), 0 if pre else 1, pre or "")
 
 
-def check(entries):
+def check(entries, warnings=None):
+    """Fehler als Liste; Warnungen (z. B. Ziffern in der Kurzfassung) landen in warnings, falls angegeben."""
     errors = []
+    warnings = [] if warnings is None else warnings
     if not isinstance(entries, list) or not entries:
         return ["CHANGELOG.json muss eine nicht leere Liste sein"]
     seen = set()
@@ -107,6 +124,34 @@ def check(entries):
             for item in all_items:
                 if len(item) > MAX_ITEM_CHARS:
                     errors.append(f"{where}: Stichpunkt mit {len(item)} Zeichen, höchstens {MAX_ITEM_CHARS} → {item[:60]!r}…")
+        short = entry.get("k")
+        if not isinstance(short, dict):
+            errors.append(f"{where}: Kurzfassung „k“ fehlt ({{\"s\": Unterzeile, \"n\": [\"Stichwort: Satz\", …]}})")
+        else:
+            unknown_k = set(short) - {"s", *SHORT_SECTIONS}
+            if unknown_k:
+                errors.append(f"{where}: Kurzfassung mit unbekannten Feldern {sorted(unknown_k)}")
+            sub = short.get("s")
+            if not isinstance(sub, str) or not sub.strip():
+                errors.append(f"{where}: Kurzfassung ohne Unterzeile „s“")
+            elif len(sub) > SHORT_SUB_CHARS:
+                errors.append(f"{where}: Unterzeile der Kurzfassung mit {len(sub)} Zeichen, höchstens {SHORT_SUB_CHARS}")
+            items = []
+            for key in SHORT_SECTIONS:
+                part = short.get(key, [])
+                if not isinstance(part, list):
+                    errors.append(f"{where}: Kurzfassung „{key}“ muss eine Liste sein")
+                    continue
+                items += part
+            if not 1 <= len(items) <= SHORT_MAX_ITEMS:
+                errors.append(f"{where}: Kurzfassung hat {len(items)} Punkte, erlaubt 1–{SHORT_MAX_ITEMS}")
+            for item in items:
+                if not isinstance(item, str) or not SHORT_AREA_RE.match(item):
+                    errors.append(f"{where}: Kurzfassung: Punkt beginnt nicht mit „Stichwort: “ → {item!r}")
+                elif len(item) > SHORT_CHARS:
+                    errors.append(f"{where}: Kurzfassung mit {len(item)} Zeichen, höchstens {SHORT_CHARS} → {item[:60]!r}…")
+                elif MEASURE_RE.search(item):
+                    warnings.append(f"{where}: Kurzfassung enthält einen Messwert (gehört nach GitHub) → {item[:60]!r}")
         prs = entry.get("pr", [])
         if not isinstance(prs, list) or not all(isinstance(n, int) and n > 0 for n in prs):
             errors.append(f"{where}: „pr“ muss eine Liste von PR-Nummern sein")
@@ -119,6 +164,13 @@ def check(entries):
 def notes(entry, version):
     title = f"Pixelia {version} – {entry['t']}"
     lines = [f"## {title}", "", f"*{entry['s']}* · {entry['d']}", ""]
+    short = entry.get("k") or {}
+    if short:
+        lines += [f"### {SHORT_TITLE}", "", f"*{short.get('s', '')}*", ""]
+        for key, name in SECTIONS[:4]:
+            if short.get(key):
+                lines += [f"**{name}**", ""] + [f"- {item}" for item in short[key]] + [""]
+        lines += ["### Alle Details", ""]
     for key, name in SECTIONS:
         items = entry.get(key) or []
         if items:
@@ -151,7 +203,8 @@ EMBED_MAGIC = b"PIXELIA:CHLOG:v1"
 
 def embed(entries, out):
     """C++-Quelle mit dem Changelog-Block schreiben (Aufbau siehe oben); nur bei Änderung, damit nichts neu baut."""
-    compact = json.dumps(entries, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    short = [{key: e[key] for key in EMBED_KEYS if key in e} for e in entries]
+    compact = json.dumps(short, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     packed = gzip.compress(compact, 9, mtime=0)
     block = EMBED_MAGIC + struct.pack("<II", len(packed), zlib.crc32(packed)) + packed
     etag = hashlib.sha1(packed).hexdigest()[:12]
@@ -188,13 +241,16 @@ def main():
 
     if args[0] == "--embed" and len(args) == 2:
         # Formfehler halten den Firmware-Build nicht auf (die CI prüft mit --check), sie werden nur gemeldet
-        for error in check(entries):
+        for error in check(entries, []):
             print(f"release_notes: Warnung: {error}", file=sys.stderr)
         embed(entries, args[1])
         return 0
 
     if args[0] == "--check":
-        errors = check(entries)
+        warnings = []
+        errors = check(entries, warnings)
+        for warning in warnings:
+            print(f"WARNUNG: {warning}", file=sys.stderr)
         for error in errors:
             print(f"FEHLER: {error}", file=sys.stderr)
         if errors:

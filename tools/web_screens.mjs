@@ -111,7 +111,7 @@ try {
       await send('Emulation.setDeviceMetricsOverride', {
         width: v.width, height: v.height, deviceScaleFactor: v.dpr, mobile: v.mobile,
       });
-      const page = p.replace(/^#\/?/, '') || 'uebersicht';
+      const page = (p.replace(/^#\/?/, '') || 'uebersicht').replace(/\//g, '-');
       const file = join(out, `${page}-${v.name}.png`);
       writeFileSync(file, Buffer.from(shot.data, 'base64'));
       console.log(file);

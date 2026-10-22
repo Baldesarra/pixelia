@@ -13,7 +13,7 @@
 //   bei 30 fps, der Hochskalier-Interrupt und der PSRAM-Verkehr halbieren sich.
 // - Displaytests: Testbilder des Hardware-Detektivs (Farbbalken, Rahmen, Bewegung, Touch); sie kehren nach
 //   kTestSeconds von selbst zur Welt zurück.
-// - Eigenes Testbild (seit 0.5.0): POST /api/picture (web_exp.cpp) → ui::show_picture; nur mit Schalter an.
+// - Eigenes Testbild (seit 0.5.0): POST /api/picture (web_exp.cpp) → ui::show_picture; seit 0.5.4 auch ohne Schalter (Seite Gerätetests).
 
 #include <cstddef>
 #include <string>

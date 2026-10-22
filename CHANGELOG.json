@@ -4,20 +4,120 @@
     "d": "",
     "t": "",
     "s": "",
+    "k": {
+      "s": "Neue Ordnung in der Weboberfläche",
+      "n": [
+        "Navigation: Unten vier Ziele Welt, Übersicht, System und Einstellungen, auch am PC schmal wie am Handy; eine breite Ansicht ist unter Darstellung wählbar",
+        "Welt: Ausblick auf Pixelia mit Vorgeschichte, den vier Kapiteln und den Seiten, die bald kommen",
+        "System und Einstellungen: übersichtliche Listen mit Kategorien, jeder Punkt zeigt den aktuellen Zustand und öffnet eine eigene Seite",
+        "Gerätetests: Touch-Test, Testbilder und eigenes Bild aufs Display haben eine eigene Seite und brauchen den Experimentell-Schalter nicht mehr",
+        "Darstellung: Ansicht schmal oder breit, Schriftgröße, Startseite und Bewegung reduzieren, gespeichert in diesem Browser",
+        "Übersicht: Karte „Neu in dieser Version“ und ein Hinweis, wenn auf GitHub eine neue Version wartet",
+        "Versionsverlauf: Kurzfassung in Alltagssprache, alle Details stehen bei jeder Version auf GitHub",
+        "Rückblick: „So entstand Pixelia“ mit den frühen Skizzen, ganz unten unter Experimentell und als kleines Geheimnis"
+      ],
+      "i": [
+        "Experimentell: aufgeteilt in Testorte, Panel und Stromsparen sowie ältere Version; die Auswahl der Orte passt jetzt auch aufs Handy",
+        "Diagnose: Die Liste der Neustarts zeigt die letzten drei, der Rest lässt sich aufklappen",
+        "Gerät und Speicher: Info und Hardware sind eine Seite, doppelte Angaben sind weg",
+        "Technik: Die Oberfläche ist trotz der neuen Seiten kleiner geworden, Symbole und Schrift sind sparsamer gespeichert"
+      ]
+    },
     "n": [
+      "Web: Navigation mit vier Zielen Welt, Übersicht, System, Einstellungen; Standard Leiste unten und schmale Spalte (640 px) auch am PC, breite Ansicht mit Schiene unter Darstellung",
+      "Web: System und Einstellungen als Listen mit Kategorien (lib/HubList.svelte), Unterseiten mit Zurück-Pfeil; alte Adressen #/info, #/hardware, #/mehr leiten weiter",
+      "Web: Seite System aufgeteilt in Update, Sicherung, Neustart und Werksreset, Display und Zugangsschutz; Info und Hardware zusammengelegt zu „Gerät und Speicher“",
+      "Web: Seite Welt (Vorgeschichte, Kapitel, geplante Seiten); Seite Gerätetests (Touch, Testbilder, eigenes Bild) ohne Experimentell-Schalter",
+      "Web: Experimentell mit Unterseiten Testorte, Panel und Stromsparen, ältere Version; gemeinsamer Zustand in lib/exp.svelte.ts",
+      "Web: Darstellung mit Ansicht, Schriftgröße, Startseite und Bewegung reduzieren je Browser (lib/prefs.svelte.ts); Übersicht mit „Neu in dieser Version“ und Hinweis auf neue Version",
+      "Web: „So entstand Pixelia“ (lib/story.ts) unter Experimentell und nach 7× Tippen aufs Logo; Skizzen über GitHub Pages (pages.yml kopiert docs/skizzen)",
+      "Update: Kurzfassung k in CHANGELOG.json (Unterzeile, Neu, Verbessert, Behoben, Entfernt), in den Release-Notes als „Kurz gesagt“; Versionsverlauf und Update-Vorschau zeigen nur sie",
+      "System: Changelog-Block in der Firmware nur noch mit v, d, t, k (18 → 4 KB gzip); Gerätetests und POST /api/picture gehen ohne Experimentell",
+      "Werkzeuge: release_notes.py --check verlangt k für jede Version und warnt bei Messwerten; k für alle Versionen 0.1.0 bis 0.5.3 nachgetragen",
       "Doku: Neuplanung nach dem Setting: Phasen ab 0.6.x als Kapitel der Welt (Bahnhof, Dorf, Grube, Lok), 0.5.x neu geschnitten bis 0.5.12 Gesamtprobe, Systemplan mit Patch, Nachweis und Denkstufe je System",
       "Doku: CLAUDE.md und PROJEKTPLAN (Vision, 4.5, 4.6, 4.11, Kapitel 6) an das gemeinsame Setting angepasst: Orte und Gebiete als Module, gemeinsamer Weltzustand, MINOR = Phase bzw. Kapitel",
       "Doku: docs/ZUSATZINHALTE.md mit „Vor 1.0.0 klären“ und Zusatzinhalten nach 1.0; frühere Welt-Ideen eingeordnet; README neu (Setting, Merkmale, getrennt nach „gibt es schon“ und „geplant“)",
       "Doku: freie Grafik-Pakete geprüft (Kenney, Tiny 16, Ninja Adventure, Zelda-like u. a.), keines übernommen; eigene Grafiken im Stil der Küche aus Skizze v4 (STIL.md)",
       "Doku: Setting ergänzt: Licht-Regeln (Lichtritzen, Laternen wie um 1850, echter Mond), Schlafenszeit eine Stunde später, Jahreszeitenabende mit Sommerfeuer und Lichterabend, Mindestziele Kapitel 1, Grube vor Lok"
     ],
-    "pr": [31, 32]
+    "pr": [31, 32],
+    "i": [
+      "Web: Bundle 151 → 144 KB gzip trotz neuer Seiten: Icon-Pfade auf Raster 240 gerundet (−5,6 KB), Schrift nur noch wght 400–800 und wdth 100–120 (33 → 21 KB)",
+      "Web: Diagnose zeigt die letzten drei Neustarts, der Rest ist aufklappbar; Testorte in vier Karten, Auswahl als umbrechende Knöpfe (passte am Handy nicht in die Breite)",
+      "Werkzeuge: web_screens.mjs speichert Unterseiten (#/a/b) als a-b.png"
+    ]
+  },
+  {
+    "v": "0.5.4-beta.1",
+    "d": "2026-10-22",
+    "t": "Weboberfläche aufgeräumt (Vorschau)",
+    "s": "Vorabversion: neue Navigation, System und Einstellungen mit Kategorien, Seite Welt, Versionsverlauf in Kurzfassung",
+    "k": {
+      "s": "Vorabversion: neue Ordnung in der Weboberfläche",
+      "n": [
+        "Navigation: Unten vier Ziele Welt, Übersicht, System und Einstellungen, auch am PC schmal wie am Handy; eine breite Ansicht ist unter Darstellung wählbar",
+        "Welt: Ausblick auf Pixelia mit Vorgeschichte, den vier Kapiteln und den Seiten, die bald kommen",
+        "System und Einstellungen: übersichtliche Listen mit Kategorien, jeder Punkt zeigt den aktuellen Zustand und öffnet eine eigene Seite",
+        "Gerätetests: Touch-Test, Testbilder und eigenes Bild aufs Display haben eine eigene Seite und brauchen den Experimentell-Schalter nicht mehr",
+        "Darstellung: Ansicht schmal oder breit, Schriftgröße, Startseite und Bewegung reduzieren, gespeichert in diesem Browser",
+        "Übersicht: Karte „Neu in dieser Version“ und ein Hinweis, wenn auf GitHub eine neue Version wartet",
+        "Versionsverlauf: Kurzfassung in Alltagssprache, alle Details stehen bei jeder Version auf GitHub",
+        "Rückblick: „So entstand Pixelia“ mit den frühen Skizzen, ganz unten unter Experimentell und als kleines Geheimnis"
+      ],
+      "i": [
+        "Experimentell: aufgeteilt in Testorte, Panel und Stromsparen sowie ältere Version; die Auswahl der Orte passt jetzt auch aufs Handy",
+        "Diagnose: Die Liste der Neustarts zeigt die letzten drei, der Rest lässt sich aufklappen",
+        "Gerät und Speicher: Info und Hardware sind eine Seite, doppelte Angaben sind weg",
+        "Technik: Die Oberfläche ist trotz der neuen Seiten kleiner geworden, Symbole und Schrift sind sparsamer gespeichert"
+      ]
+    },
+    "n": [
+      "Web: Navigation mit vier Zielen Welt, Übersicht, System, Einstellungen; Standard Leiste unten und schmale Spalte (640 px) auch am PC, breite Ansicht mit Schiene unter Darstellung",
+      "Web: System und Einstellungen als Listen mit Kategorien (lib/HubList.svelte), Unterseiten mit Zurück-Pfeil; alte Adressen #/info, #/hardware, #/mehr leiten weiter",
+      "Web: Seite System aufgeteilt in Update, Sicherung, Neustart und Werksreset, Display und Zugangsschutz; Info und Hardware zusammengelegt zu „Gerät und Speicher“",
+      "Web: Seite Welt (Vorgeschichte, Kapitel, geplante Seiten); Seite Gerätetests (Touch, Testbilder, eigenes Bild) ohne Experimentell-Schalter",
+      "Web: Experimentell mit Unterseiten Testorte, Panel und Stromsparen, ältere Version; gemeinsamer Zustand in lib/exp.svelte.ts",
+      "Web: Darstellung mit Ansicht, Schriftgröße, Startseite und Bewegung reduzieren je Browser (lib/prefs.svelte.ts); Übersicht mit „Neu in dieser Version“ und Hinweis auf neue Version",
+      "Web: „So entstand Pixelia“ (lib/story.ts) unter Experimentell und nach 7× Tippen aufs Logo; Skizzen über GitHub Pages (pages.yml kopiert docs/skizzen)",
+      "Update: Kurzfassung k in CHANGELOG.json (Unterzeile, Neu, Verbessert, Behoben, Entfernt), in den Release-Notes als „Kurz gesagt“; Versionsverlauf und Update-Vorschau zeigen nur sie",
+      "System: Changelog-Block in der Firmware nur noch mit v, d, t, k (18 → 4 KB gzip); Gerätetests und POST /api/picture gehen ohne Experimentell",
+      "Werkzeuge: release_notes.py --check verlangt k für jede Version und warnt bei Messwerten; k für alle Versionen 0.1.0 bis 0.5.3 nachgetragen"
+    ],
+    "i": [
+      "Web: Bundle 151 → 144 KB gzip trotz neuer Seiten: Icon-Pfade auf Raster 240 gerundet (−5,6 KB), Schrift nur noch wght 400–800 und wdth 100–120 (33 → 21 KB)",
+      "Web: Diagnose zeigt die letzten drei Neustarts, der Rest ist aufklappbar; Testorte in vier Karten, Auswahl als umbrechende Knöpfe (passte am Handy nicht in die Breite)",
+      "Werkzeuge: web_screens.mjs speichert Unterseiten (#/a/b) als a-b.png"
+    ],
+    "h": [
+      "Doku: Vorabversion zum Ausprobieren, erscheint nur im Kanal Vorschau; zurück zur stabilen Version über Experimentell → Ältere Version"
+    ]
   },
   {
     "v": "0.5.3",
     "d": "2026-10-21",
     "t": "Wetter und Partikel",
     "s": "Regen, Schnee, Nebelschwaden, Gewitter und Wind für alle Orte mit weichen Übergängen; Partikel mit Obergrenze, Wetter im Fenster, Fensterschein nur bei Licht innen",
+    "k": {
+      "s": "Regen, Schnee, Nebel, Gewitter und Wind",
+      "n": [
+        "Wetter: Sonne, bewölkt, Regen, Schnee, Nebel, Gewitter und Wind für alle Orte, mit weichen Wechseln: erst ziehen Wolken auf, dann regnet es",
+        "Regen und Schnee: Tropfen mit kleinen Spritzern am Boden, kleine und große Flocken, im Wind fliegen Blätter",
+        "Nebel und Wolken: Nebelschwaden ziehen durchs Bild, Regenschleier und an sonnigen Tagen wandernde Wolkenschatten",
+        "Gewitter: Blitze erhellen kurz das ganze Bild",
+        "Fenster: Drinnen sieht man das Wetter draußen, mit grauem Himmel, Nebel, Blitz und fallendem Regen oder Schnee",
+        "Licht: Fenster leuchten nachts nur, wenn im Raum dahinter Licht brennt",
+        "Experimentell: Knöpfe für das Wetter mit Stärke, Blitz und Schalter „Licht innen“"
+      ],
+      "i": [
+        "Gewitter: Blitze sind gedämpft und nachts nicht greller als am Tag",
+        "Nebel: zieht als Schwaden von oben nach unten, mit lichten Stellen",
+        "Übergänge: Überblenden klappt jetzt auch abends und zwischen drinnen und draußen"
+      ],
+      "f": [
+        "Experimentell: Die Wetter-Knöpfe wirkten nicht",
+        "Regen: Der Regenschleier sprang nach etwa zwei Tagen Laufzeit"
+      ]
+    },
     "n": [
       "Doku: docs/SETTING.md, Zwischenstand der Setting-Werkstatt: Vorgeschichte, 16 feste Bewohner, Emil als Ratgeber, Wunschliste statt 24-h-Regel, Bautempo (Raum 7–10 Tage, Endausbau ~1 Jahr)",
       "Doku: docs/WIRTSCHAFT.md: ~70 Waren ohne Geld mit Kausalketten, Notlösungen, Bilanz-Check und Kipppunkten, Wirtschafts-Protokoll (CSV) und Prüfgrößen P1–P11 („Prüfen statt raten“)",
@@ -54,6 +154,20 @@
     "d": "2026-10-21",
     "t": "Farbe und Licht",
     "s": "Paletten je Ort mit Lichtstufen, Tageslicht nach Uhrzeit, Lampen als weiche Lichtkreise, Fenster am Abend, Wasser mit Farbrotation; Zeichnen direkt aus dem Hintergrund",
+    "k": {
+      "s": "Tageslicht, Lampen und glitzerndes Wasser",
+      "n": [
+        "Tageslicht: Licht und Farben folgen der Uhrzeit, vom Morgen über den Abend bis in die Nacht, der Himmel färbt sich mit",
+        "Lampen: leuchten als weiche Lichtkreise am Boden, Figuren im Lichtschein werden heller",
+        "Fenster: glühen am Abend warm, von innen sieht man den Himmel",
+        "Wasser und Feuer: Wasser glitzert, Flammen flackern",
+        "Schatten: durchscheinend statt schwarz",
+        "Experimentell: Tageszeit-Schieber und Zeitraffer für die Testorte"
+      ],
+      "i": [
+        "Technik: Zeichnen am Tag schneller, Licht kostet nur Rechenzeit, wenn es dunkel ist"
+      ]
+    },
     "n": [
       "Engine: Palette je Ort mit drei Lichtstufen (light.h): 80 Grundfarben, Stufe 1 und 2 (Lampenlicht) rechnet die Engine; 240–255 bleiben der System-Oberfläche, Einblendungen auch nachts lesbar",
       "Engine: Tageslicht nach Uhrzeit aus Stützpunkten (Farbe, Sättigung, Lampenwirkung, Himmel); Stimmung „natürlich“, Nacht „mittel“ mit Mindesthelligkeit 85/256 (Entscheidungen des Users)",
@@ -88,6 +202,21 @@
     "d": "2026-10-21",
     "t": "Raum und Baukasten",
     "s": "Kacheln in drei Ebenen, Tiefensortierung, Räume als Datenliste mit Ausbaustufen und „im Bau“, Türen und Bildränder als Ausgänge; drei verbundene Testorte",
+    "k": {
+      "s": "Räume aus Kacheln und Möbeln",
+      "n": [
+        "Räume: Orte aus Kacheln für Boden, Wände und Deko, jede Ebene mit eigenen Farben wie Tapete und Boden",
+        "Möbel: Betten, Tische und Bänke haben Stellflächen und Plätze, an denen Figuren sitzen, liegen oder arbeiten",
+        "Ausbau: Möbel haben Ausbaustufen und einen Zustand „im Bau“, zum Beispiel ein halbfertiges Bett oder einen Bretterstapel",
+        "Figuren: gehen um Möbel herum, durch Türen und über Bildränder zum nächsten Ort, wer vorne steht, verdeckt die anderen",
+        "Testorte: Wiese, Raum und Platz hängen zusammen, eine Begleiterin führt den Blick",
+        "Experimentell: Knöpfe „Ausbau“ und „Im Bau“, Schalter „Blick folgt“ und eine Prüfansicht",
+        "Technik: Bildschirmfoto vom Display per WLAN"
+      ],
+      "i": [
+        "Technik: Testorte und Figuren liegen im großen Zusatzspeicher, dadurch bleibt mehr Arbeitsspeicher frei"
+      ]
+    },
     "n": [
       "Engine: Kacheln 8 × 8 (25 × 15 je Ort) in drei Ebenen Boden, Wand, Deko; Orte kommen als Textzeilen mit Legende, jede Ebene mit eigener Farbreihe (Tapete, Boden)",
       "Engine: Tiefensortierung nach Fußpunkt (depth.h) für Figuren, Möbel und Deko gemeinsam, mit Tiefenversatz (Sitzen vor der Lehne) und Schatten",
@@ -124,6 +253,23 @@
     "d": "2026-10-21",
     "t": "Bühne und Figuren",
     "s": "Erster Baustein der Engine: mehrere Orte mit Übergängen, grobes Raster 200 × 120, Figuren mit Animationen und Farbreihen; Lavendel als Standardfarbe, Versionskarte, eigenes Testbild",
+    "k": {
+      "s": "Erster Baustein der neuen Engine",
+      "n": [
+        "Orte: mehrere Orte, die alle weiterleben, auch wenn man sie gerade nicht sieht; Wechsel mit Abblenden, Überblenden, Raster oder Schnitt",
+        "Figuren: kleine Chibi-Figuren mit vier Blickrichtungen und Animationen, in vielen Farben aus einer Vorlage",
+        "Pixel: Die Orte entstehen in groben Pixeln wie in den Skizzen, Schrift und Einblendungen bleiben fein",
+        "Testbild: Ein eigenes Bild lässt sich aufs Display schicken, bis man tippt",
+        "Experimentell: Testorte mit Wahl von Ort, Übergang, Anzahl der Figuren und Rundgang",
+        "System: Versionskarte mit der installierten Version"
+      ],
+      "i": [
+        "Farben: Lavendel ist die neue Standardfarbe der Oberfläche und des Symbols im Browser-Tab"
+      ],
+      "f": [
+        "Speicher: Die Engine belegte im ersten Entwurf zu viel Arbeitsspeicher"
+      ]
+    },
     "n": [
       "Engine: Bühne mit mehreren Orten; jeder behält Palette und Zustand, alle rechnen weiter, gezeichnet wird nur der sichtbare. Wechsel per Sprung mit Übergang, Standard Abblenden (0,6 s)",
       "Engine: grobes Raster 200 × 120 für Orte, 2× ins 400 × 240-Bild verdoppelt; feine Einblendungen der Orte und der System-Oberfläche darüber",
@@ -161,6 +307,21 @@
     "d": "2026-10-20",
     "t": "Experimentell, Live-Vorschau, Leistung",
     "s": "Bild des Displays im Browser mit Screenshot, Leistung als Verläufe, Seite Experimentell mit Probelauf; Update abbrechen und täglich im Hintergrund suchen",
+    "k": {
+      "s": "Live-Bild, Leistung und Experimentell",
+      "n": [
+        "Live-Bild: Das Bild des Displays erscheint im Browser, mit Screenshot in voller Größe",
+        "Leistung: Bildrate, Zeichenzeit, Prozessor und Speicher als kleine Verläufe über zwei Minuten",
+        "Experimentell: neue Seite mit Schalter für Touch-Test, Testbilder, Panel-Einstellungen und Stromsparmodus",
+        "Stromsparen: Das Panel läuft auf Wunsch mit halber Bildwiederholung, die Welt bleibt flüssig",
+        "Sicherheit: Neue Panel-Werte laufen erst auf Probe und gehen ohne Bestätigung von selbst zurück",
+        "Update: Download von GitHub lässt sich abbrechen, einmal am Tag sucht Pixelia im Hintergrund nach neuen Versionen",
+        "Update: Ältere Version von GitHub installieren, mit Warnung"
+      ],
+      "i": [
+        "Navigation: kleiner Punkt an System, wenn eine neue Version wartet"
+      ]
+    },
     "n": [
       "Web: Seite Live mit Live-Vorschau des Displays (≤ 3 Bilder/s) und Screenshot als PNG in 800 × 480; der Browser malt das Bild ins Canvas und erzeugt das PNG selbst",
       "Display: GET /api/screen liefert das 400×240-Bild als Paletten-Indizes plus Palette, PackBits-gepackt (~68 KB), kopiert im Grafik-Task vor dem Puffertausch (kein Reißen)",
@@ -195,6 +356,17 @@
     "d": "2026-10-20",
     "t": "Update von GitHub",
     "s": "Pixelia sucht auf Knopfdruck selbst nach neuen Versionen auf GitHub und installiert sie per HTTPS, Kanal Stabil oder Vorschau",
+    "k": {
+      "s": "Updates direkt von GitHub",
+      "n": [
+        "Update: Pixelia sucht auf Knopfdruck selbst nach neuen Versionen auf GitHub und installiert sie, mit Probelauf und Rückfall",
+        "Kanäle: Stabil für fertige Versionen, Vorschau auch für Vorabversionen zum Ausprobieren",
+        "Vorschau: Vor der Installation steht da, was die neuen Versionen bringen"
+      ],
+      "i": [
+        "Technik: Die sichere Verbindung zu GitHub braucht kaum Arbeitsspeicher"
+      ]
+    },
     "n": [
       "Update: Prüfung auf neue Versionen direkt vom Gerät über die GitHub-Releases (nur auf Knopfdruck), Kanal Stabil oder Vorschau (beta, Prerelease), Einstellung im NVS",
       "Update: Installation per HTTPS vom Gerät (Weiterleitung zum Datei-Server, Zertifikate aus dem ESP-IDF-Bundle) mit Prüfung von Kopf, Version und Größe, Probelauf und Rückfall",
@@ -217,6 +389,12 @@
     "d": "2026-10-20",
     "t": "Update von GitHub (Vorschau)",
     "s": "Vorabversion zum Testen: Pixelia sucht selbst nach neuen Versionen auf GitHub und installiert sie per HTTPS",
+    "k": {
+      "s": "Vorabversion: Updates von GitHub",
+      "n": [
+        "Update: Pixelia sucht selbst nach neuen Versionen auf GitHub und installiert sie, Kanal Stabil oder Vorschau"
+      ]
+    },
     "n": [
       "Update: Prüfung auf neue Versionen über die GitHub-Releases, Kanal Stabil oder Vorschau, Installation per HTTPS direkt vom Gerät mit Probelauf und Rückfall",
       "Web: Seite System mit Abschnitt „Von GitHub“: Kanal, Nach Updates suchen, Änderungsvorschau aus den Release-Notes, Installieren mit Fortschritt"
@@ -230,6 +408,17 @@
     "d": "2026-10-20",
     "t": "Versionsverlauf und Diagnose",
     "s": "Changelog in der Firmware, Timeline aller Versionen, Vorschau vor dem Update und Absturzberichte in der Oberfläche",
+    "k": {
+      "s": "Versionsverlauf und Diagnose",
+      "n": [
+        "Versionsverlauf: was sich in jeder Version geändert hat, direkt aus der Firmware",
+        "Update: Vor dem Hochladen einer Datei steht da, was sie Neues bringt oder was bei einer älteren fehlt",
+        "Diagnose: neue Seite mit Absturzbericht, Bilanz und den letzten Neustarts"
+      ],
+      "i": [
+        "Farben: Erfolgsmeldungen sind grün, Hinweise bernsteinfarben"
+      ]
+    },
     "n": [
       "Update: CHANGELOG.json steckt als gzip-Block mit festem Marker in der Firmware (tools/release_notes.py --embed, 10 KB), GET /api/changelog liefert ihn aus",
       "Web: Seite Versionsverlauf als Timeline mit allen Feldern (Neu, Verbessert, Behoben, Entfernt, Geprüft, Hinweise, Pull Requests), installierte Version markiert",
@@ -254,6 +443,19 @@
     "d": "2026-10-19",
     "t": "System und Schutz",
     "s": "Optionaler PIN mit Sperre, Werksreset auch am Gerät, Sicherung der Einstellungen und Farbwahl auf dem Gerät",
+    "k": {
+      "s": "PIN, Werksreset und Sicherung",
+      "n": [
+        "Schutz: Ein PIN oder Passwort kann Einstellungen, Updates und Neustart schützen, freiwillig; Ansehen geht weiter ohne",
+        "Sperre: Nach mehreren falschen Versuchen wartet Pixelia immer länger",
+        "Werksreset: über die Oberfläche oder direkt am Display, dort auch „PIN entfernen“ für einen vergessenen PIN",
+        "Sicherung: Einstellungen, Farbwahl und Gerätenamen als Datei herunterladen und wieder einspielen, ohne Passwörter",
+        "Farben: Die Farbwahl liegt auf dem Gerät und gilt für alle Browser"
+      ],
+      "i": [
+        "Einrichtungsseite: fragt bei Bedarf nach dem PIN"
+      ]
+    },
     "n": [
       "System: Optionaler PIN oder Passwort (Standard aus) schützt Einstellungen, Updates, Neustart, Werksreset, Befehle, Absturzbericht löschen und Gerätenamen; Lesen bleibt offen",
       "System: PIN als gesalzener SHA-256-Hash (1000 Runden) im NVS, Sitzungs-Token nur im RAM, Sperre nach 5 Fehlversuchen ab 30 s, verdoppelnd bis 15 min",
@@ -290,6 +492,20 @@
     "d": "2026-10-19",
     "t": "Weboberfläche: Seiten",
     "s": "WLAN, System mit Update, Live-Log, Info, Hardware und verbundene Geräte in der neuen Oberfläche; Setup-Modus und Einrichtungsseite im M3-Look",
+    "k": {
+      "s": "Die Seiten der neuen Oberfläche",
+      "n": [
+        "WLAN: Verbindung im Detail, Netze suchen, hinzufügen und entfernen",
+        "System: Update hochladen, Drehung, Helligkeit, Diagnose und Neustart",
+        "Live-Log: alle Meldungen live, mit Filter, Suche und Befehlszeile",
+        "Info und Hardware: Laufzeit, Speicher, Panel, Touch, Chip mit Temperatur und Pins",
+        "Geräte: welche Browser auf Pixelia zugreifen, mit eigenem Namen je Gerät",
+        "Einrichtung: Setup-Modus und einfache Einrichtungsseite im neuen Look"
+      ],
+      "f": [
+        "Oberfläche: Abstände, abgeschnittene Chips und der Fokus beim Umbenennen"
+      ]
+    },
     "n": [
       "Web: Seite WLAN: Verbindung mit Router, DNS, Zugangspunkt und Dauer, gespeicherte Netze entfernen, Netzsuche mit Signalbalken, Netz hinzufügen mit Passwort-Prüfung",
       "Web: Seite System: Update hochladen (Datei wird im Browser geprüft, Fortschritt, Probelauf), Drehung, Helligkeit, langer Druck, Diagnosepaket, Absturzbericht löschen, letzte Starts, Neustart",
@@ -320,6 +536,19 @@
     "d": "2026-10-19",
     "t": "Weboberfläche: Grundgerüst",
     "s": "Neue Oberfläche im Material 3 Expressive Design: Übersicht mit Live-Werten, dynamische Farben, hell und dunkel, komplett offline",
+    "k": {
+      "s": "Eine eigene Weboberfläche",
+      "n": [
+        "Oberfläche: neu im Material-3-Design mit Formen und Bewegungen, komplett offline direkt vom Gerät",
+        "Übersicht: zeigt live, wie es Pixelia geht: Bildrate, Prozessor, Speicher, WLAN und Hinweise",
+        "Farben: Akzentfarbe frei wählbar, drei Farbstile, hell und dunkel",
+        "Navigation: unten am Handy, links am PC",
+        "Update: Nach einem Update lädt der Browser sofort die neue Oberfläche"
+      ],
+      "f": [
+        "Log: Getrennte Verbindungen trieben den Zähler der Warnungen hoch"
+      ]
+    },
     "n": [
       "Web: Neue Weboberfläche unter http://pixelia/ mit Svelte 5, TypeScript und Vite, komplett offline und gzip in die Firmware eingebettet (4 Dateien, 89 KB)",
       "Web: Eigene M3-Expressive-Bibliothek: Tokens für Formen, Typografie und Federbewegungen, Buttons mit Form-Morphing, Button-Gruppe, Karten, Chips, Icon-Buttons",
@@ -358,6 +587,20 @@
     "d": "2026-10-19",
     "t": "Fernwartung",
     "s": "Log, Befehle, Leistung, Neustarts und Absturzberichte per WLAN, Diagnosepaket zum Verschicken vom Handy",
+    "k": {
+      "s": "Fernwartung per WLAN",
+      "n": [
+        "Log: Pixelia merkt sich seine Meldungen auch über Neustarts, Updates und Abstürze hinweg und zeigt sie per WLAN",
+        "Befehle: Konsolenbefehle lassen sich per WLAN schicken, gefährliche nur mit Rückfrage",
+        "Absturzbericht: per WLAN abrufen und am PC auswerten",
+        "Diagnosepaket: eine Datei mit allem Wichtigen ohne Passwörter, bequem vom Handy zu verschicken",
+        "Datenschutz: WLAN-Passwörter werden in allen Ausgaben ausgeblendet"
+      ],
+      "f": [
+        "Live-Werte: Die Live-Verbindung zur Oberfläche sendete nie",
+        "Display: Die Task-Liste verursachte kurze Aussetzer und gibt es nur noch auf Wunsch"
+      ]
+    },
     "n": [
       "System: Log-Ringpuffer (256 KB im PSRAM), jede Zeile mit Nummer, Laufzeit, Uhrzeit und Startzähler. Übersteht Neustarts, Updates, Abstürze und Watchdog-Resets, nur keinen Stromausfall",
       "System: RTC-Sicherung der letzten 6 KB, falls ein Update die Lage des PSRAM-Puffers verschiebt (im Probelauf zeilenweise, sonst vor jedem Software-Neustart)",
@@ -397,6 +640,20 @@
     "d": "2026-10-18",
     "t": "Immer erreichbar",
     "s": "Info-Karte mit IP und QR-Code per langem Druck aufs Display, IP in der Kurzmeldung, Updates per WLAN aus der Kommandozeile",
+    "k": {
+      "s": "Immer erreichbar",
+      "n": [
+        "Info-Karte: Lange aufs Display drücken zeigt Adresse, QR-Code, WLAN, Signal und Version",
+        "Touch: Ein Balken zeigt beim Halten, dass der Druck zählt; die Dauer ist einstellbar",
+        "Update: Neue Firmware per WLAN vom PC aus aufspielen"
+      ],
+      "i": [
+        "WLAN: Nach dem Verbinden blendet Pixelia kurz seine Adresse ein"
+      ],
+      "f": [
+        "Update: Das Werkzeug zum Aufspielen lehnte jede Firmware ab"
+      ]
+    },
     "n": [
       "Display: Info-Karte per langem Druck (3 s): IP groß, QR-Code, Adressen, WLAN, Signal und Version; im Setup-Modus mit den Zugangsdaten des Setup-WLANs",
       "Touch: Halte-Anzeige mit Fortschrittsbalken, damit klar ist, dass der Druck zählt",
@@ -430,6 +687,25 @@
     "d": "2026-10-18",
     "t": "Vernetzt",
     "s": "WLAN mit Setup-Modus, Einrichtungsseite im Browser und Updates ohne USB",
+    "k": {
+      "s": "Pixelia kommt ins WLAN",
+      "n": [
+        "WLAN: bis zu fünf Netze, Pixelia nimmt das stärkste und ist unter pixelia.local erreichbar",
+        "Einrichtung: Setup-Modus mit eigenem WLAN, QR-Codes auf dem Display und Einrichtungsseite, die sich am Handy von selbst öffnet",
+        "Uhrzeit: kommt aus dem Internet",
+        "Update: neue Version im Browser hochladen, mit Prüfung, Probelauf und Rückkehr zur alten Version bei Problemen",
+        "Display: Bild auf den Kopf drehen und Helligkeit, beides bleibt gespeichert",
+        "Display: Kurzmeldungen und Systemanzeigen in einer eigenen Pixelschrift mit Umlauten"
+      ],
+      "i": [
+        "WLAN: beim Start mehr Geduld mit dem Router"
+      ],
+      "f": [
+        "WLAN: Manche FritzBoxen lehnten die Anmeldung ab",
+        "Update: Uploads bei schwachem Empfang blieben hängen, Updates gehen jetzt viel schneller",
+        "Display: Lange Kurzmeldungen wurden abgeschnitten"
+      ]
+    },
     "n": [
       "WLAN: Manager für bis zu 5 gespeicherte Netze; nach einem Scan verbindet sich Pixelia mit dem stärksten. Hostname „Pixelia“ im Router",
       "WLAN: mDNS-Name pixelia.local; Uhrzeit per NTP (Zeitzone Europa/Berlin), die Weltzeit folgt der echten Uhrzeit",
@@ -481,6 +757,18 @@
     "d": "2026-10-18",
     "t": "Fundament",
     "s": "Hardware geprüft, Engine-Prototyp mit 30 fps, Simulator und Web-Flasher",
+    "k": {
+      "s": "Das Fundament",
+      "n": [
+        "Display: Das 5-Zoll-Display läuft flüssig, auch während im Hintergrund gearbeitet wird",
+        "Landschaft: Eine erste Testszene mit Tag und Nacht, Himmel nach Uhrzeit, Sternen und schlafenden Vögeln",
+        "Touch und Helligkeit: Touch funktioniert, die Hintergrundbeleuchtung ist dimmbar",
+        "Installation: Erstinstallation bequem im Browser über den Web-Flasher",
+        "Updates: zwei Speicherplätze für die Firmware, damit ein Update immer zurück kann",
+        "Simulator: Pixelia läuft auch am PC, mit Screenshots und Zeitraffer",
+        "Hardware-Test: Prüfbilder, Touch-Ecken und Lasttests direkt am Gerät"
+      ]
+    },
     "n": [
       "System: Firmware auf ESP-IDF 6.1 (C++20) mit eigener Partitionstabelle: zwei App-Plätze à 6 MB (A/B), Datenspeicher für Spielstände, Absturzberichte im Flash (Core-Dump), Rückfall über den Bootloader",
       "System: Programmcode und Konstanten laufen aus dem PSRAM (XIP), dadurch stört Flash-Schreiben die Anzeige nicht; der RGB-Interrupt ist IRAM-sicher",

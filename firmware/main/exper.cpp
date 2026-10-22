@@ -302,8 +302,9 @@ bool start_test(Mode mode, char* error, size_t error_len) {
         end_test_locked();
         return true;
     }
-    if (!s_enabled || s_trial_until) {
-        std::snprintf(error, error_len, "%s", s_enabled ? "Erst die Probe der Panel-Werte abschließen" : "Experimentell ist aus");
+    // Gerätetests gehen seit 0.5.4 auch ohne Experimentell (Seite Gerätetests), nur nicht während einer Panel-Probe
+    if (s_trial_until) {
+        std::snprintf(error, error_len, "%s", "Erst die Probe der Panel-Werte abschließen");
         return false;
     }
     if (mode == Mode::Touch) hwtest::reset_corner_hits();

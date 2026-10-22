@@ -1,50 +1,47 @@
 <script lang="ts">
-  // Seite „Experimentell“ (seit 0.4.2, exper.h): Schalter (Standard aus, auf dem Gerät gespeichert), Stromsparmodus und
-  // Panel-Timing im Probelauf (ohne Bestätigung nach 15 s zurück), Displaytests, Touch-Test, ältere Version von GitHub.
+  // Seite „Experimentell“ (seit 0.4.2, exper.h): Schalter (Standard aus, auf dem Gerät gespeichert); seit 0.5.4 mit
+  // Unterseiten: Testorte (Ort, Übergang, Tageszeit, Wetter), Panel und Stromsparen (Probelauf: ohne Bestätigung nach
+  // 15 s zurück), ältere Version von GitHub. Die Gerätetests stehen auf der eigenen Seite Gerätetests.
   import { onMount } from 'svelte';
-  import { Button, ButtonGroup, Card, Chip, Icon, Slider, Switch, TextField, WavyProgress, confirmDialog } from '../lib/m3';
-  import { get, post, type ExpState, type GhState, type PanelValues } from '../lib/api';
+  import { Button, ButtonGroup, Card, Icon, Slider, Switch, TextField, WavyProgress, confirmDialog } from '../lib/m3';
+  import { get, post, type GhState, type PanelValues } from '../lib/api';
   import { device } from '../lib/status.svelte';
+  import { exp } from '../lib/exp.svelte';
   import { num } from '../lib/format';
   import { cmpVersion, dateDe, parseFw } from '../lib/changelog';
-  import { preparePicture, type Picture } from '../lib/picture';
+  import HubList, { type HubGroup } from '../lib/HubList.svelte';
 
-  let ex = $state<ExpState | null>(null);
-  let failed = $state(false);
-  let msg = $state<{ ok: boolean; text: string } | null>(null);
-  let busy = $state(false);
+  let { part = 'start' }: { part?: 'start' | 'orte' | 'panel' | 'version' } = $props();
 
-  async function load() {
-    const r = await get<ExpState>('/api/exp').catch(() => null);
-    if (r) [ex, failed] = [r, false];
-    else failed = true;
-  }
+  const ex = $derived(exp.ex);
+  const busy = $derived(exp.busy);
+  const msg = $derived(exp.msg);
+  const act = exp.act;
+  const load = exp.load;
+  onMount(exp.poll);
 
-  // Abfrage: 4×/s beim Touch-Test, 1×/s während Probe oder Testbild, sonst alle 5 s
-  onMount(() => {
-    void load();
-    let stop = false;
-    const loop = async () => {
-      while (!stop) {
-        const fast = ex?.mode === 'touch' ? 250 : ex && (ex.trialS >= 0 || ex.testS >= 0) ? 1000 : 5000;
-        await new Promise((r) => setTimeout(r, fast));
-        if (!document.hidden && !stop) await load();
-      }
-    };
-    void loop();
-    return () => (stop = true);
-  });
-
-  async function act(data: Record<string, string | number>, okText?: string) {
-    busy = true;
-    msg = null;
-    const r = await post('/api/exp', data).catch(() => null);
-    busy = false;
-    if (!r?.ok) msg = { ok: false, text: r?.msg ?? 'Pixelia antwortet nicht' };
-    else if (okText) msg = { ok: true, text: okText };
-    await load();
-    return !!r?.ok;
-  }
+  const subpages = $derived<HubGroup[]>([
+    {
+      title: 'Bereiche',
+      items: [
+        {
+          href: '#/experimentell/orte',
+          icon: 'map',
+          title: 'Testorte',
+          sub: ex?.places?.length ? `${ex.places[ex.place ?? 0]?.title ?? ''} · Tageszeit, Wetter, Übergänge` : 'Ort, Tageszeit, Wetter, Übergänge',
+        },
+        { href: '#/experimentell/panel', icon: 'tune', title: 'Panel und Stromsparen', sub: ex?.panel.eco ? 'Stromsparmodus an' : 'Pixeltakt, Austastzeiten, Stromsparmodus' },
+        { href: '#/experimentell/version', icon: 'history', title: 'Ältere Version installieren', sub: 'Zurück auf eine frühere Version von GitHub' },
+      ],
+    },
+  ]);
+  // Rückblick (Easter Egg, auch über 7× Tippen aufs Pixelia-Zeichen): immer sichtbar, auch mit Schalter aus
+  const story: HubGroup[] = [
+    {
+      title: 'So entstand Pixelia',
+      items: [{ href: '#/experimentell/geschichte', icon: 'auto_stories', title: 'Rückblick', sub: 'Von der Idee bis heute, mit den frühen Skizzen' }],
+    },
+  ];
 
   async function toggle(on: boolean) {
     if (!on && ex?.saved && !same(ex.saved, ex.std)) {
@@ -98,18 +95,11 @@
   async function tryForm() {
     const p: Partial<PanelValues> & { pclk: number } = { pclk: Math.round(Number(form.pclk.replace(',', '.')) * 1000) };
     for (const k of keys) p[k] = Math.round(Number(form[k]));
-    if ([p.pclk, ...keys.map((k) => p[k])].some((v) => !Number.isFinite(v))) return (msg = { ok: false, text: 'Bitte nur Zahlen eintragen.' });
+    if ([p.pclk, ...keys.map((k) => p[k])].some((v) => !Number.isFinite(v))) return (exp.msg = { ok: false, text: 'Bitte nur Zahlen eintragen.' });
     await act(panelData(p));
   }
   const setEco = (on: boolean) => act(panelData({ pclk: ex!.panel.pclk, eco: on }));
   const setPol = (k: 'hlow' | 'vlow' | 'neg', on: boolean) => act(panelData({ pclk: ex!.panel.pclk, [k]: on }));
-
-  // --- Displaytests ---------------------------------------------------------------------------------------
-  const tests = [
-    { mode: 'bars', label: 'Farbbalken', icon: 'palette' },
-    { mode: 'frame', label: 'Rahmen', icon: 'crop_square' },
-    { mode: 'motion', label: 'Bewegung', icon: 'motion_photos_on' },
-  ] as const;
 
   // --- Orte (seit 0.5.0) -----------------------------------------------------------------------------------
   const transitions = [
@@ -136,35 +126,6 @@
     { value: 'wind', label: 'Wind', icon: 'air' },
   ] as const;
   const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-
-  // --- Eigenes Testbild (seit 0.5.0) ---------------------------------------------------------------------
-  let fileInput = $state<HTMLInputElement>();
-  let pic = $state<(Picture & { name: string }) | null>(null);
-  let picCanvas = $state<HTMLCanvasElement>();
-  let picErr = $state('');
-  async function choosePicture(e: Event) {
-    const f = (e.currentTarget as HTMLInputElement).files?.[0];
-    if (!f) return;
-    picErr = '';
-    try {
-      pic = { ...(await preparePicture(f)), name: f.name };
-    } catch {
-      pic = null;
-      picErr = 'Das Bild ließ sich nicht öffnen.';
-    }
-  }
-  $effect(() => {
-    if (pic && picCanvas) picCanvas.getContext('2d')!.putImageData(pic.rgba, 0, 0);
-  });
-  async function showPicture() {
-    if (!pic) return;
-    busy = true;
-    msg = null;
-    const r = await post('/api/picture', pic.body).catch(() => null);
-    busy = false;
-    msg = r?.ok ? { ok: true, text: 'Testbild auf dem Display. Tippen aufs Display beendet es.' } : { ok: false, text: r?.msg ?? 'Pixelia antwortet nicht' };
-    await load();
-  }
 
   // --- Ältere Version von GitHub ---------------------------------------------------------------------------
   let gh = $state<GhState | null>(null);
@@ -200,31 +161,34 @@
     if (!ok) return;
     const r = await post('/api/update/install', { v, old: 1 }).catch(() => null);
     if (!r?.ok) return (ghMsg = r?.msg ?? 'Pixelia antwortet nicht');
-    location.hash = '#/system'; // Fortschritt, Abbrechen und Probelauf zeigt die Seite System
+    location.hash = '#/update'; // Fortschritt, Abbrechen und Probelauf zeigt die Seite Update
   }
 
-  const cornerNames = ['oben links', 'oben rechts', 'unten links', 'unten rechts'];
   const s = $derived(device.data);
 </script>
 
 {#if !ex}
-  <Card><p class="muted">{failed ? 'Pixelia antwortet nicht.' : 'Lade …'}</p></Card>
+  <Card><p class="muted">{exp.failed ? 'Pixelia antwortet nicht.' : 'Lade …'}</p></Card>
 {:else}
   <div class="page-grid">
-    <Card class="wide">
-      <div class="head">
-        <Icon name="science" size={32} />
-        <div class="grow">
-          <h2 class="card-title">Experimentell</h2>
-          <p>
-            Funktionen zum Ausprobieren und für die Fehlersuche, jede mit „(Vorschau)“ gekennzeichnet. Standard aus, die Wahl
-            bleibt auf dem Gerät gespeichert.
-          </p>
+    {#if part === 'start'}
+      <Card class="wide">
+        <div class="head">
+          <Icon name="science" size={32} />
+          <div class="grow">
+            <h2 class="card-title">Experimentell</h2>
+            <p>
+              Vorläufige Funktionen zum Ausprobieren: Testorte der Engine, Panel-Werte und ältere Versionen. Standard aus,
+              die Wahl bleibt auf dem Gerät gespeichert. Gerätetests gibt es ohne Schalter unter System → Labor.
+            </p>
+          </div>
+          <Switch label="Experimentell" checked={ex.on} disabled={busy} onchange={toggle} />
         </div>
-        <Switch label="Experimentell" checked={ex.on} disabled={busy} onchange={toggle} />
-      </div>
-      {#if msg}<p class={msg.ok ? 'ok-text' : 'err-text'}>{msg.text}</p>{/if}
-    </Card>
+        {#if msg}<p class={msg.ok ? 'ok-text' : 'err-text'}>{msg.text}</p>{/if}
+      </Card>
+    {:else if msg}
+      <p class="wide {msg.ok ? 'ok-text' : 'err-text'}">{msg.text}</p>
+    {/if}
 
     {#if ex.safeBoot}
       <Card variant="error" class="wide">
@@ -255,246 +219,190 @@
       </Card>
     {/if}
 
-    {#if ex.on}
-      {#if ex.places?.length}
+    {#if !ex.on}
+      {#if part !== 'start'}
         <Card class="wide">
-          <h2 class="card-title"><Icon name="map" size={20} />Orte (Vorschau)</h2>
-          <p class="muted">
-            Die Testorte sind neutrale Test-Grafiken im groben Raster (200 × 120, am Display 4 × 4 Pixel je Bildpunkt),
-            gebaut aus Kacheln und Möbel-Teilen. Wiese, Raum und Platz hängen über eine Tür und einen Bildrand zusammen;
-            die Figuren wechseln dort den Ort. Der weiße Pfeil zeigt die Begleiterin, der das Bild folgt. Die Landschaft
-            ist das bisherige Bild. Beim Ausschalten von Experimentell kehrt das Display zur Landschaft zurück.
-          </p>
-          <div class="setting">
-            <span>Ort</span>
-            <ButtonGroup
-              label="Ort"
-              options={ex.places.map((p, i) => ({ value: String(i), label: p.title }))}
-              bind:value={() => String(ex?.place ?? 0), (v: string) => act({ a: 'place', n: Number(v) })}
-            />
-          </div>
-          <div class="setting">
-            <span>Übergang beim Wechsel</span>
-            <ButtonGroup
-              label="Übergang"
-              options={transitions}
-              bind:value={() => ex?.trans ?? 'abblenden', (v: string) => act({ a: 'trans', v })}
-            />
-          </div>
-          <div class="setting">
-            <span class="row"><span>Figuren je Testort</span><span class="tnum">{ex.figures ? ex.figures : 'Standard'}</span></span>
-            <Slider label="Figuren je Testort" min={1} max={64} value={ex.figures || 6} onchange={(v) => act({ a: 'figures', n: v })} />
-          </div>
-          <div class="setting">
-            <span class="row"><span>Tageszeit (Testuhr)</span><span class="tnum">{hhmm(ex.minute ?? 720)}</span></span>
-            <Slider label="Tageszeit" min={0} max={1425} step={15} value={ex.minute ?? 720} onchange={(v) => act({ a: 'time', v })} />
-          </div>
-          <div class="setting">
-            <span>Zeitraffer</span>
-            <ButtonGroup
-              label="Zeitraffer"
-              options={speeds}
-              bind:value={() => (ex?.real ? '0' : String(ex?.speed ?? 1)), (v: string) => act(v === '0' ? { a: 'time', v: 'real' } : { a: 'speed', v: Number(v) })}
-            />
-          </div>
-          <div class="setting">
-            <span class="row"><span>Wetter</span><span class="tnum">{ex.particles ? `${ex.particles} Partikel` : ''}</span></span>
-            <div class="actions">
-              {#each weathers as w (w.value)}
-                <Button variant={ex.weather === w.value ? 'filled' : 'tonal'} icon={w.icon} disabled={busy}
-                  onclick={() => act({ a: 'weather', v: w.value, p: ex?.weatherPct ?? 100 })}>{w.label}</Button>
-              {/each}
-            </div>
-          </div>
-          <div class="setting">
-            <span class="row"><span>Stärke des Wetters</span><span class="tnum">{ex.weatherPct ?? 100} %</span></span>
-            <Slider label="Stärke des Wetters" min={10} max={100} step={10} value={ex.weatherPct ?? 100}
-              onchange={(v) => act({ a: 'weather', v: ex?.weather ?? 'sonne', p: v })} />
-          </div>
-          <div class="actions">
-            <span class="pol"><Switch label="Licht innen" checked={ex.innen !== false} disabled={busy} onchange={() => act({ a: 'cmd', v: 'innenlicht um' })} />Licht innen (Lampe im Testraum)</span>
-            <Button variant="tonal" icon="bolt" disabled={busy} onclick={() => act({ a: 'cmd', v: 'blitz' })}>Blitz</Button>
-          </div>
-          <div class="actions">
-            <span class="pol"><Switch label="Blick folgt" checked={ex.follow !== false} disabled={busy} onchange={(v) => act({ a: 'follow', v: v ? 1 : 0 })} />Blick folgt der Begleiterin</span>
-            <span class="pol"><Switch label="Prüfansicht" checked={!!ex.inspect} disabled={busy} onchange={(v) => act({ a: 'inspect', v: v ? 1 : 0 })} />Prüfansicht</span>
-          </div>
-          <div class="actions">
-            <Button variant="tonal" icon="upgrade" disabled={busy} onclick={() => act({ a: 'cmd', v: 'ausbau' })}>Ausbau</Button>
-            <Button variant="tonal" icon="construction" disabled={busy} onclick={() => act({ a: 'cmd', v: 'baustelle' })}>Im Bau</Button>
-          </div>
-          <p class="muted small">
-            Ausbau: nächste Ausbaustufe im sichtbaren Testort (Lager ↔ Bett, Kisten ↔ Tisch). Im Bau: Möbel werden zur
-            Baustelle (halbfertiges Bett, sonst Bretterstapel) und wieder fertig. Prüfansicht: Stellflächen (lila),
-            Benutzungspunkte (grün), Ausgänge (gelb), versperrte Kacheln (Punkte). Tageszeit: Licht, Lampen, Fenster
-            und Himmel der Orte folgen der Testuhr; Uhrzeit stellen oder Zeitraffer schaltet die echte Uhrzeit ab.
-            Wetter gilt für alle Orte und wechselt weich (erst Wolken, dann Regen). Licht innen: Ist die Lampe im
-            Testraum aus, bleiben nachts auch die Fenster der Wiese dunkel.
-          </p>
-          <div class="actions">
-            <span class="pol"><Switch label="Rundgang" checked={!!ex.tour} disabled={busy} onchange={(v) => act({ a: 'tour', s: v ? 20 : 0 })} />Rundgang: alle 20 s der nächste Ort</span>
-            {#if ex.figures}<Button variant="text" icon="restart_alt" onclick={() => act({ a: 'figures', n: 0 })}>Figuren: Standard</Button>{/if}
-          </div>
+          <p class="muted">Experimentell ist aus. Auf der Seite <a href="#/experimentell">Experimentell</a> einschalten.</p>
         </Card>
       {/if}
-
-      <Card>
-        <div class="head">
-          <Icon name="energy_savings_leaf" size={24} />
-          <div class="grow">
-            <h2 class="card-title">Stromsparmodus (Vorschau)</h2>
-            <p class="muted">
-              Panel mit halbem Pixeltakt ({num(ex.std.hz / 2, 0)} statt {num(ex.std.hz, 0)} Hz), jedes Bild der Welt wird nur
-              einmal gezeigt. Die Welt bleibt bei 30 fps, der Hochskalier-Interrupt und der Speicherverkehr halbieren sich.
-              Manche Panels flimmern dabei oder bleiben schwarz.
-            </p>
-          </div>
-          <Switch label="Stromsparmodus" checked={ex.panel.eco} disabled={busy || ex.trialS >= 0} onchange={setEco} />
-        </div>
-      </Card>
-
-      <Card>
-        <h2 class="card-title"><Icon name="monitor" size={20} />Displaytests (Vorschau)</h2>
-        <p class="muted">Testbilder auf dem Display; nach {60} s läuft die Welt von selbst weiter.</p>
-        <div class="actions">
-          {#each tests as t (t.mode)}
-            <Button variant={ex.mode === t.mode ? 'filled' : 'tonal'} disabled={busy || ex.trialS >= 0} onclick={() => act({ a: 'test', mode: t.mode })}>
-              {t.label}
-            </Button>
-          {/each}
-          {#if ex.mode !== 'engine'}
-            <Button variant="text" icon="close" onclick={() => act({ a: 'test', mode: 'engine' })}>Zurück zur Welt</Button>
-          {/if}
-        </div>
-        {#if ex.testS >= 0}<p class="muted small tnum">Testbild „{ex.mode}“ noch {ex.testS} s</p>{/if}
-      </Card>
-
+    {:else if part === 'start'}
+      <div class="wide"><HubList groups={subpages} /></div>
+    {:else if part === 'orte'}
+    {#if ex.places?.length}
       <Card class="wide">
-        <h2 class="card-title">
-          <Icon name="image" size={20} />Eigenes Testbild (Vorschau)
-          {#if ex.pic}<span class="end"><Chip pulse tone="primary">auf dem Display</Chip></span>{/if}
-        </h2>
+        <h2 class="card-title"><Icon name="map" size={20} />Ort und Figuren</h2>
         <p class="muted">
-          Ein Bild mit 400 × 240 Pixeln erscheint 2× vergrößert auf dem Display, bis du aufs Display tippst oder hier
-          „Beenden“ drückst (spätestens nach 30 min). Andere Größen werden pixelgenau angepasst. Das Bild bleibt nur im
-          Arbeitsspeicher, nichts wird gespeichert.
+          Neutrale Test-Grafiken im groben Raster aus Kacheln und Möbel-Teilen. Wiese, Raum und Platz hängen über eine Tür
+          und einen Bildrand zusammen, die Figuren wechseln dort den Ort; der weiße Pfeil zeigt die Begleiterin, der das Bild
+          folgt. Die Landschaft ist das bisherige Bild, zu ihr kehrt das Display beim Ausschalten von Experimentell zurück.
         </p>
-        <input type="file" accept="image/*" hidden bind:this={fileInput} onchange={choosePicture} />
-        <div class="actions">
-          <Button variant="tonal" icon="upload_file" disabled={busy} onclick={() => fileInput?.click()}>Bild wählen</Button>
-          {#if pic}
-            <Button icon="monitor" disabled={busy || ex.trialS >= 0} onclick={showPicture}>Auf dem Display zeigen</Button>
-          {/if}
-          {#if ex.pic}<Button variant="text" icon="close" onclick={() => act({ a: 'picoff' })}>Beenden</Button>{/if}
-        </div>
-        {#if picErr}<p class="err-text">{picErr}</p>{/if}
-        {#if pic}
-          <canvas class="pic" width="400" height="240" bind:this={picCanvas}></canvas>
-          <p class="muted small tnum">
-            {pic.name} · {pic.srcW} × {pic.srcH}{pic.srcW !== 400 || pic.srcH !== 240 ? ' → angepasst auf 400 × 240' : ''} ·
-            {pic.colors} Farben{pic.srcColors > pic.colors ? ` (reduziert von ${num(pic.srcColors, 0)})` : ''}
-          </p>
-        {/if}
-      </Card>
-
-      <Card class="wide">
-        <h2 class="card-title">
-          <Icon name="touch_app" size={20} />Touch-Test (Vorschau)
-          {#if ex.mode === 'touch'}<span class="end"><Chip pulse tone="primary">läuft · noch {ex.testS} s</Chip></span>{/if}
-        </h2>
-        {#if !ex.touch.ok}
-          <p class="err-text">Kein Touch-Controller gefunden.</p>
-        {:else}
-          <p class="muted">
-            Display berühren: Der Punkt zeigt die gemessene Stelle hier und auf dem Display. Alle vier Ecken antippen, um die
-            Ränder zu prüfen.
-          </p>
-          <div class="touch" class:live={ex.mode === 'touch'}>
-            {#each [0, 1, 2, 3] as c (c)}
-              <span class="corner c{c}" class:hit={(ex.touch.corners >> c) & 1} title={cornerNames[c]}></span>
+        <div class="setting">
+          <span>Ort</span>
+          <div class="choices">
+            {#each ex.places as p, i (i)}
+              <Button variant={(ex.place ?? 0) === i ? 'filled' : 'tonal'} disabled={busy} onclick={() => act({ a: 'place', n: i })}>{p.title}</Button>
             {/each}
-            {#if ex.touch.x >= 0}
-              <span class="finger" class:down={ex.touch.down} style:left="{(ex.touch.x / 800) * 100}%" style:top="{(ex.touch.y / 480) * 100}%"></span>
-            {/if}
           </div>
-          <p class="muted small tnum">
-            {ex.touch.x >= 0 ? `Letzter Punkt x ${ex.touch.x}, y ${ex.touch.y}` : 'Noch keine Berührung'} · {ex.touch.n} Berührungen seit
-            dem Start · Ecken {[0, 1, 2, 3].filter((c) => (ex!.touch.corners >> c) & 1).length} von 4
-          </p>
-          <div class="actions">
-            <Button variant={ex.mode === 'touch' ? 'tonal' : 'filled'} icon="touch_app" disabled={busy || ex.trialS >= 0} onclick={() => act({ a: 'test', mode: 'touch' })}>
-              {ex.mode === 'touch' ? 'Neu starten' : 'Touch-Test starten'}
-            </Button>
-            {#if ex.mode === 'touch'}<Button variant="text" icon="close" onclick={() => act({ a: 'test', mode: 'engine' })}>Beenden</Button>{/if}
+        </div>
+        <div class="setting">
+          <span>Übergang beim Wechsel</span>
+          <div class="choices">
+            {#each transitions as t (t.value)}
+              <Button variant={(ex.trans ?? 'abblenden') === t.value ? 'filled' : 'tonal'} disabled={busy} onclick={() => act({ a: 'trans', v: t.value })}>{t.label}</Button>
+            {/each}
           </div>
-        {/if}
+        </div>
+        <div class="setting">
+          <span class="row"><span>Figuren je Testort</span><span class="tnum">{ex.figures ? ex.figures : 'Standard'}</span></span>
+          <Slider label="Figuren je Testort" min={1} max={64} value={ex.figures || 6} onchange={(v) => act({ a: 'figures', n: v })} />
+        </div>
+        <div class="actions">
+          <span class="pol"><Switch label="Rundgang" checked={!!ex.tour} disabled={busy} onchange={(v) => act({ a: 'tour', s: v ? 20 : 0 })} />Rundgang: alle 20 s der nächste Ort</span>
+          {#if ex.figures}<Button variant="text" icon="restart_alt" onclick={() => act({ a: 'figures', n: 0 })}>Figuren: Standard</Button>{/if}
+        </div>
       </Card>
 
       <Card class="wide">
-        <h2 class="card-title"><Icon name="tune" size={20} />Panel-Timing (Vorschau)</h2>
-        <p class="muted">
-          Pixeltakt und Austastzeiten des RGB-Panels in Takten (Sync-Impuls, Schwarzschulter hinten und vorn). Falsche Werte machen das Bild unruhig oder schwarz; jede Änderung läuft
-          deshalb erst {ex.trialNeed} s auf Probe. Standard: {num(ex.std.pclk / 1000, 1)} MHz, H {ex.std.hp}/{ex.std.hb}/{ex.std.hf}, V
-          {ex.std.vp}/{ex.std.vb}/{ex.std.vf} = {num(ex.std.hz, 1)} Hz.
-        </p>
-        <div class="fields">
-          <TextField label="Takt (MHz)" size={6} inputmode="decimal" bind:value={form.pclk} />
-          <TextField label="H Sync" size={6} inputmode="numeric" bind:value={form.hp} />
-          <TextField label="H hinten" size={6} inputmode="numeric" bind:value={form.hb} />
-          <TextField label="H vorn" size={6} inputmode="numeric" bind:value={form.hf} />
-          <TextField label="V Sync" size={6} inputmode="numeric" bind:value={form.vp} />
-          <TextField label="V hinten" size={6} inputmode="numeric" bind:value={form.vb} />
-          <TextField label="V vorn" size={6} inputmode="numeric" bind:value={form.vf} />
+        <h2 class="card-title"><Icon name="schedule" size={20} />Tageszeit</h2>
+        <div class="setting">
+          <span class="row"><span>Tageszeit (Testuhr)</span><span class="tnum">{hhmm(ex.minute ?? 720)}</span></span>
+          <Slider label="Tageszeit" min={0} max={1425} step={15} value={ex.minute ?? 720} onchange={(v) => act({ a: 'time', v })} />
         </div>
-        <div class="pols">
-          <span class="pol"><Switch label="H-Sync aktiv low" checked={ex.panel.hlow} disabled={busy || ex.trialS >= 0} onchange={(v) => setPol('hlow', v)} />H-Sync in Ruhe low</span>
-          <span class="pol"><Switch label="V-Sync aktiv low" checked={ex.panel.vlow} disabled={busy || ex.trialS >= 0} onchange={(v) => setPol('vlow', v)} />V-Sync in Ruhe low</span>
-          <span class="pol"><Switch label="Takt fallende Flanke" checked={ex.panel.neg} disabled={busy || ex.trialS >= 0} onchange={(v) => setPol('neg', v)} />Daten bei fallender Flanke</span>
+        <div class="setting">
+          <span>Zeitraffer</span>
+          <ButtonGroup
+            label="Zeitraffer"
+            options={speeds}
+            bind:value={() => (ex?.real ? '0' : String(ex?.speed ?? 1)), (v: string) => act(v === '0' ? { a: 'time', v: 'real' } : { a: 'speed', v: Number(v) })}
+          />
         </div>
-        <p class="tnum">
-          Ergibt {formHz ? `${num(formHz, 1)} Hz` : '–'}{ex.panel.eco ? ' (mit Stromsparmodus)' : ''} · läuft gerade: {num(ex.panel.hz, 1)} Hz, Bild der
-          Welt {ex.panel.swap}× gezeigt
-        </p>
+        <p class="muted small">Licht, Lampen, Fenster und Himmel folgen der Testuhr; Uhrzeit stellen oder Zeitraffer schaltet die echte Uhrzeit ab.</p>
+      </Card>
+
+      <Card class="wide">
+        <h2 class="card-title"><Icon name="rainy" size={20} />Wetter</h2>
+        <div class="setting">
+          <span class="row"><span>Wetter</span><span class="tnum">{ex.particles ? `${ex.particles} Partikel` : ''}</span></span>
+          <div class="choices">
+            {#each weathers as w (w.value)}
+              <Button variant={ex.weather === w.value ? 'filled' : 'tonal'} icon={w.icon} disabled={busy}
+                onclick={() => act({ a: 'weather', v: w.value, p: ex?.weatherPct ?? 100 })}>{w.label}</Button>
+            {/each}
+          </div>
+        </div>
+        <div class="setting">
+          <span class="row"><span>Stärke des Wetters</span><span class="tnum">{ex.weatherPct ?? 100} %</span></span>
+          <Slider label="Stärke des Wetters" min={10} max={100} step={10} value={ex.weatherPct ?? 100}
+            onchange={(v) => act({ a: 'weather', v: ex?.weather ?? 'sonne', p: v })} />
+        </div>
         <div class="actions">
-          <Button icon="tune" disabled={busy || ex.trialS >= 0} onclick={tryForm}>Ausprobieren</Button>
-          <Button variant="tonal" icon="restart_alt" disabled={busy || (same(ex.panel, ex.std) && same(ex.saved, ex.std))} onclick={() => act({ a: 'reset' }, 'Standardwerte gespeichert')}>
-            Standardwerte
-          </Button>
+          <span class="pol"><Switch label="Licht innen" checked={ex.innen !== false} disabled={busy} onchange={() => act({ a: 'cmd', v: 'innenlicht um' })} />Licht innen (Lampe im Testraum)</span>
+          <Button variant="tonal" icon="bolt" disabled={busy} onclick={() => act({ a: 'cmd', v: 'blitz' })}>Blitz</Button>
+        </div>
+        <p class="muted small">Gilt für alle Orte und wechselt weich (erst Wolken, dann Regen). Ist die Lampe im Testraum aus, bleiben nachts auch die Fenster der Wiese dunkel.</p>
+      </Card>
+
+      <Card class="wide">
+        <h2 class="card-title"><Icon name="construction" size={20} />Baukasten</h2>
+        <div class="actions">
+          <span class="pol"><Switch label="Blick folgt" checked={ex.follow !== false} disabled={busy} onchange={(v) => act({ a: 'follow', v: v ? 1 : 0 })} />Blick folgt der Begleiterin</span>
+          <span class="pol"><Switch label="Prüfansicht" checked={!!ex.inspect} disabled={busy} onchange={(v) => act({ a: 'inspect', v: v ? 1 : 0 })} />Prüfansicht</span>
+        </div>
+        <div class="actions">
+          <Button variant="tonal" icon="upgrade" disabled={busy} onclick={() => act({ a: 'cmd', v: 'ausbau' })}>Ausbau</Button>
+          <Button variant="tonal" icon="construction" disabled={busy} onclick={() => act({ a: 'cmd', v: 'baustelle' })}>Im Bau</Button>
         </div>
         <p class="muted small">
-          Fluchtweg ohne Browser: Läuft das Bild nach dem Speichern nicht, Pixelia zweimal innerhalb einer Minute nach dem Start
-          vom Strom trennen. Der dritte Start nimmt die Standardwerte.
+          Ausbau: nächste Ausbaustufe im sichtbaren Testort (Lager ↔ Bett, Kisten ↔ Tisch). Im Bau: Möbel werden zur
+          Baustelle (halbfertiges Bett, sonst Bretterstapel) und wieder fertig. Prüfansicht: Stellflächen (lila),
+          Benutzungspunkte (grün), Ausgänge (gelb), versperrte Kacheln (Punkte).
         </p>
       </Card>
+    {/if}
+    {:else if part === 'panel'}
+    <Card>
+      <div class="head">
+        <Icon name="energy_savings_leaf" size={24} />
+        <div class="grow">
+          <h2 class="card-title">Stromsparmodus</h2>
+          <p class="muted">
+            Panel mit halbem Pixeltakt ({num(ex.std.hz / 2, 0)} statt {num(ex.std.hz, 0)} Hz), jedes Bild der Welt wird nur
+            einmal gezeigt. Die Welt bleibt bei 30 fps, der Hochskalier-Interrupt und der Speicherverkehr halbieren sich.
+            Manche Panels flimmern dabei oder bleiben schwarz.
+          </p>
+        </div>
+        <Switch label="Stromsparmodus" checked={ex.panel.eco} disabled={busy || ex.trialS >= 0} onchange={setEco} />
+      </div>
+    </Card>
 
-      <Card variant="outlined" class="wide">
-        <h2 class="card-title"><Icon name="history" size={20} />Ältere Version installieren (Vorschau)</h2>
-        <p>
-          <b>Achtung:</b> Zurück auf eine ältere Version hilft, wenn eine neue Version Probleme macht. Einstellungen, die die
-          ältere Version noch nicht kennt, können verloren gehen. Versionen vor 0.4.1 können nicht selbst von GitHub updaten.
-        </p>
-        {#if !gh}
-          <div class="actions">
-            <Button variant="tonal" icon="cloud_download" disabled={ghBusy} onclick={loadOld}>{ghBusy ? 'Lade …' : 'Versionen von GitHub laden'}</Button>
-          </div>
-        {:else if !gh.old?.length}
-          <p class="muted">Keine ältere Version ab 0.4.0 im Kanal {gh.ch === 'stable' ? 'Stabil' : 'Vorschau'} gefunden.</p>
-        {:else}
-          <ul class="list">
-            {#each gh.old as o (o.v)}
-              <li class="list-item">
-                <span class="lead"><Icon name="history" /></span>
-                <span class="text">
-                  <span class="headline">Pixelia {o.v}{o.pre ? ' (Vorschau)' : ''}</span>
-                  <span class="supporting tnum">{dateDe(o.date)} · {num(o.size / 1024)} KB</span>
-                </span>
-                <Button variant="text" disabled={!!s?.ota.busy || cmpVersion(o.v, parseFw(s?.v ?? '0').base) >= 0} onclick={() => installOld(o.v, o.size)}>Installieren</Button>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-        {#if ghMsg}<p class="err-text">{ghMsg}</p>{/if}
-      </Card>
+    <Card class="wide">
+      <h2 class="card-title"><Icon name="tune" size={20} />Panel-Timing</h2>
+      <p class="muted">
+        Pixeltakt und Austastzeiten des RGB-Panels in Takten (Sync-Impuls, Schwarzschulter hinten und vorn). Falsche Werte machen das Bild unruhig oder schwarz; jede Änderung läuft
+        deshalb erst {ex.trialNeed} s auf Probe. Standard: {num(ex.std.pclk / 1000, 1)} MHz, H {ex.std.hp}/{ex.std.hb}/{ex.std.hf}, V
+        {ex.std.vp}/{ex.std.vb}/{ex.std.vf} = {num(ex.std.hz, 1)} Hz.
+      </p>
+      <div class="fields">
+        <TextField label="Takt (MHz)" size={6} inputmode="decimal" bind:value={form.pclk} />
+        <TextField label="H Sync" size={6} inputmode="numeric" bind:value={form.hp} />
+        <TextField label="H hinten" size={6} inputmode="numeric" bind:value={form.hb} />
+        <TextField label="H vorn" size={6} inputmode="numeric" bind:value={form.hf} />
+        <TextField label="V Sync" size={6} inputmode="numeric" bind:value={form.vp} />
+        <TextField label="V hinten" size={6} inputmode="numeric" bind:value={form.vb} />
+        <TextField label="V vorn" size={6} inputmode="numeric" bind:value={form.vf} />
+      </div>
+      <div class="pols">
+        <span class="pol"><Switch label="H-Sync aktiv low" checked={ex.panel.hlow} disabled={busy || ex.trialS >= 0} onchange={(v) => setPol('hlow', v)} />H-Sync in Ruhe low</span>
+        <span class="pol"><Switch label="V-Sync aktiv low" checked={ex.panel.vlow} disabled={busy || ex.trialS >= 0} onchange={(v) => setPol('vlow', v)} />V-Sync in Ruhe low</span>
+        <span class="pol"><Switch label="Takt fallende Flanke" checked={ex.panel.neg} disabled={busy || ex.trialS >= 0} onchange={(v) => setPol('neg', v)} />Daten bei fallender Flanke</span>
+      </div>
+      <p class="tnum">
+        Ergibt {formHz ? `${num(formHz, 1)} Hz` : '–'}{ex.panel.eco ? ' (mit Stromsparmodus)' : ''} · läuft gerade: {num(ex.panel.hz, 1)} Hz, Bild der
+        Welt {ex.panel.swap}× gezeigt
+      </p>
+      <div class="actions">
+        <Button icon="tune" disabled={busy || ex.trialS >= 0} onclick={tryForm}>Ausprobieren</Button>
+        <Button variant="tonal" icon="restart_alt" disabled={busy || (same(ex.panel, ex.std) && same(ex.saved, ex.std))} onclick={() => act({ a: 'reset' }, 'Standardwerte gespeichert')}>
+          Standardwerte
+        </Button>
+      </div>
+      <p class="muted small">
+        Fluchtweg ohne Browser: Läuft das Bild nach dem Speichern nicht, Pixelia zweimal innerhalb einer Minute nach dem Start
+        vom Strom trennen. Der dritte Start nimmt die Standardwerte.
+      </p>
+    </Card>
+    {:else}
+    <Card variant="outlined" class="wide">
+      <h2 class="card-title"><Icon name="history" size={20} />Ältere Version installieren</h2>
+      <p>
+        <b>Achtung:</b> Zurück auf eine ältere Version hilft, wenn eine neue Version Probleme macht. Einstellungen, die die
+        ältere Version noch nicht kennt, können verloren gehen. Versionen vor 0.4.1 können nicht selbst von GitHub updaten.
+      </p>
+      {#if !gh}
+        <div class="actions">
+          <Button variant="tonal" icon="cloud_download" disabled={ghBusy} onclick={loadOld}>{ghBusy ? 'Lade …' : 'Versionen von GitHub laden'}</Button>
+        </div>
+      {:else if !gh.old?.length}
+        <p class="muted">Keine ältere Version ab 0.4.0 im Kanal {gh.ch === 'stable' ? 'Stabil' : 'Vorschau'} gefunden.</p>
+      {:else}
+        <ul class="list">
+          {#each gh.old as o (o.v)}
+            <li class="list-item">
+              <span class="lead"><Icon name="history" /></span>
+              <span class="text">
+                <span class="headline">Pixelia {o.v}{o.pre ? ' (Vorschau)' : ''}</span>
+                <span class="supporting tnum">{dateDe(o.date)} · {num(o.size / 1024)} KB</span>
+              </span>
+              <Button variant="text" disabled={!!s?.ota.busy || cmpVersion(o.v, parseFw(s?.v ?? '0').base) >= 0} onclick={() => installOld(o.v, o.size)}>Installieren</Button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+      {#if ghMsg}<p class="err-text">{ghMsg}</p>{/if}
+    </Card>
+    {/if}
+    {#if part === 'start'}
+      <div class="wide"><HubList groups={story} /></div>
     {/if}
   </div>
 {/if}
@@ -545,66 +453,13 @@
     display: flex;
     justify-content: space-between;
   }
-  .touch {
-    position: relative;
-    aspect-ratio: 5 / 3;
-    max-width: 480px;
-    margin: 12px 0;
-    border-radius: var(--md-sys-shape-corner-medium);
-    background: var(--md-sys-color-surface-container-highest);
-    outline: 2px dashed var(--md-sys-color-outline-variant);
-    overflow: hidden;
+  /* Auswahl als umbrechende Knöpfe (Ort, Übergang, Wetter) */
+  .choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
   }
-  .touch.live {
-    outline-color: var(--md-sys-color-primary);
-  }
-  .corner {
-    position: absolute;
-    width: 12.5%;
-    height: 20.8%;
-    background: color-mix(in srgb, var(--md-sys-color-outline) 25%, transparent);
-  }
-  .corner.hit {
-    background: color-mix(in srgb, var(--md-sys-color-primary) 55%, transparent);
-  }
-  .c0 {
-    left: 0;
-    top: 0;
-  }
-  .c1 {
-    right: 0;
-    top: 0;
-  }
-  .c2 {
-    left: 0;
-    bottom: 0;
-  }
-  .c3 {
-    right: 0;
-    bottom: 0;
-  }
-  .finger {
-    position: absolute;
-    width: 24px;
-    height: 24px;
-    margin: -12px 0 0 -12px;
-    border-radius: 50%;
-    border: 3px solid var(--md-sys-color-tertiary);
-    transition:
-      left 0.2s linear,
-      top 0.2s linear;
-  }
-  .finger.down {
-    background: var(--md-sys-color-tertiary);
-  }
-  .pic {
-    display: block;
-    width: 100%;
-    max-width: 800px;
-    aspect-ratio: 5 / 3;
-    margin: 12px 0 4px;
-    border-radius: var(--md-sys-shape-corner-medium);
-    image-rendering: pixelated;
-    background: #000;
+  p.wide {
+    margin: 0;
   }
 </style>

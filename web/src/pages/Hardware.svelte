@@ -1,9 +1,15 @@
 <script lang="ts">
-  // Seite „Hardware“ (Projektplan Kapitel 8): vom Gerät selbst ausgelesen über /api/system
+  // Seite „Gerät und Speicher“ (seit 0.5.4 mit der früheren Seite Info): Laufzeit, Speicherbalken, Warnung bei falscher
+  // Partitionierung (Projektplan 4.12), Hardware (Projektplan Kapitel 8), alles vom Gerät über /api/system
   import { onMount } from 'svelte';
-  import { Card, Chip, Icon, IconButton, LoadingIndicator } from '../lib/m3';
+  import { Card, Chip, Icon, IconButton, LoadingIndicator, WavyProgress } from '../lib/m3';
+  import { device } from '../lib/status.svelte';
   import { get, type SystemInfo } from '../lib/api';
-  import { kb, num } from '../lib/format';
+  import { duration, kb, num } from '../lib/format';
+
+  const APP_PART_MIN = 6 * 1024 * 1024; // partitions.csv: ota_0/ota_1 je 6 MB
+  const APP_BUDGET = 0.75; // CLAUDE.md: Firmware ≤ 75 % der App-Partition
+  const s = $derived(device.data);
 
   let sys = $state<SystemInfo | null>(null);
   let failed = $state(false);
@@ -19,6 +25,19 @@
     return () => clearInterval(t);
   });
 
+  const parts = $derived(sys?.partitions ?? []);
+  const storage = $derived(parts.find((p) => p.type === 'littlefs' || p.label === 'storage'));
+  const nvsPart = $derived(parts.find((p) => p.type === 'nvs'));
+  const apps = $derived(parts.filter((p) => p.type === 'ota' || p.type === 'app'));
+  const partWarn = $derived.by(() => {
+    if (!sys) return '';
+    const w: string[] = [];
+    if (sys.flash.mb < 16) w.push(`Flash nur ${sys.flash.mb} MB statt 16 MB`);
+    if (apps.length < 2) w.push('nur eine App-Partition (Updates per WLAN brauchen zwei)');
+    if (sys.appPart && sys.appPart < APP_PART_MIN) w.push(`App-Partition ${kb(sys.appPart / 1024)} statt 6 MB`);
+    return w.join(', ');
+  });
+  const mb = (bytes: number) => kb(bytes / 1024);
   const hex = (v: number) => '0x' + v.toString(16).toUpperCase().padStart(6, '0');
   const size = (b: number) => (b >= 1024 * 1024 ? `${num(b / 1048576, 1)} MB` : `${num(b / 1024)} KB`);
 
@@ -60,6 +79,76 @@
           </div>
         </div>
       </div>
+    </Card>
+
+    {#if partWarn}
+      <Card variant="error" class="wide">
+        <div class="alert">
+          <Icon name="warning" />
+          <div>
+            <strong>Partitionierung passt nicht</strong>
+            <p>{partWarn}. Abhilfe: einmal über den Web-Flasher neu installieren (Factory-Image).</p>
+          </div>
+        </div>
+      </Card>
+    {/if}
+
+    {#if s}
+    <Card>
+      <h2 class="card-title"><Icon name="schedule" size={20} />Laufzeit und Zeit</h2>
+      <div class="big tnum">{duration(s.uptime)}</div>
+      <div class="muted">seit dem letzten Start (Nr. {s.diag.boot}, {s.diag.reset})</div>
+      <dl class="kv gap">
+        <dt>Uhrzeit</dt>
+        <dd class="tnum">{s.time.valid ? s.time.local : 'noch nicht gestellt'}</dd>
+        <dt>Zeitzone</dt>
+        <dd>{sys?.time.tz ?? 'Europa/Berlin'}</dd>
+        <dt>Zeitabgleich (NTP)</dt>
+        <dd class="tnum">{sys ? (sys.time.syncs ? `${sys.time.syncs}× seit dem Start` : 'noch keiner') : '…'}</dd>
+      </dl>
+    </Card>
+    {/if}
+
+    <Card class="wide">
+      <h2 class="card-title"><Icon name="storage" size={20} />Speicher</h2>
+      {#if s}
+        <div class="meters">
+          <div class="meter-row">
+            <span class="head"><span>Programm (App-Partition)</span><span class="tnum">{mb(sys.appSize)} von {mb(sys.appPart)}</span></span>
+            <WavyProgress wavy={false} value={sys.appSize / sys.appPart} tone={sys.appSize / sys.appPart > APP_BUDGET ? 'error' : 'primary'} label="Programm" />
+            <span class="small muted tnum">{num((sys.appSize / sys.appPart) * 100)} % belegt · Budget {APP_BUDGET * 100} %</span>
+          </div>
+          <div class="meter-row">
+            <span class="head"><span>RAM intern</span><span class="tnum">{kb(s.perf.ram)} frei von {kb(sys.heap.intTotal)}</span></span>
+            <WavyProgress wavy={false} value={1 - s.perf.ram / sys.heap.intTotal} label="RAM intern" />
+            <span class="small muted tnum">Tiefstwert {kb(s.perf.ramMin)} frei · größter Block {kb(s.perf.ramBlk)}</span>
+          </div>
+          <div class="meter-row">
+            <span class="head"><span>PSRAM</span><span class="tnum">{kb(s.perf.psram)} frei von {kb(sys.heap.psramTotal)}</span></span>
+            <WavyProgress wavy={false} value={1 - s.perf.psram / sys.heap.psramTotal} tone="tertiary" label="PSRAM" />
+            <span class="small muted tnum">Tiefstwert {kb(s.perf.psramMin)} frei</span>
+          </div>
+          <div class="meter-row">
+            <span class="head"><span>Einstellungen (NVS{nvsPart ? `, ${mb(nvsPart.size)}` : ''})</span><span class="tnum">{sys.nvs.used} von {sys.nvs.total} Einträgen</span></span>
+            <WavyProgress wavy={false} value={sys.nvs.used / (sys.nvs.total || 1)} tone="tertiary" label="NVS" />
+          </div>
+          {#if storage}
+            <div class="meter-row">
+              <span class="head"><span>Dateisystem „{storage.label}“</span><span class="tnum">{mb(storage.size)}</span></span>
+              <WavyProgress wavy={false} value={0} label="Dateisystem" />
+              <span class="small muted">noch ungenutzt (für Welten-Daten vorgesehen)</span>
+            </div>
+          {/if}
+        </div>
+        <div class="chips gap">
+          {#each apps as p (p.label)}
+            <Chip tone={p.running ? 'primary' : 'neutral'} icon={p.running ? 'check_circle' : undefined}>
+              <span class="tnum">{p.label}: {p.v || 'leer'}{p.running ? ' (läuft)' : ''}{p.nextBoot && !p.running ? ' (nächster Start)' : ''}</span>
+            </Chip>
+          {/each}
+          <Chip><span class="tnum">Flash {sys.flash.mb} MB</span></Chip>
+        </div>
+      {/if}
     </Card>
 
     <Card>
@@ -273,5 +362,24 @@
   }
   .num {
     text-align: right;
+  }
+  .gap {
+    margin-top: 16px;
+  }
+  .meters {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+    column-gap: 32px;
+  }
+  .alert {
+    display: flex;
+    gap: 16px;
+  }
+  .alert p {
+    margin: 4px 0 0;
+  }
+  .alert strong {
+    font: var(--md-sys-typescale-title-medium);
+    font-weight: 650;
   }
 </style>

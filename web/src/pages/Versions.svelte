@@ -1,6 +1,6 @@
 <script lang="ts">
-  // Seite „Versionsverlauf“: alle Versionen aus dem in die Firmware eingebetteten CHANGELOG.json als Timeline,
-  // die installierte markiert. Die neuesten drei und die installierte sind aufgeklappt.
+  // Seite „Versionsverlauf“: alle Versionen aus dem in die Firmware eingebetteten CHANGELOG.json als Timeline, die
+  // installierte markiert. Seit 0.5.4 nur die Kurzfassung; aufgeklappt sind die neueste und die installierte Version.
   import { onMount } from 'svelte';
   import { Button, Card, Chip, Icon, LoadingIndicator } from '../lib/m3';
   import ChangeEntry from '../lib/ChangeEntry.svelte';
@@ -28,7 +28,7 @@
   $effect(() => {
     if (seeded || !log || !fw) return;
     seeded = true;
-    open = Object.fromEntries(log.map((e, k) => [e.v, k < 3 || e.v === current]));
+    open = Object.fromEntries(log.map((e, k) => [e.v, k === 0 || e.v === current]));
   });
 
   function markOf(e: Entry): string {
@@ -45,8 +45,8 @@
       <span class="end"><Chip tone="primary" icon="check_circle"><span class="tnum">installiert: {fw || '…'}</span></Chip></span>
     </h2>
     <p class="muted">
-      Was sich in jeder Version geändert hat, direkt aus der installierten Firmware. Neuere Versionen stehen auf GitHub;
-      vor einem Update zeigt die Seite System, was die gewählte Datei Neues bringt.
+      Was sich in jeder Version geändert hat, kurz gefasst. Alle Details mit Messwerten stehen bei jeder Version auf
+      GitHub; vor einem Update zeigt die Seite Update, was die neue Version bringt.
     </p>
     <div class="actions">
       <Button variant="tonal" icon="open_in_new" href="{REPO_URL}/releases" target="_blank" rel="noopener">Releases auf GitHub</Button>

@@ -102,6 +102,10 @@
     ]
       .filter(Boolean)
       .join(' · ');
+
+  // Neustarts: die letzten drei, der Rest aufklappbar (Wunsch des Users, 0.5.4)
+  const SHOWN = 3;
+  let allResets = $state(false);
 </script>
 
 {#if !s}
@@ -230,7 +234,7 @@
       </h2>
       {#if resets?.entries.length}
         <ul class="list">
-          {#each resets.entries as r (r.boot)}
+          {#each allResets ? resets.entries : resets.entries.slice(0, SHOWN) as r (r.boot)}
             {@const k = kind(r)}
             <li class="list-item top">
               <span class="lead" class:bad={k.bad}><Icon name={k.icon} size={20} /></span>
@@ -247,6 +251,13 @@
             </li>
           {/each}
         </ul>
+        {#if resets.entries.length > SHOWN}
+          <div class="actions">
+            <Button variant="text" icon="keyboard_arrow_down" onclick={() => (allResets = !allResets)}>
+              {allResets ? 'Weniger zeigen' : `Alle ${resets.entries.length} Neustarts zeigen`}
+            </Button>
+          </div>
+        {/if}
       {:else}
         <p class="muted">{resets ? 'Keine Einträge.' : loading ? 'Lade …' : 'Nicht abrufbar.'}</p>
       {/if}

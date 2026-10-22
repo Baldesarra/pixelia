@@ -92,11 +92,17 @@ Eine Datei `app.js` ohne Code-Splitting: jede Datei bräuchte einen eigenen URI-
 
 | Datei | Aufgabe |
 |---|---|
-| `src/main.ts`, `src/App.svelte` | Start, Rahmen: Navigation (Handy 5 Ziele + „Mehr“, Schiene alle), obere Leiste, Hash-Routen, Setup-Modus → `#/wlan` |
-| `src/pages/` | `Overview` (Übersicht), `Wifi` (`#/wlan`), `System` (Update von GitHub mit Abbrechen und Hintergrundprüfung, aus Datei, je mit Änderungsvorschau), `Log`, `Info`, `Hardware`, `Devices` (`#/geraete`), `Appearance` (`#/darstellung`), `Versions` (`#/versionen`, Timeline), `Diagnostics` (`#/diagnose`, Absturzbericht, Reset-Historie), `Live` (`#/live`, Vorschau mit Screenshot, Leistung, Task-Liste auf Knopfdruck), `Experimental` (`#/experimentell`, Probe, Stromsparmodus, Displaytests, Touch-Test, Panel-Timing, ältere Version), `More` (`#/mehr`) |
+| `src/main.ts`, `src/App.svelte` | Start, Rahmen (seit 0.5.4): Navigation mit vier Zielen Welt, Übersicht, System, Einstellungen (Leiste unten, in der breiten Ansicht Schiene), obere Leiste mit Zurück-Pfeil auf Unterseiten (`parent`), Hash-Routen inkl. `#/experimentell/orte`, Weiterleitung alter Adressen (`info`, `hardware`, `mehr`), Setup-Modus → `#/wlan`, 7× Logo → „So entstand Pixelia“ |
+| `src/pages/` (Ziele) | `World` (`#/welt`, Ausblick), `Overview` (Übersicht mit „Neu in dieser Version“), `SystemHub` (`#/system`: Wartung, Technik, Labor), `SettingsHub` (`#/einstellungen`: Verbindung, Gerät, Oberfläche) |
+| `src/pages/` (System) | `Update` (`#/update`, GitHub und Datei mit Kurzfassung), `Versions` (`#/versionen`), `Backup` (`#/sicherung`), `Restart` (`#/neustart`), `Live` (`#/live`, Leistung und Live-Bild), `Log`, `Diagnostics` (`#/diagnose`, drei Neustarts, Rest aufklappbar), `Hardware` (`#/geraet`, Gerät und Speicher, früher Info + Hardware), `Tests` (`#/tests`, Gerätetests ohne Schalter), `Experimental` (`#/experimentell[/orte|/panel|/version|/geschichte]`) |
+| `src/pages/` (Einstellungen) | `Wifi` (`#/wlan`), `Devices` (`#/geraete`), `Display` (`#/display`), `Protection` (`#/schutz`), `Appearance` (`#/darstellung`, Farben auf dem Gerät, Ansicht/Schrift/Startseite/Bewegung je Browser) |
+| `src/lib/HubList.svelte` | Liste mit Kategorien (Gruppentitel, Kachel-Zeilen mit Symbol, Zustand, Pfeil); in der breiten Ansicht Gruppen nebeneinander |
+| `src/lib/prefs.svelte.ts` | Darstellung je Browser (localStorage `pixelia.prefs`): `wide`, `font`, `reduce`, `start`, `seen` (Karte „Neu in dieser Version“); setzt `html.wide`, `html.reduce`, `data-font` |
+| `src/lib/exp.svelte.ts` | Zustand von `/api/exp` für Experimentell und Gerätetests (Laden, Abfrage-Schleife, Aktionen) |
+| `src/lib/story.ts`, `Story.svelte` | „So entstand Pixelia“: Zeitleiste (Daten in `story.ts`, neue Stände unten anhängen), Skizzen-Links auf GitHub Pages; als Blatt oder Seite (`inline`) |
 | `src/lib/picture.ts` | eigenes Testbild (seit 0.5.0): Bilddatei dekodieren, pixelgenau auf 400 × 240, Farbtiefe bis ≤ 240 Farben senken; `post()` schickt auch einen Blob |
 | `src/lib/Sparkline.svelte` | kleiner Verlauf als SVG (eine oder zwei Reihen, Grenzlinie), für die Leistungsanzeige |
-| `src/lib/changelog.ts`, `ChangeEntry.svelte` | Versionsverlauf: `/api/changelog`, Block aus einer .bin lesen (`logFromBin`: Marker, CRC, `DecompressionStream`), Release-Notes von GitHub als Eintrag (`entryFromNotes`), Versionsvergleich (`cmpVersion`, `parseFw`, `installedEntry`); Anzeige eines Eintrags mit allen Abschnitten |
+| `src/lib/changelog.ts`, `ChangeEntry.svelte` | Versionsverlauf (seit 0.5.4 nur Kurzfassung `k`: Version als Chip, Abschnitte mit „**Stichwort:** Satz“, Link zu GitHub; ältere Einträge mit allen Abschnitten): `/api/changelog`, Block aus einer .bin lesen (`logFromBin`: Marker, CRC, `DecompressionStream`), Release-Notes von GitHub als Eintrag (`entryFromNotes`, liest „Kurz gesagt“ als `k`), Versionsvergleich (`cmpVersion`, `parseFw`, `installedEntry`); Anzeige eines Eintrags mit allen Abschnitten |
 | `src/lib/status.svelte.ts` | Live-Status: WebSocket `/ws`, Rückfall auf `/api/status`, Typ `Status` (= `status_json()` in web.cpp); meldet Geräte-ID und Seite |
 | `src/lib/api.ts` | `get`/`post` (Formulardaten; bei 401 einmal PIN abfragen und wiederholen, `quiet` ohne Abfrage) und Antworttypen der API (`SystemInfo`, `ClientList`, `Backup` …) |
 | `src/lib/auth.svelte.ts` | Anmeldung: Token im localStorage (Kopf `X-Pixelia-Token`), PIN-Dialog, `ensure()` vor Uploads |
@@ -106,8 +112,8 @@ Eine Datei `app.js` ohne Code-Splitting: jede Datei bräuchte einen eigenen URI-
 | `src/lib/page.css` | globale Seiten-Bausteine: `.page-grid`, `.card-title`, `.kv`, `.list`/`.list-item`, `.meter-row` |
 | `src/lib/format.ts`, `Logo.svelte`, `SignalBars.svelte` | Anzeige-Hilfen (Zahlen, Dauer, Signal), Pixelia-Zeichen, WLAN-Balken |
 | `src/lib/m3/` | M3-Expressive-Bibliothek: `tokens.css` (Formen, Typo, Federn), `theme.svelte.ts` (dynamische Farben), `Button`, `IconButton`, `ButtonGroup`, `Card`, `Chip`, `Navigation`, `WavyProgress`, `CircularProgress`, `LoadingIndicator`, `TextField`, `Slider`, `Switch`, `Dialog` (`confirmDialog()`, `promptDialog()` mit Prüfung), `shapes.ts`, `Icon`; `Navigation` mit Punkt (`badge`) |
-| `src/lib/m3/icon-names.ts` | Liste der benutzten Material Symbols; nur diese bettet das Vite-Plugin in `vite.config.ts` ein |
-| `src/assets/roboto-flex-pixelia.woff2` | reduzierte Schrift (aus `tools/font_subset.py`, im Repo) |
+| `src/lib/m3/icon-names.ts` | Liste der benutzten Material Symbols; nur diese bettet das Vite-Plugin in `vite.config.ts` ein (seit 0.5.4 Pfade auf Raster 240 gerundet, `compactPath`) |
+| `src/assets/roboto-flex-pixelia.woff2` | reduzierte Schrift (aus `tools/font_subset.py`, im Repo; seit 0.5.4 wght 400–800, wdth 100–120, 21 KB) |
 
 ## Tasks und Kerne
 

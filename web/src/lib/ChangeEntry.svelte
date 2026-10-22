@@ -1,8 +1,10 @@
 <script lang="ts">
-  // Ein Eintrag des Versionsverlaufs: Kopf (Version, Titel, Datum, Markierung) und alle Abschnitte mit Stichpunkten.
-  // Der Bereich vor dem Doppelpunkt („WLAN: …“) wird als kleines Etikett gezeigt. Zugeklappt nur der Kopf mit Zahlen.
+  // Ein Eintrag des Versionsverlaufs (seit 0.5.4 nach Vorbild des Users): Kopf mit der Version als Chip, daneben Titel
+  // und Unterzeile, darunter die Abschnitte Neu, Verbessert, Behoben, Entfernt als Etiketten mit Stichpunkten
+  // „**Stichwort:** Satz“. Gezeigt wird die Kurzfassung (k) mit dem Link „Alle Details auf GitHub“; Einträge ohne
+  // Kurzfassung (Update-Dateien und Releases vor 0.5.4) zeigen wie früher alle Abschnitte.
   import { Icon } from './m3';
-  import { dateDe, REPO_URL, SECTIONS, type ChangeEntry } from './changelog';
+  import { dateDe, releaseUrl, REPO_URL, SECTIONS, type ChangeEntry } from './changelog';
 
   let {
     entry,
@@ -18,31 +20,29 @@
     toggle?: boolean;
   } = $props();
 
-  const sections = $derived(SECTIONS.map((s) => ({ ...s, items: entry[s.key] ?? [] })).filter((s) => s.items.length));
-  const count = $derived(sections.reduce((n, s) => n + s.items.length, 0));
+  const k = $derived(entry.k);
+  const src = $derived((k ?? entry) as Record<string, string[] | undefined>);
+  const sections = $derived(
+    (k ? SECTIONS.slice(0, 4) : SECTIONS).map((s) => ({ ...s, items: src[s.key] ?? [] })).filter((s) => s.items.length),
+  );
+  const sub = $derived([k?.s ?? entry.s, entry.d ? dateDe(entry.d) : 'in Arbeit'].filter(Boolean).join(' · '));
   const split = (item: string) => {
     const i = item.indexOf(': ');
-    return i > 0 && i < 24 ? [item.slice(0, i), item.slice(i + 2)] : ['', item];
+    return i > 0 && i < 32 ? [item.slice(0, i), item.slice(i + 2)] : ['', item];
   };
 </script>
 
-<article class="entry" class:open>
+<article class="entry">
   {#snippet head()}
+    <span class="v tnum">{entry.v}</span>
     <span class="title">
-      <span class="v tnum">{entry.v}</span>
-      {#if entry.t}<span class="t">{entry.t}</span>{/if}
-      {#if mark}<span class="mark">{mark}</span>{/if}
+      <span class="t">{entry.t || `Pixelia ${entry.v}`}{#if mark}<span class="mark">{mark}</span>{/if}</span>
+      <span class="sub">{sub}</span>
     </span>
-    <span class="sub">{entry.d ? dateDe(entry.d) : 'in Arbeit'}{entry.s ? ` · ${entry.s}` : ''}</span>
-    {#if !open}
-      <span class="counts" aria-label="{count} Änderungen">
-        {#each sections as s (s.key)}<span class="cnt {s.key}">{s.items.length} {s.label}</span>{/each}
-      </span>
-    {/if}
   {/snippet}
   {#if toggle}
     <button class="head" type="button" aria-expanded={open} onclick={() => (open = !open)}>
-      {@render head()}<span class="chev"><Icon name="keyboard_arrow_down" /></span>
+      {@render head()}<span class="chev" class:up={open}><Icon name="keyboard_arrow_down" /></span>
     </button>
   {:else}
     <div class="head">{@render head()}</div>
@@ -51,19 +51,21 @@
   {#if open}
     {#each sections as s (s.key)}
       <section class="sec {s.key}">
-        <h4><Icon name={s.icon} size={18} />{s.label}</h4>
+        <h4><Icon name={s.icon} size={16} />{s.label}</h4>
         <ul>
-          {#each s.items as item, k (k)}
+          {#each s.items as item, n (n)}
             {@const [area, text] = split(item)}
-            <li>{#if area}<span class="area">{area}</span>{/if}{text}</li>
+            <li>{#if area}<b>{area}:</b>{' '}{/if}{text}</li>
           {/each}
         </ul>
       </section>
     {/each}
-    {#if entry.pr?.length}
+    {#if k}
+      <a class="more" href={releaseUrl(entry)} target="_blank" rel="noopener">Alle Details auf GitHub<Icon name="open_in_new" size={16} /></a>
+    {:else if entry.pr?.length}
       <p class="prs">
         Pull Requests:
-        {#each entry.pr as n, k (n)}{k ? ', ' : ' '}<a href="{REPO_URL}/pull/{n}" target="_blank" rel="noopener">#{n}</a>{/each}
+        {#each entry.pr as n, i (n)}{i ? ', ' : ' '}<a href="{REPO_URL}/pull/{n}" target="_blank" rel="noopener">#{n}</a>{/each}
       </p>
     {/if}
   {/if}
@@ -71,11 +73,11 @@
 
 <style>
   .head {
-    position: relative;
-    display: grid;
-    gap: 2px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
     width: 100%;
-    padding: 0 40px 0 0;
+    padding: 0;
     border: 0;
     background: none;
     color: inherit;
@@ -85,75 +87,72 @@
   button.head {
     cursor: pointer;
   }
-  .title {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 4px 10px;
-  }
   .v {
-    font: var(--md-sys-typescale-title-large);
-    font-weight: 700;
-    font-stretch: 110%;
-    color: var(--md-sys-color-primary);
+    flex: none;
+    padding: 8px 12px;
+    border-radius: var(--md-sys-shape-corner-medium);
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+    font: var(--md-sys-typescale-title-medium);
+    font-weight: 750;
+  }
+  .title {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    gap: 2px;
   }
   .t {
     font: var(--md-sys-typescale-title-medium);
-    font-weight: 600;
+    font-weight: 700;
+    font-stretch: 105%;
   }
   .mark {
-    align-self: center;
-    padding: 2px 10px;
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 8px;
     border-radius: var(--md-sys-shape-corner-full);
     background: var(--md-sys-color-primary);
     color: var(--md-sys-color-on-primary);
-    font: var(--md-sys-typescale-label-medium);
+    font: var(--md-sys-typescale-label-small);
     font-weight: 650;
+    vertical-align: 2px;
   }
   .sub {
     color: var(--md-sys-color-on-surface-variant);
     font: var(--md-sys-typescale-body-medium);
   }
   .chev {
-    position: absolute;
-    top: 4px;
-    right: 4px;
     display: grid;
     color: var(--md-sys-color-on-surface-variant);
     transition: transform var(--m3-spatial-fast);
   }
-  .open .chev {
+  .chev.up {
     transform: rotate(180deg);
   }
-  /* Farbe je Abschnitt: --c Akzent (Linie, Punkte), --bg/--fg Etikett. Neu = Primärfarbe kräftig (M3 Expressive),
-     Verbessert = Tertiär, Behoben = Grün, Entfernt = Rot, Geprüft = Sekundär, Hinweise = Bernstein */
+  /* Farbe je Abschnitt: Neu = Primärfarbe kräftig (M3 Expressive), Verbessert = Tertiär, Behoben = Grün,
+     Entfernt = Rot, Geprüft = Sekundär, Hinweise = Bernstein */
   .n {
-    --c: var(--md-sys-color-primary);
     --bg: var(--md-sys-color-primary);
     --fg: var(--md-sys-color-on-primary);
   }
   .i {
-    --c: var(--md-sys-color-tertiary);
     --bg: var(--md-sys-color-tertiary-container);
     --fg: var(--md-sys-color-on-tertiary-container);
   }
   .f {
-    --c: var(--pixelia-color-success);
     --bg: var(--pixelia-color-success-container);
     --fg: var(--pixelia-color-on-success-container);
   }
   .r {
-    --c: var(--md-sys-color-error);
     --bg: var(--md-sys-color-error-container);
     --fg: var(--md-sys-color-on-error-container);
   }
   .g {
-    --c: var(--md-sys-color-secondary);
     --bg: var(--md-sys-color-secondary-container);
     --fg: var(--md-sys-color-on-secondary-container);
   }
   .h {
-    --c: var(--pixelia-color-warning);
     --bg: var(--pixelia-color-warning-container);
     --fg: var(--pixelia-color-on-warning-container);
   }
@@ -165,60 +164,43 @@
     align-items: center;
     gap: 6px;
     margin: 0 0 8px;
-    padding: 4px 12px 4px 8px;
+    padding: 3px 12px 3px 8px;
     border-radius: var(--md-sys-shape-corner-full);
     background: var(--bg);
     color: var(--fg);
-    font: var(--md-sys-typescale-label-large);
-    font-weight: 650;
+    font: var(--md-sys-typescale-label-medium);
+    font-weight: 750;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
   ul {
     display: grid;
-    gap: 6px;
-    margin: 0 0 0 10px;
-    padding: 2px 0 2px 12px;
-    list-style: none;
-    border-left: 2px solid color-mix(in srgb, var(--c) 45%, transparent);
-  }
-  .counts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 6px;
-  }
-  .cnt {
-    padding: 1px 8px;
-    border-radius: var(--md-sys-shape-corner-full);
-    background: var(--bg);
-    color: var(--fg);
-    font: var(--md-sys-typescale-label-medium);
-    font-weight: 600;
+    gap: 8px;
+    margin: 0;
+    padding-left: 22px;
   }
   li {
-    position: relative;
-    padding-left: 14px;
+    font: var(--md-sys-typescale-body-large);
     line-height: 1.45;
   }
-  li::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0.62em;
-    width: 5px;
-    height: 5px;
-    border-radius: 2px;
-    background: var(--c);
-  }
-  .area {
-    display: inline-block;
-    margin-right: 6px;
-    padding: 0 6px;
-    border-radius: var(--md-sys-shape-corner-extra-small);
-    background: var(--md-sys-color-surface-container-highest);
+  li::marker {
     color: var(--md-sys-color-on-surface-variant);
-    font: var(--md-sys-typescale-label-medium);
-    font-weight: 600;
-    line-height: 1.6;
+  }
+  li b {
+    font-weight: 700;
+  }
+  .more {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 16px;
+    color: var(--md-sys-color-primary);
+    font: var(--md-sys-typescale-label-large);
+    font-weight: 650;
+    text-decoration: none;
+  }
+  .more:hover {
+    text-decoration: underline;
   }
   .prs {
     margin: 16px 0 0;

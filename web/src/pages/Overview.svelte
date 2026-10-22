@@ -1,14 +1,28 @@
 <script lang="ts">
-  // Seite „Übersicht“: Live-Status des Geräts (WebSocket /ws, 1/s)
-  import { Button, Card, Chip, CircularProgress, Icon, LoadingIndicator, WavyProgress } from '../lib/m3';
+  // Seite „Übersicht“: Live-Status des Geräts (WebSocket /ws, 1/s); seit 0.5.4 mit Hinweis auf eine neue Version und
+  // der Karte „Neu in dieser Version“ (Kurzfassung aus dem Versionsverlauf, je Version einmal wegklickbar)
+  import { onMount } from 'svelte';
+  import { Button, Card, Chip, CircularProgress, Icon, IconButton, LoadingIndicator, WavyProgress } from '../lib/m3';
   import Logo from '../lib/Logo.svelte';
   import { device } from '../lib/status.svelte';
+  import { prefs } from '../lib/prefs.svelte';
+  import { installedEntry, installedLog, type ChangeEntry } from '../lib/changelog';
+  import ChangeEntryView from '../lib/ChangeEntry.svelte';
   import { duration, kb, num, signal, WIFI_STATE } from '../lib/format';
 
   const s = $derived(device.data);
   const sig = $derived(signal(s?.wifi.rssi ?? 0));
   const RAM_BUDGET_KB = 60; // CLAUDE.md: freier interner RAM ≥ 60 KB
   const FRAME_BUDGET_MS = 20; // Logik + Rendern ≤ 20 ms pro Bild
+
+  let log = $state<ChangeEntry[] | null>(null);
+  onMount(() => void installedLog().then((l) => (log = l), () => null));
+  const news = $derived.by(() => {
+    if (!log || !s) return null;
+    const v = installedEntry(log, s.v);
+    const e = log.find((x) => x.v === v);
+    return e?.k && prefs.seen !== e.v ? e : null;
+  });
 </script>
 
 {#if !s}
@@ -45,14 +59,37 @@
         </div>
       </Card>
     {/if}
+    {#if news}
+      <Card variant="outlined" class="wide">
+        <div class="news-head">
+          <Icon name="auto_stories" />
+          <strong class="fill">Neu in dieser Version</strong>
+          <IconButton icon="close" label="Gelesen" onclick={() => (prefs.seen = news!.v)} />
+        </div>
+        <ChangeEntryView entry={news} />
+      </Card>
+    {/if}
+    {#if s.ota.avail && !s.ota.busy}
+      <Card variant="primary" class="wide">
+        <div class="alert">
+          <Icon name="system_update_alt" />
+          <div class="fill">
+            <strong>Neue Version {s.ota.avail} verfügbar</strong>
+            <p>Installiert wird nur auf Knopfdruck.</p>
+          </div>
+          <Button variant="filled" href="#/update">Ansehen</Button>
+        </div>
+      </Card>
+    {/if}
     {#if s.diag.crash}
       <Card variant="error" class="wide">
         <div class="alert">
           <Icon name="bug_report" />
-          <div>
+          <div class="fill">
             <strong>Absturzbericht vorhanden</strong>
             <p>Task {s.diag.crash.task}: {s.diag.crash.reason} (Version {s.diag.crash.v})</p>
           </div>
+          <Button variant="tonal" href="#/diagnose">Ansehen</Button>
         </div>
       </Card>
     {/if}
@@ -205,6 +242,17 @@
     color: var(--md-sys-color-on-surface-variant);
     font: var(--md-sys-typescale-title-medium);
   }
+  .news-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: -4px -8px 16px 0;
+    color: var(--md-sys-color-primary);
+  }
+  .news-head strong {
+    font: var(--md-sys-typescale-title-medium);
+    font-weight: 650;
+  }
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
@@ -223,7 +271,7 @@
   .name {
     font: var(--md-sys-typescale-display-medium);
     font-weight: 800;
-    font-stretch: 118%;
+    font-stretch: 120%;
     letter-spacing: -0.5px;
   }
   .meta {
