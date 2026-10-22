@@ -53,13 +53,32 @@
       "Web: Versionsverlauf zeigt Versionen ohne Datum nur, wenn sie installiert sind; „Installiert“ über dem Titel, am Handy (≤ 480 px) Versions-Chip in eigener Zeile",
       "Web: Diagnose zeigt die letzten drei Neustarts, der Rest ist aufklappbar; Testorte in vier Karten, Auswahl als umbrechende Knöpfe (passte am Handy nicht in die Breite)",
       "Werkzeuge: web_screens.mjs speichert Unterseiten (#/a/b) als a-b.png",
-      "Web: Knöpfe gleich breit (page.css); Update-Karte neu: Installieren unter Suchen, Banner orange alt → neu bzw. grün aktuell, Neuerungen nur neuerer Versionen, Datei und Suche unten"
+      "Web: Knöpfe und Auswahlgruppen gleich breit (page.css, ButtonGroup ohne 480 px); Update-Karte: Installieren unter Suchen, Banner alt → neu bzw. aktuell, Neuerungen, Datei und Suche unten"
     ],
     "f": [
       "Web: Oberfläche lädt nach einer neuen Firmware-Version selbst neu; unbekannte Felder der Farbwahl bleiben beim Speichern erhalten (eine alte Seite setzte das Design zurück)",
       "Werkzeuge: release_notes.py --check sortiert Vorabversionen nach Zahl (beta.10 nach beta.9), wie Firmware und Oberfläche",
       "Web: Fehler der neuen Oberfläche behoben: Rückblick schloss durch weitere Tipper sofort (jetzt 2 s Sperre), Karten am Handy zu breit (.page-grid min-width 0), „Live“ fehlte auf Unterseiten"
     ]
+  },
+  {
+    "v": "0.5.4-beta.14",
+    "d": "2026-10-22",
+    "t": "Auswahl so breit wie die Knöpfe (Vorschau)",
+    "s": "Vorabversion: Auswahlgruppen füllen die Karte auch am PC",
+    "k": {
+      "s": "Vorabversion: Auswahl so breit wie die Knöpfe",
+      "i": [
+        "Auswahl: Gruppen wie „Stabil | Vorschau“ oder „Hell | Dunkel“ sind auch am PC so breit wie die Knöpfe darunter"
+      ]
+    },
+    "i": [
+      "Web: ButtonGroup ohne max-width 480 px (war in der 640-px-Spalte schmaler als die vollbreiten Knöpfe)"
+    ],
+    "h": [
+      "Doku: Vorabversion zum Ausprobieren, erscheint nur im Kanal Vorschau"
+    ],
+    "pr": [34]
   },
   {
     "v": "0.5.4-beta.13",
