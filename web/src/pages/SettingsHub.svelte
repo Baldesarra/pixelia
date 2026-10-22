@@ -17,7 +17,7 @@
       title: 'Verbindung',
       items: [
         { href: '#/wlan', icon: 'wifi', title: 'WLAN', sub: wifiSub, tone: s?.wifi.ap ? 'error' : undefined },
-        { href: '#/geraete', icon: 'devices', title: 'Verbundene Geräte', sub: 'Welche Browser auf Pixelia zugreifen' },
+        { href: '#/geraete', icon: 'devices', title: 'Verbundene Geräte', sub: 'Browser mit Zugriff' },
       ],
     },
     {

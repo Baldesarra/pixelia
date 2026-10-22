@@ -49,13 +49,12 @@
           Display), dann öffnet sich die Einrichtung.
         </p>
       {:else}
-        <p class="muted">Läuft seit {duration(s.uptime)}. Beim Neustart bleiben Einstellungen und WLAN-Netze erhalten.</p>
+        <p class="muted">Einstellungen und WLAN bleiben erhalten.</p>
         <div class="actions">
           <Button class="danger" icon="restart_alt" onclick={reboot}>Neu starten</Button>
         </div>
         <p class="muted">
-          Der Werksreset löscht WLAN-Netze, Einstellungen, Farbwahl, Gerätenamen und PIN. Startzähler und Neustart-Historie
-          bleiben für die Diagnose.
+          Löscht WLAN-Netze, Einstellungen, Farben, Gerätenamen und PIN. Die Neustart-Historie bleibt für die Diagnose.
         </p>
         <div class="actions">
           <Button variant="outlined" class="danger" icon="delete_forever" onclick={factoryReset}>Werksreset …</Button>

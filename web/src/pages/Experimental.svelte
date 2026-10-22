@@ -184,8 +184,7 @@
           <div class="grow">
             <h2 class="card-title">Experimentell</h2>
             <p>
-              Vorläufige Funktionen zum Ausprobieren: Testorte der Engine, Panel-Werte und ältere Versionen. Standard aus,
-              die Wahl bleibt auf dem Gerät gespeichert. Gerätetests gibt es ohne Schalter unter System → Labor.
+              Vorläufige Funktionen zum Ausprobieren. Gerätetests gibt es ohne Schalter unter System → Labor.
             </p>
           </div>
           <Switch label="Experimentell" checked={ex.on} disabled={busy} onchange={toggle} />
@@ -236,8 +235,7 @@
       <Card class="wide">
         <h2 class="card-title"><Icon name="palette" size={20} />Design (Vorschau)</h2>
         <p class="muted">
-          Ein anderes Aussehen für die Weboberfläche: Pixelia wie die Pixelwelt, Fahrplan 1850 wie ein gedruckter Fahrplan.
-          Seiten und Einstellungen bleiben gleich. Gilt für alle Browser; ist Experimentell aus, gilt wieder Material 3.
+          Anderes Aussehen, gleiche Seiten und Einstellungen. Gilt für alle Browser, solange Experimentell an ist.
         </p>
         <ButtonGroup options={designs} bind:value={theme.design} label="Design" />
       </Card>
@@ -246,9 +244,7 @@
       <Card class="wide">
         <h2 class="card-title"><Icon name="map" size={20} />Ort und Figuren</h2>
         <p class="muted">
-          Neutrale Test-Grafiken im groben Raster aus Kacheln und Möbel-Teilen. Wiese, Raum und Platz hängen über eine Tür
-          und einen Bildrand zusammen, die Figuren wechseln dort den Ort; der weiße Pfeil zeigt die Begleiterin, der das Bild
-          folgt. Die Landschaft ist das bisherige Bild, zu ihr kehrt das Display beim Ausschalten von Experimentell zurück.
+          Wiese, Raum und Platz hängen über Tür und Bildrand zusammen; der weiße Pfeil zeigt die Figur, der das Bild folgt. Ohne Experimentell zeigt das Display wieder die Landschaft.
         </p>
         <div class="setting">
           <span>Ort</span>
@@ -290,7 +286,7 @@
             bind:value={() => (ex?.real ? '0' : String(ex?.speed ?? 1)), (v: string) => act(v === '0' ? { a: 'time', v: 'real' } : { a: 'speed', v: Number(v) })}
           />
         </div>
-        <p class="muted small">Licht, Lampen, Fenster und Himmel folgen der Testuhr; Uhrzeit stellen oder Zeitraffer schaltet die echte Uhrzeit ab.</p>
+        <p class="muted small">Licht und Himmel folgen der Testuhr; Uhrzeit stellen oder Zeitraffer hält die echte Uhr an.</p>
       </Card>
 
       <Card class="wide">
@@ -313,7 +309,7 @@
           <span class="pol"><Switch label="Licht innen" checked={ex.innen !== false} disabled={busy} onchange={() => act({ a: 'cmd', v: 'innenlicht um' })} />Licht innen (Lampe im Testraum)</span>
           <Button variant="tonal" icon="bolt" disabled={busy} onclick={() => act({ a: 'cmd', v: 'blitz' })}>Blitz</Button>
         </div>
-        <p class="muted small">Gilt für alle Orte und wechselt weich (erst Wolken, dann Regen). Ist die Lampe im Testraum aus, bleiben nachts auch die Fenster der Wiese dunkel.</p>
+        <p class="muted small">Gilt für alle Orte und wechselt weich.</p>
       </Card>
 
       <Card class="wide">
@@ -327,9 +323,7 @@
           <Button variant="tonal" icon="construction" disabled={busy} onclick={() => act({ a: 'cmd', v: 'baustelle' })}>Im Bau</Button>
         </div>
         <p class="muted small">
-          Ausbau: nächste Ausbaustufe im sichtbaren Testort (Lager ↔ Bett, Kisten ↔ Tisch). Im Bau: Möbel werden zur
-          Baustelle (halbfertiges Bett, sonst Bretterstapel) und wieder fertig. Prüfansicht: Stellflächen (lila),
-          Benutzungspunkte (grün), Ausgänge (gelb), versperrte Kacheln (Punkte).
+          Ausbau: nächste Stufe im Testort. Im Bau: Möbel als Baustelle. Prüfansicht: Stellflächen (lila), Benutzungspunkte (grün), Ausgänge (gelb), versperrt (Punkte).
         </p>
       </Card>
     {/if}
@@ -340,9 +334,7 @@
         <div class="grow">
           <h2 class="card-title">Stromsparmodus</h2>
           <p class="muted">
-            Panel mit halbem Pixeltakt ({num(ex.std.hz / 2, 0)} statt {num(ex.std.hz, 0)} Hz), jedes Bild der Welt wird nur
-            einmal gezeigt. Die Welt bleibt bei 30 fps, der Hochskalier-Interrupt und der Speicherverkehr halbieren sich.
-            Manche Panels flimmern dabei oder bleiben schwarz.
+            Halber Pixeltakt ({num(ex.std.hz / 2, 0)} statt {num(ex.std.hz, 0)} Hz) bei gleichen 30 fps und weniger Last. Manche Panels flimmern dabei oder bleiben schwarz.
           </p>
         </div>
         <Switch label="Stromsparmodus" checked={ex.panel.eco} disabled={busy || ex.trialS >= 0} onchange={setEco} />
@@ -352,9 +344,7 @@
     <Card class="wide">
       <h2 class="card-title"><Icon name="tune" size={20} />Panel-Timing</h2>
       <p class="muted">
-        Pixeltakt und Austastzeiten des RGB-Panels in Takten (Sync-Impuls, Schwarzschulter hinten und vorn). Falsche Werte machen das Bild unruhig oder schwarz; jede Änderung läuft
-        deshalb erst {ex.trialNeed} s auf Probe. Standard: {num(ex.std.pclk / 1000, 1)} MHz, H {ex.std.hp}/{ex.std.hb}/{ex.std.hf}, V
-        {ex.std.vp}/{ex.std.vb}/{ex.std.vf} = {num(ex.std.hz, 1)} Hz.
+        Werte in Takten. Falsche Werte machen das Bild unruhig oder schwarz, deshalb läuft jede Änderung {ex.trialNeed} s auf Probe. Standard: {num(ex.std.pclk / 1000, 1)} MHz, H {ex.std.hp}/{ex.std.hb}/{ex.std.hf}, V {ex.std.vp}/{ex.std.vb}/{ex.std.vf} = {num(ex.std.hz, 1)} Hz.
       </p>
       <div class="fields">
         <TextField label="Takt (MHz)" size={6} inputmode="decimal" bind:value={form.pclk} />
@@ -389,8 +379,7 @@
     <Card variant="outlined" class="wide">
       <h2 class="card-title"><Icon name="history" size={20} />Ältere Version installieren</h2>
       <p>
-        <b>Achtung:</b> Zurück auf eine ältere Version hilft, wenn eine neue Version Probleme macht. Einstellungen, die die
-        ältere Version noch nicht kennt, können verloren gehen. Versionen vor 0.4.1 können nicht selbst von GitHub updaten.
+        <b>Achtung:</b> Einstellungen, die die ältere Version nicht kennt, können verloren gehen. Versionen vor 0.4.1 updaten nicht selbst von GitHub.
       </p>
       {#if !gh}
         <div class="actions">

@@ -75,7 +75,6 @@
           <Icon name="system_update_alt" />
           <div class="fill">
             <strong>Neue Version {s.ota.avail} verfügbar</strong>
-            <p>Installiert wird nur auf Knopfdruck.</p>
           </div>
           <Button variant="filled" href="#/update">Ansehen</Button>
         </div>

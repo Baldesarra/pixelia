@@ -73,8 +73,7 @@
     <Card class="wide">
       <h2 class="card-title"><Icon name="settings_backup_restore" size={20} />Sicherung</h2>
       <p class="muted">
-        Anzeige, Farbwahl und Gerätenamen als Datei sichern und wieder einspielen, z. B. nach einem Werksreset. Die Datei
-        enthält nie WLAN-Passwörter oder den PIN.
+        Anzeige, Farben und Gerätenamen als Datei sichern, z. B. vor einem Werksreset. Ohne WLAN-Passwörter und PIN.
       </p>
       <input class="hidden" type="file" accept=".json,application/json" bind:this={importInput} onchange={importFile} />
       <div class="actions">

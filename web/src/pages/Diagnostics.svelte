@@ -127,8 +127,7 @@
         <p class="muted">{loading ? 'Lade …' : 'Nicht abrufbar.'}</p>
       {:else if !crash.present}
         <p class="muted">
-          Kein Absturzbericht gespeichert. Stürzt Pixelia ab, legt es einen Bericht im Flash ab (Partition „coredump“) und
-          startet neu; er erscheint dann hier.
+          Kein Absturzbericht gespeichert.
         </p>
       {:else}
         <p class="lead-text">
@@ -172,8 +171,7 @@
           <Button variant="text" class="danger" icon="delete" onclick={eraseCrash}>Bericht löschen</Button>
         </div>
         <p class="muted small">
-          Auswerten am PC: <code>tools/crash.ps1</code> holt den Bericht, sucht das passende ELF zur Firmware und zeigt
-          Funktionen und Zeilen; mit <code>-File</code> auch aus einem Diagnosepaket.
+          Auswerten am PC mit <code>tools/crash.ps1</code>.
         </p>
       {/if}
       {#if eraseMsg}<p class={eraseMsg.ok ? 'ok-text' : 'err-text'}>{eraseMsg.text}</p>{/if}
@@ -198,8 +196,7 @@
         <Button variant="tonal" icon="terminal" href="#/log">Live-Log</Button>
       </div>
       <p class="muted small">
-        Das Diagnosepaket ist eine Datei mit Status, Versionen, Einstellungen, Neustarts, Log und Absturzbericht, ohne
-        Passwörter. Auf dem Handy landet sie unter „Downloads“.
+        Status, Versionen, Einstellungen, Neustarts, Log und Absturzbericht in einer Datei, ohne Passwörter.
         {#if s.wifi.ap}Im Setup-Fenster des Handys klappt das Herunterladen oft nicht; dann im normalen Browser
           <a href="http://192.168.4.1/">http://192.168.4.1</a> öffnen.{/if}
       </p>
@@ -222,8 +219,7 @@
         {/each}
       </div>
       <p class="muted small">
-        Probeläufe sind die ersten Starts nach einem Update: Scheitert der Selbsttest, kehrt Pixelia zur vorigen Version
-        zurück (Rückfall).
+        Probelauf: erste Starts nach einem Update. Scheitert der Selbsttest, kommt die vorige Version zurück.
       </p>
     </Card>
 

@@ -57,8 +57,7 @@
     <ButtonGroup options={modes} bind:value={theme.mode} label="Hell oder dunkel" />
     {#if own}
       <p class="muted">
-        Im Design aus Experimentell gilt eine eigene Akzentfarbe, im Stil des Designs: „Design“ nimmt seine eigenen Farben.
-        Der Farbstil gilt nur für Material 3.
+        Im Design aus Experimentell gilt eine eigene Akzentfarbe, „Design“ nimmt seine eigenen Farben.
       </p>
     {:else}
       <h2>Farbstil</h2>
@@ -89,8 +88,7 @@
       </label>
     </div>
     <p class="hint">
-      Alle Farbtöne werden aus der Akzentfarbe berechnet (Material Color Utilities, Spezifikation 2025). Pixelia
-      speichert die Wahl für alle Browser, sie steckt auch in der Sicherung der Einstellungen.
+      Die Farbwahl gilt für alle Browser und steckt in der Sicherung.
     </p>
     {#if themeSync.unsaved}
       <div class="unsaved">
@@ -103,7 +101,7 @@
   <Card>
     <h2>Ansicht</h2>
     <ButtonGroup options={views} bind:value={() => (prefs.wide ? 'breit' : 'schmal'), (v: string) => (prefs.wide = v === 'breit')} label="Ansicht" />
-    <p class="hint">Schmal: Karten untereinander und die Leiste unten, wie am Handy. Breit: Leiste links und Karten nebeneinander, für große Bildschirme.</p>
+    <p class="hint">Breit: Leiste links und Karten nebeneinander, für große Bildschirme.</p>
     <h2>Schriftgröße</h2>
     <ButtonGroup options={fonts} bind:value={prefs.font} label="Schriftgröße" />
     <h2>Startseite</h2>
@@ -115,7 +113,7 @@
       </span>
       <Switch label="Bewegung reduzieren" checked={prefs.reduce} onchange={(v) => (prefs.reduce = v)} />
     </div>
-    <p class="hint">Ansicht, Schrift, Startseite und Bewegung gelten nur für diesen Browser, die Farben für alle.</p>
+    <p class="hint">Ansicht, Schrift, Startseite und Bewegung gelten nur für diesen Browser.</p>
   </Card>
 
   <Card variant="outlined">

@@ -3,7 +3,7 @@
 //
 //   node tools/web_screens.mjs                                  # Entwicklungsserver (npm run mock) auf :5173
 //   node tools/web_screens.mjs --url http://pixelia --out .logs/screens --pages "#/,#/darstellung"
-//   --variants handy-hell,desktop-dunkel   nur diese Varianten
+//   --variants handy-hell,desktop-dunkel   nur diese Varianten; w360, w412-hell: beliebige Handybreite
 //   --eval "document.querySelector('button').click()"   nach dem Laden ausführen (z. B. klicken), danach --wait2 ms
 //   --text 1                                Text der Seite ausgeben (Prüfung ohne Bild); Skriptfehler stehen immer da
 import { spawn } from 'node:child_process';
@@ -40,7 +40,14 @@ const allVariants = [
   { name: 'desktop-hell', width: 1280, height: 860, mobile: false, dpr: 1, scheme: 'light' },
   { name: 'desktop-dunkel', width: 1280, height: 860, mobile: false, dpr: 1, scheme: 'dark' },
 ];
-const variants = only ? allVariants.filter((v) => only.split(',').includes(v.name)) : allVariants;
+// Beliebige Handybreite: w360, w412-hell … (dunkel, wenn nicht anders angegeben)
+const custom = (n) => {
+  const m = /^w(\d+)(?:-(hell|dunkel))?$/.exec(n);
+  return m && { name: n, width: +m[1], height: 844, mobile: true, dpr: 2, scheme: m[2] === 'hell' ? 'light' : 'dark' };
+};
+const variants = only
+  ? only.split(',').map((n) => allVariants.find((v) => v.name === n) ?? custom(n)).filter(Boolean)
+  : allVariants;
 
 const port = 9300 + Math.floor(Math.random() * 500);
 const profile = mkdtempSync(join(tmpdir(), 'pixelia-screens-'));
@@ -84,9 +91,12 @@ await send('Runtime.enable');
 try {
   for (const v of variants) {
     await send('Emulation.setDeviceMetricsOverride', {
-      width: v.width, height: v.height, deviceScaleFactor: v.dpr, mobile: v.mobile,
+      width: v.width, height: v.height, deviceScaleFactor: v.dpr, mobile: v.mobile, screenWidth: v.width, screenHeight: v.height,
     });
     await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: v.scheme }] });
+    // Neu laden erzwingen: Seiten mit gleichem Pfad (#/…) laden sonst nicht neu und behalten die alte Handybreite
+    await send('Page.navigate', { url: 'about:blank' });
+    await sleep(300);
     for (const p of pages) {
       await send('Page.navigate', { url: `${base}/${p}` });
       await sleep(wait);
@@ -104,12 +114,12 @@ try {
       // Viewport auf die volle Seitenhöhe, damit feste Elemente (Navigationsleiste) unten im Bild landen
       const height = Math.max(v.height, Math.ceil(cssContentSize.height));
       await send('Emulation.setDeviceMetricsOverride', {
-        width: v.width, height, deviceScaleFactor: v.dpr, mobile: v.mobile,
+        width: v.width, height, deviceScaleFactor: v.dpr, mobile: v.mobile, screenWidth: v.width, screenHeight: height,
       });
       await sleep(500);
       const shot = await send('Page.captureScreenshot', { format: 'png' });
       await send('Emulation.setDeviceMetricsOverride', {
-        width: v.width, height: v.height, deviceScaleFactor: v.dpr, mobile: v.mobile,
+        width: v.width, height: v.height, deviceScaleFactor: v.dpr, mobile: v.mobile, screenWidth: v.width, screenHeight: v.height,
       });
       const page = (p.replace(/^#\/?/, '') || 'uebersicht').replace(/\//g, '-');
       const file = join(out, `${page}-${v.name}.png`);

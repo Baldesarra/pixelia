@@ -1,7 +1,7 @@
 <script lang="ts">
   // Seite „Update“ (System → Wartung): von GitHub (Kanal, Suche, Abbrechen, Hintergrundprüfung) oder aus Datei,
   // je mit Kurzfassung der Änderungen; Fortschritt, Neustart und Probelauf.
-  import { Button, ButtonGroup, Card, Chip, confirmDialog, Icon, LoadingIndicator, Switch, WavyProgress } from '../lib/m3';
+  import { Button, ButtonGroup, Card, confirmDialog, Icon, LoadingIndicator, Switch, WavyProgress } from '../lib/m3';
   import { device } from '../lib/status.svelte';
   import { auth } from '../lib/auth.svelte';
   import { onMount } from 'svelte';
@@ -102,7 +102,7 @@
     if (s.v === waitingFor) {
       if (s.ota.trial) upMsg = { ok: null, text: `Neue Version ${s.v} läuft. Selbsttest: ${s.ota.trialS} von ${s.ota.trialNeed} s …` };
       else {
-        upMsg = { ok: true, text: `Update auf ${s.v} erfolgreich, Selbsttest bestanden.` };
+        upMsg = { ok: true, text: `Update auf ${s.v} erfolgreich.` };
         waitingFor = '';
         void loadGh(); // nach dem Neustart: Ergebnis der alten Prüfung ist weg
         sending = false;
@@ -306,7 +306,6 @@
     <Card class="wide">
       <h2 class="card-title">
         <Icon name="system_update_alt" size={20} />Update
-        <span class="end"><Chip><span class="tnum">installiert: {s.v}</span></Chip></span>
       </h2>
       {#if s.ota.trial && !waitingFor}
         <p>Probelauf von {s.v}: Selbsttest läuft ({s.ota.trialS} von {s.ota.trialNeed} s{s.ota.trialNote ? `, ${s.ota.trialNote}` : ''}).</p>
@@ -318,7 +317,6 @@
           <div class="actions"><Button variant="text" icon="close" disabled={cancelling} onclick={cancelGh}>Abbrechen</Button></div>
         {/if}
       {:else}
-        <h3 class="sub"><Icon name="cloud_download" size={18} />Von GitHub</h3>
         <div class="actions">
           <ButtonGroup
             label="Kanal"
@@ -380,20 +378,16 @@
           </div>
         {:else}
           <p class="muted">
-            <b>Stabil</b>: nur fertige Versionen. <b>Vorschau</b>: auch Vorabversionen (beta) zum Ausprobieren. Installiert
-            wird nur auf Knopfdruck.
+            <b>Vorschau</b> zeigt auch Vorabversionen zum Ausprobieren. Installiert wird nur auf Knopfdruck.
           </p>
         {/if}
         {#if ghNote && !(via === 'github' && (sending || waitingFor))}<p>{ghNote}</p>{/if}
         {#if gh && ghAgo >= 0 && !ghChecking && !noNet}
           <p class="muted small">
-            Zuletzt gesucht vor {duration(ghAgo)}{gh.lastAuto ? ' (im Hintergrund)' : ''}{gh.rate.limit > 0 ? ` · freie GitHub-Abfragen: ${gh.rate.left} von ${gh.rate.limit} pro Stunde` : ''}
+            Gesucht vor {duration(ghAgo)}{gh.lastAuto ? ' (automatisch)' : ''}{gh.rate.limit > 0 && gh.rate.left < 10 ? ` · nur noch ${gh.rate.left} Suchen in dieser Stunde` : ''}
           </p>
         {/if}
 
-        {#if !upMsg && s.ota.passed}
-          <p class="ok-text">Letztes Update auf {s.v} erfolgreich, Selbsttest bestanden.</p>
-        {/if}
         <div class="actions">
           <Button variant="text" icon="history" href="#/versionen">Versionsverlauf</Button>
         </div>
@@ -405,9 +399,8 @@
       <Card class="wide">
         <h2 class="card-title"><Icon name="upload_file" size={20} />Aus Datei</h2>
         <p class="muted">
-          Neue Version als <b>.bin</b> wählen, z. B. <i>pixelia-v0.4.0.bin</i> von GitHub (nicht das Factory-Image). Die Datei
-          wird vor dem Hochladen geprüft, nach dem Neustart folgt ein Probelauf mit Selbsttest; scheitert er, kehrt Pixelia
-          zur alten Version zurück.
+          Eine <b>.bin</b> von GitHub wählen (nicht das Factory-Image). Scheitert der Selbsttest nach dem Neustart, kehrt
+          Pixelia zur alten Version zurück.
         </p>
         <input class="hidden" type="file" accept=".bin,application/octet-stream" bind:this={fileInput} onchange={pickFile} />
         <div class="full">
@@ -438,8 +431,8 @@
         <div class="auto">
           <Switch label="Täglich im Hintergrund suchen" checked={gh.auto !== false} onchange={setAuto} />
           <span>
-            Einmal täglich im Hintergrund nach neuen Versionen suchen
-            <span class="muted small">Nur ein Hinweis (Punkt an „System“), installiert wird nie von selbst.</span>
+            Täglich nach Updates suchen
+            <span class="muted small">Zeigt nur einen Punkt an „System“, installiert nie von selbst.</span>
           </span>
         </div>
       </Card>
@@ -536,9 +529,6 @@
     display: grid;
     gap: 8px;
     margin: 12px 0;
-  }
-  .card-title + .sub {
-    margin-top: 0;
   }
   .small {
     font: var(--md-sys-typescale-body-small);

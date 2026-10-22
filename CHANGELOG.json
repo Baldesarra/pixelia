@@ -20,10 +20,10 @@
       "i": [
         "Versionsverlauf: Nur veröffentlichte Versionen, „Installiert“ steht über dem Titel, und am Handy hat die Versionsnummer eine eigene Zeile, damit lange Namen Platz haben",
         "Experimentell: aufgeteilt in Testorte, Panel und Stromsparen sowie ältere Version; die Auswahl der Orte passt jetzt auch aufs Handy",
-        "Diagnose: Die Liste der Neustarts zeigt die letzten drei, der Rest lässt sich aufklappen",
-        "Gerät und Speicher: Info und Hardware sind eine Seite, doppelte Angaben sind weg",
+        "Diagnose und Gerät: Die Diagnose zeigt die letzten drei Neustarts, der Rest lässt sich aufklappen; Info und Hardware sind eine Seite",
         "Technik: Die Oberfläche ist trotz der neuen Seiten kleiner geworden, Symbole und Schrift sind sparsamer gespeichert",
-        "Update: Ein farbiges Feld zeigt „Update vorhanden“ mit alter und neuer Version oder grün „aktuell“, darunter nur die Neuerungen; alle Knöpfe sind gleich breit"
+        "Update: Ein farbiges Feld zeigt „Update vorhanden“ mit alter und neuer Version oder grün „aktuell“, darunter nur die Neuerungen; alle Knöpfe sind gleich breit",
+        "Texte: Kürzer und auf das Wichtige beschränkt, z. B. ohne Selbsttest-Meldung nach einem Update; die Oberfläche passt sich jeder Handybreite an"
       ],
       "f": [
         "Mehrere Browser: Eine noch offene alte Seite setzt die Farbwahl nicht mehr zurück und lädt nach einem Update von selbst neu"
@@ -51,8 +51,8 @@
     "i": [
       "Web: Bundle 151 → 147 KB gzip trotz neuer Seiten und Designs: Icon-Pfade auf Raster 240 gerundet (−5,6 KB), Schrift nur noch wght 400–800 und wdth 100–120 (33 → 21 KB)",
       "Web: Versionsverlauf zeigt Versionen ohne Datum nur, wenn sie installiert sind; „Installiert“ über dem Titel, am Handy (≤ 480 px) Versions-Chip in eigener Zeile",
-      "Web: Diagnose zeigt die letzten drei Neustarts, der Rest ist aufklappbar; Testorte in vier Karten, Auswahl als umbrechende Knöpfe (passte am Handy nicht in die Breite)",
-      "Werkzeuge: web_screens.mjs speichert Unterseiten (#/a/b) als a-b.png",
+      "Web: Diagnose mit drei Neustarts (Rest aufklappbar), Testorte in vier Karten; Texte auf 12 Seiten gekürzt, Selbsttest-Meldung und doppelte Version auf der Update-Seite entfernt",
+      "Werkzeuge: web_screens.mjs mit beliebigen Handybreiten (--variants w360,w412-hell), Unterseiten als a-b.png",
       "Web: Knöpfe und Auswahlgruppen gleich breit (page.css, ButtonGroup ohne 480 px); Update-Karte: Installieren unter Suchen, Banner alt → neu bzw. aktuell, Neuerungen, Datei und Suche unten"
     ],
     "f": [
@@ -60,6 +60,31 @@
       "Werkzeuge: release_notes.py --check sortiert Vorabversionen nach Zahl (beta.10 nach beta.9), wie Firmware und Oberfläche",
       "Web: Fehler der neuen Oberfläche behoben: Rückblick schloss durch weitere Tipper sofort (jetzt 2 s Sperre), Karten am Handy zu breit (.page-grid min-width 0), „Live“ fehlte auf Unterseiten"
     ]
+  },
+  {
+    "v": "0.5.4-beta.15",
+    "d": "2026-10-22",
+    "t": "Kürzere Texte (Vorschau)",
+    "s": "Vorabversion: Texte gekürzt, Breite von 320 bis 480 px geprüft",
+    "k": {
+      "s": "Vorabversion: kürzere Texte",
+      "i": [
+        "Texte: Erklärungen auf allen Seiten kürzer, Unwichtiges wie die Selbsttest-Meldung nach einem Update ist weg",
+        "Update: Die Version steht nur noch einmal oben, „Zuletzt gesucht“ ist kürzer",
+        "Untertitel: Die Punkte in System und Einstellungen haben kürzere Beschreibungen"
+      ]
+    },
+    "i": [
+      "Web: Texte auf 12 Seiten gekürzt, Selbsttest-Meldung und Chip „installiert“ auf der Update-Seite entfernt, GitHub-Abfragen nur noch bei weniger als 10 frei",
+      "Werkzeuge: web_screens.mjs mit Handybreiten w320 … w480 (screenWidth gesetzt, Seite je Breite neu geladen)"
+    ],
+    "g": [
+      "Simulator: alle 23 Seiten bei 320, 360, 390, 412 und 480 px ohne waagerechtes Überlaufen"
+    ],
+    "h": [
+      "Doku: Vorabversion zum Ausprobieren, erscheint nur im Kanal Vorschau"
+    ],
+    "pr": [34]
   },
   {
     "v": "0.5.4-beta.14",

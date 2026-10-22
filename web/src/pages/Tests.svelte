@@ -78,9 +78,7 @@
       {#if ex.pic}<span class="end"><Chip pulse tone="primary">auf dem Display</Chip></span>{/if}
     </h2>
     <p class="muted">
-      Ein Bild mit 400 × 240 Pixeln erscheint 2× vergrößert auf dem Display, bis du aufs Display tippst oder hier
-      „Beenden“ drückst (spätestens nach 30 min). Andere Größen werden pixelgenau angepasst. Das Bild bleibt nur im
-      Arbeitsspeicher, nichts wird gespeichert.
+      Ein Bild (400 × 240, andere Größen werden angepasst) bleibt bis zum Tippen aufs Display oder „Beenden“, höchstens 30 min. Es wird nicht gespeichert.
     </p>
     <input type="file" accept="image/*" hidden bind:this={fileInput} onchange={choosePicture} />
     <div class="actions">
@@ -109,8 +107,7 @@
       <p class="err-text">Kein Touch-Controller gefunden.</p>
     {:else}
       <p class="muted">
-        Display berühren: Der Punkt zeigt die gemessene Stelle hier und auf dem Display. Alle vier Ecken antippen, um die
-        Ränder zu prüfen.
+        Display berühren: Der Punkt zeigt die gemessene Stelle. Alle vier Ecken antippen.
       </p>
       <div class="touch" class:live={ex.mode === 'touch'}>
         {#each [0, 1, 2, 3] as c (c)}

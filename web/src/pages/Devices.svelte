@@ -123,8 +123,7 @@
         <p class="muted">Noch keine Browser angemeldet.</p>
       {/if}
       <p class="muted small">
-        Jeder Browser bekommt eine zufällige Kennung, die nur in diesem Browser gespeichert ist. Einen echten Gerätenamen
-        verrät kein Browser, deshalb lässt sich hier ein eigener Name vergeben. Pixelia merkt sich bis zu 12 Geräte.
+        Browser verraten keinen Gerätenamen, deshalb lässt sich hier ein eigener vergeben (bis zu 12 Geräte).
       </p>
     </Card>
 

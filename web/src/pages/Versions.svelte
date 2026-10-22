@@ -46,8 +46,7 @@
       <span class="end"><Chip tone="primary" icon="check_circle"><span class="tnum">installiert: {fw || '…'}</span></Chip></span>
     </h2>
     <p class="muted">
-      Was sich in jeder Version geändert hat, kurz gefasst. Alle Details mit Messwerten stehen bei jeder Version auf
-      GitHub; vor einem Update zeigt die Seite Update, was die neue Version bringt.
+      Alle Details mit Messwerten stehen bei jeder Version auf GitHub.
     </p>
     <div class="actions">
       <Button variant="tonal" icon="open_in_new" href="{REPO_URL}/releases" target="_blank" rel="noopener">Releases auf GitHub</Button>
