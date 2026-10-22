@@ -528,7 +528,7 @@ function mockDevice(): Plugin {
         json(res, {
           uptime: Math.floor((Date.now() - t0) / 1000), at: Math.floor((Date.now() - t0) / 2000) * 2, mode: 'engine',
           lcd: { hz: exp.panel.hz, pclk: exp.panel.pclk / 1000 / (eco ? 2 : 1), isr: eco ? j(10.1) : j(20.2), isrMaxUs: 66, desync: 0 },
-          engine: { fps: j(30.1, 0.3), render: j(4.3), renderMax: j(4.9), logic: 0.08, ticks: [0, 61, 0], sprites: 48, buf: 'psram' },
+          engine: { fps: j(30.1, 0.3), render: j(4.3), renderMax: j(4.9), logic: 0.08, logicMax: j(0.9), holds: 0, ticks: [0, 61, 0], sprites: 48, buf: 'psram' },
           cpu: [Math.round(j(4, 4)), Math.round(eco ? j(8, 2) : j(13, 2))],
           heap: { ram: Math.round(j(116, 3)), ramMin: 94, ramBlk: 31, dma: 110, psram: 6012, psramMin: 5690, psramBlk: 5920 },
           wifi: { state: 'verbunden', rssi: -61, ch: 1 },

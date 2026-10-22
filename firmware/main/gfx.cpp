@@ -459,6 +459,7 @@ void gfx_task(void* arg) {
         s_stats.weather_pct = (s_stage.weather().strength() * 100 + 127) / 255;
         s_stats.inner_light = s_stage.environment().lights.any_on("testort-raum");
         s_stats.particles = particles;
+        s_stats.holds = s_stage.holds();
         portEXIT_CRITICAL(&s_stats_lock);
     }
 }

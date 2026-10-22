@@ -70,6 +70,7 @@ struct EngineStats {
     int weather_pct;
     bool inner_light;  // Licht im Testraum (Fenster der Wiese)
     int particles;     // Partikel am sichtbaren Ort
+    uint32_t holds;    // Schritte, die ein Abblenden auf Grafik-Pakete gewartet hat (seit 0.5.5, Summe)
 };
 void start(const board::display::Timing& timing);
 void request_reconfigure(const board::display::Timing& timing);
@@ -165,6 +166,7 @@ struct Snapshot {
     float render_max_ms;
     float logic_ms;
     float logic_max_ms;  // seit 0.5.5
+    uint32_t holds;      // seit 0.5.5: Warteschritte beim Abblenden (Summe seit dem Start)
     uint32_t ticks[3];  // Bilder mit 0, 1, 2+ Logik-Schritten
     int sprites;
     bool buf_psram;

@@ -74,6 +74,7 @@ void perf_task(void*) {
                 s.render_max_ms = static_cast<float>(e.render_us_max / 1000.0);
                 s.logic_ms = frames ? static_cast<float>((e.logic_us_sum - e_prev.logic_us_sum) / 1000.0 / frames) : 0;
                 s.logic_max_ms = static_cast<float>(e.logic_us_max / 1000.0);
+                s.holds = e.holds;
                 for (int k = 0; k < 3; ++k) s.ticks[k] = e.tick_hist[k] - e_prev.tick_hist[k];
                 s.sprites = e.sprites;
                 s.buf_psram = e.buffers_in_psram;

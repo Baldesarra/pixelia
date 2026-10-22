@@ -444,7 +444,7 @@ std::string perf_json(bool with_tasks) {
     j.num("isrMaxUs", p.isr_max_us).num("desync", p.desync).end_obj();
     if (p.engine) {
         j.obj("engine").num("fps", p.fps, 1).num("render", p.render_ms, 2).num("renderMax", p.render_max_ms, 2);
-        j.num("logic", p.logic_ms, 2).num("logicMax", p.logic_max_ms, 2);
+        j.num("logic", p.logic_ms, 2).num("logicMax", p.logic_max_ms, 2).num("holds", p.holds);
         j.arr("ticks").num(nullptr, p.ticks[0]).num(nullptr, p.ticks[1]).num(nullptr, p.ticks[2]).end_arr();
         char wt[16];
         std::snprintf(wt, sizeof(wt), "%02d:%02d", p.world_minute / 60, p.world_minute % 60);

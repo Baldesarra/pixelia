@@ -5,7 +5,8 @@ erlaubt; Schrift und Icons der Weboberfläche sind im Projektplan (4.8) festgele
 
 **Prüfung in der CI (seit 0.5.5):** `python tools/asset_pack.py check` verlangt für jede Datei in `assets/` (außer
 `*.md`) eine Zeile in einer der Tabellen: fremde Dateien mit Urheber, Quelle und Lizenz CC0 oder CC-BY (ohne SA, NC,
-ND), eigene mit der Lizenz „eigen“. Die erste Spalte darf Platzhalter enthalten (`*`).
+ND), eigene mit der Lizenz „eigen“. Die erste Spalte darf Platzhalter enthalten (`*`). Fremde Dateien liegen immer
+unter `assets/fremd/<Quelle>/`; dort zählt eine Zeile mit „eigen“ nicht.
 
 | Datei/Ordner | Inhalt | Urheber | Quelle | Lizenz |
 |---|---|---|---|---|

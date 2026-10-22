@@ -370,7 +370,8 @@ void print_status() {
     ESP_LOGI(TAG, "Grafik-Speicher %.1f von %.0f KB (Höchststand %.1f KB), %d Pakete, %" PRIu32 " mal geladen, %" PRIu32
              " verdrängt, %" PRIu32 " fehlgeschlagen, %" PRIu32 " über Budget", s.used / 1024.0, s.budget / 1024.0,
              s.peak / 1024.0, s.packs, s.loads, s.evictions, s.failures, s.over_budget);
-    pixelia::AssetStore::PackInfo list[pixelia::AssetStore::kMaxPacks];
+    // statisch: die Konsole hat nur 4 KB Stack (24 Einträge à ~56 Byte liefen dort über; nur die Konsole ruft das)
+    static pixelia::AssetStore::PackInfo list[pixelia::AssetStore::kMaxPacks];
     const int n = store.list(list, pixelia::AssetStore::kMaxPacks);
     for (int i = 0; i < n; ++i) {
         const auto& p = list[i];

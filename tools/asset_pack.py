@@ -200,7 +200,7 @@ def to_indices(px, w, h, pal: Palette, mode: str, label: str):
                 k = 0
         out[i] = k
     if foreign:
-        lines = [f"{c} an {len(pos)} Stellen, z. B. {pos[0]}" + (f" → {pal.names[pal.nearest(c)]}" if mode != "eigene" else "")
+        lines = [f"{c} an {len(pos)} Stelle{'' if len(pos) == 1 else 'n'}, z. B. {pos[0]}" + (f" → {pal.names[pal.nearest(c)]}" if mode != "eigene" else "")
                  for c, pos in list(foreign.items())[:8]]
         if mode == "streng":
             raise AssetError(f"{label}: {len(foreign)} Farben nicht in der Palette {pal.path.name}:\n  " + "\n  ".join(lines))
@@ -395,7 +395,10 @@ FORBIDDEN = ("SA", "NC", "ND")
 
 
 def check_credits() -> list[str]:
-    """Jede Datei in assets/ (außer *.md) braucht eine Zeile in CREDITS.md: fremd mit CC0/CC-BY, eigen mit „eigen“."""
+    """Jede Datei in assets/ (außer *.md) braucht eine Zeile in CREDITS.md: fremd mit CC0/CC-BY, eigen mit „eigen“.
+
+    Fremde Dateien liegen unter assets/fremd/<Quelle>/; dort zählt eine Zeile mit „eigen“ nicht.
+    """
     rows = []
     for line in (ASSETS / "CREDITS.md").read_text(encoding="utf-8").splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
@@ -408,7 +411,9 @@ def check_credits() -> list[str]:
         if f.is_dir() or f.suffix.lower() == ".md":
             continue
         rel = f.relative_to(REPO).as_posix()
-        match = [lic for pattern, lic in rows if fnmatch.fnmatch(rel, pattern)]
+        foreign = rel.startswith("assets/fremd/")
+        match = [lic for pattern, lic in rows
+                 if fnmatch.fnmatch(rel, pattern) and not (foreign and lic.lower() == "eigen")]
         if not match:
             errors.append(f"{rel}: keine Zeile in assets/CREDITS.md (fremd: Urheber, Quelle, Lizenz CC0/CC-BY; eigen: „eigen“)")
             continue
@@ -515,6 +520,9 @@ def cmd_convert(args):
 
 
 def main() -> int:
+    for stream in (sys.stdout, sys.stderr):  # Windows mit Umleitung: sonst cp1252 (Umlaute, Pfeile)
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("build")
