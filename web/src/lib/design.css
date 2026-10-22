@@ -8,13 +8,34 @@
   font-display: swap;
 }
 
-/* ---------- Pixelia: wie die Pixelwelt, Pixelschrift des Displays, kräftige Rahmen mit hartem Schatten ----------
-   Ecken wie M3 Expressive (Wunsch des Users, beta.4): Die Rahmen sind Schatten mit Ausdehnung und folgen dem Radius. */
+/* ---------- Pixelia: wie die Pixelwelt, Pixelschrift des Displays, Pixelrahmen mit hartem Schatten ----------
+   Große Flächen (Karten, Listen, Knöpfe) mit Pixelecken in zwei Stufen zu je 3 px (Wunsch des Users, beta.5):
+   Rahmen und Schatten sind Schatten mit Ausdehnung, clip-path schneidet die Treppe aus, die inneren Eckpixel malt
+   ein Hintergrundbild in Rahmenfarbe. Kleine Teile (Chips, Schalter) behalten die einfache Ecke (ein Pixel fehlt). */
 html[data-design='pixel'] {
+  --md-sys-shape-corner-extra-small: 0;
+  --md-sys-shape-corner-small: 0;
+  --md-sys-shape-corner-medium: 0;
+  --md-sys-shape-corner-large: 0;
+  --md-sys-shape-corner-large-increased: 0;
+  --md-sys-shape-corner-extra-large: 0;
+  --md-sys-shape-corner-extra-large-increased: 0;
+  --md-sys-shape-corner-extra-extra-large: 0;
+  --md-sys-shape-corner-full: 0;
   --dz-line: #2a2140;
   --dz-shadow: #c9b791;
+  --dz-thin: 0 -2px var(--dz-line), 0 2px var(--dz-line), -2px 0 var(--dz-line), 2px 0 var(--dz-line);
   --dz-frame: 0 0 0 3px var(--dz-line);
-  --dz-thin: 0 0 0 2px var(--dz-line);
+  /* Umriss nur Rahmen bzw. Rahmen mit Schatten (um 3 px versetzte Kopie des Rahmens) */
+  --dz-clip0: polygon(-3px 3px, 0 3px, 0 0, 3px 0, 3px -3px, calc(100% - 3px) -3px, calc(100% - 3px) 0, 100% 0,
+    100% 3px, calc(100% + 3px) 3px, calc(100% + 3px) calc(100% - 3px), 100% calc(100% - 3px), 100% 100%,
+    calc(100% - 3px) 100%, calc(100% - 3px) calc(100% + 3px), 3px calc(100% + 3px), 3px 100%, 0 100%,
+    0 calc(100% - 3px), -3px calc(100% - 3px));
+  --dz-clip: polygon(-3px 3px, 0 3px, 0 0, 3px 0, 3px -3px, calc(100% - 3px) -3px, calc(100% - 3px) 0, 100% 0,
+    100% 3px, calc(100% + 3px) 3px, calc(100% + 3px) 6px, calc(100% + 6px) 6px, calc(100% + 6px) 100%,
+    calc(100% + 3px) 100%, calc(100% + 3px) calc(100% + 3px), 100% calc(100% + 3px), 100% calc(100% + 6px),
+    6px calc(100% + 6px), 6px calc(100% + 3px), 3px calc(100% + 3px), 3px 100%, 0 100%, 0 calc(100% - 3px),
+    -3px calc(100% - 3px));
 }
 html[data-design='pixel'][data-theme='dark'] {
   --dz-line: #0b0d1c;
@@ -36,46 +57,46 @@ html[data-design='pixel'] .hub h2 {
 html[data-design='pixel'] .bar {
   box-shadow: 0 3px var(--dz-line);
 }
-html[data-design='pixel'] .card {
-  box-shadow: var(--dz-frame), 6px 6px var(--dz-shadow);
+html[data-design='pixel'] :is(.card, .hub a, .btn:not(.text)) {
+  box-shadow: var(--dz-frame), 3px 3px 0 3px var(--dz-shadow);
+  clip-path: var(--dz-clip);
+  background-image: linear-gradient(var(--dz-line) 0 0), linear-gradient(var(--dz-line) 0 0),
+    linear-gradient(var(--dz-line) 0 0), linear-gradient(var(--dz-line) 0 0);
+  background-size: 3px 3px;
+  background-repeat: no-repeat;
+  background-position: 0 0, 100% 0, 0 100%, 100% 100%;
 }
-html[data-design='pixel'] .card .card {
-  box-shadow: var(--dz-thin);
+html[data-design='pixel'] .card .card,
+html[data-design='pixel'] .hub li:not(:last-child) a {
+  box-shadow: var(--dz-frame);
+  clip-path: var(--dz-clip0);
 }
 html[data-design='pixel'] .hub ul {
   gap: 3px;
-}
-html[data-design='pixel'] .hub a {
-  box-shadow: var(--dz-frame);
-}
-html[data-design='pixel'] .hub li:last-child a {
-  box-shadow: var(--dz-frame), 6px 6px var(--dz-shadow);
 }
 html[data-design='pixel'] .hub .ic {
   background: none;
   color: var(--md-sys-color-primary);
 }
 html[data-design='pixel'] .btn {
+  --r: 0;
+  --r-square: 0;
+  --r-pressed: 0;
   margin: 3px;
-}
-html[data-design='pixel'] .btn:not(.text) {
-  box-shadow: var(--dz-frame), 4px 4px var(--dz-shadow);
 }
 html[data-design='pixel'] .btn:not(.text):active {
   box-shadow: var(--dz-frame);
-  transform: translate(2px, 2px);
+  transform: translate(3px, 3px);
 }
 html[data-design='pixel'] .chip,
 html[data-design='pixel'] .ib.filled,
-html[data-design='pixel'] .ib.tonal {
+html[data-design='pixel'] .ib.tonal,
+html[data-design='pixel'] .handle {
   box-shadow: var(--dz-thin);
 }
 html[data-design='pixel'] .track {
   border: 0;
-  box-shadow: var(--dz-frame);
-}
-html[data-design='pixel'] .handle {
-  box-shadow: var(--dz-thin);
+  box-shadow: 0 -3px var(--dz-line), 0 3px var(--dz-line), -3px 0 var(--dz-line), 3px 0 var(--dz-line);
 }
 html[data-design='pixel'] .nav {
   box-shadow: 0 -3px var(--dz-line);

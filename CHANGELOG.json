@@ -36,7 +36,7 @@
       "Web: Experimentell mit Unterseiten Testorte, Panel und Stromsparen, ältere Version; gemeinsamer Zustand in lib/exp.svelte.ts",
       "Web: Darstellung mit Ansicht, Schriftgröße, Startseite und Bewegung reduzieren je Browser (lib/prefs.svelte.ts); Übersicht mit „Neu in dieser Version“ und Hinweis auf neue Version",
       "Web: „So entstand Pixelia“ (lib/story.ts) unter Experimentell und nach 7× Tippen aufs Logo; Skizzen über GitHub Pages (pages.yml kopiert docs/skizzen)",
-      "Web: zwei Designs unter Experimentell (Vorschau), Pixelia mit der Pixelschrift des Displays (tools/pixel_font.py, 2 KB) und Fahrplan 1850 mit Serifenschrift; Ecken wie M3, eigene Akzentfarbe dseed",
+      "Web: zwei Designs unter Experimentell (Vorschau): Pixelia mit Pixelschrift des Displays (tools/pixel_font.py, 2 KB) und Pixelecken, Fahrplan 1850 mit Serifenschrift und Ecken wie M3; Akzentfarbe dseed",
       "Update: Kurzfassung k in CHANGELOG.json (Unterzeile, Neu, Verbessert, Behoben, Entfernt), in den Release-Notes als „Kurz gesagt“; Versionsverlauf und Update-Vorschau zeigen nur sie",
       "System: Changelog-Block in der Firmware nur noch mit v, d, t, k (18 → 4 KB gzip); Gerätetests und POST /api/picture gehen ohne Experimentell",
       "Werkzeuge: release_notes.py --check verlangt k für jede Version und warnt bei Messwerten; k für alle Versionen 0.1.0 bis 0.5.3 nachgetragen",
@@ -56,6 +56,25 @@
     "f": [
       "Web: Oberfläche lädt nach einer neuen Firmware-Version selbst neu; unbekannte Felder der Farbwahl bleiben beim Speichern erhalten (eine alte Seite setzte das Design zurück)"
     ]
+  },
+  {
+    "v": "0.5.4-beta.5",
+    "d": "2026-10-22",
+    "t": "Pixelecken (Vorschau)",
+    "s": "Vorabversion: Pixelia wieder kantig, mit Pixelecken in zwei Stufen",
+    "k": {
+      "s": "Vorabversion: Pixelia wieder im Pixelstil",
+      "i": [
+        "Pixelia: Karten, Listen und Knöpfe sind wieder kantig im Pixelstil, die Ecken sind eine Pixelstufe runder als vorher; Fahrplan bleibt rund"
+      ]
+    },
+    "i": [
+      "Web: Pixelia mit Pixelecken in zwei Stufen zu 3 px (clip-path, Rahmen und Schatten als Schatten mit Ausdehnung, Eckpixel als Hintergrundbild)"
+    ],
+    "h": [
+      "Doku: Vorabversion zum Ausprobieren, erscheint nur im Kanal Vorschau"
+    ],
+    "pr": [34]
   },
   {
     "v": "0.5.4-beta.4",
