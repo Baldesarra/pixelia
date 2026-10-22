@@ -18,6 +18,7 @@
         "Neue Designs: Unter Experimentell zum Ausprobieren, Pixelia wie die Pixelwelt und Fahrplan 1850 wie ein alter Fahrplan; Menüs und Einstellungen bleiben gleich"
       ],
       "i": [
+        "Versionsverlauf: Nur veröffentlichte Versionen, „Installiert“ steht über dem Titel, und am Handy hat die Versionsnummer eine eigene Zeile, damit lange Namen Platz haben",
         "Experimentell: aufgeteilt in Testorte, Panel und Stromsparen sowie ältere Version; die Auswahl der Orte passt jetzt auch aufs Handy",
         "Diagnose: Die Liste der Neustarts zeigt die letzten drei, der Rest lässt sich aufklappen",
         "Gerät und Speicher: Info und Hardware sind eine Seite, doppelte Angaben sind weg",
@@ -45,9 +46,31 @@
     "pr": [31, 32, 34],
     "i": [
       "Web: Bundle 151 → 147 KB gzip trotz neuer Seiten und Designs: Icon-Pfade auf Raster 240 gerundet (−5,6 KB), Schrift nur noch wght 400–800 und wdth 100–120 (33 → 21 KB)",
+      "Web: Versionsverlauf zeigt Versionen ohne Datum nur, wenn sie installiert sind; „Installiert“ über dem Titel, am Handy (≤ 480 px) Versions-Chip in eigener Zeile",
       "Web: Diagnose zeigt die letzten drei Neustarts, der Rest ist aufklappbar; Testorte in vier Karten, Auswahl als umbrechende Knöpfe (passte am Handy nicht in die Breite)",
       "Werkzeuge: web_screens.mjs speichert Unterseiten (#/a/b) als a-b.png"
     ]
+  },
+  {
+    "v": "0.5.4-beta.3",
+    "d": "2026-10-22",
+    "t": "Versionsverlauf aufgeräumt (Vorschau)",
+    "s": "Vorabversion: Versionsverlauf ohne unveröffentlichte Version, Kopf am Handy entzerrt",
+    "k": {
+      "s": "Vorabversion: Versionsverlauf aufgeräumt",
+      "f": [
+        "Installiert: Die Markierung steht über dem Titel statt zwischen Titel und Unterzeile",
+        "Unveröffentlicht: Die Version 0.5.4, die es noch nicht gibt, erscheint nicht mehr in der Liste",
+        "Handy: Die Versionsnummer steht in einer eigenen Zeile, Titel und Unterzeile werden nicht mehr zusammengedrückt"
+      ]
+    },
+    "f": [
+      "Web: Versionsverlauf zeigt Versionen ohne Datum nur, wenn sie installiert sind; „Installiert“ über dem Titel, am Handy (≤ 480 px) Versions-Chip in eigener Zeile"
+    ],
+    "h": [
+      "Doku: Vorabversion zum Ausprobieren, erscheint nur im Kanal Vorschau"
+    ],
+    "pr": [34]
   },
   {
     "v": "0.5.4-beta.2",

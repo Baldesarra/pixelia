@@ -36,7 +36,8 @@
   {#snippet head()}
     <span class="v tnum">{entry.v}</span>
     <span class="title">
-      <span class="t">{entry.t || `Pixelia ${entry.v}`}{#if mark}<span class="mark">{mark}</span>{/if}</span>
+      {#if mark}<span class="mark">{mark}</span>{/if}
+      <span class="t">{entry.t || `Pixelia ${entry.v}`}</span>
       <span class="sub">{sub}</span>
     </span>
   {/snippet}
@@ -108,19 +109,38 @@
     font-stretch: 105%;
   }
   .mark {
-    display: inline-block;
-    margin-left: 8px;
+    justify-self: start;
+    margin-bottom: 2px;
     padding: 1px 8px;
     border-radius: var(--md-sys-shape-corner-full);
     background: var(--md-sys-color-primary);
     color: var(--md-sys-color-on-primary);
     font: var(--md-sys-typescale-label-small);
     font-weight: 650;
-    vertical-align: 2px;
   }
   .sub {
     color: var(--md-sys-color-on-surface-variant);
     font: var(--md-sys-typescale-body-medium);
+  }
+  /* Handy: Chip oben (mit Pfeil rechts), Titel und Unterzeile darunter in voller Breite, damit lange Versionen
+     (0.5.4-beta.1) den Text nicht zusammendrücken */
+  @media (max-width: 480px) {
+    .head {
+      flex-wrap: wrap;
+      gap: 8px 12px;
+    }
+    .title {
+      order: 3;
+      flex-basis: 100%;
+    }
+    .chev {
+      margin-left: auto;
+    }
+    .v {
+      padding: 6px 10px;
+      font: var(--md-sys-typescale-label-large);
+      font-weight: 750;
+    }
   }
   .chev {
     display: grid;
