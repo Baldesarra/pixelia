@@ -1,0 +1,12 @@
+{
+  "palette": "../paletten/system.gpl",
+  "pakete": {
+    "system": {
+      "bilder": {
+        "schrift/fett": {"datei": "schrift-fett.png", "bilder": 120},
+        "schrift/klein": {"datei": "schrift-klein.png", "bilder": 120},
+        "ui/symbole": {"datei": "symbole.png", "bilder": 6}
+      }
+    }
+  }
+}

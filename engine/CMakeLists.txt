@@ -10,6 +10,8 @@ set(PIXELIA_ENGINE_SRCS
     src/gesture.cpp
     src/light.cpp
     src/memory.cpp
+    src/overlay.cpp
+    src/camera.cpp
     src/png.cpp
     src/qr.cpp
     src/redact.cpp

@@ -17,12 +17,6 @@ void text_right(Canvas& c, int right, int y, std::string_view s, uint8_t color, 
     font::draw(c, right - font::text_width(s, scale), y, s, color, scale);
 }
 
-// Rahmen aus zwei abgerundeten Flächen: außen Kontur, innen Füllung
-void framed(Canvas& c, int x, int y, int w, int h, uint8_t fill, uint8_t border, int radius = 3) {
-    round_rect(c, x, y, w, h, border, radius);
-    round_rect(c, x + 1, y + 1, w - 2, h - 2, fill, radius > 0 ? radius - 1 : 0);
-}
-
 void badge(Canvas& c, int x, int y, const char* digit) {
     round_rect(c, x, y, 13, 13, kPrimary, 3);
     font::draw_centered(c, x + 7, y + 3 - font::kCapTop + 0, digit, kOnPrimary);
@@ -79,6 +73,11 @@ void round_rect(Canvas& c, int x, int y, int w, int h, uint8_t color, int r) {
         int inset = yy < r ? r - yy : (yy >= h - r ? yy - (h - 1 - r) : 0);
         c.fill_rect(x + inset, y + yy, w - 2 * inset, 1, color);
     }
+}
+
+void framed(Canvas& c, int x, int y, int w, int h, uint8_t fill, uint8_t border, int radius) {
+    round_rect(c, x, y, w, h, border, radius);
+    round_rect(c, x + 1, y + 1, w - 2, h - 2, fill, radius > 0 ? radius - 1 : 0);
 }
 
 void draw_qr(Canvas& c, const qr::Code& code, int x, int y, int scale, int quiet) {
@@ -461,12 +460,12 @@ void render_reset(Canvas& c, const ResetInfo& info) {
                         kText);
 }
 
-void draw_hold_indicator(Canvas& c, float progress) {
+void draw_hold_indicator(Canvas& c, float progress, std::string_view label) {
     progress = std::clamp(progress, 0.0f, 1.0f);
     constexpr int kPw = 150, kPh = 24, kPx = (kW - kPw) / 2, kPy = kH - kPh - 8;
     round_rect(c, kPx - 1, kPy + 1, kPw + 2, kPh + 1, kShadow, 4);
     framed(c, kPx, kPy, kPw, kPh, kSurface, kOutline, 4);
-    font::draw_centered(c, kW / 2, kPy + 3, "Halten für Info …", kText);
+    font::draw_centered(c, kW / 2, kPy + 3, label, kText);
     progress_bar(c, kPx + 10, kPy + 16, kPw - 20, 4, static_cast<uint32_t>(progress * 1000), 1000);
 }
 

@@ -159,8 +159,9 @@ Rect reset_button_rect(ResetButton button);
 ResetButton reset_button_at(const ResetInfo& info, int x, int y);
 void render_reset(Canvas& canvas, const ResetInfo& info);
 
-// Halte-Anzeige während eines langen Drucks (progress 0..1), unten in der Mitte
-void draw_hold_indicator(Canvas& canvas, float progress);
+// Halte-Anzeige während eines langen Drucks (progress 0..1), unten in der Mitte; seit 0.5.6 mit Text (auf einer
+// Figur „Halten: Folgen“)
+void draw_hold_indicator(Canvas& canvas, float progress, std::string_view label = "Halten für Info …");
 
 // Signalstärke als 0–4 Balken (−55/−65/−75/−85 dBm)
 int signal_bars(int rssi);
@@ -168,6 +169,8 @@ void draw_signal_bars(Canvas& canvas, int x, int baseline, int rssi);
 
 // Bausteine
 void round_rect(Canvas& canvas, int x, int y, int w, int h, uint8_t color, int radius = 2);
+// Rahmen aus zwei abgerundeten Flächen: außen Kontur, innen Füllung
+void framed(Canvas& canvas, int x, int y, int w, int h, uint8_t fill, uint8_t border, int radius = 3);
 void draw_qr(Canvas& canvas, const qr::Code& code, int x, int y, int scale, int quiet_modules);
 uint8_t tone_color(Tone tone);
 

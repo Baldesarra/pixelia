@@ -63,6 +63,13 @@ public:
     int neighbors(const char** out, int max) const override;
     bool take_travel(Travel* out) override;
     void arrive(const Travel& t) override;
+    // Touch und Karten (seit 0.5.6): Figuren mit Kennung (Ort × 1000 + laufende Nummer, bleibt beim Reisen),
+    // Hauptfigur = die Begleiterin (Platzhalter für Sykora); Gedanken sind Testtexte (echte ab 0.6.x)
+    Hit hit(int x, int y) const override;
+    bool describe(const Hit& hit, ui::Card* card) const override;
+    int figures(FigureInfo* out, int max) const override;
+    bool has_figure(uint16_t id) const override;
+    bool figure_mark(uint16_t id, int* x, int* y, int* h) const override;
     void set_inspect(bool on) override { inspect_ = on; }
     // „ausbau“: nächste Ausbaustufe aller Teile mit Stufen; „baustelle“: Möbel im Bau bzw. wieder fertig.
     // Seit 0.5.2 zum Vergleichen: „stimmung n“ (Grundstimmung 0–2), „tageslicht n“ (0–2), „nacht n“ (Mindest-
@@ -77,6 +84,10 @@ public:
     bool lights_on() const;
 
     int figure_count() const { return count_; }
+    struct FigureView {
+        uint16_t id;
+        bool guide;
+    };
     bool has_guide() const;
     const Room& room() const { return room_; }
     // Prüfung: zeichnet ohne Hintergrundbild (muss pixelgleich mit render() sein)
@@ -96,6 +107,7 @@ private:
         int8_t dz;       // Tiefenversatz (Benutzungspunkt)
         bool guide;
         bool busy;       // benutzt gerade etwas
+        uint16_t id;     // Kennung (seit 0.5.6)
         uint16_t here;   // Schritte am Ort (die Begleiterin geht erst nach einer Weile weiter)
         Facing facing;
         Animator anim;
@@ -106,7 +118,9 @@ private:
     void apply_lights();
     void apply_glow();
     bool random_free_tile(int* tx, int* ty);
-    void spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide);
+    void spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide, uint16_t id = 0);
+    const Figure* figure_by_id(uint16_t id) const;
+    Sprite figure_frame(const Figure& f, bool* flip) const;
     void decide(Figure& f);
     bool use_taken(int part, int k, const Figure* self) const;
     void reached(int i);  // Figur i steht auf ihrem Ziel
@@ -137,6 +151,7 @@ private:
     uint64_t seed_ = 0;
     uint32_t enters_ = 0;
     uint64_t ticks_ = 0;
+    uint16_t next_id_ = 0;
 };
 
 }  // namespace pixelia

@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <new>
 #include <string_view>
 #include <vector>
@@ -11,6 +12,7 @@
 #include "pixelia/engine/assets.h"
 #include "pixelia/engine/font.h"
 #include "pixelia/engine/memory.h"
+#include "pixelia/engine/overlay.h"
 #include "pixelia/engine/system_ui.h"
 
 namespace pixelia {
@@ -450,8 +452,9 @@ bool TestPlace::random_free_tile(int* tx, int* ty) {
     return false;
 }
 
-void TestPlace::spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide) {
+void TestPlace::spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide, uint16_t id) {
     f = Figure{};
+    f.id = id ? id : next_id_++;
     f.cx = f.gx = static_cast<uint8_t>(tx);
     f.cy = f.gy = static_cast<uint8_t>(ty);
     f.x = center_x(tx);
@@ -501,6 +504,7 @@ void TestPlace::init(uint64_t seed) {
     count_ = 0;
     out_count_ = 0;
     load_pending_ = false;
+    next_id_ = static_cast<uint16_t>(1000 * (static_cast<int>(kind_) + 1));  // Wiese 1000 (Begleiterin), Raum 2000 …
     set_load(0);
     while (count_ < wanted_) {
         int tx = 0, ty = 0;
@@ -602,8 +606,7 @@ void TestPlace::reached(int i) {
             }
             const Exit& e = room_.exit(f.exit);
             Travel& t = out_[out_count_++];
-            t = Travel{e.to, e.entry, static_cast<uint8_t>(f.exit), e.transition, f.guide,
-                       static_cast<uint16_t>(f.row | (f.guide ? 0x100 : 0))};
+            t = Travel{e.to, e.entry, static_cast<uint8_t>(f.exit), e.transition, f.guide, f.id, f.row};
             remove_figure(i);
             return;
         }
@@ -686,8 +689,8 @@ bool TestPlace::take_travel(Travel* out) {
 }
 
 void TestPlace::arrive(const Travel& t) {
-    const bool guide = t.who & 0x100;
-    const uint8_t row = static_cast<uint8_t>(std::clamp<int>(t.who & 0xFF, 1, kFigureRows));
+    const bool guide = t.follow;
+    const uint8_t row = static_cast<uint8_t>(std::clamp<int>(t.look, 1, kFigureRows));
     if (count_ >= kMaxFigures) {
         if (!guide) return;  // voll: wer ankommt, bleibt draußen (nur die Begleiterin verdrängt jemanden)
         for (int i = count_ - 1; i >= 0; --i)
@@ -708,7 +711,7 @@ void TestPlace::arrive(const Travel& t) {
         return;
     }
     Figure& f = figures_[count_++];
-    spawn_at(f, tx, ty, facing, row, guide);
+    spawn_at(f, tx, ty, facing, row, guide, t.who);
     f.wait = static_cast<uint16_t>(rng_.range(10, 40));
 }
 
@@ -851,9 +854,9 @@ void TestPlace::draw(Canvas& c, bool with_background, CoarseLayers* layers) cons
     const SpriteSheet& sheet = k.figure;
     for (int i = 0; sheet.pixels && i < count_; ++i) {
         const Figure& f = figures_[i];
-        const View v = view_of(f.facing);
-        list.add(sheet.frame(v.index * kPoses + f.anim.frame()), f.x >> 8, f.y >> 8, sheet.pivot_x, sheet.pivot_y,
-                 v.flip, k.rows[f.row].table(), f.dz, 5);
+        bool flip = false;
+        const Sprite fr = figure_frame(f, &flip);
+        list.add(fr, f.x >> 8, f.y >> 8, sheet.pivot_x, sheet.pivot_y, flip, k.rows[f.row].table(), f.dz, 5);
     }
     list.draw(c);
 }
@@ -883,6 +886,161 @@ void TestPlace::render_overlay(Canvas& fine) const {
         for (int r = 0; r < 5; ++r) fine.fill_rect(x - 5 + r, y + r, 11 - 2 * r, 1, ui::kBg);
         for (int r = 0; r < 3; ++r) fine.fill_rect(x - 3 + r, y + 1 + r, 7 - 2 * r, 1, ui::kWhite);
     }
+}
+
+Sprite TestPlace::figure_frame(const Figure& f, bool* flip) const {
+    const View v = view_of(f.facing);
+    *flip = v.flip;
+    return kit().figure.frame(v.index * kPoses + f.anim.frame());
+}
+
+const TestPlace::Figure* TestPlace::figure_by_id(uint16_t id) const {
+    for (int i = 0; i < count_; ++i)
+        if (figures_[i].id == id) return &figures_[i];
+    return nullptr;
+}
+
+Hit TestPlace::hit(int fx, int fy) const {
+    Hit best;
+    if (!room_.ready()) return best;
+    const int x = fx / kCoarseScale, y = fy / kCoarseScale;
+    int depth = 0;
+    const int part = room_.hit_part(x, y, &depth);
+    if (part >= 0) {
+        best.kind = Hit::Kind::Part;
+        best.id = static_cast<uint16_t>(part);
+        best.depth = static_cast<int16_t>(depth);
+        const Rect r = room_.part_rect(part);
+        best.x = static_cast<int16_t>((r.x + r.w / 2) * kCoarseScale);
+        best.y = static_cast<int16_t>((r.y + r.h) * kCoarseScale);
+    }
+    // Figuren nach den Teilen: bei gleicher Tiefe liegt die Figur vorn (wie beim Zeichnen)
+    const SpriteSheet& sheet = kit().figure;
+    for (int i = 0; sheet.pixels && i < count_; ++i) {
+        const Figure& f = figures_[i];
+        bool flip = false;
+        const Sprite s = figure_frame(f, &flip);
+        const int footx = f.x >> 8, footy = f.y >> 8;
+        const int sx = x - (footx - (flip ? s.width - 1 - sheet.pivot_x : sheet.pivot_x));
+        const int sy = y - (footy - sheet.pivot_y);
+        if (sx < 0 || sy < 0 || sx >= s.width || sy >= s.height) continue;
+        if (!s.pixels[sy * s.width + (flip ? s.width - 1 - sx : sx)]) continue;  // durchsichtig
+        const int d = footy + f.dz;
+        if (best.kind != Hit::Kind::None && d < best.depth) continue;
+        best.kind = Hit::Kind::Figure;
+        best.id = f.id;
+        best.depth = static_cast<int16_t>(d);
+        best.x = static_cast<int16_t>(footx * kCoarseScale);
+        best.y = static_cast<int16_t>(footy * kCoarseScale);
+        best.h = static_cast<int16_t>(s.height * kCoarseScale);
+    }
+    return best;
+}
+
+namespace {
+void figure_name(const TestPlace::FigureView& v, char* out, size_t n) {
+    if (v.guide) std::snprintf(out, n, "Begleiterin");
+    else std::snprintf(out, n, "Testfigur %u", static_cast<unsigned>(v.id / 1000 * 100 + v.id % 1000));
+}
+
+// Testgedanken, bis die Simulation ab 0.6.x echte Gründe liefert
+constexpr const char* kThoughts[] = {
+    "Ob es heute noch regnet? Die Wolken über der Hecke sehen schwer aus.",
+    "Erst einmal hinsetzen. Der Weg war weiter als gedacht.",
+    "Hier riecht es nach frischem Holz.",
+    "Wer wohl in dem Haus mit der grünen Tür wohnt?",
+    "Ich sollte mir die Bank am Platz genauer ansehen.",
+    "Testgedanke: Hier steht später, was die Figur wirklich denkt und warum.",
+};
+constexpr const char* kPartNames[] = {"Dekoration", "Sitzplatz", "Bett",  "Tisch",  "Schrank",
+                                      "Werkbank",   "Lampe",     "Tür",   "Fenster"};
+}  // namespace
+
+bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
+    using Kind = ui::Card::Kind;
+    if (hit.kind == Hit::Kind::Figure) {
+        const Figure* f = figure_by_id(hit.id);
+        if (!f) return false;
+        card->kind = Kind::Figure;
+        card->figure = f->id;
+        char name[24];
+        figure_name({f->id, f->guide}, name, sizeof(name));
+        card->title = name;
+        const bool walking = f->x != center_x(f->cx) || f->y != center_y(f->cy);
+        card->subtitle = f->busy                  ? "sitzt und ruht"
+                         : f->goal == Goal::Exit  ? "geht hinaus"
+                         : walking                ? "spaziert herum"
+                                                  : "steht und schaut";
+        card->where = title();
+        card->quote = std::string("„") + kThoughts[f->id % (sizeof(kThoughts) / sizeof(kThoughts[0]))] + "“";
+        card->hint = "Halten: Folgen";
+        card->hint_symbol = ui::Symbol::Follow;
+        card->picture.sprite = kit().figure.frame(view_of(Facing::Down).index * kPoses);
+        card->picture.remap = kit().rows[f->row].table();
+        card->picture.scale = 2;
+        figure_mark(f->id, &card->mark_x, &card->mark_y, &card->mark_h);
+        return true;
+    }
+    if (hit.kind == Hit::Kind::Part) {
+        const PartDef* d = room_.def(hit.id);
+        const PartStage* l = room_.look(hit.id);
+        if (!d) return false;
+        card->kind = d->kind == PartKind::Door ? Kind::Building : Kind::Exhibit;
+        card->title = kPartNames[static_cast<int>(d->kind)];
+        card->subtitle = room_.building(hit.id) ? "im Bau" : "";
+        card->where = title();
+        if (l && l->sheet.pixels) {
+            card->picture.sprite = l->sheet.frame(room_.part(hit.id).state, 0);
+            card->picture.scale = l->sheet.width <= 24 && l->sheet.height <= 24 ? 3 : 2;
+            const uint8_t row = room_.part(hit.id).row;
+            card->picture.remap = row > 0 && row < kRowCount ? kit().rows[row].table() : nullptr;
+        }
+        card->hint = "Tippen: schließen";
+        if (d->kind == PartKind::Door) {
+            // Ort hinter der Tür: nächster Ausgang (die Bühne ergänzt, wer drin ist)
+            const Rect r = room_.part_rect(hit.id);
+            int best = -1, dist = 1 << 30;
+            for (int e = 0; e < room_.exit_count(); ++e) {
+                const Exit& x = room_.exit(e);
+                const int dx = x.x * kTileSize - r.x, dy = x.y * kTileSize - r.y;
+                if (dx * dx + dy * dy < dist) {
+                    dist = dx * dx + dy * dy;
+                    best = e;
+                }
+            }
+            if (best >= 0) card->place = room_.exit(best).to;
+            card->hint_symbol = ui::Symbol::House;
+        } else {
+            card->quote = "Testkarte: Hier stehen später Name, Herkunft und Angaben (Museum ab 0.7.x).";
+        }
+        return true;
+    }
+    return false;
+}
+
+int TestPlace::figures(FigureInfo* out, int max) const {
+    int n = 0;
+    for (int pass = 0; pass < 2; ++pass)  // Begleiterin zuerst
+        for (int i = 0; i < count_ && n < max; ++i) {
+            const Figure& f = figures_[i];
+            if (f.guide != (pass == 0)) continue;
+            out[n].id = f.id;
+            out[n].lead = f.guide;
+            figure_name({f.id, f.guide}, out[n].name, sizeof(out[n].name));
+            ++n;
+        }
+    return n;
+}
+
+bool TestPlace::has_figure(uint16_t id) const { return figure_by_id(id) != nullptr; }
+
+bool TestPlace::figure_mark(uint16_t id, int* x, int* y, int* h) const {
+    const Figure* f = figure_by_id(id);
+    if (!f) return false;
+    *x = (f->x >> 8) * kCoarseScale;
+    *y = (f->y >> 8) * kCoarseScale;
+    *h = (kit().figure.pixels ? kit().figure.pivot_y : 28) * kCoarseScale;
+    return true;
 }
 
 }  // namespace pixelia

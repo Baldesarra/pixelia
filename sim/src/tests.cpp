@@ -14,7 +14,9 @@
 #include "pixelia/engine/assets.h"
 #include "pixelia/engine/light.h"
 #include "pixelia/engine/color.h"
+#include "pixelia/engine/camera.h"
 #include "pixelia/engine/gesture.h"
+#include "pixelia/engine/overlay.h"
 #include "pixelia/engine/redact.h"
 #include "pixelia/engine/sprite.h"
 #include "pixelia/engine/stage.h"
@@ -60,8 +62,68 @@ std::string expect(const std::vector<Event>& ev, std::initializer_list<Type> typ
     return {};
 }
 
+// Finger in n Schritten von (x0, y0) nach (x1, y1) ziehen und loslassen; rot = Bild um 180° gedreht (Touch wird wie
+// in hwtest.cpp mitgedreht, Koordinaten danach in Bildausrichtung)
+void drag(Recognizer& r, int x0, int y0, int x1, int y1, uint32_t t0, uint32_t ms, bool rot = false, int fingers = 1) {
+    const int n = std::max<int>(2, static_cast<int>(ms / 20));
+    int x = x0, y = y0;
+    for (int k = 0; k <= n; ++k) {
+        x = x0 + (x1 - x0) * k / n;
+        y = y0 + (y1 - y0) * k / n;
+        int px = x, py = y;
+        if (rot) pixelia::gesture::rotate180(&px, &py, 800, 480);
+        r.touch(fingers, px, py, t0 + static_cast<uint32_t>(k) * ms / n);
+    }
+    if (rot) pixelia::gesture::rotate180(&x, &y, 800, 480);
+    r.touch(0, x, y, t0 + ms + 20);
+}
+
 std::vector<Case> gesture_cases() {
     return {
+        {"Wischen nach links ergibt Swipe mit dx < 0",
+         [] {
+             Recognizer r;
+             drag(r, 600, 240, 300, 250, 1000, 300);
+             auto ev = drain(r);
+             std::string err = expect(ev, {Type::Swipe});
+             if (err.empty() && (ev[0].dx >= -250 || std::abs(ev[0].dy) > 20)) err = "Weg falsch";
+             return err;
+         }},
+        {"Wischen mit 180° gedrehtem Bild: Richtung in Bildausrichtung",
+         [] {
+             // Physisch von links nach rechts gewischt = im gedrehten Bild nach links
+             Recognizer r;
+             drag(r, 200, 240, 500, 240, 1000, 300, true);
+             auto ev = drain(r);
+             std::string err = expect(ev, {Type::Swipe});
+             if (err.empty() && ev[0].dx >= -250) err = "Richtung nicht gedreht";
+             if (err.empty() && (ev[0].x != 599 || ev[0].y != 239)) err = "Aufsetzpunkt nicht gedreht";
+             return err;
+         }},
+        {"Tippen und langer Druck mit 180° gedrehtem Bild am gespiegelten Ort",
+         [] {
+             Recognizer r;
+             int x = 100, y = 50;
+             pixelia::gesture::rotate180(&x, &y, 800, 480);
+             hold(r, x, y, 1000, 1180);
+             r.touch(0, x, y, 1200);
+             hold(r, x, y, 2000, 5100);
+             r.touch(0, x, y, 5120);
+             auto ev = drain(r);
+             std::string err = expect(ev, {Type::Tap, Type::LongPress});
+             if (err.empty() && (ev[0].x != 699 || ev[0].y != 429 || ev[1].x != 699)) err = "Ort nicht gespiegelt";
+             return err;
+         }},
+        {"Langsames Ziehen, schräges Wischen, zwei Finger und kurzer Weg sind kein Wischen",
+         [] {
+             Recognizer r;
+             drag(r, 600, 240, 300, 240, 1000, 1500);       // zu langsam
+             drag(r, 600, 100, 400, 300, 5000, 300);        // schräg
+             drag(r, 600, 240, 300, 240, 9000, 300, false, 2);  // zwei Finger
+             drag(r, 600, 240, 520, 240, 13000, 200);       // nur 80 Pixel
+             auto ev = drain(r);
+             return ev.empty() ? std::string() : "Ereignis " + std::to_string(static_cast<int>(ev[0].type)) + " erkannt";
+         }},
         {"Kurzes Tippen ergibt Tap",
          [] {
              Recognizer r;
@@ -974,6 +1036,198 @@ std::vector<Case> asset_cases() {
     };
 }
 
+std::vector<Case> overlay_cases() {
+    using pixelia::Camera;
+    using pixelia::CameraHome;
+    using pixelia::CameraSettings;
+    using pixelia::Hit;
+    namespace ui = pixelia::ui;
+    return {
+        {"Figur antippen trifft sie, ihre durchsichtige Ecke nicht",
+         [] {
+             StageRun r(5, "testort-wiese");
+             r.run(60);
+             pixelia::FigureInfo f[64];
+             const int n = r.stage.scene(r.stage.active()).figures(f, 64);
+             int checked = 0;
+             for (int i = 0; i < n; ++i) {
+                 int x, y, h;
+                 if (!r.stage.scene(r.stage.active()).figure_mark(f[i].id, &x, &y, &h)) continue;
+                 // Brust: 9 grobe Bildpunkte über dem Fußpunkt; vorn kann eine andere Figur stehen (dann tiefer)
+                 const Hit a = r.stage.hit(x, y - 18);
+                 if (a.kind != Hit::Kind::Figure) return "Figur " + std::to_string(f[i].id) + " nicht getroffen";
+                 if (a.id != f[i].id && a.y < y) return std::string("weiter hinten stehende Figur getroffen");
+                 // linke obere Ecke der Zelle (16 × 32 grob) ist durchsichtig: dort darf diese Figur nicht treffen
+                 const Hit b = r.stage.hit(x - 15, y - 58);
+                 if (b.kind == Hit::Kind::Figure && b.id == f[i].id) return std::string("durchsichtiger Punkt trifft");
+                 ++checked;
+             }
+             return checked >= 3 ? std::string() : "zu wenige Figuren geprüft";
+         }},
+        {"Karte einer Figur: Name, Tätigkeit, Ort, Gedanke, Markierung",
+         [] {
+             StageRun r(5, "testort-wiese");
+             r.run(30);
+             Hit h;
+             h.kind = Hit::Kind::Figure;
+             h.id = r.stage.lead();
+             ui::Card c;
+             if (!r.stage.describe(h, &c)) return std::string("keine Karte");
+             if (c.title != "Begleiterin" || c.subtitle.empty() || c.where != "Testort Wiese" || c.quote.empty())
+                 return "Inhalt falsch: " + c.title + " / " + c.where;
+             return c.mark_x >= 0 && c.figure == h.id && c.picture.sprite.pixels ? std::string() : "Markierung oder Bild fehlt";
+         }},
+        {"Tür antippen: Karte zeigt, wer im Raum dahinter ist",
+         [] {
+             StageRun r(5, "testort-wiese");
+             r.run(30);
+             for (int y = 0; y < pixelia::kScreenHeight; y += 4)
+                 for (int x = 0; x < pixelia::kScreenWidth; x += 4) {
+                     const Hit h = r.stage.hit(x, y);
+                     ui::Card c;
+                     if (h.kind != Hit::Kind::Part || !r.stage.describe(h, &c) || !c.place) continue;
+                     if (std::strcmp(c.place, "testort-raum") != 0) return std::string("falscher Ort ") + c.place;
+                     return c.line_count == 1 && c.lines[0].rfind("Drin: ", 0) == 0 ? std::string() : "keine Bewohner";
+                 }
+             return std::string("keine Tür gefunden");
+         }},
+        {"Standard Hauptfigur: Anzeige geht mit ihr durch die Ausgänge",
+         [] {
+             StageRun r(11, "testort-wiese");
+             Camera cam;
+             const uint16_t lead = r.stage.lead();
+             int moves = 0, last = r.stage.find_figure(lead);
+             for (int t = 0; t < 9000; ++t) {
+                 r.run(1);
+                 cam.tick(r.stage);
+                 const int at = r.stage.find_figure(lead);
+                 if (at >= 0 && at != last) ++moves, last = at;
+             }
+             r.run(60);
+             const int at = r.stage.find_figure(lead);
+             if (moves == 0) return std::string("Hauptfigur ist nie gegangen");
+             return at < 0 || at == r.stage.active() ? std::string() : "Anzeige nicht bei der Hauptfigur";
+         }},
+        {"Folgen: Anzeige bleibt bei einer anderen Figur, auch über Ausgänge",
+         [] {
+             StageRun r(13, "testort-wiese");
+             Camera cam;
+             cam.tick(r.stage);
+             pixelia::FigureInfo f[8];
+             const int n = r.stage.scene(r.stage.active()).figures(f, 8);
+             if (n < 2) return std::string("zu wenige Figuren");
+             const uint16_t who = f[1].id;
+             cam.follow(r.stage, who);
+             int moves = 0, last = r.stage.find_figure(who), wrong = 0;
+             for (int t = 0; t < 20000; ++t) {
+                 r.run(1);
+                 cam.tick(r.stage);
+                 cam.input();  // „Zuschauer“ berührt regelmäßig: keine Rückkehr
+                 const int at = r.stage.find_figure(who);
+                 if (at >= 0 && at != last) ++moves, last = at;
+                 // 2 s nach einem Wechsel muss die Anzeige dort sein
+                 if (at >= 0 && at != r.stage.active() && !r.stage.transitioning()) ++wrong;
+                 else wrong = 0;
+                 if (wrong > 60) return "Anzeige bleibt nicht bei Figur " + std::to_string(who);
+             }
+             return cam.mode() == Camera::Mode::Follow ? std::string() : "Modus verloren";
+         }},
+        {"Frei: Wischen wechselt den Ort, nach der Ruhezeit zurück; Rückkehr „nie“ bleibt",
+         [] {
+             StageRun r(7, "testort-wiese");
+             Camera cam;
+             CameraSettings s;
+             s.return_s = 2;
+             cam.set_settings(s);
+             cam.tick(r.stage);
+             r.run(30);
+             const int home = r.stage.active();
+             cam.swipe(r.stage, +1);
+             r.run(40);
+             if (cam.mode() != Camera::Mode::Free || r.stage.active() == home) return std::string("Wischen ohne Wirkung");
+             for (int t = 0; t < 3 * 30; ++t) {
+                 r.run(1);
+                 cam.tick(r.stage);
+             }
+             r.run(40);
+             if (cam.mode() != Camera::Mode::Home) return std::string("keine Rückkehr");
+             if (r.stage.active() != r.stage.find_figure(r.stage.lead())) return std::string("nicht bei der Hauptfigur");
+             s.return_s = 0;
+             cam.set_settings(s);
+             cam.tick(r.stage);
+             cam.swipe(r.stage, -1);
+             const int free_place = (home + r.stage.count() - 1) % r.stage.count();
+             for (int t = 0; t < 600 * 30 / 10; ++t) {
+                 r.run(1);
+                 cam.tick(r.stage);
+             }
+             return cam.mode() == Camera::Mode::Free && r.stage.active() == free_place ? std::string()
+                                                                                      : "Rückkehr trotz „nie“";
+         }},
+        {"Standard fester Ort: Anzeige bleibt dort",
+         [] {
+             StageRun r(7, "testort-wiese");
+             Camera cam;
+             CameraSettings s;
+             s.home = CameraHome::Place;
+             s.place = static_cast<int8_t>(r.stage.find("testort-platz"));
+             cam.set_settings(s);
+             for (int t = 0; t < 4000; ++t) {
+                 r.run(1);
+                 cam.tick(r.stage);
+             }
+             return r.stage.active() == s.place && !r.stage.transitioning() ? std::string() : "Ort verlassen";
+         }},
+        {"Kurzmeldungen: höchstens 4 aus der Welt pro Stunde, Technik geht vor",
+         [] {
+             ui::ToastQueue q;
+             ui::Toast w;
+             w.kind = ui::ToastKind::World;
+             w.text = "Welt";
+             w.seconds = 20;
+             int ok = q.push(w, 1000);
+             q.update(1000);  // Weltmeldung sichtbar
+             for (int i = 1; i < 6; ++i) ok += q.push(w, 1000 + i * 100);
+             if (ok != 4 || q.dropped() != 2) return "angenommen " + std::to_string(ok);
+             ui::Toast sys;
+             sys.text = "System";
+             if (!q.push(sys, 1600)) return std::string("Systemmeldung verworfen");
+             const ui::Toast* t = q.update(1600);
+             if (!t || t->text != "Welt") return std::string("sichtbare Meldung zu früh abgelöst");
+             t = q.update(3100);  // nach 2 s löst die Systemmeldung ab
+             if (!t || t->text != "System") return std::string("Systemmeldung wartet");
+             return q.push(w, 1000 + 3600u * 1000u + 10) ? std::string() : "nach einer Stunde noch gesperrt";
+         }},
+        {"Pixel-Uhr und Karte zeichnen ohne Absturz in allen Ecken und Arten",
+         [] {
+             StageRun r(5, "testort-wiese");
+             r.run(30);
+             std::vector<uint8_t> px(pixelia::kScreenPixels);
+             pixelia::Canvas c(px.data(), pixelia::kScreenWidth, pixelia::kScreenHeight);
+             for (int k = 0; k < 4; ++k)
+                 for (int sec = 0; sec < 2; ++sec) {
+                     ui::ClockStyle st;
+                     st.corner = static_cast<ui::Corner>(k);
+                     st.seconds = sec;
+                     const ui::Rect a = ui::draw_clock(c, 23, 59, 59, st, true);
+                     if (a.x < 0 || a.y < 0 || a.x + a.w > pixelia::kScreenWidth || a.y + a.h > pixelia::kScreenHeight)
+                         return std::string("Uhr außerhalb");
+                 }
+             Hit h;
+             h.kind = Hit::Kind::Figure;
+             h.id = r.stage.lead();
+             ui::Card card;
+             r.stage.describe(h, &card);
+             for (int l = 0; l < 3; ++l) {
+                 ui::CardStyle cs;
+                 cs.layout = static_cast<ui::CardLayout>(l);
+                 ui::render_card(c, card, cs);
+             }
+             return std::string();
+         }},
+    };
+}
+
 int run_group(const char* title, const std::vector<Case>& cases) {
     int failed = 0;
     for (const auto& c : cases) {
@@ -993,8 +1247,9 @@ int run_group(const char* title, const std::vector<Case>& cases) {
 }  // namespace
 
 int run_tests(const std::string& which) {
-    if (which != "gestures" && which != "redact" && which != "stage" && which != "assets" && which != "all") {
-        std::printf("FEHLER: Test \"%s\" gibt es nicht (gestures, redact, stage, assets, all)\n", which.c_str());
+    if (which != "gestures" && which != "redact" && which != "stage" && which != "assets" && which != "overlay" &&
+        which != "all") {
+        std::printf("FEHLER: Test \"%s\" gibt es nicht (gestures, redact, stage, assets, overlay, all)\n", which.c_str());
         return 2;
     }
     int failed = 0;
@@ -1002,6 +1257,7 @@ int run_tests(const std::string& which) {
     if (which == "redact" || which == "all") failed += run_group("Passwort-Filter", redact_cases());
     if (which == "stage" || which == "all") failed += run_group("Bühne", stage_cases());
     if (which == "assets" || which == "all") failed += run_group("Asset-Pakete", asset_cases());
+    if (which == "overlay" || which == "all") failed += run_group("Einblendungen, Touch und Kamera", overlay_cases());
     return failed ? 1 : 0;
 }
 

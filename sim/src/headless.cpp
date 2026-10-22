@@ -9,7 +9,9 @@
 #include <fstream>
 #include <vector>
 
+#include "pixelia/engine/assets.h"
 #include "pixelia/engine/color.h"
+#include "pixelia/engine/overlay.h"
 #include "pixelia/engine/png.h"
 #include "pixelia/engine/rng.h"
 #include "pixelia/engine/stage.h"
@@ -66,10 +68,80 @@ void render(const pixelia::Stage& stage, std::vector<uint8_t>& frame, Stats& st)
     st.render_seconds += seconds_since(t0);
 }
 
+// Einblendungen (seit 0.5.6) mit Testinhalt: Karte der Hauptfigur bzw. eines Teils, Kurzmeldung, Uhr
+bool render_overlay_screen(const std::string& name, pixelia::Canvas& canvas, const pixelia::Stage& stage) {
+    namespace ui = pixelia::ui;
+    using pixelia::font::Style;
+    ui::CardStyle cs;
+    ui::ToastPlace tp = ui::ToastPlace::Top;
+    ui::ClockStyle clk;
+    bool toast = true, clock = true;
+    std::string what = "figur";
+    if (name == "karte-seite" || name == "schrift-fett") {
+        cs.small = Style::Normal;
+    } else if (name == "karte-mitte") {
+        cs.layout = ui::CardLayout::Center;
+        tp = ui::ToastPlace::Bottom;
+    } else if (name == "karte-leiste") {
+        cs.layout = ui::CardLayout::Bar;
+    } else if (name == "schrift-klein") {
+        cs.small = Style::Small;
+    } else if (name == "schrift-normal") {
+        cs.small = Style::Normal;
+        cs.title = Style::Normal;
+        cs.title_scale = 2;
+        clk.face = Style::Normal;
+    } else if (name == "karte-tuer" || name == "karte-teil") {
+        what = name.substr(6);
+        toast = false;
+    } else if (name == "uhr" || name == "uhr-sekunden" || name == "uhr-unten") {
+        clk.seconds = name == "uhr-sekunden";
+        if (name == "uhr-unten") clk.corner = ui::Corner::BottomRight;
+        what.clear();
+        toast = false;
+    } else if (name == "meldung-oben" || name == "meldung-unten") {
+        tp = name == "meldung-oben" ? ui::ToastPlace::Top : ui::ToastPlace::Bottom;
+        what.clear();
+    } else {
+        return false;
+    }
+    ui::Card card;
+    bool have = false;
+    if (what == "figur") {
+        const uint16_t id = stage.lead();
+        pixelia::Hit h;
+        h.kind = pixelia::Hit::Kind::Figure;
+        h.id = id;
+        have = stage.describe(h, &card);
+    } else if (!what.empty()) {
+        // erstes Teil der passenden Art im sichtbaren Ort: über alle Bildpunkte suchen
+        for (int y = 0; y < kScreenHeight && !have; y += 4)
+            for (int x = 0; x < kScreenWidth && !have; x += 4) {
+                const pixelia::Hit h = stage.hit(x, y);
+                if (h.kind != pixelia::Hit::Kind::Part) continue;
+                ui::Card c;
+                if (stage.describe(h, &c) && (what == "tuer") == (c.place != nullptr)) {
+                    card = c;
+                    have = true;
+                }
+            }
+    }
+    if (have) ui::render_card(canvas, card, cs);
+    if (toast) {
+        ui::Toast t;
+        t.text = "Neue Version 0.5.7 verfügbar · Weboberfläche → Update";
+        t.tone = ui::Tone::Info;
+        ui::draw_toast(canvas, t, tp);
+    }
+    if (clock) ui::draw_clock(canvas, 14, 5, 32, clk, true);
+    return true;
+}
+
 // Systemanzeige mit Beispieldaten über bzw. statt der Szene zeichnen (gleicher Code wie auf dem Gerät)
-bool render_screen(const std::string& name, std::vector<uint8_t>& frame) {
+bool render_screen(const std::string& name, std::vector<uint8_t>& frame, const pixelia::Stage& stage) {
     namespace ui = pixelia::ui;
     pixelia::Canvas canvas(frame.data(), kScreenWidth, kScreenHeight);
+    if (render_overlay_screen(name, canvas, stage)) return true;
     if (name == "setup") {
         ui::SetupInfo info;
         info.ap_password = "kx7m-q4tr";
@@ -290,6 +362,9 @@ pixelia::Palette display_palette(const pixelia::Stage& stage) {
 }
 
 bool setup_stage(const Options& opt, pixelia::Stage& stage) {
+    // Schriften und Symbole der Einblendungen (Paket „system“, Grundausstattung wie auf dem Gerät)
+    pixelia::font::load_faces(pixelia::asset_store());
+    pixelia::ui::load_symbols(pixelia::asset_store());
     pixelia::add_standard_scenes(stage);
     stage.use_own_buffers();
     const int start = stage.find(opt.scene);
@@ -404,10 +479,12 @@ int run_headless(const Options& opt) {
     if (!opt.screenshot.empty()) {
         render(stage, frame, st);
         pixelia::Palette palette = display_palette(stage);
-        if (!opt.screen.empty() && !render_screen(opt.screen, frame)) {
+        if (!opt.screen.empty() && !render_screen(opt.screen, frame, stage)) {
             std::printf("FEHLER: Systemanzeige \"%s\" gibt es nicht (setup, setup-leer, setup-fehler, update, "
                         "update-fertig, failed, message, toast, toast-lang, toast-ip, info, info-setup, "
-                        "info-offline, hold, reset, reset-ohne-pin, reset-halten)\n", opt.screen.c_str());
+                        "info-offline, hold, reset, reset-ohne-pin, reset-halten, karte-seite, karte-mitte, "
+                        "karte-leiste, karte-tuer, karte-teil, schrift-fett, schrift-klein, schrift-normal, uhr, "
+                        "uhr-sekunden, uhr-unten, meldung-oben, meldung-unten)\n", opt.screen.c_str());
             return 2;
         }
         const int s = std::max(1, opt.scale);
