@@ -53,12 +53,32 @@
       "Web: Versionsverlauf zeigt Versionen ohne Datum nur, wenn sie installiert sind; „Installiert“ über dem Titel, am Handy (≤ 480 px) Versions-Chip in eigener Zeile",
       "Web: Diagnose zeigt die letzten drei Neustarts, der Rest ist aufklappbar; Testorte in vier Karten, Auswahl als umbrechende Knöpfe (passte am Handy nicht in die Breite)",
       "Werkzeuge: web_screens.mjs speichert Unterseiten (#/a/b) als a-b.png",
-      "Web: Update-Seite mit Installieren-Knopf direkt unter der Fundmeldung, Changelog darunter; „Aus Datei“ als eigene Karte ganz unten"
+      "Web: Update-Seite mit Installieren-Knopf direkt unter der Fundmeldung, Changelog darunter, Knöpfe gleich breit; „Aus Datei“ als eigene Karte ganz unten"
     ],
     "f": [
       "Web: Oberfläche lädt nach einer neuen Firmware-Version selbst neu; unbekannte Felder der Farbwahl bleiben beim Speichern erhalten (eine alte Seite setzte das Design zurück)",
       "Web: „So entstand Pixelia“ schließt erst 2 s nach dem Öffnen per Tipp daneben (weitere Tipper aufs Zeichen schlossen es sofort); X und Escape sofort"
     ]
+  },
+  {
+    "v": "0.5.4-beta.9",
+    "d": "2026-10-22",
+    "t": "Gleich breite Knöpfe (Vorschau)",
+    "s": "Vorabversion: Update-Knöpfe gleich breit, Versionsverlauf wieder in der Update-Karte",
+    "k": {
+      "s": "Vorabversion: Update-Knöpfe gleich breit",
+      "i": [
+        "Update: Suchen und Installieren sowie Datei wählen und Installieren sind gleich breite Knöpfe über die ganze Karte",
+        "Versionsverlauf: Der Link steht wieder in der Update-Karte statt bei „Aus Datei“"
+      ]
+    },
+    "i": [
+      "Web: Update-Seite mit vollbreiten Knöpfen (Suchen, Installieren, Datei wählen), Link Versionsverlauf am Ende der Update-Karte"
+    ],
+    "h": [
+      "Doku: Vorabversion zum Ausprobieren, erscheint nur im Kanal Vorschau"
+    ],
+    "pr": [34]
   },
   {
     "v": "0.5.4-beta.8",

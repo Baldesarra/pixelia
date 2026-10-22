@@ -322,6 +322,8 @@
             ]}
             bind:value={() => ghCh, setChannel}
           />
+        </div>
+        <div class="full">
           <Button variant="tonal" icon="refresh" disabled={!!noNet || ghChecking || sending} onclick={checkGh}>
             {ghChecking ? 'Suche …' : 'Nach Updates suchen'}
           </Button>
@@ -338,7 +340,7 @@
           <p class="ok-text">
             Neu auf GitHub: <b>Pixelia {ghTarget.v}</b>{ghTarget.pre ? ' (Vorschau)' : ''} vom {dateDe(ghTarget.date)} · {num(ghTarget.size / 1024)} KB{ghEntries.length > 1 ? ` · ${ghEntries.length} Versionen neuer als ${s.v}` : ''}
           </p>
-          <div class="actions">
+          <div class="full">
             <Button icon="system_update_alt" disabled={sending} onclick={installGh}>{ghTarget.v} installieren</Button>
           </div>
           <div class="preview">
@@ -375,6 +377,9 @@
         {#if !upMsg && s.ota.passed}
           <p class="ok-text">Letztes Update auf {s.v} erfolgreich, Selbsttest bestanden.</p>
         {/if}
+        <div class="actions">
+          <Button variant="text" icon="history" href="#/versionen">Versionsverlauf</Button>
+        </div>
       {/if}
     </Card>
 
@@ -388,11 +393,10 @@
           zur alten Version zurück.
         </p>
         <input class="hidden" type="file" accept=".bin,application/octet-stream" bind:this={fileInput} onchange={pickFile} />
-        <div class="actions">
+        <div class="full">
           <Button variant="tonal" icon="upload_file" disabled={sending} onclick={() => fileInput?.click()}>Datei wählen</Button>
           <Button icon="system_update_alt" disabled={!file || sending} onclick={start}>Update installieren</Button>
           {#if cancel}<Button variant="text" onclick={() => cancel?.()}>Abbrechen</Button>{/if}
-          {#if !file && !sending}<Button variant="text" icon="history" href="#/versionen">Versionsverlauf</Button>{/if}
         </div>
         {#if fileInfo}<p class={fileInfo.ok ? '' : 'err-text'}>{fileInfo.text}</p>{/if}
         {#if preview && !waitingFor}
@@ -451,6 +455,12 @@
     margin: 24px 0 12px;
     font: var(--md-sys-typescale-title-small);
     color: var(--md-sys-color-on-surface-variant);
+  }
+  /* Suchen und Installieren gleich breit über die ganze Karte (Wunsch des Users) */
+  .full {
+    display: grid;
+    gap: 8px;
+    margin: 12px 0;
   }
   .card-title + .sub {
     margin-top: 0;
