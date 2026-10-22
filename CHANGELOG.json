@@ -30,7 +30,9 @@
       "CI: python tools/asset_pack.py check baut alle Pakete und prüft assets/CREDITS.md (jede Datei eigen oder fremd mit CC0/CC-BY, fremde nur unter assets/fremd/)",
       "Simulator: 5 Tests der Asset-Pakete (--test assets): Prüfsumme und Rückfall, Kennungen, Budget und Verdrängen, Warten beim Abblenden, Lampe an/aus"
     ],
-    "pr": [],
+    "pr": [
+      36
+    ],
     "i": [
       "System: Flash-Lasttest schreibt Dateien in LittleFS über die Lade-Task (bis 0.5.4 roh in storage, das hätte das Dateisystem zerstört)",
       "System: Ablage kostet 8 KB internes RAM (LittleFS-Puffer im PSRAM, SPI-Interrupt nicht im IRAM, SD-Bus ohne Karte frei); Firmware 1,72 MB (29 %)"
