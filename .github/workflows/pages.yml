@@ -9,7 +9,7 @@ on:
     types: [completed]
   push:
     branches: [main]
-    paths: ['pages/**', '.github/workflows/pages.yml']
+    paths: ['pages/**', 'docs/skizzen/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -45,6 +45,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cp pages/index.html site/
+          # Skizzen für „So entstand Pixelia“ in der Weboberfläche (web/src/lib/story.ts), seit 0.5.4
+          mkdir -p site/skizzen && cp docs/skizzen/*.html site/skizzen/
           TAG=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)
           if [ -z "$TAG" ]; then
             echo "Noch kein Release vorhanden, Seite ohne Firmware"
