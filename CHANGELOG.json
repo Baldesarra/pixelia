@@ -22,11 +22,11 @@
         "Experimentell: aufgeteilt in Testorte, Panel und Stromsparen sowie ältere Version; die Auswahl der Orte passt jetzt auch aufs Handy",
         "Diagnose: Die Liste der Neustarts zeigt die letzten drei, der Rest lässt sich aufklappen",
         "Gerät und Speicher: Info und Hardware sind eine Seite, doppelte Angaben sind weg",
-        "Technik: Die Oberfläche ist trotz der neuen Seiten kleiner geworden, Symbole und Schrift sind sparsamer gespeichert"
+        "Technik: Die Oberfläche ist trotz der neuen Seiten kleiner geworden, Symbole und Schrift sind sparsamer gespeichert",
+        "Update: Der Knopf zum Installieren steht direkt unter der neuen Version, die Änderungen darunter; „Aus Datei“ steht als eigene Karte ganz unten"
       ],
       "f": [
-        "Mehrere Browser: Eine noch offene alte Seite setzt die Farbwahl nicht mehr zurück und lädt nach einem Update von selbst neu",
-        "Rückblick: Das Fenster bleibt nach dem Öffnen kurz offen, auch wenn man öfter als siebenmal tippt"
+        "Mehrere Browser: Eine noch offene alte Seite setzt die Farbwahl nicht mehr zurück und lädt nach einem Update von selbst neu"
       ]
     },
     "n": [
@@ -52,12 +52,33 @@
       "Web: Bundle 151 → 147 KB gzip trotz neuer Seiten und Designs: Icon-Pfade auf Raster 240 gerundet (−5,6 KB), Schrift nur noch wght 400–800 und wdth 100–120 (33 → 21 KB)",
       "Web: Versionsverlauf zeigt Versionen ohne Datum nur, wenn sie installiert sind; „Installiert“ über dem Titel, am Handy (≤ 480 px) Versions-Chip in eigener Zeile",
       "Web: Diagnose zeigt die letzten drei Neustarts, der Rest ist aufklappbar; Testorte in vier Karten, Auswahl als umbrechende Knöpfe (passte am Handy nicht in die Breite)",
-      "Werkzeuge: web_screens.mjs speichert Unterseiten (#/a/b) als a-b.png"
+      "Werkzeuge: web_screens.mjs speichert Unterseiten (#/a/b) als a-b.png",
+      "Web: Update-Seite mit Installieren-Knopf direkt unter der Fundmeldung, Changelog darunter; „Aus Datei“ als eigene Karte ganz unten"
     ],
     "f": [
       "Web: Oberfläche lädt nach einer neuen Firmware-Version selbst neu; unbekannte Felder der Farbwahl bleiben beim Speichern erhalten (eine alte Seite setzte das Design zurück)",
       "Web: „So entstand Pixelia“ schließt erst 2 s nach dem Öffnen per Tipp daneben (weitere Tipper aufs Zeichen schlossen es sofort); X und Escape sofort"
     ]
+  },
+  {
+    "v": "0.5.4-beta.8",
+    "d": "2026-10-22",
+    "t": "Update-Seite aufgeräumt (Vorschau)",
+    "s": "Vorabversion: Installieren-Knopf über dem Changelog, „Aus Datei“ unten",
+    "k": {
+      "s": "Vorabversion: Update-Seite aufgeräumt",
+      "i": [
+        "Update: Der Knopf zum Installieren steht direkt unter der gefundenen Version, die Änderungen folgen darunter",
+        "Aus Datei: Das Einspielen einer .bin-Datei steht jetzt als eigene Karte ganz unten"
+      ]
+    },
+    "i": [
+      "Web: Update-Seite mit Installieren-Knopf direkt unter der Fundmeldung, Changelog darunter; „Aus Datei“ als eigene Karte ganz unten"
+    ],
+    "h": [
+      "Doku: Vorabversion zum Ausprobieren, erscheint nur im Kanal Vorschau"
+    ],
+    "pr": [34]
   },
   {
     "v": "0.5.4-beta.7",

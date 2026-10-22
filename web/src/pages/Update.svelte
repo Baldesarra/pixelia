@@ -338,13 +338,13 @@
           <p class="ok-text">
             Neu auf GitHub: <b>Pixelia {ghTarget.v}</b>{ghTarget.pre ? ' (Vorschau)' : ''} vom {dateDe(ghTarget.date)} · {num(ghTarget.size / 1024)} KB{ghEntries.length > 1 ? ` · ${ghEntries.length} Versionen neuer als ${s.v}` : ''}
           </p>
+          <div class="actions">
+            <Button icon="system_update_alt" disabled={sending} onclick={installGh}>{ghTarget.v} installieren</Button>
+          </div>
           <div class="preview">
             {#each ghEntries as e, k (e.v)}
               <ChangeEntry entry={e} toggle open={k === 0} />
             {/each}
-          </div>
-          <div class="actions">
-            <Button icon="system_update_alt" disabled={sending} onclick={installGh}>{ghTarget.v} installieren</Button>
           </div>
         {:else if ghFresh}
           <p>
@@ -372,7 +372,16 @@
           </div>
         {/if}
 
-        <h3 class="sub"><Icon name="upload_file" size={18} />Aus Datei</h3>
+        {#if !upMsg && s.ota.passed}
+          <p class="ok-text">Letztes Update auf {s.v} erfolgreich, Selbsttest bestanden.</p>
+        {/if}
+      {/if}
+    </Card>
+
+    <!-- Aus Datei (seit 0.5.4 eigene Karte unten, Wunsch des Users): selten gebraucht -->
+    {#if !(s.ota.trial && !waitingFor) && !(s.ota.busy && !sending)}
+      <Card class="wide">
+        <h2 class="card-title"><Icon name="upload_file" size={20} />Aus Datei</h2>
         <p class="muted">
           Neue Version als <b>.bin</b> wählen, z. B. <i>pixelia-v0.4.0.bin</i> von GitHub (nicht das Factory-Image). Die Datei
           wird vor dem Hochladen geprüft, nach dem Neustart folgt ein Probelauf mit Selbsttest; scheitert er, kehrt Pixelia
@@ -399,11 +408,8 @@
         {#if via === 'file'}
           {@render progress()}
         {/if}
-        {#if !upMsg && s.ota.passed}
-          <p class="ok-text">Letztes Update auf {s.v} erfolgreich, Selbsttest bestanden.</p>
-        {/if}
-      {/if}
-    </Card>
+      </Card>
+    {/if}
   </div>
 {/if}
 
@@ -447,9 +453,6 @@
     color: var(--md-sys-color-on-surface-variant);
   }
   .card-title + .sub {
-    margin-top: 0;
-  }
-  .sub + p {
     margin-top: 0;
   }
   .small {
