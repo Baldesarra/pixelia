@@ -973,7 +973,7 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
                                                   : "steht und schaut";
         card->where = title();
         card->quote = std::string("„") + kThoughts[f->id % (sizeof(kThoughts) / sizeof(kThoughts[0]))] + "“";
-        card->hint = "Halten: Folgen";
+        card->hint = "Folgen";
         card->hint_symbol = ui::Symbol::Follow;
         card->picture.sprite = kit().figure.frame(view_of(Facing::Down).index * kPoses);
         card->picture.remap = kit().rows[f->row].table();

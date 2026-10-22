@@ -60,6 +60,8 @@ int wrapped(Canvas& c, int x, int y, int w, std::string_view s, uint8_t color, i
     return n;
 }
 
+void footer(Canvas& c, const Card& card, const CardStyle& st, const Rect& r);
+
 void hint(Canvas& c, int x, int y, const Card& card, const CardStyle& st, bool right_aligned, int right) {
     if (card.hint.empty()) return;
     const int sym = card.hint_symbol != Symbol::None && s_symbols.pixels ? 11 : 0;
@@ -115,7 +117,26 @@ int body(Canvas& c, int x, int y, int w, int max_y, const Card& card, const Card
 
 constexpr int kSideX = 244, kSideY = 24, kSideW = 150, kSideH = 192;
 
+// Fuß der Seitenkarte: bei Figuren der Knopf „Folgen“ (Wunsch des Users 2026-10-22), sonst der Hinweis
+void footer(Canvas& c, const Card& card, const CardStyle& st, const Rect& r) {
+    const Rect b = card_button(card, st);
+    if (!b.w) {
+        hint(c, r.x + 8, r.y + r.h - 16, card, st, false, 0);
+        return;
+    }
+    round_rect(c, b.x, b.y, b.w, b.h, kPrimary, 4);
+    const int sym = card.hint_symbol != Symbol::None && s_symbols.pixels ? 12 : 0;
+    const int x = b.x + (b.w - sym - font::text_width(card.hint, 1, font::Style::Bold)) / 2;
+    if (sym) draw_symbol(c, x, b.y + (b.h - 9) / 2, card.hint_symbol, kOnPrimary);
+    font::draw(c, x + sym, b.y + (b.h - font::kCapHeight) / 2 - font::kCapTop, card.hint, kOnPrimary, 1, font::Style::Bold);
+}
+
 }  // namespace
+
+Rect card_button(const Card& card, const CardStyle& st) {
+    if (st.layout != CardLayout::Side || !card.figure || card.hint.empty()) return {};
+    return {kSideX + 8, kSideY + kSideH - 28, kSideW - 16, 20};
+}
 
 // --- Symbole ---
 
@@ -273,16 +294,8 @@ Rect card_rect(const Card& card, const CardStyle& st) {
         case CardLayout::Bar: return {6, kH - 82, kW - 12, 76};
         default: break;
     }
-    // Seitenkarte so hoch wie ihr Inhalt (jeder Bildpunkt kostet im PSRAM): Bild mit Name, Gedanke, Angaben, Hinweis
-    const int pw = card.picture.sprite.width * std::max(1, card.picture.scale);
-    const int ph = card.picture.sprite.height * std::max(1, card.picture.scale);
-    if (!card.picture.sprite.pixels || card.kind == Card::Kind::Exhibit || pw > 56) return {kSideX, kSideY, kSideW, kSideH};
-    const int w = kSideW - 16, lh = font::kLineHeight;
-    int h = 8 + std::max(ph + 6, 40) + 6 + 2;
-    if (!card.quote.empty()) h += std::min(font::wrapped_lines(w - 13, card.quote), 6) * lh + 4;
-    for (int i = 0; i < card.line_count; ++i) h += std::min(font::wrapped_lines(w, card.lines[i]), 3) * lh;
-    h += card.hint.empty() ? 8 : 22;
-    return {kSideX, kSideY, kSideW, std::clamp(h, 100, kSideH)};
+    (void)card;
+    return {kSideX, kSideY, kSideW, kSideH};
 }
 
 void render_card(Canvas& c, const Card& card, const CardStyle& st) {
@@ -319,16 +332,16 @@ void render_card(Canvas& c, const Card& card, const CardStyle& st) {
                 y += bh + 6;
                 tx = r.x + pad;
                 c.fill_rect(r.x + 1, y - 3, r.w - 2, 1, kOutline);
-                body(c, tx, y + 2, r.w - 2 * pad, r.y + r.h - 22, card, st);
-                hint(c, tx, r.y + r.h - 16, card, st, false, 0);
+                body(c, tx, y + 2, r.w - 2 * pad, r.y + r.h - 32, card, st);
+                footer(c, card, st, r);
                 return;
             }
         }
         title(c, tx, y, r.w - 2 * pad, card, st);
         y = info_lines(c, tx, y + title_h(st), r.w - 2 * pad, r.y + r.h - 40, card);
         c.fill_rect(r.x + 1, y + 2, r.w - 2, 1, kOutline);
-        body(c, tx, y + 7, r.w - 2 * pad, r.y + r.h - 22, card, st);
-        hint(c, tx, r.y + r.h - 16, card, st, false, 0);
+        body(c, tx, y + 7, r.w - 2 * pad, r.y + r.h - 32, card, st);
+        footer(c, card, st, r);
         return;
     }
     // Mitte und Leiste: Bild links, Text rechts

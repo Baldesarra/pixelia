@@ -151,9 +151,9 @@ void dispatch(const pixelia::gesture::Event& e) {
         }
         ESP_LOGI(TAG, "Langer Druck bei %d/%d (%lu ms, %lu Messwerte)", e.x, e.y,
                  static_cast<unsigned long>(e.duration_ms), static_cast<unsigned long>(s_samples));
-        // Seit 0.5.6: auf einer Figur „Folgen“, sonst die Info-Karte (entscheidet der Grafik-Task, tick() fragt nach)
-        if (world_free()) gfx::world_input(world(gfx::WorldInput::Kind::LongPress, e));
-        else infocard::show();
+        // Langer Druck = immer die Info-Karte; Folgen geht über den Knopf auf der Karte einer Figur (Wunsch des Users
+        // 2026-10-22: Halten auf bewegten Figuren traf oft die falsche oder keine)
+        infocard::show();
     } else if (e.type == Type::Swipe) {
         if (!world_free()) return;
         ESP_LOGI(TAG, "Wischen bei %d/%d um %d/%d (%lu ms)", e.x, e.y, e.dx, e.dy, static_cast<unsigned long>(e.duration_ms));
@@ -185,7 +185,6 @@ void process_locked(uint32_t t) {
     reset_tick(t);
     float p = s_rec.hold_progress(t);
     bool show = p >= kHoldIndicatorFrom && !s_reset_open && !s_swallow && !infocard::visible() && !ui::update_visible();
-    if (show && !s_hold_shown) ui::set_hold_label(world_free() && gfx::probe_on_figure());
     if (show) ui::set_hold_progress(p);
     else if (s_hold_shown) ui::set_hold_progress(-1.0f);
     s_hold_shown = show;
@@ -198,9 +197,6 @@ void on_touch(int fingers, int x, int y) {
     const uint32_t t = now_ms();
     if (fingers > 0 && !s_rec.pressed()) {
         s_samples = 0;
-        // Liegt eine Figur unter dem Finger? (für die Halte-Anzeige „Halten: Folgen“)
-        if (!s_reset_open && world_free())
-            gfx::world_input({gfx::WorldInput::Kind::Probe, static_cast<int16_t>(x / 2), static_cast<int16_t>(y / 2), 0, 0});
     }
     if (fingers > 0) ++s_samples;
     if (s_reset_open) reset_touch(fingers, x, y, t);

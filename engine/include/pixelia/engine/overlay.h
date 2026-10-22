@@ -130,5 +130,7 @@ struct Card {
 void render_card(Canvas& canvas, const Card& card, const CardStyle& style);
 // Fläche der Karte (Tippen auf die Karte schließt sie nicht, sondern bleibt bei ihr)
 Rect card_rect(const Card& card, const CardStyle& style);
+// Knopf „Folgen“ unten auf der Seitenkarte einer Figur (seit 0.5.6); w = 0: keiner
+Rect card_button(const Card& card, const CardStyle& style);
 
 }  // namespace pixelia::ui

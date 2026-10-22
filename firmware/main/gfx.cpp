@@ -365,6 +365,15 @@ void handle_input(const WorldInput& in, int64_t now) {
         return;
     }
     // Tippen: auf die offene Karte = sie bleibt; auf Figur oder Teil = Karte; ins Leere = schließen
+    if (s_card_open && s_card.figure && pixelia::ui::card_button(s_card, kCardStyle).contains(in.x, in.y, 4)) {
+        const uint16_t who = s_card.figure;
+        const std::string name = s_card.title;
+        close_card();
+        s_camera.follow(s_stage, who);
+        ESP_LOGI(TAG, "Folgen (Knopf auf der Karte): %s (%u)", name.c_str(), static_cast<unsigned>(who));
+        app::ui::toast("Folgen: " + name, pixelia::ui::Tone::Info, 4);
+        return;
+    }
     if (s_card_open && pixelia::ui::card_rect(s_card, kCardStyle).contains(in.x, in.y)) {
         s_card_until = now + kCardSeconds * 1000000LL;
         return;

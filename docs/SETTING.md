@@ -794,7 +794,7 @@ CYD-Projekt Pixelpfote. Der User bringt eine Beispieldatei mit.
 Simulation), ist auf der Info-Karte am Gerät und in der Weboberfläche lesbar, dort auch als Verlauf.
 
 **[entschieden] Touch am Gerät:** Figur antippen → Info-Karte mit Grund; Gebäude antippen → wer ist drin; Wischen →
-nächster Ort; langes Halten auf einer Figur → „Folgen“; Tier oder Stück im Museum antippen → Infokarte (Kapitel 4).
+nächster Ort; langes Halten auf einer Figur → „Folgen“ [geändert 2026-10-22, Wunsch des Users: Folgen über einen Knopf auf der Karte der Figur, langes Halten bleibt die Info-Karte]; Tier oder Stück im Museum antippen → Infokarte (Kapitel 4).
 
 ## 13. Kamera und Regie
 

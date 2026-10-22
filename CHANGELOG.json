@@ -8,7 +8,7 @@
       "s": "Figuren antippen, Karte, Pixel-Uhr und Wischen",
       "n": [
         "Karte: Tippst du eine Figur an, zeigt rechts eine Karte Bild, Name, Tätigkeit, Ort und Gedanken (noch Testtexte); eine Tür zeigt, wer drin ist",
-        "Folgen: Hältst du eine Figur lange gedrückt, folgt ihr die Anzeige von Ort zu Ort; ohne Figur unter dem Finger kommt wie bisher die Info-Karte",
+        "Folgen: Auf der Karte einer Figur folgt ihr die Anzeige mit dem Knopf „Folgen“ von Ort zu Ort; langes Halten zeigt wie bisher die Info-Karte",
         "Wischen: Nach links wischen zeigt den nächsten Ort, nach rechts den vorherigen, auch bei gedrehtem Bild",
         "Pixel-Uhr: kleine Uhr oben rechts mit der echten Uhrzeit, Ecke und Sekunden in der Weboberfläche einstellbar, auch abschaltbar",
         "Anzeige folgt: In der Weboberfläche wählst du Hauptfigur, eine andere Figur oder einen festen Ort und ob die Anzeige nach 10 oder 30 Minuten oder nie dorthin zurückkehrt",
@@ -35,10 +35,10 @@
     ],
     "n": [
       "Engine: Schnitte fett und klein (3×5) als Grafik im neuen Paket „system“ (Grundausstattung, tools/font_png.py), Systemschrift 5×7 bleibt Grundlage, Format in STIL.md Kapitel 9",
-      "Engine: Karte mit Bild und Text (overlay.h): Figur mit Tätigkeit, Ort und Gedanke (Testtext), Tür mit „Drin: …“, Platz für Museumsstücke; Seitenkarte rechts, Höhe nach Inhalt",
+      "Engine: Karte mit Bild und Text (overlay.h): Figur mit Tätigkeit, Ort, Gedanke (Testtext) und Knopf „Folgen“, Tür mit „Drin: …“, Platz für Museumsstücke; Seitenkarte rechts, feste Höhe",
       "Engine: Kurzmeldungen als Warteschlange (6 Plätze): Technik vorn, Welt höchstens 4 pro Stunde, mindestens 2 s sichtbar; neu oben als schmale Leiste",
       "Engine: Pixel-Uhr (Ecke, 24 h, Sekunden oder blinkender Doppelpunkt), zeigt die Ortszeit (NTP)",
-      "Touch: Figur oder Teil antippen mit Treffer nach Tiefe (durchsichtige Punkte zählen nicht), Wischen links/rechts = nächster/vorheriger Ort, langes Halten auf einer Figur = Folgen, sonst Info-Karte",
+      "Touch: Figur oder Teil antippen mit Treffer nach Tiefe (durchsichtige Punkte zählen nicht), Knopf „Folgen“ auf der Karte, Wischen links/rechts = nächster/vorheriger Ort",
       "Engine: Kamera-Modi (camera.h): Standard Hauptfigur, Figur oder fester Ort; Frei und Folgen kehren nach 10 min ohne Eingabe zurück (einstellbar, auch nie); Figuren haben feste Kennungen",
       "Web: Display → Pixel-Uhr (an/aus, Ecke, Sekunden); Welt → „Anzeige folgt“ (Standard, Rückkehr, Ort wählen); /api/camera, Einstellungen clk*/cam* in /api/settings",
       "System: Hinweis auf eine neue Version als Kurzmeldung am Display (einmal je Version, installiert nie selbst)",
@@ -46,14 +46,14 @@
     ],
     "i": [
       "System: Konsole kamera, karte, meldung, uhr; /api/perf engine.overlay/overlayMax (Kosten der Einblendungen je Bild)",
-      "Engine: Rahmen und Schatten schreiben jeden Bildpunkt nur einmal (PSRAM): Karte 4,6 → 2,5 ms; Ortszeit der Uhr nur einmal je Sekunde (0,42 → 0,17 ms)"
+      "Engine: Rahmen und Schatten schreiben jeden Bildpunkt nur einmal (PSRAM): Karte mit Uhr und Meldung 4,6 → 3,2 ms; Ortszeit der Uhr nur einmal je Sekunde (0,42 → 0,17 ms)"
     ],
     "f": [
       "System: doppelt kodierte Log-Texte der Konsole repariert (38 Zeilen, z. B. „Ã¼“ statt „ü“)"
     ],
     "g": [
       "Simulator: 64/64 Tests (Gesten 15, Bühne 26, Einblendungen 9, Assets 5, Filter 9)",
-      "Display: 64 Figuren, Regen, nachts, Karte + Uhr + Meldung: 29,8 fps, Zeichnen 14,1 ms (max 15,4), Einblendungen 2,8 ms (max 3,1), Logik 1,6 ms (max 3,1), 0 Aussetzer",
+      "Display: 64 Figuren, Regen, nachts, Karte + Uhr + Meldung: 29,8 fps, Zeichnen 14,1 ms (max 15,4), Einblendungen 2,8 ms (max 3,2 mit fester Kartenhöhe), Logik 1,6 ms (max 3,1), 0 Aussetzer",
       "Display: nur Uhr 0,17 ms je Bild; RAM 99 KB frei (Tiefstwert 92 KB), PSRAM 5,4 MB; Firmware 1,75 MB (29 %)"
     ]
   },
