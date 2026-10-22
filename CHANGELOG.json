@@ -40,7 +40,7 @@
       "Doku: freie Grafik-Pakete geprüft (Kenney, Tiny 16, Ninja Adventure, Zelda-like u. a.), keines übernommen; eigene Grafiken im Stil der Küche aus Skizze v4 (STIL.md)",
       "Doku: Setting ergänzt: Licht-Regeln (Lichtritzen, Laternen wie um 1850, echter Mond), Schlafenszeit eine Stunde später, Jahreszeitenabende mit Sommerfeuer und Lichterabend, Mindestziele Kapitel 1, Grube vor Lok"
     ],
-    "pr": [31, 32],
+    "pr": [31, 32, 34],
     "i": [
       "Web: Bundle 151 → 144 KB gzip trotz neuer Seiten: Icon-Pfade auf Raster 240 gerundet (−5,6 KB), Schrift nur noch wght 400–800 und wdth 100–120 (33 → 21 KB)",
       "Web: Diagnose zeigt die letzten drei Neustarts, der Rest ist aufklappbar; Testorte in vier Karten, Auswahl als umbrechende Knöpfe (passte am Handy nicht in die Breite)",
@@ -90,7 +90,8 @@
     ],
     "h": [
       "Doku: Vorabversion zum Ausprobieren, erscheint nur im Kanal Vorschau; zurück zur stabilen Version über Experimentell → Ältere Version"
-    ]
+    ],
+    "pr": [34]
   },
   {
     "v": "0.5.3",
