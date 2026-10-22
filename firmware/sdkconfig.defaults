@@ -33,6 +33,11 @@ CONFIG_ESP32S3_DATA_CACHE_LINE_64B=y
 # Display: RGB-Interrupt läuft auch bei abgeschaltetem Cache (kein Flackern bei Flash-Zugriffen)
 CONFIG_LCD_RGB_ISR_IRAM_SAFE=y
 
+# Ablage (seit 0.5.5): LittleFS-Puffer im PSRAM, SPI-Interrupt der SD-Karte nicht im internen RAM (spart IRAM;
+# die Karte wird nur beim Ortswechsel gelesen)
+CONFIG_LITTLEFS_MALLOC_STRATEGY_SPIRAM=y
+CONFIG_SPI_MASTER_ISR_IN_IRAM=n
+
 # A/B-Updates mit Rückfall auf die alte Version
 CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
 

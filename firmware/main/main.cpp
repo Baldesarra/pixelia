@@ -60,6 +60,7 @@ extern "C" void app_main() {
     board::display::set_rotation180(set.rotate180);
     board::display::set_swap_interval(app::exper::boot_swap());
     board::display::set_mode(board::display::Mode::Engine);
+    app::assets::start();  // vor der Grafik: Quelle und Lade-Task für den Grafik-Speicher
     app::gfx::start(timing);
 
     app::console::start();

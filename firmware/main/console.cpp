@@ -54,7 +54,7 @@ constexpr Danger kDangerous[] = {
     {"wifi", "forget", "lÃ¶scht ein gespeichertes WLAN (ohne WLAN bleibt nur das Setup-WLAN am GerÃ¤t)"},
     {"wifi", "setup", "trennt Pixelia vom Heimnetz und startet den Setup-Modus"},
     {"wifi", "connect", "trennt die WLAN-Verbindung kurz"},
-    {"flash", nullptr, "Ã¼berschreibt die Partition â€žstorageâ€œ (spÃ¤ter SpielstÃ¤nde)"},
+    {"flash", nullptr, "schreibt viele Sekunden lang in LittleFS (Flash-Last)"},
     {"pclk", nullptr, "stellt den Pixeltakt um, das Bild kann ausfallen"},
     {"timing", nullptr, "stellt das Panel-Timing um, das Bild kann ausfallen"},
     {"pol", nullptr, "stellt die Panel-PolaritÃ¤ten um, das Bild kann ausfallen"},
@@ -119,6 +119,8 @@ void print_help() {
     ESP_LOGI(TAG, "  wetter [<Art> [%%] [sofort]] | wetter blitz | wetter wind links|rechts   Wetter (Art: sonne bewoelkt regen schnee nebel gewitter wind)");
     ESP_LOGI(TAG, "  ort cmd <Befehl>   Befehl an Bühne/Ort, z. B. innenlicht um, regen fein, dichte 200, blitze 12 30");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
+    ESP_LOGI(TAG, "  assets [quelle eingebettet|littlefs|sd | kopieren littlefs|sd | messen | leeren | budget <KB>]   Grafik-Pakete");
+    ESP_LOGI(TAG, "  sd | sd neu                                    microSD-Karte: Zustand, neu einhängen");
 }
 
 void log_timing(const board::display::Timing& t) {
@@ -481,6 +483,8 @@ bool handle(char* line) {
         bool psram = std::strcmp(argv[1], "psram") == 0;
         gfx::request_buffers(psram);
         ESP_LOGI(TAG, "Engine-Puffer: %s", psram ? "PSRAM" : "intern");
+    } else if (is("assets") || is("sd")) {
+        assets::console(argc, argv);
     } else if (is("bench")) {
         // Messung fÃ¼rs Zeichnen (seit 0.5.1, Grundlage fÃ¼r 0.5.2): Verdoppeln 200Ã—120 â†’ 400Ã—240 und Kopie des
         // Hintergrundbilds (24 KB), beides PSRAM â†’ PSRAM wie auf der Grafik-Task. LÃ¤uft auf Kern 0, die Grafik lÃ¤uft

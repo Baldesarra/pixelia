@@ -6,7 +6,9 @@
 #include <cstring>
 #include <new>
 #include <string_view>
+#include <vector>
 
+#include "pixelia/engine/assets.h"
 #include "pixelia/engine/font.h"
 #include "pixelia/engine/memory.h"
 #include "pixelia/engine/system_ui.h"
@@ -46,7 +48,7 @@ static_assert(kFlame + 2 <= 80, "Grundfarben passen in eine Lichtstufe");
 // Farbreihen des Katalogs: 0 wie gezeichnet, 1–6 rot, blau, gelb, lavendel, grün, türkis, 7 Holz, 8 Tapete
 constexpr int kRowWood = 7, kRowPaper = 8, kRowCount = 9;
 
-constexpr int kFigW = 16, kFigH = 32, kPoses = 5;  // Posen: stehen, Schritt, Mitte, Schritt, atmen
+constexpr int kPoses = 5;  // Figur (Bild figur/test): Posen stehen, Schritt, Mitte, Schritt, atmen; drei Ansichten
 
 constexpr AnimFrame kWalkFrames[] = {{1, 6}, {2, 6}, {3, 6}, {2, 6}};
 constexpr AnimFrame kIdleFrames[] = {{0, 54}, {4, 18}};
@@ -79,31 +81,34 @@ constexpr UsePoint kUseToken[] = {{0, 1, Facing::Up, UsePose::Stand, 0}};
 constexpr UsePoint kUseBench[] = {{0, 0, Facing::Down, UsePose::Sit, 4}, {1, 0, Facing::Down, UsePose::Sit, 4}};
 constexpr UsePoint kUseBuild[] = {{-1, 1, Facing::Right, UsePose::Stand, 0}};  // am halbfertigen Bett arbeiten
 
-// Maße je Teil-Stufe: Bild w × h, davon Vorderseite z (Rest = Oberseite), Stellfläche fw × fh, Bilder
+// Teil-Stufen: Bild (Kennung im Asset-Paket), Stellfläche fw × fh, Benutzungspunkte. Die Bilder liegen seit 0.5.5 als
+// PNG in assets/testorte/ (tools/asset_pack.py) und kommen über den Grafik-Speicher (assets.h)
 struct StageSpec {
-    uint8_t part, w, h, z, fw, fh, frames;
+    uint8_t part;
+    const char* image;
+    uint8_t fw, fh;
     const UsePoint* uses;
     uint8_t use_count;
 };
 constexpr StageSpec kStages[] = {
-    {kPDoor, 16, 24, 0, 2, 3, 1, nullptr, 0},
-    {kPWindow, 16, 16, 0, 2, 2, 1, kUseWindow, 2},
-    {kPPicture, 8, 8, 0, 1, 1, 1, nullptr, 0},
-    {kPWardrobe, 16, 32, 24, 2, 1, 1, kUseWardrobe, 2},
-    {kPBed, 16, 27, 3, 2, 3, 1, kUseBed, 1},  // Stufe 0: Lager am Boden
-    {kPBed, 16, 32, 6, 2, 3, 1, kUseBed, 1},  // Stufe 1: Bett mit Kopfteil
-    {kPTable, 16, 22, 10, 2, 2, 1, kUseTable, 2},  // Stufe 0: zwei Kisten
-    {kPTable, 16, 24, 8, 2, 2, 1, kUseTable, 2},   // Stufe 1: Tisch
-    {kPChair, 8, 14, 6, 1, 1, 1, kUseChair, 1},
-    {kPCrate, 16, 16, 8, 2, 1, 1, kUseCrate, 1},
-    {kPRug, 32, 24, 0, 4, 3, 1, nullptr, 0},
-    {kPLamp, 8, 20, 12, 1, 1, 2, nullptr, 0},
-    {kPPlant, 8, 14, 5, 1, 1, 1, nullptr, 0},
-    {kPToken, 8, 12, 5, 1, 1, 1, kUseToken, 1},
-    {kPBush, 16, 18, 6, 2, 2, 1, nullptr, 0},
-    {kPBench, 16, 12, 5, 2, 1, 1, kUseBench, 2},
-    {kPBedFrame, 16, 30, 5, 2, 3, 1, kUseBuild, 1},  // im Bau: Rahmen ohne Matratze
-    {kPSite, 16, 11, 5, 1, 1, 1, nullptr, 0},        // Materialstapel: Bretter
+    {kPDoor, "teil/tuer", 2, 3, nullptr, 0},
+    {kPWindow, "teil/fenster", 2, 2, kUseWindow, 2},
+    {kPPicture, "teil/bild", 1, 1, nullptr, 0},
+    {kPWardrobe, "teil/schrank", 2, 1, kUseWardrobe, 2},
+    {kPBed, "teil/bett/0", 2, 3, kUseBed, 1},       // Stufe 0: Lager am Boden
+    {kPBed, "teil/bett/1", 2, 3, kUseBed, 1},       // Stufe 1: Bett mit Kopfteil
+    {kPTable, "teil/tisch/0", 2, 2, kUseTable, 2},  // Stufe 0: zwei Kisten
+    {kPTable, "teil/tisch/1", 2, 2, kUseTable, 2},  // Stufe 1: Tisch
+    {kPChair, "teil/stuhl", 1, 1, kUseChair, 1},
+    {kPCrate, "teil/kiste", 2, 1, kUseCrate, 1},
+    {kPRug, "teil/teppich", 4, 3, nullptr, 0},
+    {kPLamp, "teil/lampe", 1, 1, nullptr, 0},  // Zustände aus, an (nach der Lichtquelle); Schirm flackert
+    {kPPlant, "teil/pflanze", 1, 1, nullptr, 0},
+    {kPToken, "teil/zeichen", 1, 1, kUseToken, 1},
+    {kPBush, "teil/busch", 2, 2, nullptr, 0},
+    {kPBench, "teil/bank", 2, 1, kUseBench, 2},
+    {kPBedFrame, "teil/bett/bau", 2, 3, kUseBuild, 1},  // im Bau: Rahmen ohne Matratze
+    {kPSite, "teil/stapel", 1, 1, nullptr, 0},          // Materialstapel: Bretter
 };
 constexpr int kStageCount = sizeof(kStages) / sizeof(kStages[0]);
 
@@ -130,419 +135,59 @@ constexpr PartSpec kParts[kPartCount] = {
     {"bank", PartKind::Seat, PartLayer::Standing, true},
 };
 
-constexpr int kPoolBytes = 6144;
-constexpr int pool_needed() {
-    int n = 0;
-    for (const StageSpec& s : kStages) n += s.w * s.h * s.frames;
-    return n;
-}
-static_assert(pool_needed() <= kPoolBytes, "Bilder der Teile passen in den Vorrat");
+// Asset-Pakete (assets/testorte/pakete.json): Grundausstattung immer geladen, gemeinsame Möbel und Ortspakete beim
+// Betreten (TestPlace::packs)
+constexpr const char* kBasePack = "grund";
+constexpr const char* kRowNames[kRowCount] = {nullptr,          "farbreihe/rot",   "farbreihe/blau",
+                                              "farbreihe/gelb", "farbreihe/lavendel", "farbreihe/gruen",
+                                              "farbreihe/tuerkis", "farbreihe/holz", "farbreihe/tapete"};
 
-// Gemeinsame Grafiken und Katalog aller Testorte (einmal beim ersten init() gezeichnet, ~16 KB Grafik-Speicher)
+// Gemeinsamer Katalog aller Testorte. Figur, Kacheln, Palette und Farbreihen kommen aus der Grundausstattung, die
+// Bilder der Teile aus den Paketen der Orte
 struct Kit {
-    uint8_t figure[3 * kPoses * kFigW * kFigH];
-    uint8_t tiles[kTileCount][kTilePixels];
-    uint8_t tile_flags[kTileCount];
-    uint8_t pool[kPoolBytes];
+    SpriteSheet figure;
+    TileSet tileset;
+    const uint8_t* colors = nullptr;  // Grundfarben RGB (palette/testorte)
+    int color_count = 0;
     PartStage stages[kStageCount];
     PartDef parts[kPartCount];
     const PartStage* site;
     Recolor rows[kRowCount];
-    TileSet tileset;
     PartCatalog catalog;
+    uint32_t generation = ~0u;  // Stand des Grafik-Speichers beim letzten Auflösen
 };
 Kit* s_kit = nullptr;
 
-struct Paint {
-    uint8_t* px;
-    int w, h;
-    void dot(int x, int y, uint8_t c) {
-        if (x >= 0 && y >= 0 && x < w && y < h) px[y * w + x] = c;
+// Bilder der Teile neu auflösen, wenn sich der Grafik-Speicher geändert hat (beim Betreten eines Ortes). Gültig sind
+// danach die Bilder geladener Pakete; ein Ort zeichnet nur seine eigenen, und die sind angeheftet, solange er
+// betreten ist (stage.h). Fehlt ein Bild, bleibt das Teil unsichtbar.
+void resolve(Kit& k) {
+    const AssetStore& store = asset_store();
+    const uint32_t gen = store.generation();
+    if (k.generation == gen) return;
+    k.generation = gen;
+    for (int s = 0; s < kStageCount; ++s) {
+        ImageAsset img;
+        k.stages[s].sheet = store.image(asset_id(kStages[s].image), &img) ? img.sheet : SpriteSheet{};
     }
-    void rect(int x, int y, int rw, int rh, uint8_t c) {
-        for (int yy = y; yy < y + rh; ++yy)
-            for (int xx = x; xx < x + rw; ++xx) dot(xx, yy, c);
-    }
-    void frame(int x, int y, int rw, int rh, uint8_t c) {
-        rect(x, y, rw, 1, c);
-        rect(x, y + rh - 1, rw, 1, c);
-        rect(x, y, 1, rh, c);
-        rect(x + rw - 1, y, 1, rh, c);
-    }
-    // Umriss: jeder durchsichtige Punkt neben einem gezeichneten wird dunkel (ohne Hilfspuffer: erst markieren)
-    void outline(uint8_t c) {
-        constexpr uint8_t kMark = 255;
-        auto solid = [&](int x, int y) {
-            if (x < 0 || y < 0 || x >= w || y >= h) return false;
-            const uint8_t v = px[y * w + x];
-            return v != 0 && v != kMark;
-        };
-        for (int y = 0; y < h; ++y)
-            for (int x = 0; x < w; ++x)
-                if (!px[y * w + x] && (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1)))
-                    px[y * w + x] = kMark;
-        for (int i = 0; i < w * h; ++i)
-            if (px[i] == kMark) px[i] = c;
-    }
-};
-
-// Kopf 12 × 13, abgerundet (Einzug je Zeile)
-constexpr int8_t kHeadInset[13] = {2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2};
-
-// view: 0 vorn, 1 hinten, 2 Seite (Blick nach rechts); Fußpunkt (8, 30), 28 Bildpunkte hoch
-void paint_figure(uint8_t* px, int view, int pose) {
-    Paint p{px, kFigW, kFigH};
-    std::memset(px, 0, kFigW * kFigH);
-    const int lift = pose == 2 ? -1 : 0;  // Mitte des Schritts: Körper eine Zeile höher
-    const int drop = pose == 4 ? 1 : 0;   // Atmen: Kopf sinkt eine Zeile
-
-    const int top = 27 + lift;
-    if (view == 2) {
-        int front = 6, back = 6;
-        if (pose == 1) front = 8, back = 4;
-        if (pose == 3) front = 4, back = 8;
-        p.rect(back, top, 3, 31 - top, kHair + 2);
-        p.rect(front, top, 3, 31 - top, kHair + 1);
-        p.rect(front, 30, 3, 1, kHair + 2);
-    } else {
-        const int l_end = pose == 1 ? 29 : 30, r_end = pose == 3 ? 29 : 30;
-        p.rect(4, top, 3, l_end - top + 1, kHair + 1);
-        p.rect(9, top, 3, r_end - top + 1, kHair + 1);
-        p.rect(4, l_end, 3, 1, kHair + 2);
-        p.rect(9, r_end, 3, 1, kHair + 2);
-    }
-
-    // Körper, Zeilen 16–26, in der Platzhalter-Rampe (hell links, dunkel rechts, Saum unten)
-    const int by = 16 + lift;
-    if (view == 2) {
-        p.rect(5, by, 6, 1, kRamp + 1);
-        p.rect(4, by + 1, 8, 10, kRamp + 1);
-        p.rect(4, by + 1, 2, 10, kRamp);
-        p.rect(10, by + 1, 2, 10, kRamp + 2);
-        p.rect(4, by + 10, 8, 1, kRamp + 3);
-        const int ax = pose == 1 ? 8 : pose == 3 ? 6 : 7;  // Arm schwingt mit
-        p.rect(ax, by + 1, 2, 7, kRamp + 2);
-        p.rect(ax, by + 8, 2, 1, kSkin + 1);
-    } else {
-        p.rect(4, by, 8, 1, kRamp + 1);
-        p.rect(3, by + 1, 10, 10, kRamp + 1);
-        p.rect(3, by + 1, 2, 10, kRamp);
-        p.rect(11, by + 1, 2, 10, kRamp + 2);
-        p.rect(3, by + 10, 10, 1, kRamp + 3);
-        const int swing = pose == 1 ? -1 : pose == 3 ? 1 : 0;
-        p.rect(2, by + 1, 1, 7 + swing, kRamp + 2);
-        p.dot(2, by + 8 + swing, kSkin + 1);
-        p.rect(13, by + 1, 1, 7 - swing, kRamp + 2);
-        p.dot(13, by + 8 - swing, kSkin + 1);
-    }
-
-    // Kopf, Zeilen 3–15 (≈ 45 % der Figur)
-    const int hy = 3 + lift + drop;
-    auto head_row = [&](int r, uint8_t c) { p.rect(2 + kHeadInset[r], hy + r, 12 - 2 * kHeadInset[r], 1, c); };
-    for (int r = 0; r < 13; ++r) head_row(r, kSkin);
-    for (int r = 2; r < 11; ++r) p.dot(13, hy + r, kSkin + 1);
-    p.rect(4, hy + 12, 8, 1, kSkin + 1);
-    if (view == 0) {
-        for (int r = 0; r < 4; ++r) head_row(r, kHair);
-        p.rect(2, hy + 4, 2, 4, kHair);
-        p.rect(12, hy + 4, 2, 4, kHair + 1);
-        p.rect(5, hy + 4, 2, 1, kHair);
-        p.rect(5, hy + 7, 1, 2, kEye);
-        p.rect(10, hy + 7, 1, 2, kEye);
-    } else if (view == 1) {
-        for (int r = 0; r < 12; ++r) head_row(r, kHair);
-        for (int r = 3; r < 12; ++r) p.dot(13, hy + r, kHair + 1);
-        head_row(12, kHair + 1);
-    } else {
-        for (int r = 0; r < 4; ++r) head_row(r, kHair);
-        p.rect(2, hy + 4, 5, 7, kHair);
-        p.rect(3, hy + 11, 3, 1, kHair + 1);
-        p.rect(11, hy + 7, 1, 2, kEye);
-    }
-    p.outline(kOutline);
-}
-
-// Teil-Stufe s, Bild f in der Draufsicht von schräg oben: Oberseite hell, Vorderseite dunkler
-void paint_stage(uint8_t* px, int s, int f) {
-    const StageSpec& sp = kStages[s];
-    Paint p{px, sp.w, sp.h};
-    std::memset(px, 0, static_cast<size_t>(sp.w) * sp.h);
-    const int W = sp.w, H = sp.h, top = sp.h - sp.z;
-    const bool flat = sp.part < kPartCount && kParts[sp.part].layer != PartLayer::Standing;
-    const uint8_t r0 = kRamp, r1 = kRamp + 1, r2 = kRamp + 2, r3 = kRamp + 3;
-    switch (sp.part) {
-        case kPDoor:
-            p.rect(0, 0, W, H, r3);
-            p.rect(2, 2, W - 4, H - 2, r1);
-            p.rect(2, 2, 1, H - 2, r0);
-            p.frame(4, 4, 8, 7, r2);
-            p.frame(4, 13, 8, 9, r2);
-            p.dot(12, 13, r0);
-            break;
-        case kPWindow:
-            p.rect(0, 0, W, H, r2);
-            // Glas: Verlauf aus zwei Farben im 4×4-Raster (oben kSky, unten kSky + 1)
-            for (int y = 2; y < H - 3; ++y)
-                for (int x = 2; x < W - 2; ++x)
-                    p.dot(x, y, dither4(x, y, (y - 2) * 16 / (H - 6)) ? kSky + 1 : kSky);
-            p.rect(7, 2, 2, H - 5, r2);
-            p.rect(2, 7, W - 4, 1, r2);
-            p.dot(3, 3, kBloom);
-            p.dot(4, 3, kBloom);
-            p.rect(0, H - 3, W, 3, r1);
-            p.rect(0, H - 1, W, 1, r3);
-            break;
-        case kPPicture:
-            p.frame(0, 0, W, H, r3);
-            p.rect(1, 1, W - 2, H - 2, kGlass);
-            p.rect(1, 5, W - 2, 2, kGrass + 1);
-            p.dot(5, 2, kBloom + 1);
-            break;
-        case kPWardrobe:
-            p.rect(0, 0, W, top, r0);
-            p.rect(0, top, W, sp.z, r1);
-            p.rect(7, top + 1, 2, sp.z - 3, r2);
-            p.dot(5, top + 11, r3);
-            p.dot(10, top + 11, r3);
-            p.rect(0, H - 2, W, 2, r3);
-            break;
-        case kPBed:
-            if (H == 27) {  // Lager: flacher Sack mit Nähten
-                p.rect(1, 1, W - 2, top - 1, r0);
-                for (int y = 6; y < top; y += 6) p.rect(2, y, W - 4, 1, r1);
-                p.rect(1, top, W - 2, sp.z, r2);
-            } else {        // Bett: Kopfteil, Kissen, Decke, Füße
-                p.rect(0, 0, W, 7, r3);
-                p.rect(1, 1, W - 2, 2, r2);
-                p.rect(2, 7, W - 4, 5, kBloom);
-                p.rect(1, 12, W - 2, top - 12, r0);
-                p.rect(1, 12, W - 2, 1, r1);
-                p.rect(0, top, W, sp.z - 2, r1);
-                p.rect(0, H - 2, 2, 2, r3);
-                p.rect(W - 2, H - 2, 2, 2, r3);
-            }
-            break;
-        case kPTable:
-            if (H == 22) {  // zwei Kisten
-                for (int b = 0; b < 2; ++b) {
-                    const int x = b * 8, y = b ? 8 : 6;
-                    p.rect(x, y, 8, 5, r0);
-                    p.rect(x, y + 5, 8, H - y - 5, r1);
-                    p.rect(x + 3, y + 6, 1, H - y - 7, r2);
-                    p.rect(x, H - 1, 8, 1, r3);
-                }
-            } else {        // Tisch: Platte, Zarge, Beine
-                p.rect(0, 0, W, top, r0);
-                p.rect(0, top - 1, W, 1, r1);
-                p.rect(0, top, W, 3, r2);
-                p.rect(1, top + 3, 2, sp.z - 3, r3);
-                p.rect(W - 3, top + 3, 2, sp.z - 3, r3);
-            }
-            break;
-        case kPChair:
-            p.rect(1, 0, 6, 7, r1);
-            p.rect(2, 1, 4, 1, r0);
-            p.rect(0, 7, 8, 3, r0);
-            p.rect(1, 10, 1, 4, r3);
-            p.rect(6, 10, 1, 4, r3);
-            break;
-        case kPCrate:
-            p.rect(1, 1, 14, 6, r0);
-            p.rect(1, 7, 14, 7, r1);
-            p.rect(1, 7, 14, 1, r2);
-            p.rect(5, 8, 1, 6, r2);
-            p.rect(10, 8, 1, 6, r2);
-            p.rect(1, 14, 14, 1, r3);
-            break;
-        case kPRug:
-            p.rect(0, 0, W, H, r1);
-            p.frame(2, 2, W - 4, H - 4, r0);
-            for (int i = 0; i < 4; ++i) p.rect(10 + i, 8 + i, 12 - 2 * i, 8 - 2 * i, i & 1 ? r2 : r0);
-            break;
-        case kPLamp:
-            p.rect(3, 7, 2, 11, r3);
-            p.rect(1, 18, 6, 2, r2);
-            p.rect(2, 1, 4, 1, r1);
-            // Schirm leuchtet bei Dunkelheit (Rolle „leuchtend“), Kern flackert zwischen den Bildern
-            p.rect(1, 2, 6, 5, kFlame);
-            for (int x = 1; x < 7; x += 2) p.dot(x + f, 3, kFlame + 1);
-            p.rect(2 + f, 4, 3, 2, kGlow);
-            p.rect(1, 6, 6, 1, r2);
-            break;
-        case kPPlant:
-            p.rect(1, 9, 6, 5, r1);
-            p.rect(1, 9, 6, 1, r0);
-            p.rect(5, 10, 2, 4, r2);
-            p.rect(2, 2, 4, 7, kGrass + 1);
-            p.rect(0, 4, 3, 3, kGrass);
-            p.rect(5, 3, 3, 4, kGrass + 2);
-            p.dot(3, 1, kGrass);
-            break;
-        case kPToken:  // Sockel mit Raute: Platzhalter für ein Erkennungsstück
-            p.rect(1, 7, 6, 5, r2);
-            p.rect(1, 7, 6, 1, r1);
-            for (int y = 0; y < 7; ++y) {
-                const int hw = y < 3 ? y + 1 : 6 - y;
-                p.rect(4 - hw, y, 2 * hw, 1, y < 3 ? r0 : r1);
-            }
-            break;
-        case kPBush:  // runder Busch: Kreis über der Stellfläche, oben hell, unten dunkel
-            for (int y = 0; y < 16; ++y)
-                for (int x = 0; x < W; ++x) {
-                    const int dx = 2 * x - 15, dy = 2 * y - 15;
-                    if (dx * dx + dy * dy < 15 * 15 + 12) p.dot(x, y, dy + dx / 2 < -6 ? kGrass : dy > 6 ? kGrass + 3 : kGrass + 1);
-                }
-            p.rect(6, 15, 4, 3, kHair + 1);
-            p.dot(5, 5, kTuft);
-            p.dot(9, 9, kTuft);
-            p.dot(11, 4, kTuft);
-            break;
-        case kPBedFrame:  // Kopfteil und Seitenbretter, dazwischen Boden sichtbar
-            p.rect(0, 0, W, 7, r3);
-            p.rect(1, 1, W - 2, 2, r2);
-            p.rect(0, 7, 2, top - 7, r2);
-            p.rect(W - 2, 7, 2, top - 7, r2);
-            p.rect(2, top - 2, W - 4, 2, r1);
-            p.rect(0, top, W, sp.z - 2, r1);
-            p.rect(0, H - 2, 2, 2, r3);
-            p.rect(W - 2, H - 2, 2, 2, r3);
-            break;
-        case kPSite:  // Bretterstapel in Holzfarben (ohne Farbreihe), ein Brett schräg angelehnt
-            for (int b = 0; b < 3; ++b) {
-                const int y = 4 + b * 2;
-                p.rect(1 + b, y, W - 2 - 2 * b, 2, b & 1 ? kWood + 1 : kWood);
-                p.rect(1 + b, y + 1, W - 2 - 2 * b, 1, kWood + 2);
-            }
-            p.rect(1, H - 2, W - 2, 2, kWood + 3);
-            for (int i = 0; i < 5; ++i) p.rect(W - 4 - i, i, 2, 1, kWood + 1);
-            break;
-        case kPBench:
-            p.rect(0, 0, W, 2, r1);
-            p.rect(0, 3, W, 1, r1);
-            p.rect(0, 5, W, 3, r0);
-            p.rect(0, 7, W, 1, r2);
-            p.rect(1, 8, 2, 4, r3);
-            p.rect(W - 3, 8, 2, 4, r3);
-            break;
-        default:
-            break;
-    }
-    if (!flat) p.outline(kOutline);
-}
-
-void paint_tiles(uint8_t (*t)[kTilePixels], uint8_t* flags) {
-    auto fill = [&](int i, uint8_t c) { std::memset(t[i], c, kTilePixels); };
-    auto dot = [&](int i, int x, int y, uint8_t c) { t[i][y * 8 + x] = c; };
-    auto hline = [&](int i, int y, uint8_t c) { std::memset(t[i] + y * 8, c, 8); };
-    // Gras im Schachbrett (Raster der Kacheln bleibt sichtbar), Büschel, Blüte, Weg
-    fill(kTGrassA, kGrass + 1);
-    dot(kTGrassA, 1, 2, kGrass);
-    dot(kTGrassA, 5, 6, kGrass + 2);
-    fill(kTGrassB, kGrass + 2);
-    dot(kTGrassB, 2, 5, kGrass + 1);
-    dot(kTGrassB, 6, 1, kGrass + 3);
-    std::memcpy(t[kTTuft], t[kTGrassA], kTilePixels);
-    dot(kTTuft, 2, 3, kTuft);
-    dot(kTTuft, 4, 3, kTuft);
-    dot(kTTuft, 3, 4, kTuft);
-    dot(kTTuft, 3, 5, kGrass + 3);
-    std::memcpy(t[kTBloom], t[kTGrassA], kTilePixels);
-    dot(kTBloom, 4, 3, kBloom);
-    dot(kTBloom, 3, 4, kBloom);
-    dot(kTBloom, 5, 4, kBloom);
-    dot(kTBloom, 4, 4, kBloom + 1);
-    dot(kTBloom, 4, 5, kGrass + 3);
-    fill(kTPath, kPath + 1);
-    dot(kTPath, 1, 1, kPath);
-    dot(kTPath, 5, 4, kPath);
-    dot(kTPath, 3, 6, kPath + 2);
-    dot(kTPath, 6, 2, kPath + 2);
-    // Dielen (versetzte Stöße)
-    for (int i = kTPlankA; i <= kTPlankB; ++i) {
-        fill(i, kFloor + 1);
-        hline(i, 0, kFloor);
-        hline(i, 3, kFloor + 3);
-        hline(i, 4, kFloor);
-        hline(i, 7, kFloor + 3);
-        const int a = i == kTPlankA ? 5 : 1, b = i == kTPlankA ? 2 : 6;
-        for (int y = 0; y < 3; ++y) dot(i, a, y, kFloor + 2);
-        for (int y = 4; y < 7; ++y) dot(i, b, y, kFloor + 2);
-    }
-    // Pflaster: zwei versetzte Steinreihen mit Fugen
-    for (int i = kTStoneA; i <= kTStoneB; ++i) {
-        fill(i, i == kTStoneA ? kStone + 1 : kStone + 2);
-        hline(i, 3, kStone + 3);
-        hline(i, 7, kStone + 3);
-        const int a = i == kTStoneA ? 3 : 7, b = i == kTStoneA ? 7 : 3;
-        for (int y = 0; y < 3; ++y) dot(i, a, y, kStone + 3);
-        for (int y = 4; y < 7; ++y) dot(i, b, y, kStone + 3);
-        dot(i, 1, 1, kStone);
-        dot(i, 5, 5, kStone);
-    }
-    // Wand: Fläche (Tapete mit Streifen), Sockel mit Leiste, Band unter der Decke, Mauerkrone von oben
-    fill(kTWallFace, kWall + 1);
-    for (int y = 0; y < 8; ++y) {
-        dot(kTWallFace, 3, y, kWall + 2);
-        dot(kTWallFace, 7, y, kWall);
-    }
-    std::memcpy(t[kTWallBase], t[kTWallFace], kTilePixels);
-    hline(kTWallBase, 5, kWall + 2);
-    hline(kTWallBase, 6, kWall + 3);
-    hline(kTWallBase, 7, kWall + 3);
-    std::memcpy(t[kTWallBand], t[kTWallFace], kTilePixels);
-    for (int y = 0; y < 3; ++y) hline(kTWallBand, y, kWall + 3);
-    hline(kTWallBand, 3, kWall + 2);
-    fill(kTWallTop, kWallTop);
-    hline(kTWallTop, 0, kOutline);
-    dot(kTWallTop, 2, 3, kDark);
-    dot(kTWallTop, 6, 5, kDark);
-    // Hecke: dichter Busch von oben
-    fill(kTHedge, kGrass + 3);
-    for (int y = 0; y < 8; ++y)
-        for (int x = 0; x < 8; ++x)
-            if ((x * 5 + y * 3) % 7 < 3) dot(kTHedge, x, y, (x + y) % 3 ? kGrass + 2 : kGrass + 1);
-    std::memcpy(t[kTHedgeFace], t[kTHedge], kTilePixels);
-    for (int x = 0; x < 8; x += 2) dot(kTHedgeFace, x, 6, kGrass + 3);
-    hline(kTHedgeFace, 7, kOutline);
-    // Deko-Ebene (durchsichtig): Kiesel, Blumen
-    fill(kTPebbles, 0);
-    dot(kTPebbles, 2, 2, kStone);
-    dot(kTPebbles, 3, 2, kStone + 2);
-    dot(kTPebbles, 5, 5, kStone + 1);
-    dot(kTPebbles, 6, 5, kStone + 3);
-    fill(kTFlowers, 0);
-    dot(kTFlowers, 1, 2, kBloom);
-    dot(kTFlowers, 5, 1, kBloom + 1);
-    dot(kTFlowers, 3, 5, kBloom);
-    dot(kTFlowers, 6, 6, kRows + 8);
-    // Wasser (seit 0.5.2): schräge Wellen aus vier Farben, die Farbrotation lässt sie wandern
-    for (int y = 0; y < 8; ++y)
-        for (int x = 0; x < 8; ++x) dot(kTWater, x, y, static_cast<uint8_t>(kWater + ((x + y * 3) / 3 & 3)));
-    std::memset(flags, 0, kTileCount);
-    for (int i : {kTWallFace, kTWallBase, kTWallBand, kTWallTop, kTHedge, kTHedgeFace, kTWater}) flags[i] = kTileBlocks;
 }
 
 // Erkennungsstück: in den Testorten bekommt jeder Besitzer denselben neutralen Sockel (Farbe aus der Raumliste)
 int token_for(uint8_t owner) { return owner ? kPToken : -1; }
 
-const Kit& kit() {
+Kit& kit() {
     if (!s_kit) {
+        AssetStore& store = asset_store();
+        store.load_base(kBasePack);  // sofort und für immer (auch auf dem Gerät beim Start)
         void* mem = asset_alloc(sizeof(Kit));
         Kit* k = mem ? new (mem) Kit : new Kit;
-        for (int v = 0; v < 3; ++v)
-            for (int pose = 0; pose < kPoses; ++pose)
-                paint_figure(k->figure + (v * kPoses + pose) * kFigW * kFigH, v, pose);
-        std::memset(k->tiles[0], 0, kTilePixels);
-        paint_tiles(k->tiles, k->tile_flags);
-        int used = 0;
+        ImageAsset fig;
+        if (store.image(asset_id("figur/test"), &fig)) k->figure = fig.sheet;
+        store.tiles(asset_id("kacheln/testorte"), &k->tileset);
+        k->colors = store.palette(asset_id("palette/testorte"), &k->color_count);
         for (int s = 0; s < kStageCount; ++s) {
             const StageSpec& sp = kStages[s];
-            uint8_t* px = k->pool + used;
-            const int bytes = sp.w * sp.h;
-            for (int f = 0; f < sp.frames; ++f) paint_stage(px + f * bytes, s, f);
-            used += bytes * sp.frames;
-            k->stages[s] = PartStage{{px, sp.w, sp.h, sp.frames, sp.w / 2, sp.h - 1},
-                                     sp.fw, sp.fh, 0, 0, 45, sp.uses, sp.use_count};
+            k->stages[s] = PartStage{SpriteSheet{}, sp.fw, sp.fh, 0, 0, 45, sp.uses, sp.use_count};
         }
         auto stage_of = [&](int part, int* n) {
             int first = 0;
@@ -559,18 +204,15 @@ const Kit& kit() {
         }
         k->parts[kPBed].building = stage_of(kPBedFrame, &n);
         k->site = stage_of(kPSite, &n);
-        for (int r = 0; r < kFigureRows; ++r)
-            k->rows[1 + r].ramp(kRamp, static_cast<uint8_t>(kRows + r * 4), 4);
-        k->rows[kRowWood].ramp(kRamp, kWood, 4);
-        k->rows[kRowPaper].ramp(kWall, kPastel, 4);
-        k->tileset = TileSet{&k->tiles[0][0], k->tile_flags, kTileCount};
+        for (int r = 1; r < kRowCount; ++r) k->rows[r].load(store.recolor(asset_id(kRowNames[r])));
         k->catalog = PartCatalog{k->parts, kPartCount, k->rows, kRowCount, token_for, k->site};
+        resolve(*k);
         s_kit = k;  // bleibt bis zum Ende (wird nie freigegeben)
     }
     return *s_kit;
 }
 
-constexpr SpriteSheet figure_sheet(const Kit& k) { return {k.figure, kFigW, kFigH, 3 * kPoses, 8, 30}; }
+
 
 Color tint(Color c, int r256, int g256, int b256) {
     auto ch = [](int v, int k) { return static_cast<uint8_t>(std::min(255, v * k >> 8)); };
@@ -712,58 +354,13 @@ const char* TestPlace::title() const {
 void TestPlace::build_palette() {
     PlacePalette& p = pal_;
     p = PlacePalette(3);
+    // Grundfarben aus der Zeichenpalette (seit 0.5.5 assets/paletten/testorte.gpl, Paket „grund“)
+    const Kit& k = kit();
     std::array<Color, kColors> c{};
-    c[kOutline] = {28, 26, 36};
-    const Color grass[4] = {{112, 150, 110}, {96, 134, 98}, {82, 118, 86}, {66, 100, 74}};
-    const Color path[3] = {{186, 172, 138}, {166, 152, 120}, {142, 128, 100}};
-    const Color floor[4] = {{164, 124, 90}, {146, 108, 78}, {126, 92, 66}, {104, 74, 54}};
-    const Color wall[4] = {{206, 194, 178}, {186, 174, 158}, {160, 148, 134}, {128, 116, 106}};
-    const Color ramp[4] = {{200, 200, 204}, {164, 164, 170}, {128, 128, 136}, {92, 92, 100}};
-    const Color stone[4] = {{184, 180, 172}, {164, 160, 152}, {142, 138, 132}, {112, 108, 104}};
-    const Color wood[4] = {{188, 140, 96}, {160, 114, 76}, {128, 88, 60}, {96, 64, 46}};
-    const Color pastel[4] = {{214, 200, 222}, {194, 178, 206}, {166, 150, 184}, {130, 116, 150}};
-    const Color water[4] = {{92, 150, 186}, {72, 128, 170}, {60, 112, 156}, {80, 140, 178}};
-    // Farbreihen der Figuren: rot, blau, gelb, lavendel, grün, türkis
-    const Color rows[kFigureRows][4] = {
-        {{228, 106, 98}, {198, 80, 76}, {162, 60, 62}, {122, 46, 52}},
-        {{106, 152, 224}, {80, 122, 198}, {62, 96, 162}, {48, 72, 122}},
-        {{238, 206, 98}, {216, 176, 70}, {182, 142, 54}, {142, 106, 44}},
-        {{178, 150, 222}, {150, 120, 198}, {124, 92, 168}, {96, 70, 132}},
-        {{134, 202, 122}, {102, 172, 98}, {78, 140, 82}, {58, 106, 66}},
-        {{110, 202, 198}, {82, 170, 172}, {62, 136, 142}, {46, 102, 110}},
-    };
-    for (int i = 0; i < 4; ++i) {
-        c[kGrass + i] = grass[i];
-        c[kFloor + i] = floor[i];
-        c[kWall + i] = wall[i];
-        c[kRamp + i] = ramp[i];
-        c[kStone + i] = stone[i];
-        c[kWood + i] = wood[i];
-        c[kPastel + i] = pastel[i];
-        c[kWater + i] = water[i];
-        for (int r = 0; r < kFigureRows; ++r) c[kRows + r * 4 + i] = rows[r][i];
-    }
-    for (int i = 0; i < 3; ++i) c[kPath + i] = path[i];
-    c[kTuft] = {130, 168, 118};
-    c[kBloom] = {238, 234, 222};
-    c[kBloom + 1] = {222, 180, 86};
-    c[kSkin] = {238, 216, 192};
-    c[kSkin + 1] = {216, 188, 162};
-    c[kSkin + 2] = {182, 152, 130};
-    c[kHair] = {84, 66, 60};
-    c[kHair + 1] = {64, 50, 46};
-    c[kHair + 2] = {46, 36, 34};
-    c[kEye] = {32, 28, 38};
-    c[kDark] = {52, 42, 40};
-    c[kWallTop] = {84, 74, 72};
-    c[kGlass] = {168, 198, 212};
-    c[kShadow] = kind_ == Kind::Field ? Color{70, 100, 78} : kind_ == Kind::Room ? Color{100, 74, 56}
-                                                                                  : Color{118, 114, 108};
-    c[kSky] = {176, 204, 216};      // Fensterglas am Tag (Spiegelung)
-    c[kSky + 1] = {150, 180, 196};
-    c[kFlame] = {214, 200, 168};    // Lampenschirm am Tag
-    c[kFlame + 1] = {200, 184, 150};
-    c[kGlow] = {226, 214, 184};
+    for (int i = 1; i < kColors && i < k.color_count; ++i)
+        c[i] = {k.colors[i * 3], k.colors[i * 3 + 1], k.colors[i * 3 + 2]};
+    // Schatten der Figuren je Ort (die Zeichenpalette enthält den der Wiese)
+    if (kind_ != Kind::Field) c[kShadow] = kind_ == Kind::Room ? Color{100, 74, 56} : Color{118, 114, 108};
     // Grundstimmung, dann Licht des Ortes: Wiese kühl, Raum warm, Platz neutral (verschiedene Paletten)
     for (int i = 1; i < kColors; ++i) {
         const Color g = grade(c[i], mood_);
@@ -883,6 +480,10 @@ void TestPlace::apply_lights() {
         add(kind_ == Kind::Room ? kRoomLights[0] : kSquareLights[0]);
     }
     room_.set_lights(c.data(), n, pal_.base(), pal_.levels(), light_style_);
+    // Zustandsbild (seit 0.5.5): Lampe und Laterne aus bzw. an wie ihre Lichtquelle
+    const int lamp = kind_ != Kind::Field && lights_on() ? 1 : 0;
+    for (int i = 0; i < room_.part_count(); ++i)
+        if (room_.part(i).part == kPLamp) room_.set_state(i, lamp);
     apply_glow();
     lights_version_ = env_ ? env_->lights.version() : 0;
 }
@@ -1112,9 +713,25 @@ void TestPlace::arrive(const Travel& t) {
 }
 
 void TestPlace::enter() {
+    resolve(kit());  // Bilder der eben geladenen Pakete (assets.h)
     room_.enter();
     // eigener Startwert je Betreten: deterministisch, ändert den Zufall der Figuren nicht
     if (env_) weather_.enter(env_->weather, seed_ ^ (0xA5A5ULL + enters_++) * 0x9E3779B97F4A7C15ULL);
+}
+
+int TestPlace::packs(const char** out, int max) const {
+    // gemeinsame Möbel, dazu das eigene Paket (der Platz kommt mit den gemeinsamen aus); „grund“ ist immer geladen
+    const char* own = kind_ == Kind::Field ? "wiese" : kind_ == Kind::Room ? "raum" : nullptr;
+    int n = 0;
+    if (n < max) out[n++] = "moebel";
+    if (own && n < max) out[n++] = own;
+    return n;
+}
+
+int TestPlace::neighbors(const char** out, int max) const {
+    int n = 0;
+    for (int i = 0; i < room_.exit_count() && n < max; ++i) out[n++] = room_.exit(i).to;
+    return n;
 }
 
 void TestPlace::leave() {
@@ -1231,8 +848,8 @@ void TestPlace::draw(Canvas& c, bool with_background, CoarseLayers* layers) cons
     }
     const Kit& k = kit();
     DepthList& list = room_.begin(c, with_background, layers);
-    const SpriteSheet sheet = figure_sheet(k);
-    for (int i = 0; i < count_; ++i) {
+    const SpriteSheet& sheet = k.figure;
+    for (int i = 0; sheet.pixels && i < count_; ++i) {
         const Figure& f = figures_[i];
         const View v = view_of(f.facing);
         list.add(sheet.frame(v.index * kPoses + f.anim.frame()), f.x >> 8, f.y >> 8, sheet.pivot_x, sheet.pivot_y,

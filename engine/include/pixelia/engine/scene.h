@@ -78,6 +78,12 @@ public:
     virtual void set_inspect(bool /*on*/) {}
     // Kurzer Befehl für Prüfungen (Konsole, Seite Experimentell), z. B. „ausbau“, „baustelle“; false = unbekannt
     virtual bool command(const char* /*cmd*/) { return false; }
+    // Grafik-Pakete (seit 0.5.5, assets.h): Namen der Pakete, die der Ort zum Zeichnen braucht (dauerhaft gültige
+    // Texte). Die Bühne heftet sie an und betritt den Ort erst, wenn sie geladen sind; Grafiken also in enter()
+    // auflösen. Rechnen (tick) darf keine Grafiken brauchen: unsichtbare Orte rechnen ohne geladene Pakete.
+    virtual int packs(const char** /*out*/, int /*max*/) const { return 0; }
+    // Nachbarorte (Kennungen, z. B. Ziele der Ausgänge): deren Pakete lädt die Bühne vorab
+    virtual int neighbors(const char** /*out*/, int /*max*/) const { return 0; }
 };
 
 // Szene nach Namen anlegen; nullptr, wenn es sie nicht gibt

@@ -56,4 +56,10 @@ Recolor& Recolor::set(uint8_t from, uint8_t to) {
     return *this;
 }
 
+Recolor& Recolor::load(const uint8_t* table) {
+    if (!table) return *this;
+    for (int i = 1; i < 256; ++i) map_[i] = table[i];
+    return *this;
+}
+
 }  // namespace pixelia

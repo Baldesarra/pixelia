@@ -28,4 +28,10 @@ inline constexpr gpio_num_t kTouchSda = GPIO_NUM_19;
 inline constexpr gpio_num_t kTouchScl = GPIO_NUM_20;
 inline constexpr gpio_num_t kTouchRst = GPIO_NUM_38;
 
+// microSD-Halter (SPI2, Standardpins, laut Community-Angabe; seit 0.5.5 im Treiber, ohne Kartenerkennung)
+inline constexpr gpio_num_t kSdCs = GPIO_NUM_10;
+inline constexpr gpio_num_t kSdMosi = GPIO_NUM_11;
+inline constexpr gpio_num_t kSdClk = GPIO_NUM_12;
+inline constexpr gpio_num_t kSdMiso = GPIO_NUM_13;
+
 }  // namespace board

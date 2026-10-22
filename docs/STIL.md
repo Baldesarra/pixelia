@@ -134,9 +134,59 @@ Eintrag in `assets/CREDITS.md`) bleibt für Ausnahmen.
 | LPC (Liberated Pixel Cup) | großteils CC-BY-SA 3.0 und GPL 3.0 | 32 × 32, Figuren im 64er-Rahmen | nicht erlaubt | – |
 | Sprout Lands, Time Fantasy, Mana Seed u. a. | eigene Lizenzen ohne Weitergabe bzw. kostenpflichtig | gemütlich, oft hübsch | nicht erlaubt | – |
 
+## 9. Grafik-Format und Werkzeug (seit 0.5.5)
+
+**Weg einer Grafik:** PNG in `assets/` → `tools/asset_pack.py` → Paket `*.pxa` (eingebettet, LittleFS oder SD) →
+Grafik-Speicher im PSRAM → Zeichnen. Fremde Grafik-Pakete gibt es nicht (Entscheidung 2026-10-21); Vorbild für den
+Look bleibt die Küche aus Skizze v4 (Kapitel 8).
+
+**Zeichenpalette (`assets/paletten/*.gpl`, GIMP-Palette).** Lässt sich in Aseprite, LibreSprite, GIMP und Krita
+laden. Zeile i ist Index i der Grundfarben (Kapitel 2), Zeile 0 heißt „durchsichtig“. Nur benannte Farben sind
+Zeichenfarben, jede mit eigenem RGB-Wert. Namensregeln:
+
+- **Rampe** = gleicher Name mit Nummer, hell → dunkel, zusammenhängend: „holz 1“ … „holz 4“ (Kapitel 3).
+- **Platzhalter-Rampe** heißt „platzhalter 1“ … „platzhalter 4“: Möbel, Kleidung und alles mit Farbvarianten wird
+  damit gezeichnet; eine Farbreihe legt eine andere Rampe darauf.
+- **Glasfarben je Raum:** „glas <raum> 1/2“ (Rolle Himmel). Fenster zu verschiedenen Räumen brauchen eigene Glasfarben,
+  weil das Wetter je Farbe wirkt (Kapitel 7); ein Raum mit Fenstern reserviert 2 Grundfarben dafür.
+- **Wetterfarben:** jeder Außenort reserviert 3–4 Grundfarben: „wetter regen“ (hell, bläulich wie Glas), „wetter
+  schnee“ (fast weiß, auch Spritzer), „wetter blatt 1/2“. Die Engine liest sie über `WeatherLook` (Kapitel 7).
+- Die Rollen leuchtend, Himmel, fest und die Farbrotation setzt der Ort im Code bzw. ab 0.5.8 in seinen Daten; der
+  Name dokumentiert sie („flamme 1“, „wasser 1“ …).
+
+**Bilder sind PNG-Streifen** (Entscheidung des Users 2026-10-22): alle Bilder eines Teils gleich groß nebeneinander,
+Zustand für Zustand (z. B. Lampe: aus, an), innerhalb eines Zustands die Animation. Durchsichtig ist jeder Punkt mit
+Alpha < 50 %. Ausbaustufen mit anderer Größe sind eigene Bilder („teil/bett/0“, „teil/bett/1“, „teil/bett/bau“).
+Der Fußpunkt ist unten mittig, sonst angeben. **Zustandsbilder** (Lampe an/aus, Kamin brennt/aus) schaltet der Ort
+über den Zustand des Teils (`Room::set_state`); die Lichtquellen (`LightBoard`) tun das bei Lampe und Laterne, so
+braucht nicht jede Lampe eine eigene Leuchtfarbe.
+
+**Farben beim Umwandeln** (`wandeln`, später beim Hochladen in der Weboberfläche, Entscheidung des Users 2026-10-22):
+
+| Modus | Wirkung |
+|---|---|
+| streng (Standard für `assets/`) | nur Farben der Zeichenpalette; sonst Fehler mit Farbe, Zahl und Lage der Stellen |
+| naechste | fremde Farben werden zur nächsten Zeichenfarbe, die Vorschau zeigt das Ergebnis |
+| eigene | fremde Farben bleiben (höchstens 16 je Bild); sie stehen im Bild als Indizes 224–239 und die Engine legt sie beim Betreten auf freie Grundfarben des Ortes (Zuordnung kommt mit dem Hochladen, 0.7.x) |
+
+**Pakete (`assets/<ordner>/pakete.json`).** Ein Ordner beschreibt seine Pakete: Palette, Kachelbilder (8 × 8, Kachel
+0 leer, `sperren` = versperrende Kacheln), Farbreihen (`{"platzhalter": "holz"}` = Rampe auf Rampe) und Bilder
+(`datei`, `bilder`, `zustaende`, `fuss`, `farben`). Namen wie „teil/lampe“ sind im ganzen Spiel eindeutig, die Engine
+benutzt ihre Kennung (FNV-1a, 32 Bit). Die Testorte (`assets/testorte/`) zeigen alles: Grundausstattung „grund“
+(Palette, Kacheln, Figur, Farbreihen, immer geladen), gemeinsame Möbel „moebel“, Ortspakete „wiese“ und „raum“.
+
+**Format PXA1** (Einzelheiten in `engine/include/pixelia/engine/assets.h`): Kopf mit Prüfsumme (CRC-32), Verzeichnis
+mit Kennung, Art, Packung und Größe, Namen, Daten. Gepackt mit PackBits (Testorte: 17 KB → 11 KB, Raum-Möbel auf 39 %),
+entpackt wird beim Laden auf Kern 0. Arten: Bild (Maße, Bilder, Zustände, Fußpunkt, eigene Farben, Indizes), Kacheln,
+Farbreihe (256 Byte), Palette, Daten.
+
+**Werkzeug** (`python tools/asset_pack.py …`): `build` (läuft im Build von Firmware und Simulator), `check` (CI:
+Pakete und `assets/CREDITS.md`), `info`, `zeige` (Bild aus einem Paket als PNG), `wandeln` (ein PNG prüfen und
+umrechnen, mit Vorschau). Ohne Fremdbibliotheken.
+
 ## Offen (für 0.6.0)
 
-- Format und Zeichenanleitung für eigene Möbel (Maße im Raster, welche Rampen, Umriss); das Grafik-Format selbst
-  legt 0.5.5 fest.
+- Zeichenanleitung für eigene Möbel (Maße im Raster, welche Rampen, Umriss); das Grafik-Format steht seit 0.5.5
+  (Kapitel 9).
 - Feste Liste der Rampen je Ortsart nach dem Setting (Bahnhof, Hütte, Wald, See …).
 - Figuren-Aussehen: Ebenen des Figuren-Baukastens (0.5.9), Kleidung um 1850, Erkennungsmerkmale der 16 Startfiguren.

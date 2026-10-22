@@ -228,8 +228,8 @@
       <dl class="kv">
         <dt><span class="dot s0"></span>Mittel / <span class="dot s1"></span>Maximum</dt>
         <dd class="tnum">{e ? `${num(e.render, 2)} / ${num(e.renderMax, 2)} ms` : '–'}</dd>
-        <dt>Logik</dt>
-        <dd class="tnum">{e ? `${num(e.logic, 2)} ms` : '–'}</dd>
+        <dt>Logik (Mittel / Maximum)</dt>
+        <dd class="tnum">{e ? (e.logicMax != null ? `${num(e.logic, 2)} / ${num(e.logicMax, 2)} ms` : `${num(e.logic, 2)} ms`) : '–'}</dd>
         <dt>Budget</dt>
         <dd class="tnum">20 ms (gestrichelt)</dd>
       </dl>

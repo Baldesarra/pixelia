@@ -209,7 +209,8 @@ export type PerfData = {
   at: number;
   mode: string;
   lcd: { hz: number; pclk: number; isr: number; isrMaxUs: number; desync: number };
-  engine: { fps: number; render: number; renderMax: number; logic: number; ticks: number[]; sprites: number; buf: string } | null;
+  // logicMax, holds seit 0.5.5 (älteres Gerät: fehlt)
+  engine: { fps: number; render: number; renderMax: number; logic: number; logicMax?: number; holds?: number; ticks: number[]; sprites: number; buf: string } | null;
   cpu: [number, number];
   heap: { ram: number; ramMin: number; ramBlk: number; dma: number; psram: number; psramMin: number; psramBlk: number };
   wifi: { state: string; rssi: number; ch: number };

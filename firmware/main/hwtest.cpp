@@ -139,32 +139,10 @@ void touch_task(void*) {
 
 constexpr int kBlLevels[] = {100, 70, 40, 20, 10, 5, 1, 0};
 
-// Flash-Last wie bei OTA/Spielständen: Sektoren in „storage“ löschen und beschreiben, danach aufräumen
+// Flash-Last wie bei Spielständen: seit 0.5.5 Dateien in LittleFS, geschrieben von der Lade-Task (assets.cpp, dort
+// genug Stack); bis 0.5.4 roh in „storage“, das würde LittleFS zerstören. Wartet, bis der Test fertig ist.
 void flash_stress_impl(int seconds) {
-    const esp_partition_t* part =
-        esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "storage");
-    if (!part) {
-        ESP_LOGE("flash", "Partition storage fehlt");
-        return;
-    }
-    constexpr size_t kSector = 4096;
-    constexpr size_t kRange = 256 * 1024;
-    static uint32_t buf[kSector / 4];
-    for (size_t i = 0; i < kSector / 4; ++i) buf[i] = 0xA5A50000u + i;
-    int64_t t0 = esp_timer_get_time();
-    int64_t end = t0 + static_cast<int64_t>(seconds) * 1000000;
-    size_t off = 0, sectors = 0;
-    esp_err_t err = ESP_OK;
-    while (esp_timer_get_time() < end && err == ESP_OK) {
-        err = esp_partition_erase_range(part, off, kSector);
-        if (err == ESP_OK) err = esp_partition_write(part, off, buf, kSector);
-        ++sectors;
-        off = (off + kSector) % kRange;
-    }
-    double dt = (esp_timer_get_time() - t0) / 1e6;
-    esp_partition_erase_range(part, 0, kRange);
-    ESP_LOGI("flash", "%u Sektoren (%u KB) in %.1f s gelöscht und geschrieben: %s", static_cast<unsigned>(sectors),
-             static_cast<unsigned>(sectors * kSector / 1024), dt, esp_err_to_name(err));
+    if (!assets::flash_load(seconds)) ESP_LOGE("flash", "Flash-Last nicht gelaufen (LittleFS bzw. Lade-Task)");
 }
 
 void backlight_steps_once() {

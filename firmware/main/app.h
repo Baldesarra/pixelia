@@ -58,6 +58,7 @@ struct EngineStats {
     uint64_t render_us_sum;   // Summe Zeichenzeit
     uint32_t render_us_max;
     uint64_t logic_us_sum;    // Summe Logikzeit
+    uint32_t logic_us_max;    // längste Logikzeit eines Bildes (seit 0.5.5; z. B. Start einer Überblendung)
     uint32_t logic_ticks;     // Logik-Schritte
     uint32_t tick_hist[3];    // Bilder mit 0, 1, 2+ Logik-Schritten (gleichmäßig = nur 1)
     int world_day;            // Weltzeit beim letzten Bild
@@ -69,6 +70,7 @@ struct EngineStats {
     int weather_pct;
     bool inner_light;  // Licht im Testraum (Fenster der Wiese)
     int particles;     // Partikel am sichtbaren Ort
+    uint32_t holds;    // Schritte, die ein Abblenden auf Grafik-Pakete gewartet hat (seit 0.5.5, Summe)
 };
 void start(const board::display::Timing& timing);
 void request_reconfigure(const board::display::Timing& timing);
@@ -124,6 +126,30 @@ struct Frame {
 bool grab(Frame* out, int timeout_ms, int min_age_ms);
 }  // namespace gfx
 
+// Ablage für Grafiken (seit 0.5.5, assets.cpp): LittleFS (/data), microSD (/sd), Lade-Task für den Grafik-Speicher
+// der Engine (engine/assets.h) auf Kern 0. start() vor gfx::start().
+namespace assets {
+struct Summary {
+    uint32_t used, budget, peak;  // Grafik-Speicher in Byte
+    int packs;
+    uint32_t loads, evictions, failures;
+    const char* source;  // eingebettet | littlefs | sd
+    bool littlefs, sd;
+    char last[16];       // zuletzt geladenes Paket
+    uint32_t last_us;    // von der Anfrage bis geladen
+    const char* last_source;
+};
+void start();
+bool littlefs_ready();
+bool sd_ready();
+const char* source();
+Summary summary();
+// Flash-Last in LittleFS (Test: Bild bleibt ruhig?); läuft auf der Lade-Task, wartet bis zum Ende. false = ging nicht
+bool flash_load(int seconds);
+// Befehle „assets …“ und „sd …“ (argv[0] = Befehl)
+void console(int argc, char** argv);
+}  // namespace assets
+
 namespace perf {
 // Letzte Messung (alle 2 s, auch wenn das Log aus ist), z. B. für die Weboberfläche und /api/perf
 struct Snapshot {
@@ -139,6 +165,8 @@ struct Snapshot {
     float render_ms;
     float render_max_ms;
     float logic_ms;
+    float logic_max_ms;  // seit 0.5.5
+    uint32_t holds;      // seit 0.5.5: Warteschritte beim Abblenden (Summe seit dem Start)
     uint32_t ticks[3];  // Bilder mit 0, 1, 2+ Logik-Schritten
     int sprites;
     bool buf_psram;

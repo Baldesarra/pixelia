@@ -369,6 +369,31 @@ bekannt, WLAN verbunden, kein Update oder Probelauf und die letzte Prüfung (`pi
 24 h her ist. Gefundene Version in `pixelia/upd_new` (Punkt an „System“, auch nach Neustart). Geprüft: erste Prüfung nach
 301 s Laufzeit, im nächsten Start keine weitere.
 
+## Ablage für Grafiken: LittleFS und microSD (seit 0.5.5, gemessen 2026-10-22)
+
+**LittleFS** in der Partition `storage` (3,8 MB, `/data`): beim ersten Start formatiert (144 ms, danach 8 KB belegt).
+Puffer im PSRAM (`CONFIG_LITTLEFS_MALLOC_STRATEGY_SPIRAM`). Lesen mit `assets messen` auf der Lade-Task (Kern 0),
+während die Grafik weiterläuft:
+
+| Quelle | Paket | Lesen | Prüfen + Entpacken |
+|---|---|---|---|
+| eingebettet | grund (8,0 KB gepackt, 11,7 KB entpackt) | 0,01 ms | 1,1 ms |
+| eingebettet | raum (1,4 KB, 4,0 KB) | 0,01 ms | 0,3 ms |
+| LittleFS | grund | 13,5 ms | 1,4 ms |
+| LittleFS | moebel / wiese / raum (0,3–1,4 KB) | 6,5–10,2 ms (vor allem das Öffnen) | 0,1–0,3 ms |
+| LittleFS | Messdatei 256 KB (ungepackt) | 118 ms = 2,2 MB/s | 26 ms (CRC-32) |
+
+Display-Aussetzer bei allen Messungen und Ortswechseln: 0. Ein Ort mit 200 KB bräuchte aus LittleFS etwa 0,11 s; bis
+zur dunklen Mitte des Abblendens sind es 0,3 s. Eingebettete Pakete liegen wegen `SPIRAM_XIP_FROM_PSRAM` im PSRAM.
+
+**microSD:** SPI2 mit CS 10, MOSI 11, CLK 12, MISO 13 (Standardpins von SPI2, frei laut Pinbelegung oben), FAT unter
+`/sd`, Pakete in `/sd/pixelia/assets`. Ohne Karte: Fehlversuch nach 25 ms (`ESP_ERR_TIMEOUT`), Bus wieder frei.
+**Noch nicht mit Karte geprüft** (Tempo, Aussetzer, Ziehen der Karte); Ablauf: `sd neu`, `assets kopieren sd`,
+`assets messen`, `assets quelle sd`.
+
+**Internes RAM:** die Ablage kostet ~8 KB (Lade-Task 6 KB Stack, LittleFS, SPI-Treiber); frei im Betrieb 101 KB
+(Tiefstwert 93 KB). Erster Entwurf ohne diese Einstellungen: 88 KB.
+
 ## Prüfplan (Phase 0.1.0) – erledigt
 
 1. Fotos von Vorder- und Rückseite ✅

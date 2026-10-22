@@ -119,6 +119,15 @@ void Room::set_stage(int i, int stage) {
     invalidate();
 }
 
+void Room::set_state(int i, int state) {
+    if (!st_ || i < 0 || i >= st_->part_count) return;
+    const auto s = static_cast<uint8_t>(std::clamp(state, 0, 255));
+    if (st_->parts[i].state == s) return;
+    st_->parts[i].state = s;
+    const PartStage* l = look(i);
+    if (l && !moving(*l)) bake();  // nur unbewegte Teile stehen im Hintergrundbild
+}
+
 void Room::set_building(int i, bool on) {
     if (!st_ || i < 0 || i >= st_->part_count) return;
     uint8_t& f = st_->parts[i].flags;
@@ -261,10 +270,11 @@ void Room::place(const RoomPart& p, int fw, int fh, const PartStage& look, int* 
     *depth = bottom - 1;
 }
 
-Sprite Room::frame_of(const PartStage& s) const {
-    const int frames = std::max(s.sheet.frames, 1);
+Sprite Room::frame_of(const RoomPart& p, const PartStage& s) const {
+    // Zustandsbilder (seit 0.5.5): Zustand des Teils wählt seine Bilder, deren Animation läuft mit den Schritten
+    const int frames = std::max(s.sheet.frames_per_state(), 1);
     const int f = frames > 1 ? static_cast<int>(ticks_ / std::max<int>(s.frame_ticks, 1) % frames) : 0;
-    return s.sheet.frame(f);
+    return s.sheet.frame(p.state, f);
 }
 
 void Room::draw_static(Canvas& c, bool standing) const {
@@ -283,11 +293,11 @@ void Room::draw_static(Canvas& c, bool standing) const {
             const PartDef* d = def(i);
             const PartStage* s = stage(i);
             const PartStage* l = look(i);
-            if (!d || !s || !l || d->layer != want || l->sheet.frames > 1) continue;
+            if (!d || !s || !l || !l->sheet.pixels || d->layer != want || moving(*l)) continue;
             const RoomPart& p = st_->parts[i];
             int x, y, depth;
             place(p, s->w, s->h, *l, &x, &y, &depth);
-            c.blit(frame_of(*l), x, y, p.flags & kPartFlipped, remap_of(p, *l));
+            c.blit(frame_of(p, *l), x, y, p.flags & kPartFlipped, remap_of(p, *l));
         }
     }
     if (!standing) return;
@@ -297,11 +307,11 @@ void Room::draw_static(Canvas& c, bool standing) const {
         const PartDef* d = def(i);
         const PartStage* s = stage(i);
         const PartStage* l = look(i);
-        if (!d || !s || !l || d->layer != PartLayer::Standing || l->sheet.frames > 1) continue;
+        if (!d || !s || !l || !l->sheet.pixels || d->layer != PartLayer::Standing || moving(*l)) continue;
         const RoomPart& p = st_->parts[i];
         int x, y, depth;
         place(p, s->w, s->h, *l, &x, &y, &depth);
-        list.add_at(frame_of(*l), x, y, depth, p.flags & kPartFlipped, remap_of(p, *l));
+        list.add_at(frame_of(p, *l), x, y, depth, p.flags & kPartFlipped, remap_of(p, *l));
     }
     list.draw(c, true);
 }
@@ -432,15 +442,15 @@ DepthList& Room::begin(Canvas& c, bool with_background, CoarseLayers* layers) co
         const PartDef* d = def(i);
         const PartStage* s = stage(i);
         const PartStage* l = look(i);
-        if (!d || !s || !l) continue;
-        const bool moving = l->sheet.frames > 1;
+        if (!d || !s || !l || !l->sheet.pixels) continue;  // Bild fehlt (Paket nicht geladen)
+        const bool anim = moving(*l);
         const bool flat = d->layer != PartLayer::Standing;
-        if (flat && !moving) continue;  // steht im Hintergrund bzw. wurde eben gezeichnet
+        if (flat && !anim) continue;  // steht im Hintergrund bzw. wurde eben gezeichnet
         const RoomPart& p = st_->parts[i];
         int x, y, depth;
         place(p, s->w, s->h, *l, &x, &y, &depth);
-        list.add_at(frame_of(*l), x, y, flat ? kFlatDepth : depth, p.flags & kPartFlipped, remap_of(p, *l),
-                    bg && !moving);
+        list.add_at(frame_of(p, *l), x, y, flat ? kFlatDepth : depth, p.flags & kPartFlipped, remap_of(p, *l),
+                    bg && !anim);
     }
     return list;
 }

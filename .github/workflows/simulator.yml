@@ -18,6 +18,11 @@ jobs:
       - name: Werkzeuge
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build > /dev/null
 
+      - name: Grafiken und Credits prüfen
+        # Seit 0.5.5: alle Pakete aus assets/ bauen (nur Pixelia-Farben), jede Datei in assets/ braucht eine Zeile in
+        # assets/CREDITS.md (fremd: CC0 oder CC-BY, eigen: „eigen“)
+        run: python3 tools/asset_pack.py check
+
       - name: Bauen
         # Ohne Bildschirm in der CI: SDL nur mit Offscreen-/Dummy-Treibern (X11/Wayland aus, ausdrücklich erlaubt)
         run: |
@@ -25,7 +30,7 @@ jobs:
             -DSDL_X11=OFF -DSDL_WAYLAND=OFF -DSDL_UNIX_CONSOLE_BUILD=ON > /dev/null
           cmake --build build-sim
 
-      - name: Selbsttests (Gestenerkennung, Passwort-Filter)
+      - name: Selbsttests (Gesten, Passwort-Filter, Bühne, Asset-Pakete)
         run: build-sim/pixelia-sim --test all
 
       - name: Screenshots und Kontaktbogen

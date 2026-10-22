@@ -1,7 +1,7 @@
 #pragma once
 // Speicher für Grafiken und andere große, selten geschriebene Daten (seit 0.5.0).
 // Auf dem Gerät setzt die Firmware den PSRAM ein (der knappe interne RAM bleibt für Puffer, die jedes Bild
-// beschrieben werden); im Simulator ist es der normale Heap. Später lädt die Asset-Quelle (0.5.4) hierhin.
+// beschrieben werden); im Simulator ist es der normale Heap. Dorthin lädt der Grafik-Speicher (assets.h, seit 0.5.5).
 
 #include <cstddef>
 

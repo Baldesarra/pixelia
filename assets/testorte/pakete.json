@@ -1,0 +1,56 @@
+{
+  "palette": "../paletten/testorte.gpl",
+  "pakete": {
+    "grund": {
+      "paletten": {
+        "palette/testorte": "../paletten/testorte.gpl"
+      },
+      "kacheln": {
+        "kacheln/testorte": {"datei": "kacheln.png", "sperren": [10, 11, 12, 13, 14, 15, 18]}
+      },
+      "farbreihen": {
+        "farbreihe/rot": {"platzhalter": "rot"},
+        "farbreihe/blau": {"platzhalter": "blau"},
+        "farbreihe/gelb": {"platzhalter": "gelb"},
+        "farbreihe/lavendel": {"platzhalter": "lavendel"},
+        "farbreihe/gruen": {"platzhalter": "gruen"},
+        "farbreihe/tuerkis": {"platzhalter": "tuerkis"},
+        "farbreihe/holz": {"platzhalter": "holz"},
+        "farbreihe/tapete": {"wand": "tapete"}
+      },
+      "bilder": {
+        "figur/test": {"datei": "figur.png", "bilder": 15, "fuss": [8, 30]},
+        "teil/zeichen": {"datei": "teile/zeichen.png"},
+        "teil/stapel": {"datei": "teile/stapel.png"}
+      }
+    },
+    "moebel": {
+      "bilder": {
+        "teil/fenster": {"datei": "teile/fenster.png"},
+        "teil/kiste": {"datei": "teile/kiste.png"},
+        "teil/busch": {"datei": "teile/busch.png"},
+        "teil/bank": {"datei": "teile/bank.png"},
+        "teil/lampe": {"datei": "teile/lampe.png", "bilder": 4, "zustaende": 2},
+        "teil/pflanze": {"datei": "teile/pflanze.png"}
+      }
+    },
+    "wiese": {
+      "bilder": {
+        "teil/tuer": {"datei": "teile/tuer.png"}
+      }
+    },
+    "raum": {
+      "bilder": {
+        "teil/bild": {"datei": "teile/bild.png"},
+        "teil/teppich": {"datei": "teile/teppich.png"},
+        "teil/schrank": {"datei": "teile/schrank.png"},
+        "teil/bett/0": {"datei": "teile/bett-0.png"},
+        "teil/bett/1": {"datei": "teile/bett-1.png"},
+        "teil/bett/bau": {"datei": "teile/bett-bau.png"},
+        "teil/tisch/0": {"datei": "teile/tisch-0.png"},
+        "teil/tisch/1": {"datei": "teile/tisch-1.png"},
+        "teil/stuhl": {"datei": "teile/stuhl.png"}
+      }
+    }
+  }
+}
