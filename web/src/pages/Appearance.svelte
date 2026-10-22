@@ -52,6 +52,7 @@
   <Card>
     <h2>Hell oder dunkel</h2>
     <ButtonGroup options={modes} bind:value={theme.mode} label="Hell oder dunkel" />
+    {#if theme.look !== 'm3'}<p class="muted">Das Design aus Experimentell hat feste Farben, Farbstil und Akzentfarbe gelten nur für Material 3.</p>{/if}
     <h2>Farbstil</h2>
     <ButtonGroup options={styles} bind:value={theme.style} label="Farbstil" />
     <h2>Akzentfarbe</h2>

@@ -99,6 +99,10 @@
     themeSync.changed(theme.json());
   });
   $effect(() => themeSync.fromStatus(device.data?.set.ui));
+  $effect(() => {
+    const exp = device.data?.set.exp;
+    if (exp !== undefined) theme.allowed = exp;  // eigene Designs nur mit Experimentell
+  });
   $effect(() => prefs.apply());
   $effect(() => {
     document.title = `${cur.title} · Pixelia`;

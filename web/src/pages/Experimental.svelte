@@ -3,7 +3,7 @@
   // Unterseiten: Testorte (Ort, Übergang, Tageszeit, Wetter), Panel und Stromsparen (Probelauf: ohne Bestätigung nach
   // 15 s zurück), ältere Version von GitHub. Die Gerätetests stehen auf der eigenen Seite Gerätetests.
   import { onMount } from 'svelte';
-  import { Button, ButtonGroup, Card, Icon, Slider, Switch, TextField, WavyProgress, confirmDialog } from '../lib/m3';
+  import { Button, ButtonGroup, Card, Icon, Slider, Switch, TextField, WavyProgress, confirmDialog, theme, type Design } from '../lib/m3';
   import { get, post, type GhState, type PanelValues } from '../lib/api';
   import { device } from '../lib/status.svelte';
   import { exp } from '../lib/exp.svelte';
@@ -36,6 +36,12 @@
     },
   ]);
   // Rückblick (Easter Egg, auch über 7× Tippen aufs Pixelia-Zeichen): immer sichtbar, auch mit Schalter aus
+  const designs: { value: Design; label: string }[] = [
+    { value: 'm3', label: 'Material' },
+    { value: 'pixel', label: 'Pixelia' },
+    { value: 'fahrplan', label: 'Fahrplan' },
+  ];
+
   const story: HubGroup[] = [
     {
       title: 'So entstand Pixelia',
@@ -227,6 +233,14 @@
       {/if}
     {:else if part === 'start'}
       <div class="wide"><HubList groups={subpages} /></div>
+      <Card class="wide">
+        <h2 class="card-title"><Icon name="palette" size={20} />Design (Vorschau)</h2>
+        <p class="muted">
+          Ein anderes Aussehen für die Weboberfläche: Pixelia wie die Pixelwelt, Fahrplan 1850 wie ein gedruckter Fahrplan.
+          Seiten und Einstellungen bleiben gleich. Gilt für alle Browser; ist Experimentell aus, gilt wieder Material 3.
+        </p>
+        <ButtonGroup options={designs} bind:value={theme.design} label="Design" />
+      </Card>
     {:else if part === 'orte'}
     {#if ex.places?.length}
       <Card class="wide">

@@ -109,10 +109,12 @@ Eine Datei `app.js` ohne Code-Splitting: jede Datei bräuchte einen eigenen URI-
 | `src/lib/theme-sync.svelte.ts` | Farbwahl mit dem Gerät abgleichen (Gerät ist die Quelle, `unsaved` ohne Anmeldung) |
 | `src/lib/client.ts` | Geräte-ID (localStorage `pixelia.client`) und Kurzname „Browser · System“ aus der Browser-Kennung |
 | `src/lib/firmware.ts` | Update: Kopf der .bin prüfen (wie setup.html), Hochladen mit Fortschritt und 30-s-Wächter |
+| `src/lib/design.css` | eigene Designs (seit 0.5.4, Vorschau unter Experimentell): `html[data-design='pixel'|'fahrplan']` setzt Formen, Schrift und Rahmen über die M3-Bausteine; Farben je Design in `theme.svelte.ts` (`LOOKS`), Wahl `theme.design` steckt in der Farbwahl auf dem Gerät, gilt nur mit `set.exp` (`theme.allowed`) |
 | `src/lib/page.css` | globale Seiten-Bausteine: `.page-grid`, `.card-title`, `.kv`, `.list`/`.list-item`, `.meter-row` |
 | `src/lib/format.ts`, `Logo.svelte`, `SignalBars.svelte` | Anzeige-Hilfen (Zahlen, Dauer, Signal), Pixelia-Zeichen, WLAN-Balken |
 | `src/lib/m3/` | M3-Expressive-Bibliothek: `tokens.css` (Formen, Typo, Federn), `theme.svelte.ts` (dynamische Farben), `Button`, `IconButton`, `ButtonGroup`, `Card`, `Chip`, `Navigation`, `WavyProgress`, `CircularProgress`, `LoadingIndicator`, `TextField`, `Slider`, `Switch`, `Dialog` (`confirmDialog()`, `promptDialog()` mit Prüfung), `shapes.ts`, `Icon`; `Navigation` mit Punkt (`badge`) |
 | `src/lib/m3/icon-names.ts` | Liste der benutzten Material Symbols; nur diese bettet das Vite-Plugin in `vite.config.ts` ein (seit 0.5.4 Pfade auf Raster 240 gerundet, `compactPath`) |
+| `src/assets/pixelia-pixel.woff2` | Pixelschrift des Displays für das Design Pixelia (aus `tools/pixel_font.py`, 2 KB) |
 | `src/assets/roboto-flex-pixelia.woff2` | reduzierte Schrift (aus `tools/font_subset.py`, im Repo; seit 0.5.4 wght 400–800, wdth 100–120, 21 KB) |
 
 ## Tasks und Kerne
@@ -184,6 +186,7 @@ Gerät, Screenshot, Zeitraffer, Kontaktbogen, `--go ORT[:ÜBERGANG]`, `--sequenc
 | `release_notes.py` | CHANGELOG.json prüfen (`--check`), Release-Notes erzeugen, Changelog-Block für die Firmware (`--embed`, läuft im Firmware-Build) |
 | `web_embed.py` | Oberfläche für die Firmware einbetten (läuft im Firmware-Build) |
 | `web_screens.mjs` | Screenshots der Oberfläche (Handy/Desktop, hell/dunkel) per Edge kopflos, `--url http://pixelia` fürs Gerät; `--variants`, `--eval` (Skript nach dem Laden, z. B. klicken), `--text 1` (Seitentext), meldet Skriptfehler. In Git-Bash werden `#/…`-Pfade verbogen: aus PowerShell aufrufen |
+| `pixel_font.py` | Pixelschrift aus `engine/src/font.cpp` als Webschrift (nach neuen Glyphen ausführen) |
 | `font_subset.py` | Roboto Flex reduzieren (nur bei neuen Zeichen, braucht `pip install fonttools brotli`) |
 
 ## CI (`.github/workflows/`)

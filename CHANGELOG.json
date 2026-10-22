@@ -14,7 +14,8 @@
         "Darstellung: Ansicht schmal oder breit, Schriftgröße, Startseite und Bewegung reduzieren, gespeichert in diesem Browser",
         "Übersicht: Karte „Neu in dieser Version“ und ein Hinweis, wenn auf GitHub eine neue Version wartet",
         "Versionsverlauf: Kurzfassung in Alltagssprache, alle Details stehen bei jeder Version auf GitHub",
-        "Rückblick: „So entstand Pixelia“ mit den frühen Skizzen, ganz unten unter Experimentell und als kleines Geheimnis"
+        "Rückblick: „So entstand Pixelia“ mit den frühen Skizzen, ganz unten unter Experimentell und als kleines Geheimnis",
+        "Neue Designs: Unter Experimentell zum Ausprobieren, Pixelia wie die Pixelwelt und Fahrplan 1850 wie ein alter Fahrplan; Menüs und Einstellungen bleiben gleich"
       ],
       "i": [
         "Experimentell: aufgeteilt in Testorte, Panel und Stromsparen sowie ältere Version; die Auswahl der Orte passt jetzt auch aufs Handy",
@@ -31,6 +32,7 @@
       "Web: Experimentell mit Unterseiten Testorte, Panel und Stromsparen, ältere Version; gemeinsamer Zustand in lib/exp.svelte.ts",
       "Web: Darstellung mit Ansicht, Schriftgröße, Startseite und Bewegung reduzieren je Browser (lib/prefs.svelte.ts); Übersicht mit „Neu in dieser Version“ und Hinweis auf neue Version",
       "Web: „So entstand Pixelia“ (lib/story.ts) unter Experimentell und nach 7× Tippen aufs Logo; Skizzen über GitHub Pages (pages.yml kopiert docs/skizzen)",
+      "Web: zwei Designs zur Auswahl unter Experimentell (Vorschau), Pixelia mit der Pixelschrift des Displays (tools/pixel_font.py, 2 KB) und Fahrplan 1850 mit Serifenschrift; gespeichert in der Farbwahl",
       "Update: Kurzfassung k in CHANGELOG.json (Unterzeile, Neu, Verbessert, Behoben, Entfernt), in den Release-Notes als „Kurz gesagt“; Versionsverlauf und Update-Vorschau zeigen nur sie",
       "System: Changelog-Block in der Firmware nur noch mit v, d, t, k (18 → 4 KB gzip); Gerätetests und POST /api/picture gehen ohne Experimentell",
       "Werkzeuge: release_notes.py --check verlangt k für jede Version und warnt bei Messwerten; k für alle Versionen 0.1.0 bis 0.5.3 nachgetragen",
@@ -42,10 +44,33 @@
     ],
     "pr": [31, 32, 34],
     "i": [
-      "Web: Bundle 151 → 144 KB gzip trotz neuer Seiten: Icon-Pfade auf Raster 240 gerundet (−5,6 KB), Schrift nur noch wght 400–800 und wdth 100–120 (33 → 21 KB)",
+      "Web: Bundle 151 → 147 KB gzip trotz neuer Seiten und Designs: Icon-Pfade auf Raster 240 gerundet (−5,6 KB), Schrift nur noch wght 400–800 und wdth 100–120 (33 → 21 KB)",
       "Web: Diagnose zeigt die letzten drei Neustarts, der Rest ist aufklappbar; Testorte in vier Karten, Auswahl als umbrechende Knöpfe (passte am Handy nicht in die Breite)",
       "Werkzeuge: web_screens.mjs speichert Unterseiten (#/a/b) als a-b.png"
     ]
+  },
+  {
+    "v": "0.5.4-beta.2",
+    "d": "2026-10-22",
+    "t": "Zwei neue Designs (Vorschau)",
+    "s": "Vorabversion: Designs Pixelia und Fahrplan 1850 unter Experimentell",
+    "k": {
+      "s": "Vorabversion: zwei neue Designs zum Ausprobieren",
+      "n": [
+        "Neue Designs: Unter Experimentell zum Ausprobieren, Pixelia wie die Pixelwelt und Fahrplan 1850 wie ein alter Fahrplan; Menüs und Einstellungen bleiben gleich"
+      ]
+    },
+    "n": [
+      "Web: zwei Designs zur Auswahl unter Experimentell (Vorschau), Pixelia mit der Pixelschrift des Displays (tools/pixel_font.py, 2 KB) und Fahrplan 1850 mit Serifenschrift; gespeichert in der Farbwahl",
+      "Werkzeuge: tools/pixel_font.py baut aus engine/src/font.cpp die Webschrift web/src/assets/pixelia-pixel.woff2 (120 Zeichen)"
+    ],
+    "i": [
+      "Web: Bundle 147,4 KB gzip (+3,5 KB für Schrift, Farben und Formen der beiden Designs)"
+    ],
+    "h": [
+      "Doku: Vorabversion zum Ausprobieren, erscheint nur im Kanal Vorschau; das Design gilt nur, solange Experimentell an ist"
+    ],
+    "pr": [34]
   },
   {
     "v": "0.5.4-beta.1",

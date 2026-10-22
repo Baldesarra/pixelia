@@ -1,0 +1,204 @@
+/* Eigene Designs (seit 0.5.4, Vorschau unter Experimentell → Design): nur das Aussehen, Seiten und Bausteine bleiben
+   gleich. Farben setzt theme.svelte.ts (LOOKS), hier stehen Formen, Schrift und Rahmen. html[data-design] setzt
+   theme.apply(); das vorangestellte html macht die Regeln stärker als die der Bausteine. */
+
+@font-face {
+  font-family: 'Pixelia Pixel';
+  src: url('../assets/pixelia-pixel.woff2') format('woff2');
+  font-display: swap;
+}
+
+/* ---------- Pixelia: wie die Pixelwelt, Pixelschrift des Displays, kantige Rahmen mit hartem Schatten ---------- */
+html[data-design='pixel'] {
+  --md-sys-shape-corner-extra-small: 0;
+  --md-sys-shape-corner-small: 0;
+  --md-sys-shape-corner-medium: 0;
+  --md-sys-shape-corner-large: 0;
+  --md-sys-shape-corner-large-increased: 0;
+  --md-sys-shape-corner-extra-large: 0;
+  --md-sys-shape-corner-extra-large-increased: 0;
+  --md-sys-shape-corner-extra-extra-large: 0;
+  --md-sys-shape-corner-full: 0;
+  --dz-line: #2a2140;
+  --dz-shadow: #c9b791;
+  /* Pixelrahmen: vier versetzte Schatten lassen die Ecken frei (Pixel-Rundung) */
+  --dz-frame: 0 -3px var(--dz-line), 0 3px var(--dz-line), -3px 0 var(--dz-line), 3px 0 var(--dz-line);
+  --dz-thin: 0 -2px var(--dz-line), 0 2px var(--dz-line), -2px 0 var(--dz-line), 2px 0 var(--dz-line);
+}
+html[data-design='pixel'][data-theme='dark'] {
+  --dz-line: #0b0d1c;
+  --dz-shadow: #0b0d1c;
+}
+html[data-design='pixel'] .bar h1,
+html[data-design='pixel'] .card-title,
+html[data-design='pixel'] .card > h2,
+html[data-design='pixel'] .hub h2,
+html[data-design='pixel'] .sheet h2 {
+  font: 400 24px/28px 'Pixelia Pixel', monospace;
+}
+html[data-design='pixel'] .card-title {
+  color: var(--md-sys-color-on-surface);
+}
+html[data-design='pixel'] .hub h2 {
+  margin: 16px 0 12px 4px;
+}
+html[data-design='pixel'] .bar {
+  box-shadow: 0 3px var(--dz-line);
+}
+html[data-design='pixel'] .card {
+  box-shadow: var(--dz-frame), 6px 6px var(--dz-shadow);
+}
+html[data-design='pixel'] .card .card {
+  box-shadow: var(--dz-thin);
+}
+html[data-design='pixel'] .hub ul {
+  gap: 3px;
+}
+html[data-design='pixel'] .hub a {
+  box-shadow: var(--dz-frame);
+}
+html[data-design='pixel'] .hub li:last-child a {
+  box-shadow: var(--dz-frame), 6px 6px var(--dz-shadow);
+}
+html[data-design='pixel'] .hub .ic {
+  background: none;
+  color: var(--md-sys-color-primary);
+}
+html[data-design='pixel'] .btn {
+  --r: 0;
+  --r-square: 0;
+  --r-pressed: 0;
+  margin: 3px;
+}
+html[data-design='pixel'] .btn:not(.text) {
+  box-shadow: var(--dz-frame), 4px 4px var(--dz-shadow);
+}
+html[data-design='pixel'] .btn:not(.text):active {
+  box-shadow: var(--dz-frame);
+  transform: translate(2px, 2px);
+}
+html[data-design='pixel'] .chip,
+html[data-design='pixel'] .ib.filled,
+html[data-design='pixel'] .ib.tonal {
+  box-shadow: var(--dz-thin);
+}
+html[data-design='pixel'] .track {
+  border: 0;
+  box-shadow: var(--dz-frame);
+}
+html[data-design='pixel'] .handle {
+  border-radius: 0;
+  box-shadow: var(--dz-thin);
+}
+html[data-design='pixel'] .nav {
+  box-shadow: 0 -3px var(--dz-line);
+}
+html[data-design='pixel'] .nav a.on .pill::before {
+  box-shadow: var(--dz-thin);
+  background: var(--md-sys-color-primary);
+}
+html[data-design='pixel'] .nav a.on .pill {
+  color: var(--md-sys-color-on-primary);
+}
+html[data-design='pixel'] .nav a.on {
+  color: var(--md-sys-color-on-surface);
+}
+
+/* ---------- Fahrplan 1850: gedruckter Fahrplan, Serifenschrift, doppelte Linien, Emailleschilder ---------- */
+html[data-design='fahrplan'] {
+  --md-ref-typeface: Georgia, 'Noto Serif', 'Times New Roman', serif;
+  --md-sys-shape-corner-extra-small: 2px;
+  --md-sys-shape-corner-small: 3px;
+  --md-sys-shape-corner-medium: 4px;
+  --md-sys-shape-corner-large: 4px;
+  --md-sys-shape-corner-large-increased: 4px;
+  --md-sys-shape-corner-extra-large: 4px;
+  --md-sys-shape-corner-extra-large-increased: 6px;
+  --md-sys-shape-corner-extra-extra-large: 8px;
+  --dz-rule: 0 1px var(--md-sys-color-outline), 0 4px var(--md-sys-color-surface), 0 5px var(--md-sys-color-outline);
+}
+html[data-design='fahrplan'] body {
+  font-family: var(--md-ref-typeface);
+}
+html[data-design='fahrplan'] .bar {
+  box-shadow: var(--dz-rule);
+}
+html[data-design='fahrplan'] .bar h1 {
+  font-weight: 400;
+  font-variant: small-caps;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  font-size: 26px;
+}
+html[data-design='fahrplan'] .card-title {
+  font-size: 19px;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--md-sys-color-on-surface);
+}
+html[data-design='fahrplan'] .hub h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--md-sys-color-on-surface-variant);
+}
+html[data-design='fahrplan'] .hub h2::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--md-sys-color-outline);
+}
+html[data-design='fahrplan'] .card {
+  box-shadow: inset 0 0 0 1px var(--md-sys-color-outline);
+  outline: 1px solid var(--md-sys-color-outline-variant);
+  outline-offset: -5px;
+}
+html[data-design='fahrplan'] .hub ul {
+  gap: 0;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: 4px;
+  overflow: hidden;
+}
+html[data-design='fahrplan'] .hub li a {
+  border-radius: 0;
+}
+html[data-design='fahrplan'] .hub li + li a {
+  border-top: 1px dotted var(--md-sys-color-outline);
+}
+html[data-design='fahrplan'] .hub .ic {
+  border-radius: 50%;
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--md-sys-color-outline-variant);
+  color: var(--md-sys-color-primary);
+}
+html[data-design='fahrplan'] .hub .t {
+  font-size: 17px;
+}
+html[data-design='fahrplan'] .btn {
+  --r: 4px;
+  --r-square: 4px;
+  --r-pressed: 2px;
+  letter-spacing: 0.03em;
+}
+html[data-design='fahrplan'] .btn.filled {
+  box-shadow: inset 0 0 0 2px var(--md-sys-color-primary), inset 0 0 0 3px var(--md-sys-color-on-primary);
+}
+html[data-design='fahrplan'] .btn.tonal,
+html[data-design='fahrplan'] .btn.outlined:not(.selected) {
+  box-shadow: inset 0 0 0 1px var(--md-sys-color-outline);
+}
+html[data-design='fahrplan'] .chip {
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px var(--md-sys-color-outline);
+  font-style: italic;
+}
+html[data-design='fahrplan'] .nav {
+  box-shadow: inset 0 1px var(--md-sys-color-outline), inset 0 4px var(--md-sys-color-surface-container),
+    inset 0 5px var(--md-sys-color-outline);
+}
+html[data-design='fahrplan'] .nav .pill {
+  border-radius: 4px;
+}

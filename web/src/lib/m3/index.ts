@@ -14,5 +14,5 @@ export { default as LoadingIndicator } from './LoadingIndicator.svelte';
 export { default as Navigation, type NavItem } from './Navigation.svelte';
 export { default as WavyProgress } from './WavyProgress.svelte';
 export { shapePath, SHAPES, type ShapeName } from './shapes';
-export { theme, SEEDS, type ThemeMode, type ThemeStyle } from './theme.svelte';
+export { theme, SEEDS, type Design, type ThemeMode, type ThemeStyle } from './theme.svelte';
 export type { IconName } from './icon-names';
