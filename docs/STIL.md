@@ -109,6 +109,14 @@ sie „sehr gelungen“ (2026-10-21): grobe Pixel, große Figuren, wenig Feinkra
 (der Topf dampft, ein Korb Kartoffeln, der Napf für die Katze, abends glüht der Ofen). Dinge der Moderne aus der
 Skizze (Kühlschrank, Plattenspieler) gibt es um 1850 nicht.
 
+**Große Fenster mit Fensterbank** (Wunsch des Users 2026-10-22): Ein Fenster ist ein Blick nach draußen, kein
+Wandschmuck. Richtwert ist das Küchenfenster der Skizze: etwa 4–5 Kacheln breit (32–40 grobe Bildpunkte, ein Fünftel
+der Raumbreite) und fast so hoch, damit man Regen, Schnee, Nebel und Tageszeit draußen gut erkennt. Darunter liegt
+eine Fensterbank, breit genug für zwei bis drei Dinge: Kerze (Kerze im Fenster für Heimkehrer, Lichterabend),
+Blumentopf, Krug. Sie ist ein Stellplatz im Baukasten. Die Testräume aus 0.5.1 haben Fenster von nur 2 Kacheln
+(16 Punkte) und sind deshalb kein Maßstab. Kleine Fenster gibt es nur, wo sie zur Geschichte gehören (Notunterkunft,
+Stall, Keller).
+
 **Eigene Grafiken statt fremder Pakete** (Entscheidung des Users 2026-10-21). Geprüft wurden frei verfügbare
 Pixel-Art-Pakete gegen unsere Vorgaben (3/4-Draufsicht, grobes Raster 200 × 120, Kachel 8 × 8, Figur 28 hoch in 4
 Richtungen, warme Palette mit Rampen). Ergebnis: Kein Paket hat Figuren in unserer Größe; alle setzen auf 16er-Figuren,
