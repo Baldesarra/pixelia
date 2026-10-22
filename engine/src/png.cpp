@@ -1,28 +1,35 @@
 #include "pixelia/engine/png.h"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 
 namespace pixelia {
 
 namespace {
 
-// --- CRC-32 (PNG-Chunks) ---------------------------------------------------------------------------------------
-uint32_t crc32(const uint8_t* data, size_t size, uint32_t crc = 0) {
-    static uint32_t table[256];
-    static bool ready = false;
-    if (!ready) {
-        for (uint32_t n = 0; n < 256; ++n) {
-            uint32_t c = n;
-            for (int k = 0; k < 8; ++k) c = (c & 1) ? 0xEDB88320u ^ (c >> 1) : c >> 1;
-            table[n] = c;
-        }
-        ready = true;
+// --- CRC-32 (PNG-Chunks, seit 0.5.5 auch Asset-Pakete) -----------------------------------------------------------
+// Tabelle zur Übersetzungszeit: sicher, wenn zwei Tasks gleichzeitig rechnen
+constexpr std::array<uint32_t, 256> make_crc_table() {
+    std::array<uint32_t, 256> t{};
+    for (uint32_t n = 0; n < 256; ++n) {
+        uint32_t c = n;
+        for (int k = 0; k < 8; ++k) c = (c & 1) ? 0xEDB88320u ^ (c >> 1) : c >> 1;
+        t[n] = c;
     }
+    return t;
+}
+constexpr std::array<uint32_t, 256> kCrcTable = make_crc_table();
+
+}  // namespace
+
+uint32_t crc32(const uint8_t* data, size_t size, uint32_t crc) {
     crc = ~crc;
-    for (size_t i = 0; i < size; ++i) crc = table[(crc ^ data[i]) & 0xFF] ^ (crc >> 8);
+    for (size_t i = 0; i < size; ++i) crc = kCrcTable[(crc ^ data[i]) & 0xFF] ^ (crc >> 8);
     return ~crc;
 }
+
+namespace {
 
 uint32_t adler32(const uint8_t* data, size_t size) {
     uint32_t a = 1, b = 0;

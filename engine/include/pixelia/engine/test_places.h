@@ -3,8 +3,9 @@
 // zum Prüfen von Bühne, Übergängen, Figuren, Farbreihen, Tiefensortierung, Ausbaustufen und Ausgängen. Kein
 // Setting-Inhalt: Platzhalter-Figuren in den Chibi-Maßen der Perspektive (Zelle 16×32, 28 Bildpunkte hoch, drei
 // gezeichnete Ansichten, vier Richtungen) und einfache Möbel. Alles ist einmal mit einer grauen Platzhalter-Rampe
-// gezeichnet und bekommt seine Farbe über Farbreihen. Grafiken entstehen beim Start im Code (Asset-Quelle in 0.5.4),
-// die Orte selbst sind Daten (Kachelzeilen, Raumliste, Ausgänge).
+// gezeichnet und bekommt seine Farbe über Farbreihen. Grafiken liegen seit 0.5.5 als PNG in assets/testorte/ und kommen
+// über den Grafik-Speicher (assets.h, Pakete grund, moebel, wiese, raum); die Orte selbst sind Daten (Kachelzeilen,
+// Raumliste, Ausgänge). Lampe und Laterne haben Zustandsbilder aus/an nach ihrer Lichtquelle.
 //
 // - testort-wiese: Wiese mit Hecke, Hauswand mit Tür (→ Raum) und Weg zum rechten Bildrand (→ Platz), kühles Licht
 // - testort-raum: Raum mit Tapete, Fenstern, Schrank, Bett, Tisch, Stühlen, Teppich, Lampe; Ausgang unten (→ Wiese),
@@ -57,6 +58,9 @@ public:
     int colors() const override { return pal_.used(); }
     void enter() override;
     void leave() override;
+    // Grafik-Pakete (seit 0.5.5): „moebel“ (gemeinsam), dazu „wiese“ bzw. „raum“; Nachbarn = Ziele der Ausgänge
+    int packs(const char** out, int max) const override;
+    int neighbors(const char** out, int max) const override;
     bool take_travel(Travel* out) override;
     void arrive(const Travel& t) override;
     void set_inspect(bool on) override { inspect_ = on; }

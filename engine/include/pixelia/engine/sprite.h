@@ -23,9 +23,19 @@ struct SpriteSheet {
     int frames = 0;
     int pivot_x = 0;  // Fußpunkt im Bild
     int pivot_y = 0;
+    // Zustandsbilder (seit 0.5.5): Bilder je Zustand = frames / states, Zustand für Zustand hintereinander
+    // (z. B. Lampe aus, an). Die Bilder eines Zustands sind seine Animation.
+    int states = 1;
 
     Sprite frame(int i) const {
         return {pixels + static_cast<size_t>(i) * width * height, width, height};
+    }
+    int frames_per_state() const { return states > 1 ? frames / states : frames; }
+    // Bild f der Animation von Zustand s (s außerhalb: letzter Zustand)
+    Sprite frame(int s, int f) const {
+        const int per = frames_per_state();
+        if (s >= states) s = states - 1;
+        return frame((s < 0 ? 0 : s) * per + (per > 0 ? f % per : 0));
     }
 };
 
@@ -82,6 +92,8 @@ public:
     // Rampe [from, from + length) → [to, to + length); Index 0 bleibt durchsichtig
     Recolor& ramp(uint8_t from, uint8_t to, uint8_t length);
     Recolor& set(uint8_t from, uint8_t to);
+    // Ganze Tabelle übernehmen (Farbreihe aus einem Asset-Paket, seit 0.5.5); Index 0 bleibt durchsichtig
+    Recolor& load(const uint8_t* table);
     const uint8_t* table() const { return map_.data(); }
     uint8_t operator[](uint8_t i) const { return map_[i]; }
 

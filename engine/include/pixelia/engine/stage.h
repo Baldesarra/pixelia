@@ -17,12 +17,18 @@
 // - Ausgänge (seit 0.5.1): Nach jedem Schritt holt die Bühne die Reisenden aller Orte ab (take_travel) und gibt sie
 //   im Zielort ab (arrive). Folgt der Blick (follow) und ist der Ort gerade zu sehen, wechselt die Bühne mit dem
 //   Übergang des Ausgangs (Standard Abblenden). Gibt es den Zielort nicht, kommt der Reisende am selben Ausgang zurück.
+// - Grafik-Pakete (seit 0.5.5, assets.h): Die Bühne heftet die Pakete des sichtbaren Ortes, des Ortes, von dem aus
+//   gewechselt wird, und des angeforderten Ziels an und lädt die Pakete der Nachbarorte vorab. Ein Ort wird erst
+//   betreten, wenn seine Pakete geladen sind. Abblenden beginnt sofort und wartet in der dunklen Mitte auf das Ziel;
+//   Überblendung, Raster und Schnitt beginnen erst, wenn das Ziel geladen ist (bis dahin bleibt der alte Ort). Das
+//   Rechnen aller Orte läuft davon unberührt weiter.
 
 #include <array>
 #include <cstdint>
 #include <memory>
 #include <string_view>
 
+#include "pixelia/engine/assets.h"
 #include "pixelia/engine/canvas.h"
 #include "pixelia/engine/environment.h"
 #include "pixelia/engine/scene.h"
@@ -44,7 +50,20 @@ public:
     static constexpr int kMaxScenes = 8;
     static constexpr int kDefaultTransitionTicks = 18;  // 0,6 s
 
+    Stage();
+    ~Stage();  // löst die Pakete der Orte
+    Stage(const Stage&) = delete;
+    Stage& operator=(const Stage&) = delete;
+
     int add(std::unique_ptr<Scene> scene);  // Index, −1 = voll
+    // Grafik-Speicher (Standard: asset_store()); nullptr = Orte brauchen keine Pakete
+    void set_assets(AssetStore* store);
+    // Sind die Pakete von Szene i geladen (bzw. fehlgeschlagen)?
+    bool scene_ready(int i) const;
+    bool entered(int i) const { return i >= 0 && i < count_ && (entered_ & (1u << i)); }
+    // Abblenden wartet in der dunklen Mitte auf das Ziel
+    bool holding() const { return hold_; }
+    uint32_t holds() const { return holds_; }  // Schritte, die ein Abblenden bisher gewartet hat (Messung)
     // Alle Szenen; Szene i bekommt einen eigenen, aus seed abgeleiteten Startwert (Szene 0 genau seed)
     void init(uint64_t seed);
     int count() const { return count_; }
@@ -96,7 +115,10 @@ public:
 
 private:
     void start_transition(int to, Transition t);
-    void sync_entered();  // enter/leave nach active_ und from_
+    void sync_entered();  // enter/leave nach active_ und from_ (nur Orte mit geladenen Paketen)
+    void sync_pins();     // Pakete von active_, from_ und pending_ angeheftet, alle anderen gelöst
+    void pin_scene(int i, bool on);
+    void prefetch_neighbors();
     void deliver_travels();
     bool merge_palettes();
     bool merge_palettes(int tolerance, bool last);
@@ -118,6 +140,11 @@ private:
     uint32_t transitions_ = 0;
     uint32_t travels_ = 0;
     uint32_t entered_ = 0;  // Bit je Ort: betreten
+    AssetStore* assets_ = nullptr;
+    uint32_t pinned_ = 0;   // Bit je Ort: Pakete angeheftet
+    int prefetched_ = -1;   // Ort, dessen Nachbarn zuletzt vorgeladen wurden
+    bool hold_ = false;
+    uint32_t holds_ = 0;
     bool follow_ = true;
     bool inspect_ = false;
     // Gemeinsame Palette während einer Überblendung: Index der Szene → Platz, Platz → Quelle (Szene, Index)

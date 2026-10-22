@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "pixelia/engine/assets.h"
 #include "pixelia/engine/light.h"
 #include "pixelia/engine/color.h"
 #include "pixelia/engine/gesture.h"
@@ -820,6 +821,159 @@ std::vector<Case> stage_cases() {
     };
 }
 
+// --- Asset-Pakete und Grafik-Speicher (seit 0.5.5) ---
+
+// Quelle aus dem Speicher (für kaputte Pakete)
+struct MemorySource : pixelia::AssetSource {
+    std::vector<uint8_t> data;
+    const char* file = "";
+    const char* name() const override { return "test"; }
+    bool load(const char* f, pixelia::AssetBlob* out) override {
+        if (std::strcmp(f, file) != 0) return false;
+        *out = pixelia::AssetBlob{data.data(), data.size(), nullptr};
+        return true;
+    }
+};
+
+std::vector<Case> asset_cases() {
+    using pixelia::AssetStore;
+    return {
+        {"Pakete: alle eingebetteten lesbar, Prüfsumme erkennt Fehler, kaputtes Paket fällt auf die Ersatzquelle zurück",
+         [] {
+             AssetStore store;
+             for (int i = 0; i < pixelia::kEmbeddedAssetCount; ++i) {
+                 const auto p = store.probe(pixelia::embedded_source(), pixelia::kEmbeddedAssets[i].file);
+                 if (!p.ok || p.entries == 0) return std::string(pixelia::kEmbeddedAssets[i].file) + " nicht lesbar";
+             }
+             MemorySource bad;
+             bad.file = "raum.pxa";
+             pixelia::AssetBlob blob;
+             pixelia::embedded_source().load("raum.pxa", &blob);
+             bad.data.assign(blob.data, blob.data + blob.size);
+             bad.data[bad.data.size() - 7] ^= 0x40;
+             if (store.probe(bad, "raum.pxa").ok) return std::string("Prüfsumme übersehen");
+             store.set_sources(&bad, &pixelia::embedded_source());
+             store.want("raum", true);
+             pixelia::AssetStore::PackInfo info[4];
+             const int n = store.list(info, 4);
+             if (n != 1 || !store.loaded("raum") || std::strcmp(info[0].source, "eingebettet") != 0)
+                 return std::string("kein Rückfall auf eingebettet");
+             return std::string();
+         }},
+        {"Kennungen: gleich im Werkzeug und in der Engine, Bilder mit Zuständen und Fußpunkt",
+         [] {
+             if (pixelia::asset_id("teil/lampe") != 0xdda8106du) return std::string("FNV-1a weicht ab");
+             AssetStore& store = pixelia::asset_store();
+             store.load_base("grund");  // auch ohne vorherige Bühnen-Tests
+             pixelia::ImageAsset lamp, fig;
+             pixelia::TileSet tiles;
+             if (!store.image(pixelia::asset_id("figur/test"), &fig) || fig.sheet.frames != 15 ||
+                 fig.sheet.pivot_x != 8 || fig.sheet.pivot_y != 30)
+                 return std::string("Figur fehlt oder falsch");
+             if (!store.tiles(pixelia::asset_id("kacheln/testorte"), &tiles) || tiles.count != 19 || !tiles.flag(10) ||
+                 tiles.flag(1))
+                 return std::string("Kacheln fehlen oder Eigenschaften falsch");
+             int colors = 0;
+             if (!store.palette(pixelia::asset_id("palette/testorte"), &colors) || colors != 80)
+                 return std::string("Palette fehlt");
+             const uint8_t* row = store.recolor(pixelia::asset_id("farbreihe/holz"));
+             if (!row || row[20] != 64 || row[23] != 67 || row[24] != 24) return std::string("Farbreihe Holz falsch");
+             AssetStore own;
+             own.set_sources(&pixelia::embedded_source(), nullptr);
+             own.want("moebel", true);
+             if (!own.image(pixelia::asset_id("teil/lampe"), &lamp) || lamp.sheet.states != 2 ||
+                 lamp.sheet.frames_per_state() != 2)
+                 return std::string("Lampe ohne Zustände");
+             const pixelia::Sprite off = lamp.sheet.frame(0, 1), on = lamp.sheet.frame(1, 0);
+             if (std::memcmp(off.pixels, on.pixels, static_cast<size_t>(off.width) * off.height) == 0)
+                 return std::string("Lampe aus = an");
+             return std::string();
+         }},
+        {"Grafik-Speicher: Budget verdrängt das am längsten unbenutzte Paket, angeheftete und Grundausstattung bleiben",
+         [] {
+             AssetStore store;
+             store.set_sources(&pixelia::embedded_source(), nullptr);
+             store.load_base("grund");
+             auto bytes = [&](const char* f) { return store.probe(pixelia::embedded_source(), f).bytes; };
+             // Platz für alle drei Pakete außer einem Byte: das dritte verdrängt eines
+             store.set_budget(store.stats().used + bytes("moebel.pxa") + bytes("wiese.pxa") + bytes("raum.pxa") - 1);
+             store.pin("moebel");
+             store.want("wiese", false);
+             store.want("raum", false);  // passt nicht mehr: „wiese“ muss weichen
+             const auto s = store.stats();
+             if (!store.loaded("grund") || !store.loaded("moebel")) return std::string("angeheftetes Paket verdrängt");
+             if (store.loaded("wiese") || !store.loaded("raum") || s.evictions != 1)
+                 return std::string("falsch verdrängt: ") + std::to_string(s.evictions);
+             if (s.used > s.budget) return std::string("über dem Budget");
+             store.unpin("moebel");
+             // eben verlassen zählt als eben benutzt: es weicht das nur vorgeladene „raum“
+             store.want("wiese", true);
+             if (!store.loaded("moebel") || !store.loaded("wiese") || store.loaded("raum"))
+                 return std::string("Reihenfolge beim Verdrängen falsch");
+             return std::string();
+         }},
+        {"Laden auf eigener Task: Abblenden wartet in der dunklen Mitte, Überblendung beginnt erst nach dem Laden",
+         [] {
+             AssetStore& store = pixelia::asset_store();
+             StageRun r(7, "testort-platz");
+             r.stage.set_follow(false);
+             const int raum = r.stage.find("testort-raum"), wiese = r.stage.find("testort-wiese");
+             store.set_async([] {});  // Lade-Task, die erst auf Zuruf arbeitet
+             store.drop_unpinned();   // „raum“ und „wiese“ sind nicht geladen
+             auto restore = [&] {
+                 while (store.work()) {
+                 }
+                 store.set_async(nullptr);
+             };
+             r.stage.go(raum, pixelia::Transition::Fade);
+             r.run(30);
+             const auto black = r.frame();
+             const bool dark = std::all_of(black.begin(), black.end(), [](uint8_t v) { return v == 0; });
+             if (!r.stage.holding() || r.stage.entered(raum) || !dark) {
+                 restore();
+                 return std::string("Abblenden wartet nicht im Dunkeln");
+             }
+             while (store.work()) {
+             }
+             r.run(20);
+             if (r.stage.transitioning() || !r.stage.entered(raum) || r.stage.holds() == 0) {
+                 restore();
+                 return std::string("nach dem Laden nicht weiter");
+             }
+             store.drop_unpinned();  // „wiese“ (vorgeladen) wieder weg
+             r.stage.go(wiese, pixelia::Transition::Dissolve);
+             r.run(10);
+             if (r.stage.transitioning() || r.stage.active() != raum) {
+                 restore();
+                 return std::string("Überblendung ohne geladenes Ziel begonnen");
+             }
+             while (store.work()) {
+             }
+             r.run(2);
+             const bool started = r.stage.transitioning() && r.stage.active() == wiese;
+             restore();
+             return started ? std::string() : "Überblendung beginnt nach dem Laden nicht";
+         }},
+        {"Zustandsbilder: Lampe aus/an folgt der Lichtquelle (Raum), Laterne auf dem Platz ebenso",
+         [] {
+             StageRun r(3, "testort-raum");
+             auto lamp_state = [&](const char* place) {
+                 const auto& room = static_cast<const pixelia::TestPlace&>(r.stage.scene(r.stage.find(place))).room();
+                 for (int i = 0; i < room.part_count(); ++i)
+                     if (room.def(i) && std::strcmp(room.def(i)->id, "lampe") == 0) return static_cast<int>(room.part(i).state);
+                 return -1;
+             };
+             if (lamp_state("testort-raum") != 1 || lamp_state("testort-platz") != 1) return std::string("Lampe aus trotz Licht");
+             r.stage.command("innenlicht aus");
+             r.run(1);
+             if (lamp_state("testort-raum") != 0) return std::string("Lampe an trotz Licht aus");
+             r.stage.command("innenlicht an");
+             r.run(1);
+             return lamp_state("testort-raum") == 1 ? std::string() : "Lampe bleibt aus";
+         }},
+    };
+}
+
 int run_group(const char* title, const std::vector<Case>& cases) {
     int failed = 0;
     for (const auto& c : cases) {
@@ -839,14 +993,15 @@ int run_group(const char* title, const std::vector<Case>& cases) {
 }  // namespace
 
 int run_tests(const std::string& which) {
-    if (which != "gestures" && which != "redact" && which != "stage" && which != "all") {
-        std::printf("FEHLER: Test \"%s\" gibt es nicht (gestures, redact, stage, all)\n", which.c_str());
+    if (which != "gestures" && which != "redact" && which != "stage" && which != "assets" && which != "all") {
+        std::printf("FEHLER: Test \"%s\" gibt es nicht (gestures, redact, stage, assets, all)\n", which.c_str());
         return 2;
     }
     int failed = 0;
     if (which == "gestures" || which == "all") failed += run_group("Gestentest", gesture_cases());
     if (which == "redact" || which == "all") failed += run_group("Passwort-Filter", redact_cases());
     if (which == "stage" || which == "all") failed += run_group("Bühne", stage_cases());
+    if (which == "assets" || which == "all") failed += run_group("Asset-Pakete", asset_cases());
     return failed ? 1 : 0;
 }
 

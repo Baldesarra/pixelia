@@ -49,7 +49,7 @@ struct UsePoint {
 };
 
 struct PartStage {
-    SpriteSheet sheet;      // Bild(er); mehr als ein Bild = bewegtes Teil, wird nicht vorgezeichnet
+    SpriteSheet sheet;      // Bild(er); mehr als ein Bild je Zustand = bewegtes Teil, wird nicht vorgezeichnet
     uint8_t w, h;           // Stellfläche in Kacheln (Lage = linke obere Ecke)
     int8_t ox, oy;          // Bildversatz; Standard: unten bündig mit der Stellfläche, waagrecht mittig
     uint8_t frame_ticks;    // Dauer eines Bildes bei bewegten Teilen (Logik-Schritte)
@@ -89,6 +89,7 @@ struct RoomPart {
     uint8_t row;    // Farbreihe, 0 = wie gezeichnet
     uint8_t owner;  // Besitzer, 0 = niemand
     uint8_t flags;  // kPartFlipped, kPartBuilding
+    uint8_t state = 0;  // Zustandsbild (seit 0.5.5, sprite.h: z. B. Lampe 0 = aus, 1 = an)
 };
 
 enum class ExitKind : uint8_t { Door, Edge };
@@ -146,6 +147,9 @@ public:
     void set_stage(int i, int stage);
     void set_building(int i, bool on);  // Zustand „im Bau“
     bool building(int i) const;
+    // Zustandsbild (seit 0.5.5): wählt die Bilder des Teils (SpriteSheet::states), z. B. Lampe an/aus nach der
+    // Lichtquelle; unbewegte Teile werden gleich neu vorgezeichnet
+    void set_state(int i, int state);
     int stage_count(int i) const;
     const PartDef* def(int i) const;  // nullptr: unbekannt oder Erkennungsstück ohne Zuordnung
     const PartStage* stage(int i) const;  // fertige Ausbaustufe (Stellfläche)
@@ -201,7 +205,9 @@ private:
     // Lage des Bildes: unten bündig mit der Stellfläche fw × fh, waagrecht mittig
     void place(const RoomPart& p, int fw, int fh, const PartStage& look, int* x, int* y, int* depth) const;
     const uint8_t* remap_of(const RoomPart& p, const PartStage& look) const;
-    Sprite frame_of(const PartStage& s) const;
+    Sprite frame_of(const RoomPart& p, const PartStage& s) const;
+    // bewegtes Teil (mehr als ein Bild je Zustand): wird nicht vorgezeichnet
+    static bool moving(const PartStage& s) { return s.sheet.frames_per_state() > 1; }
     void draw_static(Canvas& c, bool standing) const;
     void rebuild_walk();
     void bake();

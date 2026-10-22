@@ -1,0 +1,85 @@
+GIMP Palette
+Name: Pixelia Testorte
+Columns: 4
+# Grundfarben der Testorte (0.5.0-0.5.3), Index = Zeile ab 0. Gezeichnet wird nur mit benannten Farben.
+# "name n" bildet eine Rampe (hell -> dunkel), "platzhalter" wird per Farbreihe ersetzt (docs/STIL.md).
+  0   0   0	durchsichtig
+ 28  26  36	umriss
+112 150 110	gras 1
+ 96 134  98	gras 2
+ 82 118  86	gras 3
+ 66 100  74	gras 4
+186 172 138	weg 1
+166 152 120	weg 2
+142 128 100	weg 3
+130 168 118	bueschel
+238 234 222	bluete weiss
+222 180  86	bluete gelb
+164 124  90	boden 1
+146 108  78	boden 2
+126  92  66	boden 3
+104  74  54	boden 4
+206 194 178	wand 1
+186 174 158	wand 2
+160 148 134	wand 3
+128 116 106	wand 4
+200 200 204	platzhalter 1
+164 164 170	platzhalter 2
+128 128 136	platzhalter 3
+ 92  92 100	platzhalter 4
+228 106  98	rot 1
+198  80  76	rot 2
+162  60  62	rot 3
+122  46  52	rot 4
+106 152 224	blau 1
+ 80 122 198	blau 2
+ 62  96 162	blau 3
+ 48  72 122	blau 4
+238 206  98	gelb 1
+216 176  70	gelb 2
+182 142  54	gelb 3
+142 106  44	gelb 4
+178 150 222	lavendel 1
+150 120 198	lavendel 2
+124  92 168	lavendel 3
+ 96  70 132	lavendel 4
+134 202 122	gruen 1
+102 172  98	gruen 2
+ 78 140  82	gruen 3
+ 58 106  66	gruen 4
+110 202 198	tuerkis 1
+ 82 170 172	tuerkis 2
+ 62 136 142	tuerkis 3
+ 46 102 110	tuerkis 4
+238 216 192	haut 1
+216 188 162	haut 2
+182 152 130	haut 3
+ 84  66  60	haar 1
+ 64  50  46	haar 2
+ 46  36  34	haar 3
+ 32  28  38	auge
+ 52  42  40	dunkel
+226 214 184	lampenlicht
+ 70 100  78	schatten
+184 180 172	stein 1
+164 160 152	stein 2
+142 138 132	stein 3
+112 108 104	stein 4
+ 84  74  72	mauerkrone
+168 198 212	glas
+188 140  96	holz 1
+160 114  76	holz 2
+128  88  60	holz 3
+ 96  64  46	holz 4
+214 200 222	tapete 1
+194 178 206	tapete 2
+166 150 184	tapete 3
+130 116 150	tapete 4
+176 204 216	himmel 1
+150 180 196	himmel 2
+ 92 150 186	wasser 1
+ 72 128 170	wasser 2
+ 60 112 156	wasser 3
+ 80 140 178	wasser 4
+214 200 168	flamme 1
+200 184 150	flamme 2

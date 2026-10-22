@@ -175,11 +175,66 @@ void flatten_layers(uint8_t* coarse, const CoarseLayers& layers) {
     }
 }
 
+Stage::Stage() : assets_(&asset_store()) {}
+
+Stage::~Stage() {
+    for (int i = 0; i < count_; ++i) pin_scene(i, false);
+}
+
 int Stage::add(std::unique_ptr<Scene> scene) {
     if (count_ >= kMaxScenes || !scene) return -1;
     scenes_[count_] = std::move(scene);
     scenes_[count_]->set_environment(&env_);
     return count_++;
+}
+
+void Stage::set_assets(AssetStore* store) {
+    for (int i = 0; i < count_; ++i) pin_scene(i, false);
+    assets_ = store;
+    prefetched_ = -1;
+    sync_pins();
+}
+
+bool Stage::scene_ready(int i) const {
+    if (!assets_ || i < 0 || i >= count_) return true;
+    const char* names[8];
+    const int n = scenes_[i]->packs(names, 8);
+    for (int k = 0; k < n; ++k)
+        if (!assets_->ready(names[k])) return false;
+    return true;
+}
+
+void Stage::pin_scene(int i, bool on) {
+    const uint32_t bit = 1u << i;
+    if (on == ((pinned_ & bit) != 0)) return;
+    pinned_ = on ? pinned_ | bit : pinned_ & ~bit;
+    if (!assets_) return;
+    const char* names[8];
+    const int n = scenes_[i]->packs(names, 8);
+    for (int k = 0; k < n; ++k) {
+        if (on)
+            assets_->pin(names[k]);
+        else
+            assets_->unpin(names[k]);
+    }
+}
+
+void Stage::sync_pins() {
+    for (int i = 0; i < count_; ++i) pin_scene(i, i == active_ || i == from_ || i == pending_);
+}
+
+void Stage::prefetch_neighbors() {
+    prefetched_ = active_;
+    if (!assets_ || count_ == 0) return;
+    const char* near[8];
+    const int n = scenes_[active_]->neighbors(near, 8);
+    for (int k = 0; k < n; ++k) {
+        const int j = find(near[k]);
+        if (j < 0 || j == active_) continue;
+        const char* names[8];
+        const int m = scenes_[j]->packs(names, 8);
+        for (int p = 0; p < m; ++p) assets_->want(names[p], false);
+    }
 }
 
 void Stage::init(uint64_t seed) {
@@ -192,13 +247,18 @@ void Stage::init(uint64_t seed) {
     transitions_ = 0;
     travels_ = 0;
     entered_ = 0;
+    hold_ = false;
+    holds_ = 0;
+    prefetched_ = -1;
+    sync_pins();
     sync_entered();
 }
 
 void Stage::sync_entered() {
     for (int i = 0; i < count_; ++i) {
-        const bool want = i == active_ || i == from_;
         const bool have = entered_ & (1u << i);
+        // betreten erst, wenn die Pakete geladen sind (bzw. fehlgeschlagen: dann fehlen nur Bilder)
+        const bool want = (i == active_ || i == from_) && (have || scene_ready(i));
         if (want == have) continue;
         if (want) {
             scenes_[i]->enter();
@@ -221,6 +281,8 @@ void Stage::set_active(int index) {
     active_ = index;
     from_ = -1;
     pending_ = -1;
+    hold_ = false;
+    sync_pins();
     sync_entered();
 }
 
@@ -228,6 +290,7 @@ void Stage::go(int index, Transition t) {
     if (index < 0 || index >= count_) return;
     pending_ = index;
     pending_trans_ = t;
+    sync_pins();  // Laden beginnt sofort, nicht erst im nächsten Schritt
 }
 
 void Stage::set_transition_ticks(int ticks) { ticks_ = std::clamp(ticks, 1, 300); }
@@ -283,10 +346,20 @@ void Stage::set_load(int load) {
 
 void Stage::start_transition(int to, Transition t) {
     if (to == active_) return;
+    const bool cut = t == Transition::Cut || ticks_ < 2;
+    if ((cut || t != Transition::Fade) && !scene_ready(to)) {
+        // Schnitt, Überblendung, Raster: erst, wenn das Ziel geladen ist; bis dahin bleibt der alte Ort
+        pending_ = to;
+        pending_trans_ = t;
+        sync_pins();
+        return;
+    }
     from_ = -1;  // laufenden Übergang abschließen
+    hold_ = false;
     ++transitions_;
-    if (t == Transition::Cut || ticks_ < 2) {
+    if (cut) {
         active_ = to;
+        sync_pins();
         sync_entered();
         return;
     }
@@ -294,7 +367,8 @@ void Stage::start_transition(int to, Transition t) {
     active_ = to;
     step_ = 0;
     trans_ = t;
-    sync_entered();  // vor merge_palettes: ein Ort darf seine Palette beim Betreten setzen
+    sync_pins();
+    sync_entered();  // vor merge_palettes: ein Ort darf seine Palette beim Betreten setzen (Abblenden: erst geladen)
     if (t != Transition::Fade) {
         const bool both_fine = scenes_[from_]->scale() != kCoarseScale && scenes_[to]->scale() != kCoarseScale;
         if (both_fine || !merge_palettes()) trans_ = Transition::Fade;
@@ -374,7 +448,9 @@ int Stage::visible() const {
 void Stage::update_palette() {
     if (trans_ == Transition::Fade) {
         const int half = ticks_ / 2;
-        const int k = step_ < half ? (half - step_) * 256 / half : (step_ - half) * 256 / (ticks_ - half);
+        const int k = hold_         ? 0  // wartet in der dunklen Mitte auf das Ziel
+                      : step_ < half ? (half - step_) * 256 / half
+                                     : (step_ - half) * 256 / (ticks_ - half);
         const Palette& p = scenes_[visible()]->palette();
         for (int i = 0; i < kSceneColors; ++i) palette_[i] = scaled(p[i], k);
         return;
@@ -388,15 +464,29 @@ void Stage::tick(const WorldClock& clock) {
     if (pending_ >= 0) {
         const int to = pending_;
         pending_ = -1;
-        start_transition(to, pending_trans_);
+        start_transition(to, pending_trans_);  // setzt pending_ wieder, solange das Ziel noch lädt
     }
     env_.weather.tick();  // vor den Orten: alle sehen im selben Schritt dasselbe Wetter
     for (int i = 0; i < count_; ++i) scenes_[i]->tick(clock);
     const bool was = from_ >= 0;
-    if (from_ >= 0 && ++step_ >= ticks_) from_ = -1;
+    if (from_ >= 0) {
+        // Abblenden: vor der zweiten Hälfte muss das Ziel betreten sein; sonst in der dunklen Mitte warten
+        const bool middle = trans_ == Transition::Fade && step_ + 1 >= ticks_ / 2;
+        if (middle && !entered(active_)) sync_entered();
+        hold_ = middle && !entered(active_);
+        if (hold_)
+            ++holds_;
+        else if (++step_ >= ticks_)
+            from_ = -1;
+    }
     deliver_travels();
-    if (was && from_ < 0) sync_entered();
+    if (was && from_ < 0) {
+        sync_pins();
+        sync_entered();
+    }
+    if (from_ < 0 && !entered(active_)) sync_entered();  // z. B. nach set_active, sobald geladen
     if (from_ >= 0) update_palette();
+    if (from_ < 0 && pending_ < 0 && prefetched_ != active_) prefetch_neighbors();
 }
 
 void Stage::set_buffers(uint8_t* main, uint8_t* aux) {
@@ -437,7 +527,12 @@ void Stage::render(Canvas& fine) const {
         return;
     }
     if (from_ < 0 || trans_ == Transition::Fade) {
-        const Scene& s = *scenes_[visible()];
+        const int v = visible();
+        if (!entered(v)) {  // Pakete noch nicht geladen
+            fine.clear(0);
+            return;
+        }
+        const Scene& s = *scenes_[v];
         draw_scene(s, fine);
         if (from_ < 0) s.render_overlay(fine);
         return;
@@ -445,6 +540,13 @@ void Stage::render(Canvas& fine) const {
     // Überblendung: höchstens eine der beiden Szenen ist fein (sonst Abblenden), sie zeichnet direkt ins Bild
     const Scene& a = *scenes_[from_];
     const Scene& b = *scenes_[active_];
+    if (!entered(from_) || !entered(active_)) {  // Wechsel mitten in einem wartenden Abblenden
+        if (entered(active_))
+            draw_scene(b, fine);
+        else
+            fine.clear(0);
+        return;
+    }
     if (!main_ || !aux_) {
         fine.clear(0);
         return;
