@@ -143,6 +143,8 @@ bool littlefs_ready();
 bool sd_ready();
 const char* source();
 Summary summary();
+// Flash-Last in LittleFS (Test: Bild bleibt ruhig?); läuft auf der Lade-Task, wartet bis zum Ende. false = ging nicht
+bool flash_load(int seconds);
 // Befehle „assets …“ und „sd …“ (argv[0] = Befehl)
 void console(int argc, char** argv);
 }  // namespace assets

@@ -26,6 +26,8 @@
 #include "esp_timer.h"
 #include "esp_vfs_fat.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "pixelia/engine/assets.h"
 #include "pixelia/engine/png.h"
@@ -43,6 +45,7 @@ constexpr const char* kSdDir = "/sd/pixelia/assets";
 constexpr const char* kBenchFile = "messung.pxa";
 constexpr uint32_t kBenchBytes = 256 * 1024;
 constexpr uint32_t kBudget = 2u << 20;  // Grafik-Speicher im PSRAM (Grundausstattung + Ortspakete)
+constexpr uint32_t kLoaderStack = 6144;  // Lade-Task: Dateisysteme, Messung, Log mit Kommazahlen
 
 pixelia::FileSource s_lfs_src("littlefs", kLfsDir);
 pixelia::FileSource s_sd_src("sd", kSdDir);
@@ -51,7 +54,6 @@ std::atomic<bool> s_sd{false};
 std::atomic<int> s_sd_state{0};  // 0 = noch nicht versucht, 1 = eingehängt, 2 = keine Karte
 sdmmc_card_t* s_card = nullptr;
 TaskHandle_t s_loader = nullptr;
-std::atomic<bool> s_sd_retry{false};
 
 uint64_t now_us() { return static_cast<uint64_t>(esp_timer_get_time()); }
 
@@ -103,8 +105,15 @@ void mount_sd() {
     mc.format_if_mount_failed = false;  // nie eine fremde Karte löschen
     mc.max_files = 4;
     mc.allocation_unit_size = 16 * 1024;
+    // ohne Karte melden die Treiber Fehler und einen Pin-Konflikt: leise, die Zeile unten reicht
+    for (const char* tag : {"vfs_fat_sdmmc", "sdmmc_init", "sdmmc_common", "sdspi_host", "sdspi_transaction"})
+        esp_log_level_set(tag, ESP_LOG_NONE);
+    esp_log_level_set("gpio", ESP_LOG_ERROR);
     const esp_err_t err = esp_vfs_fat_sdspi_mount(kSdMount, &host, &slot, &mc, &s_card);
+    esp_log_level_set("gpio", ESP_LOG_INFO);
     if (err != ESP_OK) {
+        spi_bus_free(SPI2_HOST);  // spart internes RAM, „sd neu“ legt ihn wieder an
+        bus = false;
         s_sd_state = 2;
         ESP_LOGI(TAG, "SD: keine Karte (%s, %" PRId64 " ms)", esp_err_to_name(err), (esp_timer_get_time() - t0) / 1000);
         return;
@@ -126,6 +135,15 @@ void unmount_sd() {
     s_sd_state = 0;
 }
 
+// Aufträge an die Lade-Task (Dateisystem-Arbeit braucht Stack; Konsole und Testläufe haben nur 3–4 KB)
+enum class Job : uint8_t { CopyLfs, CopySd, Measure, FlashLoad, SdRetry };
+struct JobReq {
+    Job job;
+    int arg;
+    SemaphoreHandle_t done;  // nullptr = nicht warten
+};
+QueueHandle_t s_jobs = nullptr;
+
 void log_last() {
     pixelia::AssetStore::PackInfo p;
     if (!pixelia::asset_store().last(&p)) return;
@@ -138,20 +156,54 @@ void log_last() {
              p.unpack_us / 1000.0, p.wait_us / 1000.0);
 }
 
+void copy_to(const char* label, const char* dir);
+void measure_all();
+void flash_load_impl(int seconds);
+
+void run_job(const JobReq& r) {
+    switch (r.job) {
+        case Job::CopyLfs: copy_to("littlefs", kLfsDir); break;
+        case Job::CopySd: copy_to("sd", kSdDir); break;
+        case Job::Measure: measure_all(); break;
+        case Job::FlashLoad: flash_load_impl(r.arg); break;
+        case Job::SdRetry:
+            unmount_sd();
+            mount_sd();
+            break;
+    }
+    if (r.done) xSemaphoreGive(r.done);
+}
+
 void loader_task(void*) {
     mount_sd();  // SD-Karte im Hintergrund: der Start wartet nicht auf sie
     for (;;) {
         ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
-        if (s_sd_retry.exchange(false)) {
-            unmount_sd();
-            mount_sd();
+        while (pixelia::asset_store().work()) log_last();  // Pakete zuerst: die Bühne wartet vielleicht
+        JobReq r;
+        while (s_jobs && xQueueReceive(s_jobs, &r, 0) == pdTRUE) {
+            run_job(r);
+            while (pixelia::asset_store().work()) log_last();
         }
-        while (pixelia::asset_store().work()) log_last();
     }
 }
 
 void wake() {
     if (s_loader) xTaskNotifyGive(s_loader);
+}
+
+// Auftrag stellen; wait_s > 0 wartet höchstens so lange auf das Ende
+bool post(Job job, int arg = 0, int wait_s = 0) {
+    if (!s_jobs) return false;
+    JobReq r{job, arg, wait_s > 0 ? xSemaphoreCreateBinary() : nullptr};
+    if (xQueueSend(s_jobs, &r, 0) != pdTRUE) {
+        if (r.done) vSemaphoreDelete(r.done);
+        return false;
+    }
+    wake();
+    if (!r.done) return true;
+    const bool ok = xSemaphoreTake(r.done, pdMS_TO_TICKS(wait_s * 1000)) == pdTRUE;
+    if (ok) vSemaphoreDelete(r.done);  // sonst gibt die Lade-Task ihn noch: dann bleibt er (selten, klein)
+    return ok;
 }
 
 pixelia::AssetSource* source_by_name(const char* name) {
@@ -223,6 +275,41 @@ void copy_to(const char* label, const char* dir) {
              dir, (esp_timer_get_time() - t0) / 1000);
 }
 
+// Flash-Last wie bei Spielständen: Datei in LittleFS immer wieder schreiben (je 4 KB mit fsync, also Löschen und
+// Schreiben im Flash), danach löschen. Bis 0.5.4 schrieb der Test roh in „storage“; das würde LittleFS zerstören.
+void flash_load_impl(int seconds) {
+    if (!s_lfs) {
+        ESP_LOGE("flash", "LittleFS nicht eingehängt");
+        return;
+    }
+    constexpr size_t kSector = 4096;
+    constexpr int kSectors = 64;  // 256 KB je Durchgang
+    constexpr const char* kPath = "/data/flashlast.bin";
+    auto* buf = static_cast<uint32_t*>(heap_caps_malloc(kSector, MALLOC_CAP_SPIRAM));
+    if (!buf) return;
+    for (size_t i = 0; i < kSector / 4; ++i) buf[i] = 0xA5A50000u + i;
+    const uint32_t desync0 = board::display::stats(false).desyncs;
+    const int64_t t0 = esp_timer_get_time();
+    const int64_t end = t0 + static_cast<int64_t>(seconds) * 1000000;
+    size_t sectors = 0;
+    bool ok = true;
+    while (esp_timer_get_time() < end && ok) {
+        std::FILE* f = std::fopen(kPath, "wb");
+        ok = f != nullptr;
+        for (int i = 0; ok && i < kSectors && esp_timer_get_time() < end; ++i) {
+            ok = std::fwrite(buf, 1, kSector, f) == kSector && std::fflush(f) == 0 && fsync(fileno(f)) == 0;
+            ++sectors;
+        }
+        if (f) std::fclose(f);
+    }
+    const double dt = (esp_timer_get_time() - t0) / 1e6;
+    std::remove(kPath);
+    heap_caps_free(buf);
+    ESP_LOGI("flash", "%u Sektoren (%u KB) in %.1f s in LittleFS geschrieben: %s, Display-Aussetzer dabei: %" PRIu32,
+             static_cast<unsigned>(sectors), static_cast<unsigned>(sectors * kSector / 1024), dt, ok ? "ok" : "Fehler",
+             board::display::stats(false).desyncs - desync0);
+}
+
 void measure(pixelia::AssetSource& src, bool with_bench) {
     pixelia::AssetStore& store = pixelia::asset_store();
     const uint32_t desync0 = board::display::stats(false).desyncs;
@@ -254,6 +341,15 @@ void measure(pixelia::AssetSource& src, bool with_bench) {
              us / 1000.0, board::display::stats(false).desyncs - desync0);
 }
 
+void measure_all() {
+    ESP_LOGI(TAG, "Messung auf der Lade-Task (Kern 0), die Grafik läuft weiter:");
+    measure(pixelia::embedded_source(), false);
+    if (s_lfs) measure(s_lfs_src, true);
+    if (s_sd) measure(s_sd_src, true);
+    else ESP_LOGI(TAG, "  sd: keine Karte, nicht gemessen");
+    ESP_LOGI(TAG, "Stack der Lade-Task: %u Byte frei", static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+}
+
 const char* state_name(pixelia::AssetStore::State s) {
     switch (s) {
         case pixelia::AssetStore::State::Queued: return "wartet";
@@ -267,8 +363,10 @@ const char* state_name(pixelia::AssetStore::State s) {
 void print_status() {
     pixelia::AssetStore& store = pixelia::asset_store();
     const auto s = store.stats();
-    ESP_LOGI(TAG, "Quelle %s (Rückfall eingebettet); LittleFS %s, SD %s", source(), s_lfs ? "bereit" : "fehlt",
-             s_sd ? "bereit" : s_sd_state == 2 ? "keine Karte" : "noch nicht versucht");
+    ESP_LOGI(TAG, "Quelle %s (Rückfall eingebettet); LittleFS %s, SD %s; Stack der Lade-Task %u Byte frei", source(),
+             s_lfs ? "bereit" : "fehlt",
+             s_sd ? "bereit" : s_sd_state == 2 ? "keine Karte" : "noch nicht versucht",
+             s_loader ? static_cast<unsigned>(uxTaskGetStackHighWaterMark(s_loader)) : 0u);
     ESP_LOGI(TAG, "Grafik-Speicher %.1f von %.0f KB (Höchststand %.1f KB), %d Pakete, %" PRIu32 " mal geladen, %" PRIu32
              " verdrängt, %" PRIu32 " fehlgeschlagen, %" PRIu32 " über Budget", s.used / 1024.0, s.budget / 1024.0,
              s.peak / 1024.0, s.packs, s.loads, s.evictions, s.failures, s.over_budget);
@@ -285,14 +383,20 @@ void print_status() {
 }  // namespace
 
 void start() {
+    const size_t ram0 = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
     mount_littlefs();
     pixelia::AssetStore& store = pixelia::asset_store();
     store.set_budget(kBudget);
     store.set_clock(now_us);
     store.set_sources(&pixelia::embedded_source(), nullptr);
-    xTaskCreatePinnedToCore(loader_task, "assets", 6144, nullptr, 3, &s_loader, kSystemCore);
+    s_jobs = xQueueCreate(4, sizeof(JobReq));
+    xTaskCreatePinnedToCore(loader_task, "assets", kLoaderStack, nullptr, 3, &s_loader, kSystemCore);
     store.set_async(wake);  // ab jetzt lädt die Lade-Task (die Grundausstattung lädt gfx::start sofort)
+    ESP_LOGI(TAG, "Ablage bereit, internes RAM dafür %u KB",
+             static_cast<unsigned>((ram0 - heap_caps_get_free_size(MALLOC_CAP_INTERNAL)) >> 10));
 }
+
+bool flash_load(int seconds) { return post(Job::FlashLoad, seconds, seconds + 30); }
 
 bool littlefs_ready() { return s_lfs; }
 bool sd_ready() { return s_sd; }
@@ -329,9 +433,8 @@ void console(int argc, char** argv) {
     const char* sub = argc >= 2 ? argv[1] : "";
     if (std::strcmp(argv[0], "sd") == 0) {
         if (std::strcmp(sub, "neu") == 0) {
-            s_sd_retry = true;
-            wake();
             ESP_LOGI(TAG, "SD wird neu eingehängt (Lade-Task)");
+            post(Job::SdRetry, 0, 10);
             return;
         }
         if (s_sd && s_card) {
@@ -355,15 +458,14 @@ void console(int argc, char** argv) {
         store.drop_unpinned();  // nächstes Laden kommt aus der neuen Quelle
         ESP_LOGI(TAG, "Quelle %s; nicht angeheftete Pakete freigegeben", src->name());
     } else if (std::strcmp(sub, "kopieren") == 0 && argc >= 3) {
-        if (std::strcmp(argv[2], "littlefs") == 0 && s_lfs) copy_to("littlefs", kLfsDir);
-        else if (std::strcmp(argv[2], "sd") == 0 && s_sd) copy_to("sd", kSdDir);
+        // auf der Lade-Task (Stack); die Konsole wartet, damit die Ausgabe in der Antwort steht
+        if (std::strcmp(argv[2], "littlefs") == 0 && s_lfs) post(Job::CopyLfs, 0, 20);
+        else if (std::strcmp(argv[2], "sd") == 0 && s_sd) post(Job::CopySd, 0, 20);
         else ESP_LOGW(TAG, "Ziel %s nicht bereit (littlefs, sd)", argv[2]);
+        return;
     } else if (std::strcmp(sub, "messen") == 0) {
-        ESP_LOGI(TAG, "Messung (Kern 0, die Grafik läuft weiter):");
-        measure(pixelia::embedded_source(), false);
-        if (s_lfs) measure(s_lfs_src, true);
-        if (s_sd) measure(s_sd_src, true);
-        if (!s_sd) ESP_LOGI(TAG, "  sd: keine Karte, nicht gemessen");
+        post(Job::Measure, 0, 20);
+        return;
     } else if (std::strcmp(sub, "leeren") == 0) {
         store.drop_unpinned();
         ESP_LOGI(TAG, "nicht angeheftete Pakete freigegeben");

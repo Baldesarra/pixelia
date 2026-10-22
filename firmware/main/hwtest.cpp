@@ -1,9 +1,6 @@
 // Hardware-Detektiv: I²C-Scan, GT911-Touch-Test, Stufentest der Hintergrundbeleuchtung
 
-#include <unistd.h>
-
 #include <array>
-#include <cstdio>
 #include <cstdlib>
 
 #include "app.h"
@@ -142,36 +139,10 @@ void touch_task(void*) {
 
 constexpr int kBlLevels[] = {100, 70, 40, 20, 10, 5, 1, 0};
 
-// Flash-Last wie bei Spielständen: Datei in LittleFS immer wieder schreiben (je 4 KB mit fsync, also Löschen und
-// Schreiben im Flash), danach löschen. Seit 0.5.5 über das Dateisystem: vorher schrieb der Test roh in „storage“,
-// das würde LittleFS zerstören.
+// Flash-Last wie bei Spielständen: seit 0.5.5 Dateien in LittleFS, geschrieben von der Lade-Task (assets.cpp, dort
+// genug Stack); bis 0.5.4 roh in „storage“, das würde LittleFS zerstören. Wartet, bis der Test fertig ist.
 void flash_stress_impl(int seconds) {
-    if (!assets::littlefs_ready()) {
-        ESP_LOGE("flash", "LittleFS nicht eingehängt");
-        return;
-    }
-    constexpr size_t kSector = 4096;
-    constexpr int kSectors = 64;  // 256 KB je Durchgang
-    constexpr const char* kPath = "/data/flashlast.bin";
-    static uint32_t buf[kSector / 4];
-    for (size_t i = 0; i < kSector / 4; ++i) buf[i] = 0xA5A50000u + i;
-    int64_t t0 = esp_timer_get_time();
-    int64_t end = t0 + static_cast<int64_t>(seconds) * 1000000;
-    size_t sectors = 0;
-    bool ok = true;
-    while (esp_timer_get_time() < end && ok) {
-        std::FILE* f = std::fopen(kPath, "wb");
-        ok = f != nullptr;
-        for (int i = 0; ok && i < kSectors && esp_timer_get_time() < end; ++i) {
-            ok = std::fwrite(buf, 1, kSector, f) == kSector && std::fflush(f) == 0 && fsync(fileno(f)) == 0;
-            ++sectors;
-        }
-        if (f) std::fclose(f);
-    }
-    double dt = (esp_timer_get_time() - t0) / 1e6;
-    std::remove(kPath);
-    ESP_LOGI("flash", "%u Sektoren (%u KB) in %.1f s in LittleFS geschrieben: %s", static_cast<unsigned>(sectors),
-             static_cast<unsigned>(sectors * kSector / 1024), dt, ok ? "ok" : "Fehler");
+    if (!assets::flash_load(seconds)) ESP_LOGE("flash", "Flash-Last nicht gelaufen (LittleFS bzw. Lade-Task)");
 }
 
 void backlight_steps_once() {
