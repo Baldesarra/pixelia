@@ -312,7 +312,11 @@
     align-items: center;
     gap: 20px;
   }
+  .hero > div {
+    min-width: 0;
+  }
   .board {
+    overflow-wrap: anywhere;
     font: var(--md-sys-typescale-headline-small);
     font-weight: 750;
     font-stretch: 110%;

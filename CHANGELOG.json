@@ -57,9 +57,32 @@
     ],
     "f": [
       "Web: Oberfläche lädt nach einer neuen Firmware-Version selbst neu; unbekannte Felder der Farbwahl bleiben beim Speichern erhalten (eine alte Seite setzte das Design zurück)",
-      "Web: „So entstand Pixelia“ schließt erst 2 s nach dem Öffnen per Tipp daneben (weitere Tipper aufs Zeichen schlossen es sofort); X und Escape sofort",
-      "Werkzeuge: release_notes.py --check sortiert Vorabversionen nach Zahl (beta.10 nach beta.9), wie Firmware und Oberfläche"
+      "Werkzeuge: release_notes.py --check sortiert Vorabversionen nach Zahl (beta.10 nach beta.9), wie Firmware und Oberfläche",
+      "Web: Fehler der neuen Oberfläche behoben: Rückblick schloss durch weitere Tipper sofort (jetzt 2 s Sperre), Karten am Handy zu breit (.page-grid min-width 0), „Live“ fehlte auf Unterseiten"
     ]
+  },
+  {
+    "v": "0.5.4-beta.11",
+    "d": "2026-10-22",
+    "t": "Passt aufs Handy (Vorschau)",
+    "s": "Vorabversion: Gerät und Speicher in Handybreite, „Live“ im Kopf auf allen Seiten",
+    "k": {
+      "s": "Vorabversion: passt aufs Handy",
+      "f": [
+        "Gerät und Speicher: Die Seite passt wieder auf den Handybildschirm, die Partitionstabelle passt in ihre Karte",
+        "Verbindung: Oben rechts steht auf allen Seiten wieder „Live“, nicht nur ein blinkender Punkt"
+      ]
+    },
+    "f": [
+      "Web: Karten in .page-grid dürfen schrumpfen (min-width 0), „Gerät und Speicher“ war am Handy 592 statt 390 px breit; Verbindungstext im Kopf auch auf Unterseiten"
+    ],
+    "g": [
+      "Simulator: alle 23 Seiten bei 390 px ohne waagerechtes Überlaufen"
+    ],
+    "h": [
+      "Doku: Vorabversion zum Ausprobieren, erscheint nur im Kanal Vorschau"
+    ],
+    "pr": [34]
   },
   {
     "v": "0.5.4-beta.10",

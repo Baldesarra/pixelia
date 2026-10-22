@@ -157,7 +157,7 @@
 </Navigation>
 
 <div class="frame">
-  <header class="bar" class:sub={!!cur.parent}>
+  <header class="bar">
     {#if cur.parent}
       <IconButton icon="arrow_back" label="Zurück zu {pages[cur.parent].title}" onclick={() => (location.hash = `#/${cur.parent}`)} />
     {:else}
@@ -221,12 +221,6 @@
   }
   .mobile-logo {
     display: flex;
-  }
-  /* Am Handy auf Unterseiten nur das Symbol der Verbindung, damit der Titel Platz hat */
-  @media (max-width: 479px) {
-    .sub .link-text {
-      display: none;
-    }
   }
   main {
     padding: 8px 16px 24px;

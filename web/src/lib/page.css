@@ -6,6 +6,11 @@
   gap: 16px;
   align-items: start;
 }
+/* Karten dürfen schmaler als ihr Inhalt werden (breite Tabellen scrollen in der Karte), sonst wird die Seite am Handy
+   breiter als der Bildschirm (Gerät und Speicher, beta.11) */
+.page-grid > * {
+  min-width: 0;
+}
 .page-grid > .wide {
   grid-column: 1 / -1;
 }
