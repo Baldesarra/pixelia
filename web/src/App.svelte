@@ -125,11 +125,26 @@
     }
   }
 
+  // Neue Firmware (Update aus einem anderen Browser oder Neustart mit anderer Version): Diese Seite stammt noch von der
+  // alten und kennt neue Einstellungen nicht. Neu laden, auf der Seite Update erst beim nächsten Seitenwechsel.
+  let bootVersion = '';
+  let stale = false;
+  $effect(() => {
+    const v = device.data?.v;
+    if (!v) return;
+    if (!bootVersion) bootVersion = v;
+    else if (v !== bootVersion && !stale) {
+      stale = true;
+      if (page !== 'update') location.reload();
+    }
+  });
+
   const linkText = { verbinde: 'Verbinde …', live: 'Live', abfrage: 'Abfrage', getrennt: 'Getrennt' } as const;
 </script>
 
 <svelte:window
   onhashchange={() => {
+    if (stale) return location.reload();
     route = routeOf();
     scrollTo(0, 0);
   }}

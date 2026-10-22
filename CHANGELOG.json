@@ -15,7 +15,7 @@
         "Übersicht: Karte „Neu in dieser Version“ und ein Hinweis, wenn auf GitHub eine neue Version wartet",
         "Versionsverlauf: Kurzfassung in Alltagssprache, alle Details stehen bei jeder Version auf GitHub",
         "Rückblick: „So entstand Pixelia“ mit den frühen Skizzen, ganz unten unter Experimentell und als kleines Geheimnis",
-        "Neue Designs: Unter Experimentell zum Ausprobieren, Pixelia wie die Pixelwelt und Fahrplan 1850 wie ein alter Fahrplan; Menüs und Einstellungen bleiben gleich"
+        "Neue Designs: Unter Experimentell zum Ausprobieren, Pixelia wie die Pixelwelt und Fahrplan 1850 wie ein alter Fahrplan, mit eigener oder wählbarer Akzentfarbe"
       ],
       "i": [
         "Versionsverlauf: Nur veröffentlichte Versionen, „Installiert“ steht über dem Titel, und am Handy hat die Versionsnummer eine eigene Zeile, damit lange Namen Platz haben",
@@ -23,6 +23,9 @@
         "Diagnose: Die Liste der Neustarts zeigt die letzten drei, der Rest lässt sich aufklappen",
         "Gerät und Speicher: Info und Hardware sind eine Seite, doppelte Angaben sind weg",
         "Technik: Die Oberfläche ist trotz der neuen Seiten kleiner geworden, Symbole und Schrift sind sparsamer gespeichert"
+      ],
+      "f": [
+        "Mehrere Browser: Eine noch offene alte Seite setzt die Farbwahl nicht mehr zurück und lädt nach einem Update von selbst neu"
       ]
     },
     "n": [
@@ -33,7 +36,7 @@
       "Web: Experimentell mit Unterseiten Testorte, Panel und Stromsparen, ältere Version; gemeinsamer Zustand in lib/exp.svelte.ts",
       "Web: Darstellung mit Ansicht, Schriftgröße, Startseite und Bewegung reduzieren je Browser (lib/prefs.svelte.ts); Übersicht mit „Neu in dieser Version“ und Hinweis auf neue Version",
       "Web: „So entstand Pixelia“ (lib/story.ts) unter Experimentell und nach 7× Tippen aufs Logo; Skizzen über GitHub Pages (pages.yml kopiert docs/skizzen)",
-      "Web: zwei Designs zur Auswahl unter Experimentell (Vorschau), Pixelia mit der Pixelschrift des Displays (tools/pixel_font.py, 2 KB) und Fahrplan 1850 mit Serifenschrift; gespeichert in der Farbwahl",
+      "Web: zwei Designs unter Experimentell (Vorschau), Pixelia mit der Pixelschrift des Displays (tools/pixel_font.py, 2 KB) und Fahrplan 1850 mit Serifenschrift; Ecken wie M3, eigene Akzentfarbe dseed",
       "Update: Kurzfassung k in CHANGELOG.json (Unterzeile, Neu, Verbessert, Behoben, Entfernt), in den Release-Notes als „Kurz gesagt“; Versionsverlauf und Update-Vorschau zeigen nur sie",
       "System: Changelog-Block in der Firmware nur noch mit v, d, t, k (18 → 4 KB gzip); Gerätetests und POST /api/picture gehen ohne Experimentell",
       "Werkzeuge: release_notes.py --check verlangt k für jede Version und warnt bei Messwerten; k für alle Versionen 0.1.0 bis 0.5.3 nachgetragen",
@@ -49,7 +52,41 @@
       "Web: Versionsverlauf zeigt Versionen ohne Datum nur, wenn sie installiert sind; „Installiert“ über dem Titel, am Handy (≤ 480 px) Versions-Chip in eigener Zeile",
       "Web: Diagnose zeigt die letzten drei Neustarts, der Rest ist aufklappbar; Testorte in vier Karten, Auswahl als umbrechende Knöpfe (passte am Handy nicht in die Breite)",
       "Werkzeuge: web_screens.mjs speichert Unterseiten (#/a/b) als a-b.png"
+    ],
+    "f": [
+      "Web: Oberfläche lädt nach einer neuen Firmware-Version selbst neu; unbekannte Felder der Farbwahl bleiben beim Speichern erhalten (eine alte Seite setzte das Design zurück)"
     ]
+  },
+  {
+    "v": "0.5.4-beta.4",
+    "d": "2026-10-22",
+    "t": "Designs abgerundet (Vorschau)",
+    "s": "Vorabversion: Designs mit Ecken wie M3, Akzentfarben, Schutz vor alten Seiten",
+    "k": {
+      "s": "Vorabversion: Designs abgerundet und farbig",
+      "n": [
+        "Akzentfarben: Unter Darstellung gibt es in den Designs das Feld „Design“ mit den eigenen Farben, die anderen Farben wirken kräftig bei Pixelia und gedeckt beim Fahrplan"
+      ],
+      "i": [
+        "Ecken: Karten, Listen und die Knöpfe unten sind in beiden Designs rund wie bei Material 3 Expressive"
+      ],
+      "f": [
+        "Mehrere Browser: Eine noch offene alte Seite setzt das Design nicht mehr zurück und lädt nach einem Update von selbst neu"
+      ]
+    },
+    "n": [
+      "Web: Akzentfarbe in den Designs (dseed in der Farbwahl, leer = Farben des Designs); Flächen bleiben fest, Akzente als Vibrant (Pixelia) bzw. Tonal Spot (Fahrplan)"
+    ],
+    "i": [
+      "Web: Ecken der Designs wie M3 Expressive, Pixelrahmen als Schatten mit Ausdehnung (folgen dem Radius)"
+    ],
+    "f": [
+      "Web: Oberfläche lädt nach einer neuen Firmware-Version selbst neu; unbekannte Felder der Farbwahl bleiben beim Speichern erhalten (eine alte Seite setzte das Design zurück)"
+    ],
+    "h": [
+      "Doku: Vorabversion zum Ausprobieren, erscheint nur im Kanal Vorschau; eine vor dem Update geöffnete Seite einmal neu laden"
+    ],
+    "pr": [34]
   },
   {
     "v": "0.5.4-beta.3",

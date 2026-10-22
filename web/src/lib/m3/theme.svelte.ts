@@ -34,8 +34,10 @@ const CUSTOM = [
   ['warning', '#b07800'],
 ] as const;
 
-// Eigene Designs: feste Farben statt Akzentfarbe, je hell und dunkel in der Reihenfolge von ROLES; die übrigen Rollen
-// (Fehler, inverse Flächen) kommen aus einem M3-Schema mit der Hauptfarbe als Grundton.
+// Eigene Designs: feste Farben je hell und dunkel in der Reihenfolge von ROLES (0–9 Flächen, Schrift, Linien; ab 10
+// Akzente). Die übrigen Rollen (Fehler, inverse Flächen) kommen aus einem M3-Schema mit der Hauptfarbe als Grundton.
+// Mit eigener Akzentfarbe (dseed, seit beta.4) bleiben nur 0–9 fest, die Akzente rechnet ein Schema im Stil des
+// Designs aus der Farbe: Pixelia kräftig (Vibrant), Fahrplan gedeckt (Tonal Spot).
 const ROLES = [
   'surface', 'surface-container-lowest', 'surface-container-low', 'surface-container', 'surface-container-high',
   'surface-container-highest', 'on-surface', 'on-surface-variant', 'outline', 'outline-variant', 'primary', 'on-primary',
@@ -58,12 +60,11 @@ const LOOKS: Record<Exclude<Design, 'm3'>, [string, string]> = {
 const KEY = 'pixelia.theme';
 const media = matchMedia('(prefers-color-scheme: dark)');
 
-function load(): { mode: ThemeMode; seed: string; style: ThemeStyle } {
-  const fallback = { mode: 'system' as ThemeMode, seed: DEFAULT_SEED, style: 'tonal' as ThemeStyle };
+function load(): string {
   try {
-    return { ...fallback, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') };
+    return localStorage.getItem(KEY) ?? '{}';
   } catch {
-    return fallback;
+    return '{}';
   }
 }
 
@@ -80,6 +81,10 @@ class Theme {
   seed = $state(DEFAULT_SEED);
   style = $state<ThemeStyle>('tonal');
   design = $state<Design>('m3');
+  /** Akzentfarbe in den eigenen Designs; leer = Farbe des Designs */
+  dseed = $state('');
+  /** Felder aus neueren Versionen, die diese nicht kennt: beim Speichern unverändert mitgeben */
+  private extra: Record<string, unknown> = {};
   /** Eigene Designs nur, solange Experimentell an ist (App.svelte setzt das aus dem Status) */
   allowed = $state(true);
   look = $derived(this.allowed ? this.design : 'm3');
@@ -89,24 +94,32 @@ class Theme {
   dark = $derived(this.mode === 'dark' || (this.mode === 'system' && this.systemDark));
 
   constructor() {
-    Object.assign(this, load());
+    this.adopt(load());
     media.addEventListener('change', (e) => (this.systemDark = e.matches));
+  }
+
+  /** Hauptfarbe des eigenen Designs (Farbfeld „Design“ unter Darstellung); leer bei Material 3 */
+  get ownColor(): string {
+    return this.look === 'm3' ? '' : '#' + LOOKS[this.look][+this.dark].split(' ')[10];
   }
 
   /** Auswahl als kurzer JSON-Text (so speichert sie das Gerät, seit 0.3.2) */
   json(): string {
-    const { mode, seed, style, design } = this;
-    return JSON.stringify(design === 'm3' ? { mode, seed, style } : { mode, seed, style, design });
+    const { mode, seed, style, design, dseed } = this;
+    return JSON.stringify({ mode, seed, style, ...(design !== 'm3' && { design }), ...(dseed && { dseed }), ...this.extra });
   }
 
   /** Auswahl aus JSON übernehmen; Unbekanntes wird ignoriert */
   adopt(json: string) {
     try {
-      const v = JSON.parse(json) as Partial<{ mode: string; seed: string; style: string; design: string }>;
-      if (v.mode === 'system' || v.mode === 'light' || v.mode === 'dark') this.mode = v.mode;
-      if (typeof v.seed === 'string' && /^#[0-9a-f]{6}$/i.test(v.seed)) this.seed = v.seed;
-      if (v.style === 'tonal' || v.style === 'vibrant' || v.style === 'expressive') this.style = v.style;
-      this.design = v.design === 'pixel' || v.design === 'fahrplan' ? v.design : 'm3';
+      const v = JSON.parse(json) as Partial<{ mode: string; seed: string; style: string; design: string; dseed: string }>;
+      const { mode, seed, style, design, dseed, ...extra } = v;
+      this.extra = extra;
+      if (mode === 'system' || mode === 'light' || mode === 'dark') this.mode = mode;
+      if (typeof seed === 'string' && /^#[0-9a-f]{6}$/i.test(seed)) this.seed = seed;
+      if (style === 'tonal' || style === 'vibrant' || style === 'expressive') this.style = style;
+      this.design = design === 'pixel' || design === 'fahrplan' ? design : 'm3';
+      this.dseed = typeof dseed === 'string' && /^#[0-9a-f]{6}$/i.test(dseed) ? dseed : '';
     } catch {
       /* kaputter Wert: Auswahl bleibt */
     }
@@ -115,14 +128,15 @@ class Theme {
   /** Farben auf :root schreiben und Auswahl merken (läuft als $effect in App.svelte) */
   apply() {
     const look = this.look === 'm3' ? undefined : LOOKS[this.look][+this.dark].split(' ');
-    const hct = Hct.fromInt(argbFromHex(look ? '#' + look[10] : this.seed));
-    const Kind = { tonal: SchemeTonalSpot, vibrant: SchemeVibrant, expressive: SchemeExpressive }[look ? 'tonal' : this.style];
+    const hct = Hct.fromInt(argbFromHex(look ? this.dseed || '#' + look[10] : this.seed));
+    const style = look ? (this.dseed && this.look === 'pixel' ? 'vibrant' : 'tonal') : this.style;
+    const Kind = { tonal: SchemeTonalSpot, vibrant: SchemeVibrant, expressive: SchemeExpressive }[style];
     const scheme: DynamicScheme = new Kind(hct, this.dark, 0, '2025');
     const root = document.documentElement;
     for (const c of new MaterialDynamicColors().allColors) {
       root.style.setProperty(`--md-sys-color-${c.name.replaceAll('_', '-')}`, hexFromArgb(c.getArgb(scheme)));
     }
-    look?.forEach((hex, i) => root.style.setProperty(`--md-sys-color-${ROLES[i]}`, '#' + hex));
+    look?.slice(0, this.dseed ? 10 : 20).forEach((hex, i) => root.style.setProperty(`--md-sys-color-${ROLES[i]}`, '#' + hex));
     root.dataset.design = this.look;
     // Zusatzfarben (M3 „custom colors“) mit festem Farbton, damit Grün und Bernstein bei jeder Akzentfarbe
     // erkennbar bleiben; Töne wie bei den Systemfarben (hell 40/100/90/10, dunkel 80/20/30/90)

@@ -19,6 +19,9 @@
   import { themeSync } from '../lib/theme-sync.svelte';
   import { prefs, type FontSize, type StartPage } from '../lib/prefs.svelte';
 
+  /** Hauptfarbe des Designs aus Experimentell; leer bei Material 3 */
+  const own = $derived(theme.ownColor);
+
   const modes: { value: ThemeMode; label: string; icon: 'brightness_auto' | 'light_mode' | 'dark_mode' }[] = [
     { value: 'system', label: 'System', icon: 'brightness_auto' },
     { value: 'light', label: 'Hell', icon: 'light_mode' },
@@ -52,13 +55,19 @@
   <Card>
     <h2>Hell oder dunkel</h2>
     <ButtonGroup options={modes} bind:value={theme.mode} label="Hell oder dunkel" />
-    {#if theme.look !== 'm3'}<p class="muted">Das Design aus Experimentell hat feste Farben, Farbstil und Akzentfarbe gelten nur für Material 3.</p>{/if}
-    <h2>Farbstil</h2>
-    <ButtonGroup options={styles} bind:value={theme.style} label="Farbstil" />
+    {#if own}
+      <p class="muted">
+        Im Design aus Experimentell gilt eine eigene Akzentfarbe, im Stil des Designs: „Design“ nimmt seine eigenen Farben.
+        Der Farbstil gilt nur für Material 3.
+      </p>
+    {:else}
+      <h2>Farbstil</h2>
+      <ButtonGroup options={styles} bind:value={theme.style} label="Farbstil" />
+    {/if}
     <h2>Akzentfarbe</h2>
     <div class="swatches" role="radiogroup" aria-label="Akzentfarbe">
-      {#each SEEDS as c (c.hex)}
-        {@const on = theme.seed === c.hex}
+      {#each own ? [{ hex: '', name: 'Design', fill: own }, ...SEEDS] : SEEDS as c (c.hex)}
+        {@const on = (own ? theme.dseed : theme.seed) === c.hex}
         <button
           class="swatch"
           class:on
@@ -66,13 +75,17 @@
           aria-checked={on}
           aria-label={c.name}
           title={c.name}
-          onclick={() => (theme.seed = c.hex)}
+          onclick={() => (own ? (theme.dseed = c.hex) : (theme.seed = c.hex))}
         >
-          <svg viewBox="0 0 100 100" width="48" height="48"><path d={on ? cookie : round} fill={c.hex} /></svg>
+          <svg viewBox="0 0 100 100" width="48" height="48"><path d={on ? cookie : round} fill={'fill' in c ? c.fill : c.hex} /></svg>
         </button>
       {/each}
       <label class="custom" title="Eigene Farbe">
-        <input type="color" bind:value={theme.seed} aria-label="Eigene Akzentfarbe" />
+        {#if own}
+          <input type="color" bind:value={() => theme.dseed || own, (v) => (theme.dseed = v)} aria-label="Eigene Akzentfarbe" />
+        {:else}
+          <input type="color" bind:value={theme.seed} aria-label="Eigene Akzentfarbe" />
+        {/if}
       </label>
     </div>
     <p class="hint">
