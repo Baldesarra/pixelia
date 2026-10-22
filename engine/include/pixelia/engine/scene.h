@@ -13,6 +13,9 @@
 namespace pixelia {
 
 struct Environment;
+namespace ui {
+struct Card;
+}
 
 // Übergang beim Ortswechsel (Bühne, stage.h); hier, weil auch Ausgänge eines Ortes ihn tragen
 enum class Transition : uint8_t {
@@ -26,14 +29,33 @@ inline constexpr int kTransitionKinds = 4;
 inline constexpr Transition kDefaultTransition = Transition::Fade;
 
 // Weg durch einen Ausgang in einen anderen Ort (seit 0.5.1). Die Bühne fragt jeden Ort nach jedem Schritt danach
-// und gibt den Reisenden im Zielort ab (arrive). Wer reist, legen die Orte fest (who); die Bühne reicht es durch.
+// und gibt den Reisenden im Zielort ab (arrive). Wer reist, legen die Orte fest; die Bühne reicht es durch.
 struct Travel {
     const char* to = nullptr;  // Kennung des Zielortes
     uint8_t entry = 0;         // Ausgang des Zielortes, an dem man ankommt
     uint8_t from_exit = 0;     // benutzter Ausgang (kommt zurück, wenn es den Zielort nicht gibt)
     Transition transition = kDefaultTransition;
-    bool follow = false;       // Blick folgt: ist der Ort gerade zu sehen, wechselt die Bühne mit
-    uint16_t who = 0;
+    bool follow = false;       // Hauptfigur: ihr folgt der Blick im Standardmodus (Kamera, camera.h)
+    uint16_t who = 0;          // Kennung der Figur (seit 0.5.6 eindeutig über alle Orte, bleibt beim Reisen)
+    uint8_t look = 0;          // Aussehen (Testorte: Farbreihe)
+};
+
+// Was an einer Stelle zu sehen ist (seit 0.5.6, Touch): das vorderste Teil nach Tiefe, durchsichtige Punkte zählen
+// nicht. Koordinaten fein (400 × 240).
+struct Hit {
+    enum class Kind : uint8_t { None, Figure, Part, Exit };
+    Kind kind = Kind::None;
+    uint16_t id = 0;     // Figur: Kennung; Teil: Nummer in der Raumliste; Ausgang: Nummer
+    int16_t depth = 0;
+    int16_t x = 0, y = 0;  // Fußpunkt
+    int16_t h = 0;         // Höhe des Bildes
+};
+
+// Figur in einer Liste (Weboberfläche: „Folge X“)
+struct FigureInfo {
+    uint16_t id = 0;
+    bool lead = false;
+    char name[24] = {};
 };
 
 class Scene {
@@ -84,6 +106,16 @@ public:
     virtual int packs(const char** /*out*/, int /*max*/) const { return 0; }
     // Nachbarorte (Kennungen, z. B. Ziele der Ausgänge): deren Pakete lädt die Bühne vorab
     virtual int neighbors(const char** /*out*/, int /*max*/) const { return 0; }
+
+    // Touch und Karten (seit 0.5.6). hit: was an (x, y) fein zu sehen ist; nur sichtbare Orte mit geladenen Grafiken
+    virtual Hit hit(int /*x*/, int /*y*/) const { return {}; }
+    // Karte zu einem Treffer füllen (Figur: Name, Tätigkeit, Gedanke; Teil: Name, bei Türen card->place)
+    virtual bool describe(const Hit& /*hit*/, ui::Card* /*card*/) const { return false; }
+    // Figuren am Ort (Kennung, Name); Hauptfigur (der der Blick im Standardmodus folgt) immer zuerst
+    virtual int figures(FigureInfo* /*out*/, int /*max*/) const { return 0; }
+    virtual bool has_figure(uint16_t /*id*/) const { return false; }
+    // Markierung einer Figur (Karte offen): Fußpunkt und Höhe fein; false = nicht hier
+    virtual bool figure_mark(uint16_t /*id*/, int* /*x*/, int* /*y*/, int* /*h*/) const { return false; }
 };
 
 // Szene nach Namen anlegen; nullptr, wenn es sie nicht gibt

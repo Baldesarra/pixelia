@@ -88,6 +88,21 @@ public:
     // Blick folgt Reisenden mit follow (Standard an); aus: Orte tauschen Figuren, das Bild bleibt
     void set_follow(bool on) { follow_ = on; }
     bool follow() const { return follow_; }
+    // Wem der Blick folgt (seit 0.5.6, Kamera): 0 = der Hauptfigur (Travel::follow), sonst der Figur mit dieser
+    // Kennung; kNobody = niemandem (Modus „Frei“, fester Ort)
+    static constexpr uint16_t kNobody = 0xFFFF;
+    void set_follow_who(uint16_t id) { follow_who_ = id; }
+    uint16_t follow_who() const { return follow_who_; }
+    // Figuren (seit 0.5.6): Ort einer Figur (−1 = keiner, z. B. gerade unterwegs), Hauptfigur (0 = keine)
+    int find_figure(uint16_t id) const;
+    uint16_t lead() const;
+    // Alle Figuren aller Orte; place[i] = Ort der Figur i (optional)
+    int figures(FigureInfo* out, int* place, int max) const;
+
+    // Touch (seit 0.5.6): Treffer am sichtbaren Ort (fein), nicht während eines Übergangs
+    Hit hit(int x, int y) const;
+    // Karte zum Treffer; bei Türen ergänzt die Bühne, wer im Ort dahinter ist
+    bool describe(const Hit& hit, ui::Card* card) const;
     uint32_t travels() const { return travels_; }  // Reisen zwischen Orten seit init()
     // Prüfansicht aller Orte (Stellflächen, Benutzungspunkte, Ausgänge)
     void set_inspect(bool on);
@@ -146,6 +161,7 @@ private:
     bool hold_ = false;
     uint32_t holds_ = 0;
     bool follow_ = true;
+    uint16_t follow_who_ = 0;
     bool inspect_ = false;
     // Gemeinsame Palette während einer Überblendung: Index der Szene → Platz, Platz → Quelle (Szene, Index)
     std::array<uint8_t, 256> map_from_{};

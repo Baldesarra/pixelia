@@ -1,6 +1,6 @@
 # Pixelia – Code-Landkarte
 
-> Kurzer Wegweiser durch den Code (Stand 0.5.5). Wer neu einsteigt, liest hier, statt den halben Code zu öffnen.
+> Kurzer Wegweiser durch den Code (Stand 0.5.6). Wer neu einsteigt, liest hier, statt den halben Code zu öffnen.
 > Begründungen stehen in [PROJEKTPLAN.md](PROJEKTPLAN.md), Messwerte und Schnittstellen im Detail in
 > [HARDWARE.md](HARDWARE.md). Am Ende jeder Phase aktualisieren.
 
@@ -12,7 +12,7 @@
 | `firmware/` | ESP-IDF-Projekt: `main/` (App), `components/board/` (Display, Touch, Hintergrundbeleuchtung) |
 | `sim/` | PC-Simulator (SDL3-Fenster oder kopflos), Selbsttests `--test` |
 | `web/` | Weboberfläche: Svelte 5 + TypeScript + Vite, eigene M3-Expressive-Komponenten (siehe unten) |
-| `assets/` | seit 0.5.5: Zeichenpaletten (`paletten/*.gpl`), Grafiken als PNG-Streifen mit `pakete.json` je Ordner (`testorte/`: Pakete grund, moebel, wiese, raum), `CREDITS.md` (CI-Prüfung); fremde Dateien nur unter `fremd/<Quelle>/` |
+| `assets/` | seit 0.5.5: Zeichenpaletten (`paletten/*.gpl`), Grafiken als PNG-Streifen mit `pakete.json` je Ordner (`testorte/`: Pakete grund, moebel, wiese, raum; seit 0.5.6 `system/`: Paket system mit Schriften und Symbolen), `CREDITS.md` (CI-Prüfung); fremde Dateien nur unter `fremd/<Quelle>/` |
 | `worlds/` | noch leer (Welten ab 0.6) |
 | `tools/` | PowerShell-Werkzeuge für Build, Flashen, Log, Updates, Abstürze (siehe unten) |
 | `pages/` | Web-Flasher auf GitHub Pages (ESP Web Tools) |
@@ -39,10 +39,12 @@
 | `test_places.h` | Testorte Wiese, Raum, Platz (seit 0.5.5 Grafiken aus `assets/testorte`: Palette, Figur, Kacheln, Farbreihen in „grund“, Möbel in „moebel“, „wiese“, „raum“; Bilder werden beim Betreten aufgelöst; Lampe und Laterne mit Zustandsbild nach der Lichtquelle; seit 0.5.1 aus Kacheln und Möbel-Teilen, Tür und Bildrand verbunden): Katalog mit 14 Teilen, Bau-Bilder, Farbreihen (sechs Figuren, Holz, Tapete), Figuren auf dem Kachelraster mit Benutzungspunkten und Reisen, Begleiterin; Befehle `ausbau`, `baustelle`; Objekte im Grafik-Speicher; seit 0.5.2 Palette mit Lichtstufen und Tageslicht (`tick` rechnet sie aus), Lampe als Lichtkreis, Fenster am Abend (Wiese) bzw. Himmel (Raum), Wasserbecken (Platz), Befehle `stimmung`, `tageslicht`, `nacht`, `licht fein|grob|hart [innen %]`; seit 0.5.3 Wetter je Ort (`PlaceWeather`, draußen Wiese/Platz, Raum in den Fenstern), Lampe und Laterne im `LightBoard`, Fenster der Wiese gehören zum Raum; Befehle `innenlicht an|aus|um`, `regen striche|tropfen|fein`, `schnee gemischt|klein|gross`, `dichte <%>`, `nebelbaenke <%>` |
 | `scroll_test.h` | Testszene „Landschaft“ mit Tag/Nacht, Wolken, Parallax, Vögeln (fein, Farben 0–79) |
 | `world_clock.h` | Weltzeit mit Zeitraffer (`kTicksPerSecond = 30`) |
-| `system_ui.h` | Systemanzeigen: Setup, Update, Meldung, Kurzmeldung, Info-Karte, Halte-Anzeige (Paletten 240–255) |
-| `font.h`, `tiny_font.h` | Systemschrift 5×7 mit Umlauten; 3×5-Prüfschrift |
+| `system_ui.h` | Systemanzeigen: Setup, Update, Meldung, Kurzmeldung, Info-Karte, Halte-Anzeige (seit 0.5.6 mit Text), `framed` (jeder Bildpunkt einmal) (Paletten 240–255) |
+| `overlay.h` | Einblendungen der Welt (seit 0.5.6): `ToastQueue` (6 Plätze, System vorn, Welt 4/h, mindestens 2 s), `draw_toast` oben/unten, `draw_clock` (Ecke, Sekunden), `Card` + `render_card` (Seitenkarte rechts, Höhe nach Inhalt; Mitte und Leiste als Varianten), `CardPicture` (Farbreihe, Lichtstufe), Symbole aus „ui/symbole“ |
+| `camera.h` | Kamera-Modi (seit 0.5.6): `CameraSettings` (Standard Hauptfigur/Figur/Ort, Rückkehr s, 0 = nie), `Camera` (Modi Standard, Frei, Folgen; `swipe`, `go`, `follow`, `home`, `tick` sucht die Figur jede Sekunde) |
+| `font.h`, `tiny_font.h` | Systemschrift 5×7 mit Umlauten; seit 0.5.6 `Style` Normal/Bold/Small, Schnitte fett und klein aus dem Paket „system“ (`load_faces`); 3×5-Prüfschrift |
 | `qr.h`, `png.h` | eigener QR-Code-Erzeuger und PNG-Encoder; `crc32` (seit 0.5.5 öffentlich, Tabelle zur Übersetzungszeit) |
-| `gesture.h` | Tippen und langer Druck aus rohen Touch-Daten |
+| `gesture.h` | Tippen, langer Druck und seit 0.5.6 Wischen (`swipe_min` 120, ≤ 1 s, Achse doppelt so lang) aus rohen Touch-Daten; `rotate180` |
 | `rng.h` | deterministischer Zufall (PCG32) |
 | `redact.h` | Passwort-Filter für Diagnose-Ausgaben (`SecretFilter`) |
 
@@ -55,11 +57,12 @@ Probelauf).
 
 | Datei | Aufgabe |
 |---|---|
+| `gfx.cpp` (seit 0.5.6) | Karte, Pixel-Uhr (Ortszeit einmal je Sekunde), Kurzmeldungs-Warteschlange, `Camera`, Welt-Eingaben (Ring 8), Kamera-Zustand und Figurenliste für `/api/camera` (PSRAM), `overlay_us` in `EngineStats` |
 | `assets.cpp` | Ablage (seit 0.5.5): LittleFS in `storage` (`/data`, beim ersten Start formatiert), microSD über SPI2 (`/sd`, Pins in `pins.h`, ohne Karte Bus wieder frei), Lade-Task `assets` für den Grafik-Speicher (Quelle eingebettet/littlefs/sd, Budget 2 MB), Aufträge an die Lade-Task (Kopieren, Messen, Flash-Last, SD neu; dort genug Stack), Befehle `assets` und `sd`, `summary()` für `/api/perf` |
 | `app.h` | gemeinsame Schnittstellen: `sysinfo`, `hwtest`, `gfx`, `perf`, `console`, seit 0.5.5 `assets`; Kerne `kGfxCore=1`, `kSystemCore=0` |
 | `gfx.cpp` | Grafik-Task (Kern 1): seit 0.5.3 Befehle an die Bühne als Warteschlange (4 × 47 Zeichen, `place_command`), Wetterstand in `EngineStats`; Panel anlegen, Bühne ticken/rendern (seit 0.5.0; Orte, Übergang, Rundgang, Figuren als Anfragen anderer Tasks; grober Puffer und Grafiken im PSRAM), Systemanzeigen darüber, Puffertausch; `grab()` kopiert für die Live-Vorschau das fertige Bild samt Palette vor dem Tausch (seit 0.4.2) |
 | `ui.h` (in `gfx.cpp`) | Systemanzeigen von jeder Task aus ein-/ausblenden (`toast`, `show_update`, `show_info` …); seit 0.5.0 `show_picture`/`hide_picture` (eigenes Testbild, Anzeige 5, eigene Sperre `s_pic_lock`, die Welt rechnet weiter) |
-| `input.cpp/.h` | Touch → Gesten → Aktionen (Info-Karte), Daten der Info-Karte, Zurücksetzen am Gerät (Knopf 3 s halten: PIN entfernen, Werksreset) |
+| `input.cpp/.h` | Touch → Gesten → Aktionen (Info-Karte; seit 0.5.6 Tippen/Halten/Wischen an die Welt über `gfx::world_input`, Halte-Text, Hinweis auf neue Version), Daten der Info-Karte, Zurücksetzen am Gerät (Knopf 3 s halten: PIN entfernen, Werksreset) |
 | `hwtest.cpp` | I²C-Scan, Touch-Task (Polling alle 20 ms), geführte Tests `tour`, Flash-Last (seit 0.5.5 Dateien in LittleFS über `assets::flash_load`), Helligkeit; `touch_live()` für den Touch-Test |
 | `exper.cpp/.h` | Seite Experimentell (seit 0.4.2): Schalter (NVS `exp`), Panel-Timing und Stromsparmodus als Probe mit Rückfall nach 15 s (Zeitgeber `probe`), Speichern erst nach Bestätigung (Blob `panel`), Fluchtweg über Startzähler `exp_boot`, Testbilder mit Rückkehr nach 60 s |
 | `perf.cpp` | Leistungsmonitor alle 2 s (Snapshot für API), Zeile seriell, im Log-Puffer 1×/min; ruft `diag::heartbeat()` |
@@ -165,6 +168,7 @@ Regeln: Kern 1 gehört der Grafik. Nichts regelmäßig aufrufen, was die FreeRTO
   nur mit Experimentell; `places`, `place`, `trans`, `tour`, `figures` in `/api/exp`), `GET /api/screen`, `POST /api/picture`
   (seit 0.5.0, mit PIN, nur mit Experimentell; `pic` in `/api/exp`); Status `set.exp`.
 - **Konsole, Orte** (seit 0.5.0): `ort [Nr|Kennung] [Übergang]`, `ort rundgang <s>`, `ort figuren <n>`, `buf grob int|psram` (Messung); seit 0.5.1 `ort ausbau|baustelle`, `ort folgen 0|1`, `ort pruefen 0|1`, `bench` (Verdoppeln und Hintergrund-Kopie messen); `/api/exp` `a=cmd&v=…`, `a=follow&v=`, `a=inspect&v=`. Seit 0.5.2 `bench mem` (PSRAM schreiben/lesen, Kopie aus internem RAM, DMA per `esp_async_memcpy`), `time HH:MM|real`, `speed x`; `/api/exp` `a=time&v=<Minute>|real`, `a=speed&v=<1–3600>`, in GET `minute`, `speed`, `real`. Seit 0.5.3 `wetter [Art [%] [sofort]]`, `wetter blitz`, `wetter wind links|rechts`, `ort cmd <Befehl>`; `/api/exp` `a=weather&v=<Art>&p=<%>`, `a=cmd&v=<Bühnenbefehl>`, in GET `weather`, `weatherPct`, `innen`, `particles`.
+- **Einblendungen und Kamera** (seit 0.5.6): Konsole `kamera [standard|folge <Figur>|ort <Nr>]`, `karte [<Figur>|aus]`, `meldung [system] <Text>`, `uhr an|aus|ecke <n>|sekunden 0|1`; `GET /api/camera` (mode, target, targetName, place, returnIn, places, figures), `POST /api/camera` (`a=home|go|follow`, `v`), `/api/settings` `clk`, `clkCorner`, `clkSec`, `camHome`, `camFig`, `camPlace`, `camRet` (auch in `set` des Status); NVS `clk`, `cam_home`, `cam_fig`, `cam_plc`, `cam_ret`; `/api/perf` `engine.overlay`, `overlayMax`.
 - **Ablage** (seit 0.5.5): `assets [quelle eingebettet|littlefs|sd | kopieren littlefs|sd | messen | leeren | budget <KB>]`, `sd [neu]`; `/api/perf`: `engine.logicMax`, `engine.holds`, `assets` (used, budget, peak, packs, loads, evictions, failures, source, littlefs, sd, last, lastMs, lastSource).
 - **Ausgehend:** `https://api.github.com/repos/Baldesarra/pixelia/releases`, Dateien über `github.com/…/releases/download/`
   → `release-assets.githubusercontent.com`. Ohne Token: 60 Abfragen pro Stunde und IP.
@@ -192,6 +196,7 @@ Gerät, Screenshot, Zeitraffer, Kontaktbogen, `--go ORT[:ÜBERGANG]`, `--sequenc
 | `release_notes.py` | CHANGELOG.json prüfen (`--check`), Release-Notes erzeugen, Changelog-Block für die Firmware (`--embed`, läuft im Firmware-Build) |
 | `web_embed.py` | Oberfläche für die Firmware einbetten (läuft im Firmware-Build) |
 | `web_screens.mjs` | Screenshots der Oberfläche (Handy/Desktop, hell/dunkel) per Edge kopflos, `--url http://pixelia` fürs Gerät; `--variants` (auch beliebige Handybreiten `w360`, `w412-hell`), `--eval` (Skript nach dem Laden, z. B. klicken), `--text 1` (Seitentext), meldet Skriptfehler. In Git-Bash werden `#/…`-Pfade verbogen: aus PowerShell aufrufen |
+| `font_png.py` | Schnitte fett und klein und die Symbole als PNG für `assets/system` (seit 0.5.6, nach Änderungen an font.cpp) |
 | `pixel_font.py` | Pixelschrift aus `engine/src/font.cpp` als Webschrift (nach neuen Glyphen ausführen) |
 | `font_subset.py` | Roboto Flex reduzieren (nur bei neuen Zeichen, braucht `pip install fonttools brotli`) |
 

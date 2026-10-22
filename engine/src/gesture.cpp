@@ -1,5 +1,6 @@
 #include "pixelia/engine/gesture.h"
 
+#include <algorithm>
 #include <cstdlib>
 
 namespace pixelia::gesture {
@@ -7,6 +8,11 @@ namespace pixelia::gesture {
 void Recognizer::touch(int fingers, int x, int y, uint32_t t_ms) {
     if (fingers <= 0) {
         if (down_ && !disqualified_ && !long_fired_ && t_ms - t0_ <= config_.tap_max_ms) push(Type::Tap, t_ms);
+        if (down_ && disqualified_ && !long_fired_ && !multi_ && t_ms - t0_ <= config_.swipe_max_ms) {
+            const int dx = x1_ - x0_, dy = y1_ - y0_;
+            const int ax = std::abs(dx), ay = std::abs(dy);
+            if (std::max(ax, ay) >= config_.swipe_min && (ax >= 2 * ay || ay >= 2 * ax)) push(Type::Swipe, t_ms, dx, dy);
+        }
         down_ = false;
         return;
     }
@@ -14,9 +20,15 @@ void Recognizer::touch(int fingers, int x, int y, uint32_t t_ms) {
         down_ = true;
         disqualified_ = false;
         long_fired_ = false;
+        multi_ = false;
         x0_ = x;
         y0_ = y;
         t0_ = t_ms;
+    }
+    if (fingers > 1) multi_ = true;
+    else {
+        x1_ = x;
+        y1_ = y;
     }
     if (fingers > 1 || std::abs(x - x0_) > config_.move_tolerance || std::abs(y - y0_) > config_.move_tolerance)
         disqualified_ = true;
@@ -45,12 +57,12 @@ float Recognizer::hold_progress(uint32_t t_ms) const {
     return p > 1.0f ? 1.0f : p;
 }
 
-void Recognizer::push(Type type, uint32_t t_ms) {
+void Recognizer::push(Type type, uint32_t t_ms, int dx, int dy) {
     if (count_ == kQueue) {  // voll: ältestes verwerfen
         head_ = (head_ + 1) % kQueue;
         --count_;
     }
-    queue_[(head_ + count_) % kQueue] = {type, x0_, y0_, t_ms - t0_};
+    queue_[(head_ + count_) % kQueue] = {type, x0_, y0_, t_ms - t0_, dx, dy};
     ++count_;
 }
 

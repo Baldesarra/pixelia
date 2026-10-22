@@ -794,7 +794,7 @@ CYD-Projekt Pixelpfote. Der User bringt eine Beispieldatei mit.
 Simulation), ist auf der Info-Karte am Gerät und in der Weboberfläche lesbar, dort auch als Verlauf.
 
 **[entschieden] Touch am Gerät:** Figur antippen → Info-Karte mit Grund; Gebäude antippen → wer ist drin; Wischen →
-nächster Ort; langes Halten auf einer Figur → „Folgen“; Tier oder Stück im Museum antippen → Infokarte (Kapitel 4).
+nächster Ort; langes Halten auf einer Figur → „Folgen“ [geändert 2026-10-22, Wunsch des Users: Folgen über einen Knopf auf der Karte der Figur, langes Halten bleibt die Info-Karte]; Tier oder Stück im Museum antippen → Infokarte (Kapitel 4).
 
 ## 13. Kamera und Regie
 
@@ -808,6 +808,7 @@ jedem bekannten Ort schalten, auch dorthin, wo niemand ist (leeres Haus, Kamin a
 - Modus **„Frei“**: per Touch oder Web zu jedem Ort; das Dorf hat mehrere Orte zum Durchschalten (Platz,
   Häuserzeilen, Bahnhof …). Nach einer einstellbaren Zeit ohne Eingabe (z. B. 10 min) zurück zu Sykora.
 - Modus **„Folge X“**: jede andere Figur, z. B. Taylor.
+- [entschieden, Wunsch des Users 2026-10-22] Standard wählbar: Hauptfigur, eine andere Figur oder ein **fester Ort**; die Rückkehr nach der Ruhezeit lässt sich auch ganz abschalten („nie“). Gebaut in 0.5.6 (`camera.h`).
 - **Kurzmeldungen** von anderen Orten nur bei Wichtigem, höchstens wenige pro Stunde.
 
 ## 14. Perspektive
@@ -834,7 +835,9 @@ Grundsätze:
    eine Gruppe von Orten. Ein Ort greift nie direkt auf einen anderen zu.
 3. **Eine Figur ist immer an genau einem Ort** oder auf genau einer Verbindung. Ein Wechsel ist eine Übergabe in einem
    Schritt, nie eine Kopie.
-4. **Verbindungen sind Daten:** Ort A + Punkt, Ort B + Punkt, Art (Tür, Bildrand, Weg, Bahnhof, Stolleneingang),
+4. [Wunsch des Users 2026-10-22: **Jeder Ort ist durch Tippen erreichbar und wieder verlassbar**; jede Verbindung
+   hat am Display eine antippbare Stelle (Karte mit Ziel und „Betreten“/„Hingehen“), der Orts-Graph hängt in beide
+   Richtungen zusammen.] **Verbindungen sind Daten:** Ort A + Punkt, Ort B + Punkt, Art (Tür, Bildrand, Weg, Bahnhof, Stolleneingang),
    Reisezeit, Bedingungen (nur bei Tag, erst nach Bau, Werkzeug nötig, Zug nach Fahrplan). Fahrzeuge sind bewegliche
    Orte.
 5. **Neues Gebiet ohne Umbau:** neuer Ordner, Daten, eine Zeile Registrierung. Ein alter Speicherstand lädt weiter.

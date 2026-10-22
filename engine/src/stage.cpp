@@ -4,8 +4,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
 #include "pixelia/engine/light.h"
+#include "pixelia/engine/overlay.h"
 #include "pixelia/engine/system_ui.h"
 
 namespace pixelia {
@@ -388,7 +390,8 @@ void Stage::deliver_travels() {
             }
             ++travels_;
             scenes_[to]->arrive(t);
-            if (t.follow && follow_ && i == active_ && from_ < 0 && pending_ < 0) start_transition(to, t.transition);
+            const bool followed = follow_who_ == 0 ? t.follow : follow_who_ != kNobody && t.who == follow_who_;
+            if (followed && follow_ && i == active_ && from_ < 0 && pending_ < 0) start_transition(to, t.transition);
         }
     }
 }
@@ -487,6 +490,55 @@ void Stage::tick(const WorldClock& clock) {
     if (from_ < 0 && !entered(active_)) sync_entered();  // z. B. nach set_active, sobald geladen
     if (from_ >= 0) update_palette();
     if (from_ < 0 && pending_ < 0 && prefetched_ != active_) prefetch_neighbors();
+}
+
+int Stage::find_figure(uint16_t id) const {
+    if (id == 0) return -1;
+    for (int i = 0; i < count_; ++i)
+        if (scenes_[i]->has_figure(id)) return i;
+    return -1;
+}
+
+uint16_t Stage::lead() const {
+    // Orte nennen die Hauptfigur zuerst (Scene::figures)
+    FigureInfo f[1];
+    for (int i = 0; i < count_; ++i)
+        if (scenes_[i]->figures(f, 1) > 0 && f[0].lead) return f[0].id;
+    return 0;
+}
+
+int Stage::figures(FigureInfo* out, int* place, int max) const {
+    int n = 0;
+    for (int i = 0; i < count_ && n < max; ++i) {
+        const int got = scenes_[i]->figures(out + n, max - n);
+        if (place)
+            for (int k = 0; k < got; ++k) place[n + k] = i;
+        n += got;
+    }
+    return n;
+}
+
+Hit Stage::hit(int x, int y) const {
+    if (from_ >= 0 || !entered(active_)) return {};
+    return scenes_[active_]->hit(x, y);
+}
+
+bool Stage::describe(const Hit& hit, ui::Card* card) const {
+    if (hit.kind == Hit::Kind::None || !scenes_[active_]->describe(hit, card)) return false;
+    if (card->place) {
+        // Tür: Ziel statt des eigenen Ortes zeigen (wohin sie führt), darunter, wer dort ist
+        const int to = find(card->place);
+        if (to >= 0) {
+            card->where = std::string("→ ") + scenes_[to]->title();
+            FigureInfo f[8];
+            const int n = scenes_[to]->figures(f, 8);
+            std::string who = n ? "Drin: " : "Niemand drin";
+            for (int k = 0; k < n && k < 4; ++k) who += std::string(k ? ", " : "") + f[k].name;
+            if (n > 4) who += " …";
+            card->add_line(who);
+        }
+    }
+    return true;
 }
 
 void Stage::set_buffers(uint8_t* main, uint8_t* aux) {

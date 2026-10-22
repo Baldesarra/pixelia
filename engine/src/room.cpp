@@ -413,6 +413,33 @@ void Room::draw_inspect(Canvas& fine, uint8_t blocked, uint8_t part, uint8_t use
     }
 }
 
+int Room::hit_part(int x, int y, int* depth_out) const {
+    if (!st_) return -1;
+    int best = -1, best_depth = 0;
+    for (int i = 0; i < st_->part_count; ++i) {
+        const PartDef* d = def(i);
+        const PartStage* s = stage(i);
+        const PartStage* l = look(i);
+        if (!d || !s || !l || !l->sheet.pixels) continue;
+        const RoomPart& p = st_->parts[i];
+        int px, py, depth;
+        place(p, s->w, s->h, *l, &px, &py, &depth);
+        const Sprite fr = frame_of(p, *l);
+        const int sx = x - px, sy = y - py;
+        if (sx < 0 || sy < 0 || sx >= fr.width || sy >= fr.height) continue;
+        const bool flip = p.flags & kPartFlipped;
+        if (!fr.pixels[sy * fr.width + (flip ? fr.width - 1 - sx : sx)]) continue;
+        if (d->layer != PartLayer::Standing) depth = kFlatDepth;
+        // gleiche Tiefe: das später eingetragene Teil liegt vorn (stabile Sortierung)
+        if (best < 0 || depth >= best_depth) {
+            best = i;
+            best_depth = depth;
+        }
+    }
+    if (depth_out) *depth_out = best_depth;
+    return best;
+}
+
 DepthList& Room::begin(Canvas& c, bool with_background, CoarseLayers* layers) const {
     DepthList& list = st_->list;
     const bool bg = with_background && bg_;

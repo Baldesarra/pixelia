@@ -1,0 +1,8 @@
+GIMP Palette
+Name: Pixelia System
+Columns: 3
+# Schriften und Symbole der Einblendungen (seit 0.5.6): einfarbig, gezeichnet wird in der Farbe der Oberflaeche.
+# "breite" markiert in der untersten Zeile einer Schrift die Breite des Zeichens (docs/STIL.md Kapitel 9).
+  0   0   0	durchsichtig
+255 255 255	tinte
+230  60  60	breite

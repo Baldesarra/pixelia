@@ -189,6 +189,14 @@ Farbreihe (256 Byte), Palette, Daten.
 Pakete und `assets/CREDITS.md`), `info`, `zeige` (Bild aus einem Paket als PNG), `wandeln` (ein PNG prüfen und
 umrechnen, mit Vorschau). Ohne Fremdbibliotheken.
 
+
+### Schriften und Symbole (seit 0.5.6)
+
+- Paket „system“ (`assets/system`, Palette `assets/paletten/system.gpl`: durchsichtig, tinte, breite), Grundausstattung. Die Systemschrift 5×7 steht im Code (`engine/src/font.cpp`) und geht immer; fett und klein kommen als Grafik.
+- Schrift = PNG-Streifen, ein Bild je Zeichen in der Reihenfolge der Tabelle in font.cpp (ASCII 32–126, dann Sonderzeichen, zuletzt das Ersatzzeichen). Bildhöhe = Zellhöhe + 1; die unterste Zeile markiert in der Farbe „breite“ die Breite des Zeichens (Spalten 0 … Breite − 1), darüber die Glyphe in „tinte“. Fett: Zelle 11 (wie 5×7), klein: Zelle 7 (Zeile 0 Umlautpunkte, 1–5 Zeichen).
+- Symbole „ui/symbole“: 9 × 9, einfarbig in „tinte“ (Gedanke, Folgen, Haus, Fund, Neu, Ort).
+- Erzeugt mit `python tools/font_png.py` aus font.cpp; danach dürfen die PNGs direkt weitergezeichnet werden (das Werkzeug überschreibt sie beim nächsten Lauf).
+
 ## Offen (für 0.6.0)
 
 - Zeichenanleitung für eigene Möbel (Maße im Raster, welche Rampen, Umriss); das Grafik-Format steht seit 0.5.5

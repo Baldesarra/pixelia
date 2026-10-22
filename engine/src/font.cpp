@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <cstddef>
 
+#include "pixelia/engine/assets.h"
+#include "pixelia/engine/memory.h"
+
 namespace pixelia::font {
 
 namespace {
@@ -176,11 +179,64 @@ constexpr int kAsciiCount = 95;
 constexpr size_t kGlyphCount = sizeof(kGlyphs) / sizeof(kGlyphs[0]);
 static_assert(kGlyphs[kAsciiCount - 1].cp == U'~', "ASCII-Tabelle unvollständig");
 
-const Glyph& find(char32_t cp) {
-    if (cp >= 32 && cp < 32 + kAsciiCount) return kGlyphs[cp - 32];
+size_t index_of(char32_t cp) {
+    if (cp >= 32 && cp < 32 + kAsciiCount) return cp - 32;
     for (size_t i = kAsciiCount; i < kGlyphCount; ++i)
-        if (kGlyphs[i].cp == cp) return kGlyphs[i];
-    return kGlyphs[kGlyphCount - 1];
+        if (kGlyphs[i].cp == cp) return i;
+    return kGlyphCount - 1;
+}
+
+// Schnitt aus dem Paket „system“ (seit 0.5.6): Breite und Zeilen je Zeichen in der Reihenfolge von kGlyphs,
+// im Grafik-Speicher. Die Systemschrift (Normal) steht in kGlyphs und braucht nichts davon.
+struct Face {
+    int cell_h = 0, cap_top = 0, cap_h = 0, line_h = 0;
+    uint8_t* widths = nullptr;
+    uint16_t* rows = nullptr;  // je Zeichen cell_h Zeilen, Bit (Breite − 1) = linke Spalte
+};
+Face s_faces[3];
+
+const Face* face_of(Style st) {
+    const Face& f = s_faces[static_cast<int>(st)];
+    return st != Style::Normal && f.rows ? &f : nullptr;
+}
+
+struct GlyphRef {
+    int width;
+    const uint8_t* r8;    // Systemschrift
+    const uint16_t* r16;  // Schnitt aus dem Paket
+    int rows;
+};
+
+GlyphRef find(char32_t cp, Style st) {
+    const size_t i = index_of(cp);
+    if (const Face* f = face_of(st)) return {f->widths[i], nullptr, f->rows + i * f->cell_h, f->cell_h};
+    return {kGlyphs[i].width, kGlyphs[i].rows, nullptr, kCellHeight};
+}
+
+bool build_face(Face& f, const SpriteSheet& sheet, int cap_top, int cap_h) {
+    if (!sheet.pixels || sheet.frames != static_cast<int>(kGlyphCount) || sheet.height < 2 || sheet.width > 16)
+        return false;
+    const int cell = sheet.height - 1;
+    auto* mem = static_cast<uint8_t*>(asset_alloc(kGlyphCount * (1 + cell * 2) + 2));
+    if (!mem) return false;
+    f.widths = mem;
+    f.rows = reinterpret_cast<uint16_t*>(mem + ((kGlyphCount + 1) & ~size_t{1}));
+    for (size_t i = 0; i < kGlyphCount; ++i) {
+        const Sprite fr = sheet.frame(static_cast<int>(i));
+        int w = 0;
+        while (w < fr.width && fr.pixels[cell * fr.width + w] == 2) ++w;  // Breite: Zeile unter der Zelle
+        f.widths[i] = static_cast<uint8_t>(w);
+        for (int r = 0; r < cell; ++r) {
+            uint16_t bits = 0;
+            for (int x = 0; x < w; ++x) bits = static_cast<uint16_t>(bits << 1 | (fr.pixels[r * fr.width + x] == 1));
+            f.rows[i * cell + r] = bits;
+        }
+    }
+    f.cell_h = cell;
+    f.cap_top = cap_top;
+    f.cap_h = cap_h;
+    f.line_h = cell + 1;
+    return true;
 }
 
 // Nächstes Zeichen aus UTF-8; ungültige Bytes werden als Ersatzzeichen gelesen
@@ -205,9 +261,9 @@ void plot(Canvas& c, int x, int y, int scale, uint8_t color) {
     }
 }
 
-int draw_glyph(Canvas& c, int x, int y, const Glyph& g, uint8_t color, int scale) {
-    for (int r = 0; r < kCellHeight; ++r) {
-        uint8_t bits = g.rows[r];
+int draw_glyph(Canvas& c, int x, int y, const GlyphRef& g, uint8_t color, int scale) {
+    for (int r = 0; r < g.rows; ++r) {
+        const unsigned bits = g.r8 ? g.r8[r] : g.r16[r];
         if (!bits) continue;
         for (int col = 0; col < g.width; ++col)
             if (bits & (1u << (g.width - 1 - col))) plot(c, x + col * scale, y + r * scale, scale, color);
@@ -216,11 +272,11 @@ int draw_glyph(Canvas& c, int x, int y, const Glyph& g, uint8_t color, int scale
 }
 
 // Breite eines Wortes ab i bis zum nächsten Leerzeichen/Zeilenumbruch (ohne Abstand danach)
-int word_width(std::string_view s, size_t i, int scale, size_t* end) {
+int word_width(std::string_view s, size_t i, int scale, Style st, size_t* end) {
     int w = 0;
     bool first = true;
     while (i < s.size() && s[i] != ' ' && s[i] != '\n') {
-        const Glyph& g = find(next_cp(s, i));
+        const GlyphRef g = find(next_cp(s, i), st);
         w += (first ? 0 : scale) + g.width * scale;
         first = false;
     }
@@ -230,8 +286,8 @@ int word_width(std::string_view s, size_t i, int scale, size_t* end) {
 
 // Gemeinsamer Umbruch für Zählen und Zeichnen
 template <typename Line>
-int wrap(std::string_view s, int max_width, int scale, Line&& line) {
-    const int space = (find(U' ').width + 1) * scale;
+int wrap(std::string_view s, int max_width, int scale, Style st, Line&& line) {
+    const int space = (find(U' ', st).width + 1) * scale;
     int lines = 0;
     size_t i = 0;
     while (i <= s.size()) {
@@ -240,7 +296,7 @@ int wrap(std::string_view s, int max_width, int scale, Line&& line) {
         bool any = false;
         while (i < s.size() && s[i] != '\n') {
             size_t wend;
-            int ww = word_width(s, i, scale, &wend);
+            int ww = word_width(s, i, scale, st, &wend);
             int add = any ? space + scale + ww : ww;  // Abstand + Leerzeichen + Abstand + Wort
             if (any && w + add > max_width) break;
             w += add;
@@ -257,7 +313,7 @@ int wrap(std::string_view s, int max_width, int scale, Line&& line) {
         } else if (!any) {
             // Wort breiter als die Zeile: trotzdem setzen, damit es weitergeht
             size_t wend;
-            word_width(s, i, scale, &wend);
+            word_width(s, i, scale, st, &wend);
             i = wend;
         }
     }
@@ -266,19 +322,44 @@ int wrap(std::string_view s, int max_width, int scale, Line&& line) {
 
 }  // namespace
 
-int text_width(std::string_view s, int scale) {
+bool load_faces(AssetStore& store) {
+    if (s_faces[1].rows && s_faces[2].rows) return true;
+    if (!store.load_base("system")) return false;
+    ImageAsset img;
+    bool ok = true;
+    if (!s_faces[1].rows) ok &= store.image(asset_id("schrift/fett"), &img) && build_face(s_faces[1], img.sheet, kCapTop, kCapHeight);
+    if (!s_faces[2].rows) ok &= store.image(asset_id("schrift/klein"), &img) && build_face(s_faces[2], img.sheet, 1, 5);
+    return ok;
+}
+
+bool has_face(Style style) { return style == Style::Normal || face_of(style); }
+
+int line_height(Style style, int scale) {
+    const Face* f = face_of(style);
+    return (f ? f->line_h : kLineHeight) * scale;
+}
+int cap_top(Style style) {
+    const Face* f = face_of(style);
+    return f ? f->cap_top : kCapTop;
+}
+int cap_height(Style style) {
+    const Face* f = face_of(style);
+    return f ? f->cap_h : kCapHeight;
+}
+
+int text_width(std::string_view s, int scale, Style style) {
     int w = 0;
     bool first = true;
     for (size_t i = 0; i < s.size();) {
-        const Glyph& g = find(next_cp(s, i));
+        const GlyphRef g = find(next_cp(s, i), style);
         w += (first ? 0 : scale) + g.width * scale;
         first = false;
     }
     return w;
 }
 
-std::string ellipsize(std::string_view s, int max_width, int scale) {
-    if (text_width(s, scale) <= max_width) return std::string(s);
+std::string ellipsize(std::string_view s, int max_width, int scale, Style style) {
+    if (text_width(s, scale, style) <= max_width) return std::string(s);
     std::string r(s);
     while (!r.empty()) {
         // letztes Zeichen (inkl. UTF-8-Folgebytes) entfernen
@@ -286,16 +367,16 @@ std::string ellipsize(std::string_view s, int max_width, int scale) {
         while (cut > 0 && (static_cast<unsigned char>(r[cut]) & 0xC0) == 0x80) --cut;
         r.erase(cut);
         while (!r.empty() && r.back() == ' ') r.pop_back();
-        if (text_width(r + "…", scale) <= max_width) break;
+        if (text_width(r + "…", scale, style) <= max_width) break;
     }
     return r + "…";
 }
 
-int draw(Canvas& canvas, int x, int y, std::string_view s, uint8_t color, int scale) {
+int draw(Canvas& canvas, int x, int y, std::string_view s, uint8_t color, int scale, Style style) {
     const int x0 = x;
     bool first = true;
     for (size_t i = 0; i < s.size();) {
-        const Glyph& g = find(next_cp(s, i));
+        const GlyphRef g = find(next_cp(s, i), style);
         if (!first) x += scale;
         x += draw_glyph(canvas, x, y, g, color, scale);
         first = false;
@@ -303,21 +384,23 @@ int draw(Canvas& canvas, int x, int y, std::string_view s, uint8_t color, int sc
     return x - x0;
 }
 
-void draw_centered(Canvas& canvas, int cx, int y, std::string_view s, uint8_t color, int scale) {
-    draw(canvas, cx - text_width(s, scale) / 2, y, s, color, scale);
+void draw_centered(Canvas& canvas, int cx, int y, std::string_view s, uint8_t color, int scale, Style style) {
+    draw(canvas, cx - text_width(s, scale, style) / 2, y, s, color, scale, style);
 }
 
 int draw_wrapped(Canvas& canvas, int x, int y, int max_width, std::string_view s, uint8_t color, int scale,
-                 int line_height, int max_lines) {
-    return wrap(s, max_width, scale, [&](int n, std::string_view line) {
+                 int line_h, int max_lines, Style style) {
+    const int step = line_h > 0 ? line_h : line_height(style, scale);
+    return wrap(s, max_width, scale, style, [&](int n, std::string_view line) {
         if (max_lines > 0 && n >= max_lines) return;
-        draw(canvas, x, y + n * (line_height > 0 ? line_height : kLineHeight * scale), line, color, scale);
+        draw(canvas, x, y + n * step, line, color, scale, style);
     });
 }
 
-int wrapped_lines(int max_width, std::string_view s, int scale, int* widest) {
+int wrapped_lines(int max_width, std::string_view s, int scale, int* widest, Style style) {
     int w = 0;
-    int n = wrap(s, max_width, scale, [&](int, std::string_view line) { w = std::max(w, text_width(line, scale)); });
+    int n = wrap(s, max_width, scale, style,
+                 [&](int, std::string_view line) { w = std::max(w, text_width(line, scale, style)); });
     if (widest) *widest = w;
     return n;
 }

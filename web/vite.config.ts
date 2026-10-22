@@ -91,7 +91,21 @@ function mockDevice(): Plugin {
   const logLine = (n: number, l: string, m: string) => ({ n, b: 42, t: now() - (300 - n), u: n * 900, l, m });
   let logN = 300;
   // Einstellungen und Schutz wie auf dem Gerät (auth.cpp): PIXELIA_MOCK_PIN=1234 startet mit PIN
-  const set = { rot: 0, bright: 80, lp: 3000, ui: '' };
+  const set = { rot: 0, bright: 80, lp: 3000, ui: '', clk: true, clkCorner: 0, clkSec: false, camHome: 0, camFig: 0, camPlace: 1, camRet: 600 };
+  // Kamera (seit 0.5.6): Orte und Figuren wie die Testorte
+  const cam = { mode: 0, place: 1, target: 1000 };
+  const camPlaces = [
+    { id: 'scrolltest', title: 'Landschaft' },
+    { id: 'testort-wiese', title: 'Testort Wiese' },
+    { id: 'testort-raum', title: 'Testort Raum' },
+    { id: 'testort-platz', title: 'Testort Platz' },
+  ];
+  const camFigs = [
+    { id: 1000, name: 'Begleiterin', place: 1, lead: true },
+    ...[1001, 1002, 1003, 1004, 1005].map((id) => ({ id, name: 'Testfigur ' + (id - 900), place: 1, lead: false })),
+    ...[2000, 2001, 2002].map((id) => ({ id, name: 'Testfigur ' + (id - 1800), place: 2, lead: false })),
+    ...[3000, 3001, 3002, 3003].map((id) => ({ id, name: 'Testfigur ' + (id - 2700), place: 3, lead: false })),
+  ];
   const names: Record<string, string> = { a1b2c3d4e5f6: 'Handy Wohnzimmer' };
   let pin = process.env.PIXELIA_MOCK_PIN ?? '';
   // Absturzbericht vorhanden (PIXELIA_MOCK_CRASH=0: keiner); „Bericht löschen“ entfernt ihn
@@ -318,7 +332,36 @@ function mockDevice(): Plugin {
         if (f.has('bright')) set.bright = Number(f.get('bright'));
         if (f.has('lp')) set.lp = Number(f.get('lp'));
         if (f.has('ui')) set.ui = f.get('ui') ?? '';
+        if (f.has('clk')) set.clk = f.get('clk') === '1';
+        if (f.has('clkCorner')) set.clkCorner = Number(f.get('clkCorner'));
+        if (f.has('clkSec')) set.clkSec = f.get('clkSec') === '1';
+        for (const k of ['camHome', 'camFig', 'camPlace', 'camRet'] as const) if (f.has(k)) set[k] = Number(f.get(k));
+        if (['camHome', 'camFig', 'camPlace'].some((k) => f.has(k))) cam.mode = 0;
         json(res, { ok: true, msg: 'Gespeichert' });
+      });
+      server.middlewares.use('/api/camera', async (req, res) => {
+        if (req.method === 'POST') {
+          const f = await form(req);
+          if (!authorized(req, f)) return deny(res);
+          const a = f.get('a');
+          const v = Number(f.get('v'));
+          if (a === 'home') cam.mode = 0;
+          if (a === 'go') Object.assign(cam, { mode: 1, place: v });
+          if (a === 'follow') Object.assign(cam, { mode: 2, target: v });
+          return json(res, { ok: true, msg: 'Ok' });
+        }
+        const target = cam.mode === 1 ? 0 : cam.mode === 2 ? cam.target : set.camHome === 0 ? 1000 : set.camHome === 1 ? set.camFig : 0;
+        const place =
+          cam.mode === 0 && set.camHome === 2 ? set.camPlace : cam.mode === 1 ? cam.place : (camFigs.find((x) => x.id === target)?.place ?? 1);
+        json(res, {
+          mode: cam.mode,
+          target,
+          targetName: camFigs.find((x) => x.id === target)?.name ?? '',
+          place,
+          returnIn: cam.mode === 0 || set.camRet === 0 ? -1 : 412,
+          places: camPlaces,
+          figures: camFigs,
+        });
       });
       server.middlewares.use('/api/clients/name', async (req, res) => {
         const f = await form(req);

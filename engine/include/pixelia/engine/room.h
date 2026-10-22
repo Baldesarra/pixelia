@@ -159,6 +159,10 @@ public:
     // Benutzungspunkt k von Teil i (beim Spiegeln mitgespiegelt); false = gibt es nicht
     bool use_point(int i, int k, int* tx, int* ty, UsePoint* out) const;
 
+    // Touch (seit 0.5.6): vorderstes Teil am groben Bildpunkt (x, y), durchsichtige Punkte zählen nicht; depth wie
+    // in der Tiefenliste (flache Teile kFlatDepth). −1 = keins
+    int hit_part(int x, int y, int* depth) const;
+
     // Ausgänge
     int exit_count() const;
     const Exit& exit(int i) const;

@@ -18,6 +18,7 @@ unter `assets/fremd/<Quelle>/`; dort zählt eine Zeile mit „eigen“ nicht.
 |---|---|---|---|---|
 | `assets/paletten/*` | Zeichenpaletten (GIMP-Palette, Rampen benannt) | Pixelia | – | eigen |
 | `assets/testorte/*` | Grafiken und Paketbeschreibung der Testorte (bis 0.5.4 im Code gemalt) | Pixelia | – | eigen |
+| `assets/system/*` | Schriften fett und klein, Symbole der Einblendungen (seit 0.5.6, erzeugt mit `tools/font_png.py` aus der Systemschrift) | Pixelia | – | eigen |
 
 ## Schrift und Icons der Weboberfläche (seit 0.3.0)
 

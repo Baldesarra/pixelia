@@ -1,20 +1,67 @@
 [
   {
     "v": "0.5.6",
-    "d": "",
-    "t": "",
-    "s": "",
+    "d": "2026-10-22",
+    "t": "Schrift, Einblendungen und Touch",
+    "s": "Figuren antippen, Karte, Pixel-Uhr, Wischen und Kamera-Modi",
     "k": {
-      "s": "Schrift, Einblendungen und Touch (in Arbeit)",
+      "s": "Figuren antippen, Karte, Pixel-Uhr und Wischen",
+      "n": [
+        "Karte: Tippst du eine Figur an, zeigt rechts eine Karte Bild, Name, Tätigkeit, Ort und Gedanken (noch Testtexte); eine Tür zeigt, wer drin ist",
+        "Türen und Wege: Türen, Schwellen und Wege am Bildrand zeigen, wohin sie führen und wer dort ist; „Betreten“ oder „Hingehen“ bringt dich hin",
+        "Ortsname: Nach jedem Wechsel steht der Name des Ortes kurz oben links, das Dauer-Schild ist weg",
+        "Rückkehr: Kurz bevor die Anzeige zum Standard zurückspringt, kommt ein Hinweis; eine Berührung lässt sie bleiben",
+        "Folgen: Auf der Karte einer Figur folgt ihr die Anzeige per Knopf „Folgen“ von Ort zu Ort; mit „Nicht mehr folgen“ zurück; langes Halten zeigt wie bisher die Info-Karte",
+        "Wischen: Nach links wischen zeigt den nächsten Ort, nach rechts den vorherigen, auch bei gedrehtem Bild",
+        "Uhr nachts: Zwischen 22 und 6 Uhr ist die Uhr gedimmt; tippst du sie an, zeigt sie Datum und Wochentag",
+        "Pixel-Uhr: kleine Uhr oben rechts mit der echten Uhrzeit, Ecke und Sekunden in der Weboberfläche einstellbar, auch abschaltbar",
+        "Anzeige folgt: In der Weboberfläche wählst du Hauptfigur, eine andere Figur oder einen festen Ort und ob die Anzeige nach 10 oder 30 Minuten oder nie dorthin zurückkehrt",
+        "Kurzmeldungen: Meldungen stehen jetzt oben, warten in einer Reihe und kommen aus der Welt höchstens viermal pro Stunde",
+        "Neue Version: Gibt es ein Update, weist dich das Display einmal darauf hin; installiert wird nur, wenn du es willst",
+        "Schriften: neue fette Schrift für Namen und Uhr und eine kleine für Hinweise"
+      ],
       "i": [
-        "Eigene Möbel: Beim späteren Hochladen wählst du je Möbel selbst, ob es deine Originalfarben behält oder in Pixelia-Farben umgerechnet wird"
+        "Eigene Möbel: Beim späteren Hochladen wählst du je Möbel selbst, ob es deine Originalfarben behält oder in Pixelia-Farben umgerechnet wird",
+        "Karte: wird sparsamer gezeichnet, das Bild bleibt auch mit offener Karte flüssig",
+        "Pfeil: Über einer Figur steht nur noch ein Pfeil, solange ihre Karte offen ist, auch nicht mehr über der Hauptfigur oder beim Folgen"
+      ],
+      "f": [
+        "Protokoll: falsch dargestellte Umlaute in älteren Meldungen der Konsole"
       ]
     },
     "h": [
-      "Doku: Eigene Möbel: der User wählt je Möbel zwischen Originalfarben und Pixelia-Farben, beide als Vorschau (STIL.md Kapitel 9, Projektplan Kapitel 14)"
+      "Doku: Eigene Möbel: der User wählt je Möbel zwischen Originalfarben und Pixelia-Farben, beide als Vorschau (STIL.md Kapitel 9, Projektplan Kapitel 14)",
+      "Display: Der Standard der Anzeige folgt jetzt der Hauptfigur (Testorte); nach dem Start zeigt das Display ihren Ort statt der Landschaft",
+      "Touch: Gesten am Gerät, Info-Karte per langem Druck neben einer Figur und der Hinweis auf neue Versionen sind am Display noch vom User zu prüfen"
     ],
     "pr": [
-      37
+      37,
+      38
+    ],
+    "n": [
+      "Engine: Schnitte fett und klein (3×5) als Grafik im neuen Paket „system“ (Grundausstattung, tools/font_png.py), Systemschrift 5×7 bleibt Grundlage, Format in STIL.md Kapitel 9",
+      "Engine: Karte mit Bild und Text (overlay.h): Figur mit Tätigkeit, Ort, Gedanke (Testtext) und Knopf „Folgen“, Tür mit Ziel, „Drin: …“ und Knopf „Betreten“, Platz fürs Museum; Seitenkarte rechts, feste Höhe",
+      "Engine: Kurzmeldungen als Warteschlange (6 Plätze): Technik vorn, Welt höchstens 4 pro Stunde, mindestens 2 s sichtbar; neu oben als schmale Leiste",
+      "Engine: Pixel-Uhr (Ecke, 24 h, Sekunden oder blinkender Doppelpunkt), zeigt die Ortszeit (NTP)",
+      "Touch: Figur oder Teil antippen mit Treffer nach Tiefe (durchsichtige Punkte zählen nicht), Knopf „Folgen“ auf der Karte, Wischen links/rechts = nächster/vorheriger Ort",
+      "Engine: Kamera-Modi (camera.h): Standard Hauptfigur, Figur oder fester Ort; Frei und Folgen kehren nach 10 min ohne Eingabe zurück (einstellbar, auch nie); Figuren haben feste Kennungen",
+      "Touch: Türschwelle und Weg am Bildrand antippbar (Karte mit Ziel, „Betreten“/„Hingehen“), Ortsname 3 s nach jedem Wechsel, Hinweis 10 s vor der Rückkehr, Uhr 22–6 Uhr gedimmt, Uhr antippen = Datum",
+      "Web: Display → Pixel-Uhr (an/aus, Ecke, Sekunden); Welt → „Anzeige folgt“ (Standard, Rückkehr, Ort wählen); /api/camera, Einstellungen clk*/cam* in /api/settings",
+      "System: Hinweis auf eine neue Version als Kurzmeldung am Display (einmal je Version, installiert nie selbst)",
+      "Simulator: --test overlay (9 Fälle), 4 neue Gestentests mit Wischen und 180°-Drehung, --screen karte-*, schrift-*, uhr*, meldung-*"
+    ],
+    "i": [
+      "System: Konsole kamera, karte, meldung, uhr; /api/perf engine.overlay/overlayMax (Kosten der Einblendungen je Bild)",
+      "Engine: kein Dauer-Pfeil mehr über der Hauptfigur der Testorte, ein Pfeil markiert nur noch die Figur mit offener Karte",
+      "Engine: Rahmen und Schatten schreiben jeden Bildpunkt nur einmal (PSRAM): Karte mit Uhr und Meldung 4,6 → 3,2 ms; Ortszeit der Uhr nur einmal je Sekunde (0,42 → 0,17 ms)"
+    ],
+    "f": [
+      "System: doppelt kodierte Log-Texte der Konsole repariert (38 Zeilen, z. B. „Ã¼“ statt „ü“)"
+    ],
+    "g": [
+      "Simulator: 64/64 Tests (Gesten 15, Bühne 26, Einblendungen 9, Assets 5, Filter 9)",
+      "Display: 64 Figuren, Regen, nachts, Karte + Uhr + Meldung: 29,8 fps, Zeichnen 14,1 ms (max 15,4), Einblendungen 2,8 ms (max 3,2 mit fester Kartenhöhe), Logik 1,6 ms (max 3,1), 0 Aussetzer",
+      "Display: nur Uhr 0,17 ms je Bild; RAM 99 KB frei (Tiefstwert 92 KB), PSRAM 5,4 MB; Firmware 1,75 MB (29 %)"
     ]
   },
   {
@@ -115,7 +162,12 @@
       "Doku: ZUSATZINHALTE.md („Vor 1.0.0 klären“, Ideen nach 1.0), README neu; freie Grafik-Pakete geprüft und keines übernommen, eigene Grafiken im Stil der Küche aus Skizze v4 (STIL.md)",
       "Doku: Setting ergänzt (Licht-Regeln, echter Mond, Schlafenszeit, Jahreszeitenabende, Mindestziele Kapitel 1, Grube vor Lok); Stilregel große Fenster mit Fensterbank, Mond und Jahreszeiten in 0.5.7"
     ],
-    "pr": [31, 32, 33, 34],
+    "pr": [
+      31,
+      32,
+      33,
+      34
+    ],
     "i": [
       "Web: Bundle 151 → 147 KB gzip trotz neuer Seiten und Designs: Icon-Pfade auf Raster 240 gerundet (−5,6 KB), Schrift nur noch wght 400–800 und wdth 100–120 (33 → 21 KB)",
       "Web: Versionsverlauf zeigt Versionen ohne Datum nur, wenn sie installiert sind; „Installiert“ über dem Titel, am Handy (≤ 480 px) Versions-Chip in eigener Zeile",
@@ -190,7 +242,11 @@
       "Engine: Entscheidungen des Users nach animierten Vergleichsbildern: Regen als Striche, Schnee gemischt, Nebel als Schwaden von oben, Blitze gedämpft und zufällig alle 12–30 s bei vollem Gewitter",
       "Engine: Während einer Überblendung (nicht Standard) fehlen die Schleier, drinnen auch die Partikel im Fenster; Abblenden zeigt alles"
     ],
-    "pr": [28, 29, 30]
+    "pr": [
+      28,
+      29,
+      30
+    ]
   },
   {
     "v": "0.5.2",
@@ -238,7 +294,9 @@
       "Engine: SIMD/PIE und DMA helfen beim Verdoppeln nicht, der Engpass ist das Schreiben in den PSRAM; großer Hebel wäre, dass das Display das grobe Bild selbst liest (Frage an den Planungs-Chat)",
       "Engine: Überblendung nur, wenn beide Paletten zusammen ≤ 240 Farben brauchen; nachts mit Lampen meist nicht, dann wird abgeblendet"
     ],
-    "pr": [27]
+    "pr": [
+      27
+    ]
   },
   {
     "v": "0.5.1",
@@ -289,7 +347,9 @@
       "Engine: Die Möbel der Testorte sind neutrale Test-Grafiken (Stil „Formen“), nur auf der Seite Experimentell zu sehen; echte Grafiken folgen nach Setting und Stil-Leitfaden",
       "Engine: Ausgänge am Bildrand sind bewusst nicht markiert (Entscheidung des Users); die Prüfansicht zeigt sie"
     ],
-    "pr": [26]
+    "pr": [
+      26
+    ]
   },
   {
     "v": "0.5.0",
@@ -343,7 +403,12 @@
       "Display: Testbild am Gerät pixelgenau (0 abweichende Pixel laut /api/screen), 30,3 fps, RAM 114 KB; nach „Beenden“ wieder 96 KB PSRAM frei; Tippen beendet es (vom User geprüft)",
       "System: Firmware 1,61 MB (26 % der Partition), Weboberfläche 116 KB gzip"
     ],
-    "pr": [21, 22, 23, 24]
+    "pr": [
+      21,
+      22,
+      23,
+      24
+    ]
   },
   {
     "v": "0.4.2",
@@ -392,7 +457,9 @@
     "h": [
       "Update: Keine automatische Installation ohne Nachfrage, auch nicht als Option (Entscheidung des Users); ein Hinweis auf dem Display kommt mit den Overlays in 0.5.x"
     ],
-    "pr": [20]
+    "pr": [
+      20
+    ]
   },
   {
     "v": "0.4.1",
@@ -425,7 +492,9 @@
       "Gerät: Prüfung 9 Releases (107 KB, 2,8 s), Download 0.4.0-1 → 0.4.1-beta.1 über GitHub 1521 KB in 16,6 s, 29,8 fps, RAM ≥ 90 KB frei, Probelauf bestanden",
       "Web: Bundle gzip 130 KB (Ziel ≤ 150 KB); Firmware 1522 KB = 24,8 % der Partition; Mock-Durchlauf Suchen, Installieren, Neustart und Probelauf"
     ],
-    "pr": [19]
+    "pr": [
+      19
+    ]
   },
   {
     "v": "0.4.1-beta.1",
@@ -479,7 +548,10 @@
       "Web: Vorschau mit der Build-.bin (1 neue Version) und der Release-.bin 0.3.2 (kein Verlauf); Absturzbericht löschen fragt im Mock den PIN ab",
       "Web: Bundle gzip 127 KB (app.js 91 KB, CSS 8 KB, Schrift 33 KB), Ziel ≤ 150 KB; Firmware 1340 KB = 21,8 % der Partition"
     ],
-    "pr": [17, 18]
+    "pr": [
+      17,
+      18
+    ]
   },
   {
     "v": "0.3.2",
@@ -528,7 +600,9 @@
     "h": [
       "System: PIN vergessen? Am Gerät lange aufs Display drücken, auf der Info-Karte „Zurücksetzen …“ tippen und „PIN entfernen“ 3 Sekunden halten. Über das Netz geht das bewusst nicht."
     ],
-    "pr": [16]
+    "pr": [
+      16
+    ]
   },
   {
     "v": "0.3.1",
@@ -572,7 +646,9 @@
       "Gerät: Mit offener Oberfläche und Live-Log 29,8–30,3 fps, Zeichnen ≤ 4,2 ms, 0 Aussetzer, interner RAM-Tiefstwert 111 KB; Firmware 1305 KB = 21 % der Partition",
       "Web: Bundle gzip 119 KB (app.js 79 KB, CSS 7 KB, Schrift 33 KB), Ziel ≤ 150 KB"
     ],
-    "pr": [15]
+    "pr": [
+      15
+    ]
   },
   {
     "v": "0.3.0",
@@ -623,7 +699,11 @@
       "Gerät: Mit offener Oberfläche (Live-WebSocket, 16 Seitenaufrufe) 29,8–30,3 fps, Zeichnen höchstens 6,4 ms, 0 Aussetzer, interner RAM-Tiefstwert 113 KB",
       "Gerät: Firmware 1261 KB = 21 % der App-Partition; Setup-Modus nicht am Gerät geprüft (Code-Pfad unverändert die bisherige Einrichtungsseite)"
     ],
-    "pr": [12, 13, 14]
+    "pr": [
+      12,
+      13,
+      14
+    ]
   },
   {
     "v": "0.2.2",
@@ -676,7 +756,9 @@
       "System: Verschiebt ein Update den PSRAM-Puffer, bleiben nur die letzten 6 KB; nach Stromausfall ist er leer. Die Task-Liste nie regelmäßig abfragen",
       "Web: Alles nur im Heimnetz und noch ohne PIN erreichbar; der optionale PIN kommt mit 0.3.2"
     ],
-    "pr": [10]
+    "pr": [
+      10
+    ]
   },
   {
     "v": "0.2.1",
@@ -723,7 +805,11 @@
       "Display: Beim Bau nicht am Gerät geprüft (Board nicht angeschlossen); der User hat es danach selbst getestet",
       "Touch: Nur kurzes Tippen schließt die Karte, Wischen bleibt für die Welten frei"
     ],
-    "pr": [6, 7, 8]
+    "pr": [
+      6,
+      7,
+      8
+    ]
   },
   {
     "v": "0.2.0",
@@ -793,7 +879,10 @@
       "Update: Geräte mit 0.1.0 brauchen einmal den Web-Flasher, weil 0.1.0 noch keine Update-Funktion hat. Ab 0.2.0 laufen Updates ohne USB",
       "WLAN: Am Windows-PC mit FritzBox funktioniert pixelia.local nicht, weil der FritzBox-DNS .local-Adressen mit 0.0.0.0 beantwortet. Dort http://pixelia/ oder http://pixelia.fritz.box verwenden; Android öffnet pixelia.local direkt"
     ],
-    "pr": [4, 5]
+    "pr": [
+      4,
+      5
+    ]
   },
   {
     "v": "0.1.0",
@@ -852,6 +941,10 @@
       "Update: 0.1.0 hat noch keine Update-Funktion über WLAN, installiert wird per Web-Flasher",
       "Display: Steht das Gerät mit dem USB-Kabel rechts, braucht es die 180°-Drehung (Konsolenbefehl rot 180)"
     ],
-    "pr": [1, 2, 3]
+    "pr": [
+      1,
+      2,
+      3
+    ]
   }
 ]

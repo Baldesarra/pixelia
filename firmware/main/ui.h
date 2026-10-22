@@ -19,7 +19,10 @@ void hide_update();
 void show_message(const pixelia::ui::MessageInfo& info, int seconds);
 void hide_message();
 
+// Kurzmeldung der Technik (immer, vor wartenden Meldungen der Welt). Seit 0.5.6 in einer Warteschlange.
 void toast(std::string_view text, pixelia::ui::Tone tone, int seconds);
+// Kurzmeldung aus der Welt: höchstens 4 pro Stunde (SETTING Kapitel 13); false = verworfen
+bool world_toast(std::string_view text, pixelia::ui::Tone tone, int seconds);
 
 // Info-Karte (langer Druck): show() startet die Anzeigedauer neu, refresh_info() ändert nur die Daten
 void show_info(const pixelia::ui::InfoCardData& data, int seconds);
@@ -35,6 +38,7 @@ bool reset_visible();
 
 // Halte-Anzeige während eines langen Drucks: 0..1, negativ = ausblenden
 void set_hold_progress(float progress);
+void set_hold_label(bool follow);  // seit 0.5.6: „Halten: Folgen“ auf einer Figur
 
 // Eigenes Testbild (seit 0.5.0, Seite Experimentell): 400×240 Paletten-Indizes (0–239) mit eigener Palette für die
 // Indizes 0–239, ganzseitig statt der Welt (Vorrang unter Meldung, über Setup). Übernimmt pixels (PSRAM,
