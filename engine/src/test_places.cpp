@@ -874,10 +874,7 @@ void TestPlace::render_fine(Canvas& fine, const CoarseLayers& layers, const uint
 
 void TestPlace::render_overlay(Canvas& fine) const {
     if (inspect_) room_.draw_inspect(fine, ui::kTextDim, ui::kPrimary, ui::kSuccess, ui::kWarning);
-    // Feine Beschriftung über dem groben Bild (Farben der System-Oberfläche)
-    const char* t = title();
-    fine.fill_rect(4, 4, font::text_width(t) + 8, 13, ui::kSurface);
-    font::draw(fine, 8, 5, t, ui::kText);
+    // Der Ortsname steht seit 0.5.6 nicht mehr dauerhaft im Bild: die Anzeige blendet ihn nach jedem Wechsel 3 s ein
     // Kein Dauer-Pfeil über der Begleiterin mehr (Wunsch des Users 2026-10-22): einen Pfeil zeigt nur die offene
     // Karte über ihrer Figur (overlay.h)
 }
@@ -928,6 +925,19 @@ Hit TestPlace::hit(int fx, int fy) const {
         best.y = static_cast<int16_t>(footy * kCoarseScale);
         best.h = static_cast<int16_t>(s.height * kCoarseScale);
     }
+    // Ausgänge ohne Tür-Bild (Türschwelle, Weg am Bildrand): eine Kachel Spielraum rundherum, damit der Finger trifft
+    if (best.kind == Hit::Kind::None) {
+        const int tx = x / kTileSize, ty = y / kTileSize;
+        for (int e = 0; e < room_.exit_count(); ++e) {
+            const Exit& ex = room_.exit(e);
+            if (tx < ex.x - 1 || tx > ex.x + ex.w || ty < ex.y - 1 || ty > ex.y + ex.h) continue;
+            best.kind = Hit::Kind::Exit;
+            best.id = static_cast<uint16_t>(e);
+            best.x = static_cast<int16_t>((ex.x * kTileSize + ex.w * kTileSize / 2) * kCoarseScale);
+            best.y = static_cast<int16_t>((ex.y + ex.h) * kTileSize * kCoarseScale);
+            break;
+        }
+    }
     return best;
 }
 
@@ -975,6 +985,17 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
         card->picture.light_base = static_cast<uint8_t>(pal_.base());  // hellste Lichtstufe: auch nachts erkennbar
         card->picture.light_add = static_cast<uint8_t>(pal_.base() * (pal_.levels() - 1));
         figure_mark(f->id, &card->mark_x, &card->mark_y, &card->mark_h);
+        return true;
+    }
+    if (hit.kind == Hit::Kind::Exit) {
+        if (hit.id >= room_.exit_count()) return false;
+        const Exit& e = room_.exit(hit.id);
+        const bool door = e.kind == ExitKind::Door;
+        card->kind = Kind::Building;
+        card->title = door ? "Tür" : "Weg";
+        card->place = e.to;  // die Bühne setzt das Ziel („→ …“) und wer dort ist
+        card->hint = door ? "Betreten" : "Hingehen";
+        card->hint_symbol = door ? ui::Symbol::House : ui::Symbol::Place;
         return true;
     }
     if (hit.kind == Hit::Kind::Part) {

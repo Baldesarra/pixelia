@@ -835,7 +835,9 @@ Grundsätze:
    eine Gruppe von Orten. Ein Ort greift nie direkt auf einen anderen zu.
 3. **Eine Figur ist immer an genau einem Ort** oder auf genau einer Verbindung. Ein Wechsel ist eine Übergabe in einem
    Schritt, nie eine Kopie.
-4. **Verbindungen sind Daten:** Ort A + Punkt, Ort B + Punkt, Art (Tür, Bildrand, Weg, Bahnhof, Stolleneingang),
+4. [Wunsch des Users 2026-10-22: **Jeder Ort ist durch Tippen erreichbar und wieder verlassbar**; jede Verbindung
+   hat am Display eine antippbare Stelle (Karte mit Ziel und „Betreten“/„Hingehen“), der Orts-Graph hängt in beide
+   Richtungen zusammen.] **Verbindungen sind Daten:** Ort A + Punkt, Ort B + Punkt, Art (Tür, Bildrand, Weg, Bahnhof, Stolleneingang),
    Reisezeit, Bedingungen (nur bei Tag, erst nach Bau, Werkzeug nötig, Zug nach Fahrplan). Fahrzeuge sind bewegliche
    Orte.
 5. **Neues Gebiet ohne Umbau:** neuer Ordner, Daten, eine Zeile Registrierung. Ein alter Speicherstand lädt weiter.

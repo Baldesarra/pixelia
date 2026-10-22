@@ -274,16 +274,24 @@ Rect draw_clock(Canvas& c, int hour, int minute, int second, const ClockStyle& s
     char buf[16];
     clock_text(buf, sizeof(buf), hour, minute, second, st.seconds);
     round_rect(c, r.x - 1, r.y + 1, r.w + 2, r.h + 1, kShadow, 3);
-    framed(c, r.x, r.y, r.w, r.h, kSurface, kOutline, 3);
+    framed(c, r.x, r.y, r.w, r.h, st.dim ? kBg : kSurface, st.dim ? kSurfaceHigh : kOutline, 3);
+    const uint8_t ink = st.dim ? kOutline : kText;
     // Ziffern einzeln, damit der blinkende Doppelpunkt nichts verschiebt
     const int y = r.y + 4 - font::cap_top(st.face);
     int x = r.x + r.w - 5 - font::text_width(buf, 1, st.face);
     for (const char* p = buf; *p; ++p) {
         const char ch[2] = {*p, 0};
-        if (*p != ':' || colon || st.seconds) font::draw(c, x, y, ch, kText, 1, st.face);
+        if (*p != ':' || colon || st.seconds) font::draw(c, x, y, ch, ink, 1, st.face);
         x += font::text_width(ch, 1, st.face) + 1;
     }
     return r;
+}
+
+void draw_place_label(Canvas& c, std::string_view title) {
+    const int w = font::text_width(title) + 14, h = 15;
+    round_rect(c, 4, 6, w + 2, h + 1, kShadow, 3);
+    framed(c, 5, 5, w, h, kSurface, kOutline, 3);
+    font::draw(c, 12, 5 + 4 - font::kCapTop, title, kText);
 }
 
 // --- Karte ---

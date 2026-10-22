@@ -118,7 +118,7 @@ bool render_overlay_screen(const std::string& name, pixelia::Canvas& canvas, con
         for (int y = 0; y < kScreenHeight && !have; y += 4)
             for (int x = 0; x < kScreenWidth && !have; x += 4) {
                 const pixelia::Hit h = stage.hit(x, y);
-                if (h.kind != pixelia::Hit::Kind::Part) continue;
+                if (h.kind == pixelia::Hit::Kind::None || h.kind == pixelia::Hit::Kind::Figure) continue;
                 ui::Card c;
                 if (stage.describe(h, &c) && (what == "tuer") == (c.place != nullptr)) {
                     card = c;

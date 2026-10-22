@@ -1087,10 +1087,33 @@ std::vector<Case> overlay_cases() {
                      ui::Card c;
                      if (h.kind != Hit::Kind::Part || !r.stage.describe(h, &c) || !c.place) continue;
                      if (std::strcmp(c.place, "testort-raum") != 0) return std::string("falscher Ort ") + c.place;
+                     if (c.where != "→ Testort Raum") return "Ziel fehlt: " + c.where;
                      if (c.hint != "Betreten" || !ui::card_button(c, ui::CardStyle{}).w) return std::string("Knopf Betreten fehlt");
                      return c.line_count == 1 && c.lines[0].rfind("Drin: ", 0) == 0 ? std::string() : "keine Bewohner";
                  }
              return std::string("keine Tür gefunden");
+         }},
+        {"Jeder Testort: alle Ausgänge per Tippen erreichbar (Karte mit Ziel und Knopf)",
+         [] {
+             for (const char* name : {"testort-wiese", "testort-raum", "testort-platz"}) {
+                 StageRun r(5, name);
+                 r.run(30);
+                 const auto& room = static_cast<const pixelia::TestPlace&>(r.stage.scene(r.stage.active())).room();
+                 for (int e = 0; e < room.exit_count(); ++e) {
+                     const char* to = room.exit(e).to;
+                     bool found = false;
+                     for (int y = 0; y < pixelia::kScreenHeight && !found; y += 4)
+                         for (int x = 0; x < pixelia::kScreenWidth && !found; x += 4) {
+                             const Hit h = r.stage.hit(x, y);
+                             ui::Card c;
+                             if (h.kind == Hit::Kind::None || h.kind == Hit::Kind::Figure || !r.stage.describe(h, &c)) continue;
+                             found = c.place && std::strcmp(c.place, to) == 0 && ui::card_button(c, ui::CardStyle{}).w &&
+                                     c.where.rfind("→ ", 0) == 0;
+                         }
+                     if (!found) return std::string(name) + ": kein Weg nach " + to;
+                 }
+             }
+             return std::string();
          }},
         {"Standard Hauptfigur: Anzeige geht mit ihr durch die Ausgänge",
          [] {

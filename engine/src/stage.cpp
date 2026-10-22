@@ -526,8 +526,10 @@ Hit Stage::hit(int x, int y) const {
 bool Stage::describe(const Hit& hit, ui::Card* card) const {
     if (hit.kind == Hit::Kind::None || !scenes_[active_]->describe(hit, card)) return false;
     if (card->place) {
+        // Tür: Ziel statt des eigenen Ortes zeigen (wohin sie führt), darunter, wer dort ist
         const int to = find(card->place);
         if (to >= 0) {
+            card->where = std::string("→ ") + scenes_[to]->title();
             FigureInfo f[8];
             const int n = scenes_[to]->figures(f, 8);
             std::string who = n ? "Drin: " : "Niemand drin";

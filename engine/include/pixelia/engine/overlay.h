@@ -80,7 +80,10 @@ struct ClockStyle {
     Corner corner = Corner::TopRight;
     bool seconds = false;
     font::Style face = font::Style::Bold;
+    bool dim = false;  // nachts gedimmt (Wunsch des Users 2026-10-22: 22–6 Uhr)
 };
+// Ortsname nach einem Wechsel (oben links, kurz eingeblendet)
+void draw_place_label(Canvas& canvas, std::string_view title);
 // colon: Doppelpunkt sichtbar (ohne Sekunden blinkt er im Sekundentakt). Gibt die belegte Fläche zurück.
 Rect clock_rect(const ClockStyle& style);
 Rect draw_clock(Canvas& canvas, int hour, int minute, int second, const ClockStyle& style, bool colon);

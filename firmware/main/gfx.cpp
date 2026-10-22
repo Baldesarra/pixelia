@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <mutex>
 #include <string>
 
@@ -300,6 +301,8 @@ bool ensure_engine_ready(bool psram) {
     return true;
 }
 
+void card_follow_state();
+
 void close_card() {
     s_card_open = false;
     s_card_visible.store(false, std::memory_order_relaxed);
@@ -312,8 +315,58 @@ void open_card(const pixelia::Hit& h, int64_t now) {
     s_card_open = true;
     s_card_until = now + kCardSeconds * 1000000LL;
     s_card_ticks = 0;
+    card_follow_state();
     s_card_visible.store(true, std::memory_order_relaxed);
     ESP_LOGI(TAG, "Karte: %s", s_card.title.c_str());
+}
+
+// Knopf der Figurenkarte nach dem Zustand der Kamera: „Folgen“, „Nicht mehr folgen“ (Modus Folgen) bzw. „Folge ich“
+// (die Figur ist der Standard)
+void card_follow_state() {
+    if (!s_card.figure || s_camera.target(s_stage) != s_card.figure) return;
+    s_card.hint = s_camera.mode() == pixelia::Camera::Mode::Follow ? "Nicht mehr folgen" : "Folge ich";
+}
+
+// Ortsname nach einem Wechsel 3 s einblenden; Hinweis 10 s vor der Rückkehr zum Standard
+int s_label_place = -1;
+int64_t s_label_until = 0;
+bool s_return_warned = false;
+void after_ticks(int64_t now) {
+    if (!s_stage.transitioning() && s_stage.active() != s_label_place) {
+        s_label_place = s_stage.active();
+        s_label_until = now + 3000000;
+    }
+    const int rin = s_camera.return_in_s();
+    if (rin == 10 && !s_return_warned) {
+        s_return_warned = true;
+        app::ui::toast("Gleich zurück zum Standard · Berühren bleibt hier", pixelia::ui::Tone::Info, 6);
+    } else if (rin < 0 || rin > 10) {
+        s_return_warned = false;
+    }
+}
+
+pixelia::ui::ClockStyle clock_style(int hour) {
+    const uint32_t bits = s_clock_bits.load(std::memory_order_relaxed);
+    pixelia::ui::ClockStyle st;
+    st.on = bits & 1;
+    st.corner = static_cast<pixelia::ui::Corner>(bits >> 1 & 3);
+    st.seconds = bits >> 3 & 1;
+    st.dim = hour >= 22 || hour < 6;
+    return st;
+}
+
+// Uhr angetippt: Datum und Wochentag als Kurzmeldung
+void show_date() {
+    static const char* const kDays[] = {"Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"};
+    static const char* const kMonths[] = {"Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August",
+                                          "September", "Oktober", "November", "Dezember"};
+    const time_t now = time(nullptr);
+    tm lt;
+    localtime_r(&now, &lt);
+    char buf[64];
+    std::snprintf(buf, sizeof(buf), "%s, %d. %s %d", kDays[lt.tm_wday % 7], lt.tm_mday, kMonths[lt.tm_mon % 12],
+                  lt.tm_year + 1900);
+    app::ui::toast(buf, pixelia::ui::Tone::Info, 4);
 }
 
 // Karte mitführen: Markierung jedes Bild, Inhalt (Tätigkeit) jede Sekunde; schließt bei Ortswechsel und nach 20 s
@@ -330,7 +383,10 @@ void update_card(int64_t now, int ticks) {
         h.kind = pixelia::Hit::Kind::Figure;
         h.id = s_card.figure;
         pixelia::ui::Card c;
-        if (s_stage.describe(h, &c)) s_card = std::move(c);
+        if (s_stage.describe(h, &c)) {
+            s_card = std::move(c);
+            card_follow_state();
+        }
     }
 }
 
@@ -349,6 +405,13 @@ void handle_input(const WorldInput& in, int64_t now) {
         s_camera.swipe(s_stage, in.dx < 0 ? +1 : -1);  // nach links = nächster Ort (wie Umblättern)
         ESP_LOGI(TAG, "Wischen %s: %s → nächster Ort (Frei)", in.dx < 0 ? "links" : "rechts", s_stage.scene(from).name());
         return;
+    }
+    if (in.kind == K::Tap && !s_card_open) {
+        int64_t local;
+        if (timesync::local_us(&local)) {
+            const pixelia::ui::ClockStyle st = clock_style(static_cast<int>(local / 3600000000LL % 24));
+            if (st.on && pixelia::ui::clock_rect(st).contains(in.x, in.y, 6)) return show_date();
+        }
     }
     const pixelia::Hit h = s_stage.hit(in.x, in.y);
     if (in.kind == K::LongPress) {
@@ -377,6 +440,13 @@ void handle_input(const WorldInput& in, int64_t now) {
         return;
     }
     if (s_card_open && s_card.figure && pixelia::ui::card_button(s_card, kCardStyle).contains(in.x, in.y, 4)) {
+        if (s_card.hint == "Folge ich") return;  // die Figur ist schon der Standard
+        if (s_card.hint == "Nicht mehr folgen") {
+            close_card();
+            s_camera.home(s_stage);
+            app::ui::toast("Zurück zum Standard", pixelia::ui::Tone::Info, 3);
+            return;
+        }
         const uint16_t who = s_card.figure;
         const std::string name = s_card.title;
         close_card();
@@ -449,8 +519,7 @@ void publish_camera(int ticks) {
 
 // Pixel-Uhr mit der echten Ortszeit (NTP); die Weltzeit kommt in 0.5.7
 void draw_pixel_clock(pixelia::Canvas& canvas) {
-    const uint32_t bits = s_clock_bits.load(std::memory_order_relaxed);
-    if (!(bits & 1)) return;
+    if (!(s_clock_bits.load(std::memory_order_relaxed) & 1)) return;
     // Ortszeit nur einmal je Sekunde aus der Zeitzone rechnen (localtime_r kostet ~0,3 ms), dazwischen weiterzählen
     static int64_t base_t = 0, base_local = 0;
     const int64_t now = esp_timer_get_time();
@@ -460,9 +529,7 @@ void draw_pixel_clock(pixelia::Canvas& canvas) {
     }
     const int64_t local = base_local + (now - base_t);
     const int64_t s = local / 1000000 % 86400;
-    pixelia::ui::ClockStyle st;
-    st.corner = static_cast<pixelia::ui::Corner>(bits >> 1 & 3);
-    st.seconds = bits >> 3 & 1;
+    const pixelia::ui::ClockStyle st = clock_style(static_cast<int>(s / 3600));
     pixelia::ui::draw_clock(canvas, static_cast<int>(s / 3600), static_cast<int>(s / 60 % 60), static_cast<int>(s % 60), st,
                             (s & 1) == 0);
 }
@@ -597,6 +664,7 @@ void gfx_task(void* arg) {
         }
         s_place.store(s_stage.active(), std::memory_order_relaxed);
         update_card(t0, ticks);
+        after_ticks(t0);
         publish_camera(ticks);
 
         // Systemanzeigen übernehmen (Kopie, damit andere Tasks nie auf den Grafik-Task warten müssen)
@@ -626,6 +694,7 @@ void gfx_task(void* arg) {
             const int64_t o0 = esp_timer_get_time();
             if (s_card_open && !info) pixelia::ui::render_card(canvas, s_card, kCardStyle);
             draw_pixel_clock(canvas);
+            if (t1 < s_label_until) pixelia::ui::draw_place_label(canvas, s_stage.scene(s_stage.active()).title());
             if (s_toast_on) pixelia::ui::draw_toast(canvas, s_toast_shown, pixelia::ui::ToastPlace::Top);
             t_over = esp_timer_get_time() - o0;
             draw_overlays(canvas, screen, info, hold);

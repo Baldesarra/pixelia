@@ -43,9 +43,9 @@ struct Travel {
 // Was an einer Stelle zu sehen ist (seit 0.5.6, Touch): das vorderste Teil nach Tiefe, durchsichtige Punkte zählen
 // nicht. Koordinaten fein (400 × 240).
 struct Hit {
-    enum class Kind : uint8_t { None, Figure, Part };
+    enum class Kind : uint8_t { None, Figure, Part, Exit };
     Kind kind = Kind::None;
-    uint16_t id = 0;     // Figur: Kennung; Teil: Nummer in der Raumliste
+    uint16_t id = 0;     // Figur: Kennung; Teil: Nummer in der Raumliste; Ausgang: Nummer
     int16_t depth = 0;
     int16_t x = 0, y = 0;  // Fußpunkt
     int16_t h = 0;         // Höhe des Bildes

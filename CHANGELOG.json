@@ -8,9 +8,12 @@
       "s": "Figuren antippen, Karte, Pixel-Uhr und Wischen",
       "n": [
         "Karte: Tippst du eine Figur an, zeigt rechts eine Karte Bild, Name, Tätigkeit, Ort und Gedanken (noch Testtexte); eine Tür zeigt, wer drin ist",
-        "Türen: Auf der Karte einer Tür bringt dich der Knopf „Betreten“ in den Raum dahinter",
-        "Folgen: Auf der Karte einer Figur folgt ihr die Anzeige mit dem Knopf „Folgen“ von Ort zu Ort; langes Halten zeigt wie bisher die Info-Karte",
+        "Türen und Wege: Türen, Schwellen und Wege am Bildrand zeigen, wohin sie führen und wer dort ist; „Betreten“ oder „Hingehen“ bringt dich hin",
+        "Ortsname: Nach jedem Wechsel steht der Name des Ortes kurz oben links, das Dauer-Schild ist weg",
+        "Rückkehr: Kurz bevor die Anzeige zum Standard zurückspringt, kommt ein Hinweis; eine Berührung lässt sie bleiben",
+        "Folgen: Auf der Karte einer Figur folgt ihr die Anzeige per Knopf „Folgen“ von Ort zu Ort; mit „Nicht mehr folgen“ zurück; langes Halten zeigt wie bisher die Info-Karte",
         "Wischen: Nach links wischen zeigt den nächsten Ort, nach rechts den vorherigen, auch bei gedrehtem Bild",
+        "Uhr nachts: Zwischen 22 und 6 Uhr ist die Uhr gedimmt; tippst du sie an, zeigt sie Datum und Wochentag",
         "Pixel-Uhr: kleine Uhr oben rechts mit der echten Uhrzeit, Ecke und Sekunden in der Weboberfläche einstellbar, auch abschaltbar",
         "Anzeige folgt: In der Weboberfläche wählst du Hauptfigur, eine andere Figur oder einen festen Ort und ob die Anzeige nach 10 oder 30 Minuten oder nie dorthin zurückkehrt",
         "Kurzmeldungen: Meldungen stehen jetzt oben, warten in einer Reihe und kommen aus der Welt höchstens viermal pro Stunde",
@@ -37,11 +40,12 @@
     ],
     "n": [
       "Engine: Schnitte fett und klein (3×5) als Grafik im neuen Paket „system“ (Grundausstattung, tools/font_png.py), Systemschrift 5×7 bleibt Grundlage, Format in STIL.md Kapitel 9",
-      "Engine: Karte mit Bild und Text (overlay.h): Figur mit Tätigkeit, Ort, Gedanke (Testtext) und Knopf „Folgen“, Tür mit „Drin: …“ und Knopf „Betreten“, Platz für Museumsstücke; Seitenkarte rechts, feste Höhe",
+      "Engine: Karte mit Bild und Text (overlay.h): Figur mit Tätigkeit, Ort, Gedanke (Testtext) und Knopf „Folgen“, Tür mit Ziel, „Drin: …“ und Knopf „Betreten“, Platz fürs Museum; Seitenkarte rechts, feste Höhe",
       "Engine: Kurzmeldungen als Warteschlange (6 Plätze): Technik vorn, Welt höchstens 4 pro Stunde, mindestens 2 s sichtbar; neu oben als schmale Leiste",
       "Engine: Pixel-Uhr (Ecke, 24 h, Sekunden oder blinkender Doppelpunkt), zeigt die Ortszeit (NTP)",
       "Touch: Figur oder Teil antippen mit Treffer nach Tiefe (durchsichtige Punkte zählen nicht), Knopf „Folgen“ auf der Karte, Wischen links/rechts = nächster/vorheriger Ort",
       "Engine: Kamera-Modi (camera.h): Standard Hauptfigur, Figur oder fester Ort; Frei und Folgen kehren nach 10 min ohne Eingabe zurück (einstellbar, auch nie); Figuren haben feste Kennungen",
+      "Touch: Türschwelle und Weg am Bildrand antippbar (Karte mit Ziel, „Betreten“/„Hingehen“), Ortsname 3 s nach jedem Wechsel, Hinweis 10 s vor der Rückkehr, Uhr 22–6 Uhr gedimmt, Uhr antippen = Datum",
       "Web: Display → Pixel-Uhr (an/aus, Ecke, Sekunden); Welt → „Anzeige folgt“ (Standard, Rückkehr, Ort wählen); /api/camera, Einstellungen clk*/cam* in /api/settings",
       "System: Hinweis auf eine neue Version als Kurzmeldung am Display (einmal je Version, installiert nie selbst)",
       "Simulator: --test overlay (9 Fälle), 4 neue Gestentests mit Wischen und 180°-Drehung, --screen karte-*, schrift-*, uhr*, meldung-*"
