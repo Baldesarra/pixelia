@@ -808,6 +808,7 @@ jedem bekannten Ort schalten, auch dorthin, wo niemand ist (leeres Haus, Kamin a
 - Modus **„Frei“**: per Touch oder Web zu jedem Ort; das Dorf hat mehrere Orte zum Durchschalten (Platz,
   Häuserzeilen, Bahnhof …). Nach einer einstellbaren Zeit ohne Eingabe (z. B. 10 min) zurück zu Sykora.
 - Modus **„Folge X“**: jede andere Figur, z. B. Taylor.
+- [entschieden, Wunsch des Users 2026-10-22] Standard wählbar: Hauptfigur, eine andere Figur oder ein **fester Ort**; die Rückkehr nach der Ruhezeit lässt sich auch ganz abschalten („nie“). Gebaut in 0.5.6 (`camera.h`).
 - **Kurzmeldungen** von anderen Orten nur bei Wichtigem, höchstens wenige pro Stunde.
 
 ## 14. Perspektive
