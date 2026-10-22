@@ -9,9 +9,10 @@
       "Doku: CLAUDE.md und PROJEKTPLAN (Vision, 4.5, 4.6, 4.11, Kapitel 6) an das gemeinsame Setting angepasst: Orte und Gebiete als Module, gemeinsamer Weltzustand, MINOR = Phase bzw. Kapitel",
       "Doku: docs/ZUSATZINHALTE.md mit „Vor 1.0.0 klären“ und Zusatzinhalten nach 1.0; frühere Welt-Ideen eingeordnet; README neu (Setting, Merkmale, getrennt nach „gibt es schon“ und „geplant“)",
       "Doku: freie Grafik-Pakete geprüft (Kenney, Tiny 16, Ninja Adventure, Zelda-like u. a.), keines übernommen; eigene Grafiken im Stil der Küche aus Skizze v4 (STIL.md)",
-      "Doku: Setting ergänzt: Licht-Regeln (Lichtritzen, Laternen wie um 1850, echter Mond), Schlafenszeit eine Stunde später, Jahreszeitenabende mit Sommerfeuer und Lichterabend, Mindestziele Kapitel 1, Grube vor Lok"
+      "Doku: Setting ergänzt: Licht-Regeln (Lichtritzen, Laternen wie um 1850, echter Mond), Schlafenszeit eine Stunde später, Jahreszeitenabende mit Sommerfeuer und Lichterabend, Mindestziele Kapitel 1, Grube vor Lok",
+      "Doku: Stilregel große Fenster mit Fensterbank (4–5 Kacheln, Platz für Kerzen; Testräume sind zu klein); echter Mond und Jahreszeitenwechsel am Sonntag in 0.5.7 eingeplant"
     ],
-    "pr": [31, 32]
+    "pr": [31, 32, 33]
   },
   {
     "v": "0.5.3",
