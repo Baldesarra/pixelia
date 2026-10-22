@@ -130,7 +130,13 @@
   const ghCh = $derived(chLocal ?? gh?.ch ?? 'stable');
   const ghFresh = $derived(!!gh && gh.checkedS >= 0 && gh.checkedCh === ghCh);
   const ghTarget = $derived(ghFresh ? (gh?.rel[0] ?? null) : null);
-  const ghEntries = $derived(ghFresh && gh ? gh.rel.map((r) => entryFromNotes(r.v, r.notes, r.date)) : []);
+  // Nur Versionen, die neuer sind als die installierte (die Firmware liefert schon nur diese; bei Entwicklungsständen
+  // zählt die Basisversion)
+  const ghEntries = $derived(
+    ghFresh && gh && s
+      ? gh.rel.filter((r) => cmpVersion(r.v, parseFw(s.v).base) > 0).map((r) => entryFromNotes(r.v, r.notes, r.date))
+      : [],
+  );
   const noNet = $derived(!s ? '' : s.wifi.ap ? 'Im Setup-Modus hat Pixelia kein Internet. Erst das WLAN einrichten, dann nach Updates suchen.' : s.wifi.state !== 'verbunden' ? 'Pixelia ist gerade nicht mit dem WLAN verbunden.' : '');
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   let ghAt = 0; // Zeitpunkt der letzten Antwort, damit „zuletzt gesucht vor …“ weiterläuft
@@ -337,21 +343,41 @@
         {:else if ghMsg}
           <p class="err-text">{ghMsg}</p>
         {:else if ghTarget}
-          <p class="new-text">
-            Neu auf GitHub: <b>Pixelia {ghTarget.v}</b>{ghTarget.pre ? ' (Vorschau)' : ''} vom {dateDe(ghTarget.date)} · {num(ghTarget.size / 1024)} KB{ghEntries.length > 1 ? ` · ${ghEntries.length} Versionen neuer als ${s.v}` : ''}
-          </p>
+          <!-- Update vorhanden (seit 0.5.4, Variante B des Users): Knopf, Banner alt → neu, Neuerungen nur der neuen Versionen -->
           <div class="full">
             <Button icon="system_update_alt" disabled={sending} onclick={installGh}>{ghTarget.v} installieren</Button>
           </div>
-          <div class="preview">
-            {#each ghEntries as e, k (e.v)}
-              <ChangeEntry entry={e} toggle open={k === 0} />
-            {/each}
+          <div class="banner up">
+            <Icon name="download_for_offline" size={28} />
+            <div>
+              <span class="label">Update vorhanden</span>
+              <span class="big tnum">{s.v} → {ghTarget.v}</span>
+              <span class="meta tnum">{ghTarget.pre ? 'Vorschau' : 'Stabil'} · {dateDe(ghTarget.date)} · {num(ghTarget.size / 1024 / 1024, 1)} MB</span>
+            </div>
           </div>
+          {#if ghEntries.length}
+            <h3 class="sub news"><Icon name="star_shine" size={20} />{ghEntries.length > 1 ? `Neuerungen in ${ghEntries.length} Versionen` : `Neuerungen in ${ghTarget.v}`}</h3>
+            <div class="preview">
+              {#each ghEntries as e, k (e.v)}
+                <ChangeEntry entry={e} toggle open={k === 0} />
+              {/each}
+            </div>
+          {/if}
         {:else if ghFresh}
-          <p class="ok-text">
-            Pixelia ist aktuell. {!gh?.latest ? 'In diesem Kanal gibt es auf GitHub noch keine Version.' : cmpVersion(parseFw(s.v).base, gh.latest) > 0 ? `Installiert ist ${s.v}, neuer als die neueste ${ghCh === 'stable' ? 'stabile ' : ''}Version auf GitHub (${gh.latest}).` : `Neueste ${ghCh === 'stable' ? 'stabile ' : ''}Version auf GitHub: ${gh.latest}.`}
-          </p>
+          <div class="banner ok">
+            <Icon name="check_circle" size={28} />
+            <div>
+              <span class="label">Pixelia ist aktuell</span>
+              <span class="big tnum">{s.v}</span>
+              <span class="meta tnum">
+                {!gh?.latest
+                  ? 'In diesem Kanal gibt es auf GitHub noch keine Version'
+                  : cmpVersion(parseFw(s.v).base, gh.latest) > 0
+                    ? `Neuer als die neueste ${ghCh === 'stable' ? 'stabile' : 'Vorschau-'}Version auf GitHub (${gh.latest})`
+                    : `Neueste ${ghCh === 'stable' ? 'stabile' : 'Vorschau-'}Version auf GitHub`}
+              </span>
+            </div>
+          </div>
         {:else}
           <p class="muted">
             <b>Stabil</b>: nur fertige Versionen. <b>Vorschau</b>: auch Vorabversionen (beta) zum Ausprobieren. Installiert
@@ -459,12 +485,51 @@
     font: var(--md-sys-typescale-title-small);
     color: var(--md-sys-color-on-surface-variant);
   }
-  /* Neue Version gefunden: Orange (Wunsch des Users; hell #c24e00 mit Kontrast ≥ 4,5:1), aktuell: Grün (ok-text) */
-  .new-text {
-    color: #c24e00;
+  /* Stand nach der Suche: Banner orange „Update vorhanden“ (feste Töne, Orange gibt es im Schema nicht), grün „aktuell“ */
+  .banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin: 4px 0 12px;
+    padding: 16px;
+    border-radius: var(--md-sys-shape-corner-large-increased);
   }
-  :global([data-theme='dark']) .new-text {
-    color: #ffb470;
+  .banner > div {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+  .banner .label {
+    font: var(--md-sys-typescale-label-large);
+    font-weight: 750;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .banner .big {
+    font: var(--md-sys-typescale-title-large);
+    font-weight: 750;
+    overflow-wrap: anywhere;
+  }
+  .banner .meta {
+    font: var(--md-sys-typescale-body-medium);
+    opacity: 0.85;
+  }
+  .banner.up {
+    background: #ffdbc8;
+    color: #341100;
+  }
+  :global([data-theme='dark']) .banner.up {
+    background: #723600;
+    color: #ffdbc8;
+  }
+  .news {
+    color: var(--md-sys-color-on-surface);
+    font: var(--md-sys-typescale-title-medium);
+    font-weight: 700;
+  }
+  .banner.ok {
+    background: var(--pixelia-color-success-container);
+    color: var(--pixelia-color-on-success-container);
   }
   /* Suchen und Installieren gleich breit über die ganze Karte (Wunsch des Users) */
   .full {

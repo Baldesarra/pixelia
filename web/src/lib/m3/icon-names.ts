@@ -21,6 +21,8 @@ export const ICONS = [
   'system_update_alt',
   'warning',
   'check_circle',
+  'download_for_offline',
+  'star_shine',
   'error',
   'bug_report',
   'light_mode',
