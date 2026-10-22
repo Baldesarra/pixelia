@@ -25,7 +25,8 @@
         "Technik: Die Oberfläche ist trotz der neuen Seiten kleiner geworden, Symbole und Schrift sind sparsamer gespeichert"
       ],
       "f": [
-        "Mehrere Browser: Eine noch offene alte Seite setzt die Farbwahl nicht mehr zurück und lädt nach einem Update von selbst neu"
+        "Mehrere Browser: Eine noch offene alte Seite setzt die Farbwahl nicht mehr zurück und lädt nach einem Update von selbst neu",
+        "Rückblick: Das Fenster bleibt nach dem Öffnen kurz offen, auch wenn man öfter als siebenmal tippt"
       ]
     },
     "n": [
@@ -46,7 +47,7 @@
       "Doku: freie Grafik-Pakete geprüft (Kenney, Tiny 16, Ninja Adventure, Zelda-like u. a.), keines übernommen; eigene Grafiken im Stil der Küche aus Skizze v4 (STIL.md)",
       "Doku: Setting ergänzt: Licht-Regeln (Lichtritzen, Laternen wie um 1850, echter Mond), Schlafenszeit eine Stunde später, Jahreszeitenabende mit Sommerfeuer und Lichterabend, Mindestziele Kapitel 1, Grube vor Lok"
     ],
-    "pr": [31, 32, 34],
+    "pr": [31, 32, 34, 35],
     "i": [
       "Web: Bundle 151 → 147 KB gzip trotz neuer Seiten und Designs: Icon-Pfade auf Raster 240 gerundet (−5,6 KB), Schrift nur noch wght 400–800 und wdth 100–120 (33 → 21 KB)",
       "Web: Versionsverlauf zeigt Versionen ohne Datum nur, wenn sie installiert sind; „Installiert“ über dem Titel, am Handy (≤ 480 px) Versions-Chip in eigener Zeile",
@@ -54,8 +55,30 @@
       "Werkzeuge: web_screens.mjs speichert Unterseiten (#/a/b) als a-b.png"
     ],
     "f": [
-      "Web: Oberfläche lädt nach einer neuen Firmware-Version selbst neu; unbekannte Felder der Farbwahl bleiben beim Speichern erhalten (eine alte Seite setzte das Design zurück)"
+      "Web: Oberfläche lädt nach einer neuen Firmware-Version selbst neu; unbekannte Felder der Farbwahl bleiben beim Speichern erhalten (eine alte Seite setzte das Design zurück)",
+      "Web: „So entstand Pixelia“ schließt erst 2 s nach dem Öffnen per Tipp daneben (weitere Tipper aufs Zeichen schlossen es sofort); X und Escape sofort"
     ]
+  },
+  {
+    "v": "0.5.4-beta.7",
+    "d": "2026-10-22",
+    "t": "Rückblick bleibt offen (Vorschau)",
+    "s": "Vorabversion: „So entstand Pixelia“ schließt nicht mehr durch zu viele Tipper; Skizzen über GitHub Pages",
+    "k": {
+      "s": "Vorabversion: Rückblick bleibt offen",
+      "f": [
+        "Rückblick: Wer öfter als siebenmal tippt, schließt das Fenster nicht mehr gleich wieder; nach zwei Sekunden geht es wie gewohnt zu",
+        "Skizzen: Die Links im Rückblick öffnen die Skizzen auf GitHub, sobald die Seite dort veröffentlicht ist"
+      ]
+    },
+    "f": [
+      "Web: „So entstand Pixelia“ schließt erst 2 s nach dem Öffnen per Tipp daneben (weitere Tipper aufs Zeichen schlossen es sofort); X und Escape sofort",
+      "Pages: Skizzen (docs/skizzen) auf GitHub Pages schon vor 0.5.4 veröffentlichen (PR #35)"
+    ],
+    "h": [
+      "Doku: Vorabversion zum Ausprobieren, erscheint nur im Kanal Vorschau"
+    ],
+    "pr": [34, 35]
   },
   {
     "v": "0.5.4-beta.6",

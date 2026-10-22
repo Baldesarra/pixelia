@@ -8,6 +8,17 @@
   import { dateDe } from './changelog';
 
   let { open = $bindable(false), inline = false }: { open?: boolean; inline?: boolean } = $props();
+
+  // Wer aufs Zeichen tippt, tippt meist öfter als 7×: Die weiteren Tipper landen auf dem Hintergrund. Der schließt
+  // das Blatt daher erst nach einer kurzen Sperre (LOCK_MS), das X und Escape gehen sofort.
+  const LOCK_MS = 2000;
+  let openedAt = 0;
+  $effect(() => {
+    if (open) openedAt = Date.now();
+  });
+  const scrimClose = () => {
+    if (Date.now() - openedAt > LOCK_MS) open = false;
+  };
 </script>
 
 {#snippet content()}
@@ -37,7 +48,7 @@
 {#if inline}
   <div class="inline">{@render content()}</div>
 {:else if open}
-  <div class="scrim" role="presentation" onclick={() => (open = false)}></div>
+  <div class="scrim" role="presentation" onclick={scrimClose}></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-label="So entstand Pixelia">
     <header>
       <Logo size={40} />
