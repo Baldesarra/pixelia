@@ -8,6 +8,7 @@
       "s": "Figuren antippen, Karte, Pixel-Uhr und Wischen",
       "n": [
         "Karte: Tippst du eine Figur an, zeigt rechts eine Karte Bild, Name, Tätigkeit, Ort und Gedanken (noch Testtexte); eine Tür zeigt, wer drin ist",
+        "Türen: Auf der Karte einer Tür bringt dich der Knopf „Betreten“ in den Raum dahinter",
         "Folgen: Auf der Karte einer Figur folgt ihr die Anzeige mit dem Knopf „Folgen“ von Ort zu Ort; langes Halten zeigt wie bisher die Info-Karte",
         "Wischen: Nach links wischen zeigt den nächsten Ort, nach rechts den vorherigen, auch bei gedrehtem Bild",
         "Pixel-Uhr: kleine Uhr oben rechts mit der echten Uhrzeit, Ecke und Sekunden in der Weboberfläche einstellbar, auch abschaltbar",
@@ -36,7 +37,7 @@
     ],
     "n": [
       "Engine: Schnitte fett und klein (3×5) als Grafik im neuen Paket „system“ (Grundausstattung, tools/font_png.py), Systemschrift 5×7 bleibt Grundlage, Format in STIL.md Kapitel 9",
-      "Engine: Karte mit Bild und Text (overlay.h): Figur mit Tätigkeit, Ort, Gedanke (Testtext) und Knopf „Folgen“, Tür mit „Drin: …“, Platz für Museumsstücke; Seitenkarte rechts, feste Höhe",
+      "Engine: Karte mit Bild und Text (overlay.h): Figur mit Tätigkeit, Ort, Gedanke (Testtext) und Knopf „Folgen“, Tür mit „Drin: …“ und Knopf „Betreten“, Platz für Museumsstücke; Seitenkarte rechts, feste Höhe",
       "Engine: Kurzmeldungen als Warteschlange (6 Plätze): Technik vorn, Welt höchstens 4 pro Stunde, mindestens 2 s sichtbar; neu oben als schmale Leiste",
       "Engine: Pixel-Uhr (Ecke, 24 h, Sekunden oder blinkender Doppelpunkt), zeigt die Ortszeit (NTP)",
       "Touch: Figur oder Teil antippen mit Treffer nach Tiefe (durchsichtige Punkte zählen nicht), Knopf „Folgen“ auf der Karte, Wischen links/rechts = nächster/vorheriger Ort",

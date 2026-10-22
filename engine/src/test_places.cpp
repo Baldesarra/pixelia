@@ -1007,6 +1007,7 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
                 }
             }
             if (best >= 0) card->place = room_.exit(best).to;
+            card->hint = "Betreten";
             card->hint_symbol = ui::Symbol::House;
         } else {
             card->quote = "Testkarte: Hier stehen später Name, Herkunft und Angaben (Museum ab 0.7.x).";

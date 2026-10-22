@@ -365,6 +365,17 @@ void handle_input(const WorldInput& in, int64_t now) {
         return;
     }
     // Tippen: auf die offene Karte = sie bleibt; auf Figur oder Teil = Karte; ins Leere = schließen
+    if (s_card_open && !s_card.figure && s_card.place &&
+        pixelia::ui::card_button(s_card, kCardStyle).contains(in.x, in.y, 4)) {
+        // Knopf „Betreten“ auf der Karte einer Tür: in den Ort dahinter (Modus Frei, Rückkehr nach der Ruhezeit)
+        const int to = s_stage.find(s_card.place);
+        close_card();
+        if (to >= 0) {
+            ESP_LOGI(TAG, "Betreten (Knopf auf der Karte): %s", s_stage.scene(to).name());
+            s_camera.go(s_stage, to);
+        }
+        return;
+    }
     if (s_card_open && s_card.figure && pixelia::ui::card_button(s_card, kCardStyle).contains(in.x, in.y, 4)) {
         const uint16_t who = s_card.figure;
         const std::string name = s_card.title;

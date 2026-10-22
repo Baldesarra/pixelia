@@ -117,7 +117,7 @@ int body(Canvas& c, int x, int y, int w, int max_y, const Card& card, const Card
 
 constexpr int kSideX = 244, kSideY = 24, kSideW = 150, kSideH = 192;
 
-// Fuß der Seitenkarte: bei Figuren der Knopf „Folgen“ (Wunsch des Users 2026-10-22), sonst der Hinweis
+// Fuß der Seitenkarte: Knopf „Folgen“ (Figur) bzw. „Betreten“ (Tür), Wünsche des Users 2026-10-22; sonst der Hinweis
 void footer(Canvas& c, const Card& card, const CardStyle& st, const Rect& r) {
     const Rect b = card_button(card, st);
     if (!b.w) {
@@ -134,7 +134,7 @@ void footer(Canvas& c, const Card& card, const CardStyle& st, const Rect& r) {
 }  // namespace
 
 Rect card_button(const Card& card, const CardStyle& st) {
-    if (st.layout != CardLayout::Side || !card.figure || card.hint.empty()) return {};
+    if (st.layout != CardLayout::Side || (!card.figure && !card.place) || card.hint.empty()) return {};
     return {kSideX + 8, kSideY + kSideH - 28, kSideW - 16, 20};
 }
 

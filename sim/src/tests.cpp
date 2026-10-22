@@ -1087,6 +1087,7 @@ std::vector<Case> overlay_cases() {
                      ui::Card c;
                      if (h.kind != Hit::Kind::Part || !r.stage.describe(h, &c) || !c.place) continue;
                      if (std::strcmp(c.place, "testort-raum") != 0) return std::string("falscher Ort ") + c.place;
+                     if (c.hint != "Betreten" || !ui::card_button(c, ui::CardStyle{}).w) return std::string("Knopf Betreten fehlt");
                      return c.line_count == 1 && c.lines[0].rfind("Drin: ", 0) == 0 ? std::string() : "keine Bewohner";
                  }
              return std::string("keine Tür gefunden");
