@@ -16,6 +16,8 @@
 #include "freertos/task.h"
 #include "pixelia/engine/color.h"
 #include "pixelia/engine/memory.h"
+#include "pixelia/engine/camera.h"
+#include "pixelia/engine/overlay.h"
 #include "pixelia/engine/stage.h"
 #include "pixelia/engine/system_ui.h"
 #include "pixelia/engine/test_places.h"
@@ -67,6 +69,38 @@ int s_cmd_first = 0, s_cmd_count = 0;
 std::atomic<bool> s_follow{true};  // Blick folgt der Begleiterin (Bühne, seit 0.5.1)
 std::atomic<bool> s_inspect{false};
 int s_shown_place = -1;            // zuletzt gemeldeter Ort (Wechsel durch Ausgänge ins Log)
+
+// Kamera (seit 0.5.6, engine/camera.h): Standard und Modi Frei/Folgen; Einstellungen von anderen Tasks über s_ui_lock
+pixelia::Camera s_camera;
+pixelia::CameraSettings s_cam_req;
+std::atomic<bool> s_cam_dirty{false};
+std::atomic<int> s_cam_cmd{0};  // 1 = zum Standard, 2 = Folgen (s_cam_cmd_id)
+std::atomic<int> s_cam_cmd_id{0};
+// Welt-Eingaben vom Touch-Task (Leinwand 400 × 240), übernommen vor dem nächsten Logik-Schritt
+constexpr int kInSlots = 8;
+portMUX_TYPE s_in_lock = portMUX_INITIALIZER_UNLOCKED;
+WorldInput s_in[kInSlots];
+int s_in_first = 0, s_in_count = 0;
+std::atomic<bool> s_info_request{false};
+std::atomic<bool> s_probe_figure{false};
+// Karte (nur Grafik-Task): Figur oder Teil angetippt
+constexpr int kCardSeconds = 20;
+pixelia::ui::Card s_card;
+bool s_card_open = false;
+int64_t s_card_until = 0;
+uint32_t s_card_ticks = 0;
+std::atomic<bool> s_card_visible{false};
+const pixelia::ui::CardStyle kCardStyle{};  // Karte rechts, Hinweise klein (Entscheidung des Users 2026-10-22)
+// Pixel-Uhr: an | Ecke << 1 | Sekunden << 3 (Einstellungen)
+std::atomic<uint32_t> s_clock_bits{1};
+// Kamera-Zustand und Figurenliste für die Weboberfläche (Kopie, jede Sekunde)
+std::mutex s_cam_state_lock;
+CameraState s_cam_state{};
+pixelia::FigureInfo* s_fig_list = nullptr;  // PSRAM, kMaxFigures
+int* s_fig_place = nullptr;
+int s_fig_count = 0;
+uint32_t s_cam_state_ticks = 0;
+constexpr int kMaxFigures = 128;
 std::atomic<int> s_req_coarse{-1};  // grober Puffer umziehen: 0 = intern, 1 = PSRAM (Messung, Befehl „buf grob“)
 
 void move_coarse(bool psram) {
@@ -102,9 +136,6 @@ struct UiState {
     bool message = false;
     pixelia::ui::MessageInfo message_info;
     int64_t message_until = 0;
-    std::string toast;
-    pixelia::ui::Tone toast_tone = pixelia::ui::Tone::Info;
-    int64_t toast_until = 0;
     bool info = false;
     pixelia::ui::InfoCardData info_data;
     int64_t info_until = 0;
@@ -112,6 +143,11 @@ struct UiState {
     pixelia::ui::ResetInfo reset_info;
     int64_t reset_until = 0;
 };
+// Kurzmeldungen (seit 0.5.6 Warteschlange mit Obergrenze für Meldungen der Welt), unter s_ui_lock
+pixelia::ui::ToastQueue s_toasts;
+pixelia::ui::Toast s_toast_shown;  // Kopie der sichtbaren Meldung (nur Grafik-Task)
+bool s_toast_on = false;
+uint32_t s_toast_version = 0;
 std::mutex s_ui_lock;
 UiState s_ui;
 UiState s_ui_local;
@@ -129,6 +165,7 @@ pixelia::Palette s_ui_pal{};
 
 // Halte-Anzeige in Promille, -1 = aus. Eigener Wert statt UiState: ändert sich bei jedem Touch-Abfrage-Takt
 std::atomic<int> s_hold_permille{-1};
+std::atomic<bool> s_hold_follow{false};  // auf einer Figur: „Halten: Folgen“
 
 // Eigenes Testbild (ui::show_picture). Eigene Sperre statt s_ui_lock: Der Grafik-Task hält sie während der Kopie
 // (~1 ms), freigegeben wird ein Puffer nur unter dieser Sperre, also nie während der Kopie.
@@ -214,7 +251,9 @@ uint64_t s_buf_key[2] = {0, 0};
 void draw_overlays(pixelia::Canvas& canvas, int screen, bool info, int hold) {
     if (screen == 1) return;
     if (info) s_info_card.render(canvas);
-    if (hold >= 0) pixelia::ui::draw_hold_indicator(canvas, hold / 1000.0f);
+    if (hold >= 0)
+        pixelia::ui::draw_hold_indicator(canvas, hold / 1000.0f,
+                                         s_hold_follow.load(std::memory_order_relaxed) ? "Halten: Folgen" : "Halten für Info …");
 }
 
 void free_buffers() {
@@ -261,6 +300,157 @@ bool ensure_engine_ready(bool psram) {
     return true;
 }
 
+void close_card() {
+    s_card_open = false;
+    s_card_visible.store(false, std::memory_order_relaxed);
+}
+
+void open_card(const pixelia::Hit& h, int64_t now) {
+    pixelia::ui::Card c;
+    if (!s_stage.describe(h, &c)) return close_card();
+    s_card = std::move(c);
+    s_card_open = true;
+    s_card_until = now + kCardSeconds * 1000000LL;
+    s_card_ticks = 0;
+    s_card_visible.store(true, std::memory_order_relaxed);
+    ESP_LOGI(TAG, "Karte: %s", s_card.title.c_str());
+}
+
+// Karte mitführen: Markierung jedes Bild, Inhalt (Tätigkeit) jede Sekunde; schließt bei Ortswechsel und nach 20 s
+void update_card(int64_t now, int ticks) {
+    if (!s_card_open) return;
+    if (now >= s_card_until || s_stage.transitioning()) return close_card();
+    if (!s_card.figure) return;
+    const pixelia::Scene& sc = s_stage.scene(s_stage.active());
+    if (!sc.figure_mark(s_card.figure, &s_card.mark_x, &s_card.mark_y, &s_card.mark_h)) return close_card();
+    s_card_ticks += ticks;
+    if (s_card_ticks >= static_cast<uint32_t>(pixelia::kTicksPerSecond)) {
+        s_card_ticks = 0;
+        pixelia::Hit h;
+        h.kind = pixelia::Hit::Kind::Figure;
+        h.id = s_card.figure;
+        pixelia::ui::Card c;
+        if (s_stage.describe(h, &c)) s_card = std::move(c);
+    }
+}
+
+void handle_input(const WorldInput& in, int64_t now) {
+    using K = WorldInput::Kind;
+    using HK = pixelia::Hit::Kind;
+    s_camera.input();
+    if (in.kind == K::Probe) {
+        s_probe_figure.store(s_stage.hit(in.x, in.y).kind == HK::Figure, std::memory_order_relaxed);
+        return;
+    }
+    if (in.kind == K::Swipe) {
+        if (std::abs(in.dx) < std::abs(in.dy)) return;  // senkrecht: noch ohne Bedeutung
+        close_card();
+        const int from = s_stage.active();
+        s_camera.swipe(s_stage, in.dx < 0 ? +1 : -1);  // nach links = nächster Ort (wie Umblättern)
+        ESP_LOGI(TAG, "Wischen %s: %s → nächster Ort (Frei)", in.dx < 0 ? "links" : "rechts", s_stage.scene(from).name());
+        return;
+    }
+    const pixelia::Hit h = s_stage.hit(in.x, in.y);
+    if (in.kind == K::LongPress) {
+        if (h.kind != HK::Figure) {
+            s_info_request.store(true);  // langer Druck ohne Figur: Info-Karte des Systems (input.cpp)
+            return;
+        }
+        close_card();
+        s_camera.follow(s_stage, h.id);
+        pixelia::ui::Card c;
+        s_stage.describe(h, &c);
+        ESP_LOGI(TAG, "Folgen: %s (%u)", c.title.c_str(), static_cast<unsigned>(h.id));
+        app::ui::toast("Folgen: " + c.title, pixelia::ui::Tone::Info, 4);
+        return;
+    }
+    // Tippen: auf die offene Karte = sie bleibt; auf Figur oder Teil = Karte; ins Leere = schließen
+    if (s_card_open && pixelia::ui::card_rect(s_card, kCardStyle).contains(in.x, in.y)) {
+        s_card_until = now + kCardSeconds * 1000000LL;
+        return;
+    }
+    if (h.kind == HK::None) close_card();
+    else open_card(h, now);
+}
+
+void apply_world_requests(int64_t now) {
+    if (s_cam_dirty.exchange(false)) {
+        pixelia::CameraSettings cs;
+        {
+            std::lock_guard<std::mutex> g(s_ui_lock);
+            cs = s_cam_req;
+        }
+        s_camera.set_settings(cs);
+    }
+    if (const int cmd = s_cam_cmd.exchange(0); cmd == 1) s_camera.home(s_stage);
+    else if (cmd == 2) s_camera.follow(s_stage, static_cast<uint16_t>(s_cam_cmd_id.load()));
+    else if (cmd == 3) {
+        // Karte per Befehl (Messung): 0 = schließen, 0xFFFF = gefolgte Figur bzw. Hauptfigur
+        uint16_t id = static_cast<uint16_t>(s_cam_cmd_id.load());
+        if (id == 0xFFFF) id = s_camera.target(s_stage) ? s_camera.target(s_stage) : s_stage.lead();
+        pixelia::Hit h;
+        h.kind = pixelia::Hit::Kind::Figure;
+        h.id = id;
+        if (id) open_card(h, now);
+        else close_card();
+    }
+    for (;;) {
+        WorldInput in;
+        portENTER_CRITICAL(&s_in_lock);
+        const bool have = s_in_count > 0;
+        if (have) {
+            in = s_in[s_in_first];
+            s_in_first = (s_in_first + 1) % kInSlots;
+            --s_in_count;
+        }
+        portEXIT_CRITICAL(&s_in_lock);
+        if (!have) break;
+        handle_input(in, now);
+    }
+}
+
+// Zustand der Kamera und Figurenliste für die Weboberfläche (jede Sekunde)
+void publish_camera(int ticks) {
+    s_cam_state_ticks += ticks;
+    if (s_cam_state_ticks < static_cast<uint32_t>(pixelia::kTicksPerSecond) || !s_fig_list) return;
+    s_cam_state_ticks = 0;
+    CameraState st{};
+    st.mode = static_cast<int>(s_camera.mode());
+    st.target = s_camera.target(s_stage);
+    st.place = s_stage.active();
+    st.return_in_s = s_camera.return_in_s();
+    st.settings = s_camera.settings();
+    std::lock_guard<std::mutex> g(s_cam_state_lock);
+    s_fig_count = s_stage.figures(s_fig_list, s_fig_place, kMaxFigures);
+    for (int i = 0; i < s_fig_count; ++i)
+        if (s_fig_list[i].id == st.target) std::memcpy(st.target_name, s_fig_list[i].name, sizeof(st.target_name));
+    s_cam_state = st;
+}
+
+// Pixel-Uhr mit der echten Ortszeit (NTP); die Weltzeit kommt in 0.5.7
+void draw_pixel_clock(pixelia::Canvas& canvas) {
+    const uint32_t bits = s_clock_bits.load(std::memory_order_relaxed);
+    if (!(bits & 1)) return;
+    int64_t local;
+    if (!timesync::local_us(&local)) return;
+    const int64_t s = local / 1000000 % 86400;
+    pixelia::ui::ClockStyle st;
+    st.corner = static_cast<pixelia::ui::Corner>(bits >> 1 & 3);
+    st.seconds = bits >> 3 & 1;
+    pixelia::ui::draw_clock(canvas, static_cast<int>(s / 3600), static_cast<int>(s / 60 % 60), static_cast<int>(s % 60), st,
+                            (s & 1) == 0);
+}
+
+// Kurzmeldungen: Warteschlange fortschreiben, sichtbare Meldung kopieren (nur wenn sie wechselt)
+void update_toast() {
+    std::lock_guard<std::mutex> g(s_ui_lock);
+    const pixelia::ui::Toast* t = s_toasts.update(static_cast<uint32_t>(esp_timer_get_time() / 1000));
+    if (s_toasts.version() == s_toast_version) return;
+    s_toast_version = s_toasts.version();
+    s_toast_on = t != nullptr;
+    if (t) s_toast_shown = *t;
+}
+
 // Anfragen anderer Tasks zwischen den Logik-Schritten übernehmen: Ortswechsel, Rundgang, Lastregler, Befehle
 void apply_place_requests(int ticks) {
     if (s_stage.active() != s_shown_place) {
@@ -298,7 +488,7 @@ void apply_place_requests(int ticks) {
     if (to >= 0 && to != s_stage.active()) {
         ESP_LOGI(TAG, "Ort %s → %s (%s)", s_stage.scene(s_stage.active()).name(), s_stage.scene(to).name(),
                  pixelia::transition_name(t));
-        s_stage.go(to, t);
+        s_camera.go(s_stage, to, t);  // Modus Frei (seit 0.5.6), Rückkehr zum Standard nach der Ruhezeit
     }
     if (to >= 0) s_tour_ticks = 0;
     if (const int n = s_sprites; n != s_sprites_applied) {
@@ -372,12 +562,16 @@ void gfx_task(void* arg) {
         if (ticks > 4) ticks = 4;  // Überlast: nicht endlos nachholen
         const int64_t step_us = static_cast<int64_t>(board::display::frame_period_us()) * swap;
         apply_place_requests(ticks);
+        apply_world_requests(t0);
         follow_real_time(t0);
         for (int i = 0; i < ticks; ++i) {
             s_clock.advance(step_us);
             s_stage.tick(s_clock);
+            s_camera.tick(s_stage);
         }
         s_place.store(s_stage.active(), std::memory_order_relaxed);
+        update_card(t0, ticks);
+        publish_camera(ticks);
 
         // Systemanzeigen übernehmen (Kopie, damit andere Tasks nie auf den Grafik-Task warten müssen)
         bool ui_changed = false;
@@ -398,10 +592,16 @@ void gfx_task(void* arg) {
         const int bi = back == s_buf[0] ? 0 : 1;
         const bool info = s_ui_local.info && t1 < s_ui_local.info_until;
         const int hold = s_hold_permille.load(std::memory_order_relaxed);
+        update_toast();
+        int64_t t_over = 0;
         if (screen == 0) {
             s_stage.render(canvas);
-            const UiState& u = s_ui_local;
-            if (!u.toast.empty() && t1 < u.toast_until) pixelia::ui::draw_toast(canvas, u.toast, u.toast_tone);
+            // Einblendungen der Welt (seit 0.5.6): Karte, Uhr, Kurzmeldung oben; Zusatzkosten gemessen
+            const int64_t o0 = esp_timer_get_time();
+            if (s_card_open && !info) pixelia::ui::render_card(canvas, s_card, kCardStyle);
+            draw_pixel_clock(canvas);
+            if (s_toast_on) pixelia::ui::draw_toast(canvas, s_toast_shown, pixelia::ui::ToastPlace::Top);
+            t_over = esp_timer_get_time() - o0;
             draw_overlays(canvas, screen, info, hold);
             s_buf_key[bi] = 0;
         } else {
@@ -460,6 +660,8 @@ void gfx_task(void* arg) {
         s_stats.inner_light = s_stage.environment().lights.any_on("testort-raum");
         s_stats.particles = particles;
         s_stats.holds = s_stage.holds();
+        s_stats.overlay_us_sum += static_cast<uint64_t>(t_over);
+        if (static_cast<uint32_t>(t_over) > s_stats.overlay_us_max) s_stats.overlay_us_max = static_cast<uint32_t>(t_over);
         portEXIT_CRITICAL(&s_stats_lock);
     }
 }
@@ -468,12 +670,17 @@ void gfx_task(void* arg) {
 void start(const board::display::Timing& timing) {
     // Grafiken der Engine in den PSRAM, der interne RAM bleibt für Puffer, die jedes Bild beschrieben werden
     pixelia::set_asset_allocator([](size_t n) { return heap_caps_malloc(n, MALLOC_CAP_SPIRAM); }, heap_caps_free);
+    // Schriften fett und klein, Symbole (Paket „system“, Grundausstattung)
+    if (!pixelia::font::load_faces(pixelia::asset_store()) || !pixelia::ui::load_symbols(pixelia::asset_store()))
+        ESP_LOGW(TAG, "Paket „system“ fehlt: Einblendungen in der Systemschrift ohne Symbole");
     pixelia::add_standard_scenes(s_stage);
     s_stage.init(kSeed);  // Landschaft (Ort 0) bekommt genau kSeed, wie vor 0.5.0
     s_landscape = std::max(0, s_stage.find("scrolltest"));
     s_coarse = static_cast<uint8_t*>(heap_caps_malloc(pixelia::kCoarsePixels, MALLOC_CAP_SPIRAM));
     s_coarse_aux = static_cast<uint8_t*>(heap_caps_malloc(pixelia::kCoarsePixels, MALLOC_CAP_SPIRAM));
     s_stage.set_buffers(s_coarse, s_coarse_aux);
+    s_fig_list = static_cast<pixelia::FigureInfo*>(heap_caps_calloc(kMaxFigures, sizeof(pixelia::FigureInfo), MALLOC_CAP_SPIRAM));
+    s_fig_place = static_cast<int*>(heap_caps_calloc(kMaxFigures, sizeof(int), MALLOC_CAP_SPIRAM));
     ESP_LOGI(TAG, "Bühne: %d Orte, sichtbar %s; grober Puffer 2× %d Byte", s_stage.count(),
              s_stage.scene(s_stage.active()).name(), pixelia::kCoarsePixels);
     auto* arg = new board::display::Timing(timing);
@@ -530,7 +737,51 @@ void reset_places() {
     s_follow.store(true);
     s_inspect.store(false);
     s_transition.store(static_cast<int>(pixelia::kDefaultTransition));
-    s_req_place.store(s_landscape);
+    s_cam_cmd.store(1);  // seit 0.5.6: zurück zum Standard der Kamera statt zur Landschaft
+}
+
+void world_input(const WorldInput& in) {
+    portENTER_CRITICAL(&s_in_lock);
+    if (s_in_count < kInSlots) {
+        s_in[(s_in_first + s_in_count) % kInSlots] = in;
+        ++s_in_count;
+    }
+    portEXIT_CRITICAL(&s_in_lock);
+}
+bool take_info_request() { return s_info_request.exchange(false); }
+bool probe_on_figure() { return s_probe_figure.load(std::memory_order_relaxed); }
+bool card_visible() { return s_card_visible.load(std::memory_order_relaxed); }
+void set_clock(bool on, int corner, bool seconds) {
+    s_clock_bits.store((on ? 1u : 0u) | static_cast<uint32_t>(corner & 3) << 1 | (seconds ? 8u : 0u));
+}
+void set_camera(const pixelia::CameraSettings& s) {
+    {
+        std::lock_guard<std::mutex> g(s_ui_lock);
+        s_cam_req = s;
+    }
+    s_cam_dirty.store(true);
+}
+void camera_home() { s_cam_cmd.store(1); }
+void open_card(uint16_t figure) {
+    s_cam_cmd_id.store(figure);
+    s_cam_cmd.store(3);
+}
+void camera_follow(uint16_t id) {
+    s_cam_cmd_id.store(id);
+    s_cam_cmd.store(2);
+}
+CameraState camera_state() {
+    std::lock_guard<std::mutex> g(s_cam_state_lock);
+    return s_cam_state;
+}
+int figure_list(pixelia::FigureInfo* out, int* place, int max) {
+    std::lock_guard<std::mutex> g(s_cam_state_lock);
+    const int n = std::min(max, s_fig_count);
+    for (int i = 0; i < n; ++i) {
+        out[i] = s_fig_list[i];
+        if (place) place[i] = s_fig_place[i];
+    }
+    return n;
 }
 void set_time_of_day(int hour, int minute) {
     s_follow_real = false;
@@ -553,7 +804,7 @@ bool real_time() { return s_follow_real; }
 EngineStats engine_stats(bool reset_max) {
     portENTER_CRITICAL(&s_stats_lock);
     EngineStats s = s_stats;
-    if (reset_max) s_stats.render_us_max = s_stats.logic_us_max = 0;
+    if (reset_max) s_stats.render_us_max = s_stats.logic_us_max = s_stats.overlay_us_max = 0;
     portEXIT_CRITICAL(&s_stats_lock);
     s.buffers_in_psram = s_buf_psram;
     s.buffers_ready = s_buf[0] != nullptr;
@@ -659,9 +910,11 @@ bool reset_visible() {
 
 void toast(std::string_view text, pixelia::ui::Tone tone, int seconds) {
     std::lock_guard<std::mutex> g(gfx::s_ui_lock);
-    gfx::s_ui.toast = text;
-    gfx::s_ui.toast_tone = tone;
-    gfx::s_ui.toast_until = until(seconds);
+    pixelia::ui::Toast t;
+    t.text = std::string(text);
+    t.tone = tone;
+    t.seconds = static_cast<uint16_t>(std::clamp(seconds, 1, 60));
+    gfx::s_toasts.push(t, static_cast<uint32_t>(esp_timer_get_time() / 1000));
     ++gfx::s_ui.version;
 }
 
@@ -697,6 +950,18 @@ bool update_visible() {
     const auto& u = gfx::s_ui;
     return u.update && (u.update_until == 0 || esp_timer_get_time() < u.update_until);
 }
+
+bool world_toast(std::string_view text, pixelia::ui::Tone tone, int seconds) {
+    pixelia::ui::Toast t;
+    t.text = std::string(text);
+    t.tone = tone;
+    t.seconds = static_cast<uint16_t>(std::clamp(seconds, 1, 60));
+    t.kind = pixelia::ui::ToastKind::World;
+    std::lock_guard<std::mutex> g(gfx::s_ui_lock);
+    return gfx::s_toasts.push(t, static_cast<uint32_t>(esp_timer_get_time() / 1000));
+}
+
+void set_hold_label(bool follow) { gfx::s_hold_follow.store(follow, std::memory_order_relaxed); }
 
 void set_hold_progress(float progress) {
     gfx::s_hold_permille.store(progress < 0 ? -1 : static_cast<int>(progress * 1000.0f), std::memory_order_relaxed);

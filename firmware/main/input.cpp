@@ -5,11 +5,14 @@
 #include <algorithm>
 #include <cstdio>
 #include <mutex>
+#include <string>
 
+#include "app.h"
 #include "auth.h"
 #include "esp_app_desc.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "github.h"
 #include "net.h"
 #include "pixelia/engine/gesture.h"
 #include "settings.h"
@@ -128,6 +131,16 @@ void configure_locked() {
     s_configured = true;
 }
 
+// Gehört die Geste der Welt? (keine Systemanzeige im Weg)
+bool world_free() {
+    return !infocard::visible() && !ui::picture_visible() && !ui::update_visible() && !s_reset_open;
+}
+
+gfx::WorldInput world(gfx::WorldInput::Kind kind, const pixelia::gesture::Event& e) {
+    return {kind, static_cast<int16_t>(e.x / 2), static_cast<int16_t>(e.y / 2), static_cast<int16_t>(e.dx / 2),
+            static_cast<int16_t>(e.dy / 2)};
+}
+
 void dispatch(const pixelia::gesture::Event& e) {
     using pixelia::gesture::Type;
     if (s_reset_open || s_swallow) return;
@@ -136,9 +149,15 @@ void dispatch(const pixelia::gesture::Event& e) {
             ESP_LOGI(TAG, "Langer Druck bei %d/%d ignoriert (Update läuft)", e.x, e.y);
             return;
         }
-        ESP_LOGI(TAG, "Langer Druck bei %d/%d (%lu ms, %lu Messwerte) → Info-Karte", e.x, e.y,
+        ESP_LOGI(TAG, "Langer Druck bei %d/%d (%lu ms, %lu Messwerte)", e.x, e.y,
                  static_cast<unsigned long>(e.duration_ms), static_cast<unsigned long>(s_samples));
-        infocard::show();
+        // Seit 0.5.6: auf einer Figur „Folgen“, sonst die Info-Karte (entscheidet der Grafik-Task, tick() fragt nach)
+        if (world_free()) gfx::world_input(world(gfx::WorldInput::Kind::LongPress, e));
+        else infocard::show();
+    } else if (e.type == Type::Swipe) {
+        if (!world_free()) return;
+        ESP_LOGI(TAG, "Wischen bei %d/%d um %d/%d (%lu ms)", e.x, e.y, e.dx, e.dy, static_cast<unsigned long>(e.duration_ms));
+        gfx::world_input(world(gfx::WorldInput::Kind::Swipe, e));
     } else if (e.type == Type::Tap) {
         if (infocard::visible()) {
             if (pixelia::ui::info_reset_button().contains(e.x / 2, e.y / 2, 6)) {
@@ -155,7 +174,8 @@ void dispatch(const pixelia::gesture::Event& e) {
             ui::hide_picture();
             return;
         }
-        // Sonst gehört das Tippen später der Welt
+        // Sonst gehört das Tippen der Welt: Figur oder Teil → Karte (seit 0.5.6)
+        if (world_free()) gfx::world_input(world(gfx::WorldInput::Kind::Tap, e));
     }
 }
 
@@ -165,6 +185,7 @@ void process_locked(uint32_t t) {
     reset_tick(t);
     float p = s_rec.hold_progress(t);
     bool show = p >= kHoldIndicatorFrom && !s_reset_open && !s_swallow && !infocard::visible() && !ui::update_visible();
+    if (show && !s_hold_shown) ui::set_hold_label(world_free() && gfx::probe_on_figure());
     if (show) ui::set_hold_progress(p);
     else if (s_hold_shown) ui::set_hold_progress(-1.0f);
     s_hold_shown = show;
@@ -175,7 +196,12 @@ void on_touch(int fingers, int x, int y) {
     std::lock_guard<std::mutex> g(s_lock);
     configure_locked();
     const uint32_t t = now_ms();
-    if (fingers > 0 && !s_rec.pressed()) s_samples = 0;
+    if (fingers > 0 && !s_rec.pressed()) {
+        s_samples = 0;
+        // Liegt eine Figur unter dem Finger? (für die Halte-Anzeige „Halten: Folgen“)
+        if (!s_reset_open && world_free())
+            gfx::world_input({gfx::WorldInput::Kind::Probe, static_cast<int16_t>(x / 2), static_cast<int16_t>(y / 2), 0, 0});
+    }
     if (fingers > 0) ++s_samples;
     if (s_reset_open) reset_touch(fingers, x, y, t);
     else if (fingers == 0) s_reset_down = false;
@@ -192,7 +218,24 @@ void tick() {
         s_rec.tick(t);
         process_locked(t);
     }
+    if (gfx::take_info_request()) {
+        ESP_LOGI(TAG, "Langer Druck ohne Figur → Info-Karte");
+        infocard::show();
+    }
     infocard::tick();
+    // Hinweis auf eine neue Version (seit 0.5.6): einmal je Version und Start, nie automatisch installieren
+    static int64_t next_check = 0;
+    static std::string notified;
+    const int64_t now = esp_timer_get_time();
+    if (now >= next_check) {
+        next_check = now + 5000000;
+        const std::string v = github::available();
+        if (!v.empty() && v != notified) {
+            notified = v;
+            ui::toast("Neue Version " + v + " verfügbar · Weboberfläche → Update", pixelia::ui::Tone::Info, 10);
+            ESP_LOGI(TAG, "Hinweis am Display: Version %s verfügbar", v.c_str());
+        }
+    }
 }
 
 void set_long_press_ms(uint32_t ms) {

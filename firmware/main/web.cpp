@@ -121,7 +121,10 @@ std::string status_json() {
         j.null("rollback");
     }
     j.obj("set").num("rot", set.rotate180 ? 180 : 0).num("bright", set.brightness).num("lp", set.long_press_ms);
-    j.str("ui", set.ui).boolean("exp", exper::enabled()).end_obj();
+    j.str("ui", set.ui).boolean("exp", exper::enabled());
+    j.boolean("clk", set.clock_on).num("clkCorner", set.clock_corner).boolean("clkSec", set.clock_seconds);
+    j.num("camHome", set.cam_home).num("camFig", set.cam_figure).num("camPlace", set.cam_place).num("camRet", set.cam_return_s);
+    j.end_obj();
     j.obj("auth").boolean("pin", auth::enabled()).num("lockS", auth::lock_seconds()).end_obj();
 
     // Fernwartung (0.2.2): Startnummer, letzter Resetgrund, Absturzbericht, Fehler/Warnungen seit dem Start
@@ -433,6 +436,19 @@ esp_err_t settings_post(httpd_req_t* req) {
     if (form_value(body, "rot", &v)) settings::set_rotation180(v == "180");
     if (form_value(body, "bright", &v)) settings::set_brightness(std::atoi(v.c_str()));
     if (form_value(body, "lp", &v)) settings::set_long_press_ms(std::atoi(v.c_str()));
+    // Pixel-Uhr und Kamera (seit 0.5.6): fehlende Felder behalten ihren Wert
+    const settings::Values cur = settings::get();
+    std::string a, b, c;
+    const bool clk_on = form_value(body, "clk", &a), clk_c = form_value(body, "clkCorner", &b), clk_s = form_value(body, "clkSec", &c);
+    if (clk_on || clk_c || clk_s)
+        settings::set_clock(clk_on ? a == "1" : cur.clock_on, clk_c ? std::atoi(b.c_str()) : cur.clock_corner,
+                            clk_s ? c == "1" : cur.clock_seconds);
+    std::string h, f, pl, r;
+    const bool ch = form_value(body, "camHome", &h), cf = form_value(body, "camFig", &f), cp = form_value(body, "camPlace", &pl),
+               cr = form_value(body, "camRet", &r);
+    if (ch || cf || cp || cr)
+        settings::set_camera(ch ? std::atoi(h.c_str()) : cur.cam_home, cf ? std::atoi(f.c_str()) : cur.cam_figure,
+                             cp ? std::atoi(pl.c_str()) : cur.cam_place, cr ? std::atoi(r.c_str()) : cur.cam_return_s);
     return reply(req, true, "Gespeichert");
 }
 

@@ -7,6 +7,7 @@
 
 #include "board/display.h"
 #include "board/touch_gt911.h"
+#include "pixelia/engine/camera.h"
 #include "pixelia/engine/stage.h"
 
 namespace app {
@@ -71,6 +72,8 @@ struct EngineStats {
     bool inner_light;  // Licht im Testraum (Fenster der Wiese)
     int particles;     // Partikel am sichtbaren Ort
     uint32_t holds;    // Schritte, die ein Abblenden auf Grafik-Pakete gewartet hat (seit 0.5.5, Summe)
+    uint64_t overlay_us_sum;  // Einblendungen der Welt (Karte, Uhr, Kurzmeldung) je Bild, seit 0.5.6
+    uint32_t overlay_us_max;
 };
 void start(const board::display::Timing& timing);
 void request_reconfigure(const board::display::Timing& timing);
@@ -111,6 +114,35 @@ float speed();
 void set_real_time(bool on);
 bool real_time();
 EngineStats engine_stats(bool reset_max);
+
+// Touch der Welt und Kamera (seit 0.5.6, engine/overlay.h und camera.h). Eingaben in Leinwand-Koordinaten
+// (400 × 240) übernimmt der Grafik-Task vor dem nächsten Logik-Schritt: Probe = Finger aufgesetzt (Figur darunter?),
+// Tippen = Karte zu Figur oder Teil, langer Druck = Folgen (ohne Figur: Info-Karte des Systems), Wischen = Ort.
+struct WorldInput {
+    enum class Kind : uint8_t { Probe, Tap, LongPress, Swipe };
+    Kind kind;
+    int16_t x, y, dx, dy;
+};
+void world_input(const WorldInput& in);
+bool take_info_request();  // langer Druck ohne Figur: die Info-Karte des Systems zeigen
+bool probe_on_figure();    // unter dem aufgesetzten Finger steht eine Figur
+bool card_visible();
+void set_clock(bool on, int corner, bool seconds);  // Pixel-Uhr (Einstellungen)
+void set_camera(const pixelia::CameraSettings& s);  // Standard und Rückkehr (Einstellungen)
+void camera_home();
+void open_card(uint16_t figure);  // Karte einer Figur (Befehl „karte“): 0 = schließen, 0xFFFF = gefolgte Figur
+void camera_follow(uint16_t id);
+struct CameraState {
+    int mode;           // pixelia::Camera::Mode: 0 Standard, 1 Frei, 2 Folgen
+    uint16_t target;    // gefolgte Figur, 0 = keine
+    char target_name[24];
+    int place;          // sichtbarer Ort
+    int return_in_s;    // Rückkehr zum Standard in s, −1 = keine
+    pixelia::CameraSettings settings;
+};
+CameraState camera_state();
+// Figuren aller Orte (Kopie, jede Sekunde neu): Kennung, Name, Ort
+int figure_list(pixelia::FigureInfo* out, int* place, int max);
 
 // Live-Vorschau (seit 0.4.2): Kopie des fertigen Bildes (400×240 Paletten-Indizes) und der Palette (256 × RGB888),
 // gemacht im Grafik-Task direkt vor dem Puffertausch, also nie halb gezeichnet. Nur aus einer Task gleichzeitig
@@ -167,6 +199,8 @@ struct Snapshot {
     float logic_ms;
     float logic_max_ms;  // seit 0.5.5
     uint32_t holds;      // seit 0.5.5: Warteschritte beim Abblenden (Summe seit dem Start)
+    float overlay_ms;    // seit 0.5.6: Einblendungen der Welt (Karte, Uhr, Kurzmeldung) je Bild, im Zeichnen enthalten
+    float overlay_max_ms;
     uint32_t ticks[3];  // Bilder mit 0, 1, 2+ Logik-Schritten
     int sprites;
     bool buf_psram;

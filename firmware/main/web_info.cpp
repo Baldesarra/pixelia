@@ -518,7 +518,42 @@ void client_names_json(Json& j) {
     j.end_arr();
 }
 
+// --- Kamera (seit 0.5.6): Zustand, Orte, Figuren; Wechseln und Folgen ------------------------------------------
+
+esp_err_t camera_get(httpd_req_t* req) {
+    const gfx::CameraState st = gfx::camera_state();
+    static pixelia::FigureInfo figs[64];  // nur der Webserver-Task ruft das auf
+    static int places[64];
+    const int n = gfx::figure_list(figs, places, 64);
+    Json j;
+    j.obj().num("mode", st.mode).num("target", st.target).str("targetName", st.target_name).num("place", st.place);
+    j.num("returnIn", st.return_in_s);
+    j.arr("places");
+    for (int i = 0; i < gfx::place_count(); ++i)
+        j.obj().str("id", gfx::place_id(i)).str("title", gfx::place_title(i)).end_obj();
+    j.end_arr().arr("figures");
+    for (int i = 0; i < n; ++i)
+        j.obj().num("id", figs[i].id).str("name", figs[i].name).num("place", places[i]).boolean("lead", figs[i].lead).end_obj();
+    j.end_arr().end_obj();
+    return send_json(req, j.text());
+}
+
+esp_err_t camera_post(httpd_req_t* req) {
+    std::string body, a, v;
+    if (!read_body(req, &body, 128)) return reply(req, false, "Ungültige Anfrage");
+    if (!authorized(req, &body)) return deny(req);
+    form_value(body, "a", &a);
+    form_value(body, "v", &v);
+    if (a == "home") gfx::camera_home();
+    else if (a == "follow" && std::atoi(v.c_str()) > 0) gfx::camera_follow(static_cast<uint16_t>(std::atoi(v.c_str())));
+    else if (a == "go" && std::atoi(v.c_str()) >= 0 && std::atoi(v.c_str()) < gfx::place_count()) gfx::go_place(std::atoi(v.c_str()));
+    else return reply(req, false, "Unbekannte Aktion");
+    return reply(req, true, "Ok");
+}
+
 void register_info() {
+    add("/api/camera", HTTP_GET, camera_get);
+    add("/api/camera", HTTP_POST, camera_post);
     add("/api/system", HTTP_GET, system_get);
     add("/api/clients", HTTP_GET, clients_get);
     add("/api/clients/name", HTTP_POST, clients_name_post);
