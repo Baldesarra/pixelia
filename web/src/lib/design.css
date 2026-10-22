@@ -11,7 +11,7 @@
 /* ---------- Pixelia: wie die Pixelwelt, Pixelschrift des Displays, Pixelrahmen mit hartem Schatten ----------
    Große Flächen (Karten, Listen, Knöpfe) mit Pixelecken in zwei Stufen zu je 3 px (Wunsch des Users, beta.5):
    Rahmen und Schatten sind Schatten mit Ausdehnung, clip-path schneidet die Treppe aus, die inneren Eckpixel malt
-   ein Hintergrundbild in Rahmenfarbe. Kleine Teile (Chips, Schalter) behalten die einfache Ecke (ein Pixel fehlt). */
+   ein Hintergrundbild in Rahmenfarbe. Chips, Schalter und der aktive Menüpunkt ebenso, ohne Schatten (beta.6). */
 html[data-design='pixel'] {
   --md-sys-shape-corner-extra-small: 0;
   --md-sys-shape-corner-small: 0;
@@ -57,7 +57,7 @@ html[data-design='pixel'] .hub h2 {
 html[data-design='pixel'] .bar {
   box-shadow: 0 3px var(--dz-line);
 }
-html[data-design='pixel'] :is(.card, .hub a, .btn:not(.text)) {
+html[data-design='pixel'] :is(.card, .hub a, .btn:not(.text), .chip, .ib.filled, .ib.tonal, .track) {
   box-shadow: var(--dz-frame), 3px 3px 0 3px var(--dz-shadow);
   clip-path: var(--dz-clip);
   background-image: linear-gradient(var(--dz-line) 0 0), linear-gradient(var(--dz-line) 0 0),
@@ -67,7 +67,8 @@ html[data-design='pixel'] :is(.card, .hub a, .btn:not(.text)) {
   background-position: 0 0, 100% 0, 0 100%, 100% 100%;
 }
 html[data-design='pixel'] .card .card,
-html[data-design='pixel'] .hub li:not(:last-child) a {
+html[data-design='pixel'] .hub li:not(:last-child) a,
+html[data-design='pixel'] :is(.chip, .ib.filled, .ib.tonal, .track) {
   box-shadow: var(--dz-frame);
   clip-path: var(--dz-clip0);
 }
@@ -88,22 +89,24 @@ html[data-design='pixel'] .btn:not(.text):active {
   box-shadow: var(--dz-frame);
   transform: translate(3px, 3px);
 }
-html[data-design='pixel'] .chip,
-html[data-design='pixel'] .ib.filled,
-html[data-design='pixel'] .ib.tonal,
 html[data-design='pixel'] .handle {
+  border-radius: 0;
   box-shadow: var(--dz-thin);
 }
 html[data-design='pixel'] .track {
   border: 0;
-  box-shadow: 0 -3px var(--dz-line), 0 3px var(--dz-line), -3px 0 var(--dz-line), 3px 0 var(--dz-line);
 }
 html[data-design='pixel'] .nav {
   box-shadow: 0 -3px var(--dz-line);
 }
+/* Pseudo-Elemente gehen nicht in :is(), daher einzeln */
 html[data-design='pixel'] .nav a.on .pill::before {
-  box-shadow: var(--dz-thin);
-  background: var(--md-sys-color-primary);
+  background: linear-gradient(var(--dz-line) 0 0) 0 0 / 3px 3px no-repeat,
+    linear-gradient(var(--dz-line) 0 0) 100% 0 / 3px 3px no-repeat,
+    linear-gradient(var(--dz-line) 0 0) 0 100% / 3px 3px no-repeat,
+    linear-gradient(var(--dz-line) 0 0) 100% 100% / 3px 3px no-repeat, var(--md-sys-color-primary);
+  box-shadow: var(--dz-frame);
+  clip-path: var(--dz-clip0);
 }
 html[data-design='pixel'] .nav a.on .pill {
   color: var(--md-sys-color-on-primary);
