@@ -74,10 +74,12 @@ def load_entries():
 
 
 def version_key(version):
-    """Sortierschlüssel: Vorabversion (X.Y.Z-beta.N) kommt vor der fertigen Version X.Y.Z."""
+    """Sortierschlüssel: Vorabversion (X.Y.Z-beta.N) kommt vor der fertigen Version X.Y.Z; N als Zahl
+    (beta.10 nach beta.9, wie compare() in firmware/main/github.cpp)."""
     m = VERSION_RE.match(version)
     major, minor, patch, pre = m.groups()
-    return (int(major), int(minor), int(patch), 0 if pre else 1, pre or "")
+    pre_key = tuple((0, int(x), "") if x.isdigit() else (1, 0, x) for x in (pre or "").split("."))
+    return (int(major), int(minor), int(patch), 0 if pre else 1, pre_key)
 
 
 def check(entries, warnings=None):

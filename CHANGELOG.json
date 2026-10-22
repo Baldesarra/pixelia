@@ -23,7 +23,7 @@
         "Diagnose: Die Liste der Neustarts zeigt die letzten drei, der Rest lässt sich aufklappen",
         "Gerät und Speicher: Info und Hardware sind eine Seite, doppelte Angaben sind weg",
         "Technik: Die Oberfläche ist trotz der neuen Seiten kleiner geworden, Symbole und Schrift sind sparsamer gespeichert",
-        "Update: Der Knopf zum Installieren steht direkt unter der neuen Version, die Änderungen darunter; „Aus Datei“ steht als eigene Karte ganz unten"
+        "Knöpfe: Überall gleich breit, ein Knopf allein füllt die Zeile; auf der Update-Seite steht Installieren über den Änderungen und „Aus Datei“ ganz unten"
       ],
       "f": [
         "Mehrere Browser: Eine noch offene alte Seite setzt die Farbwahl nicht mehr zurück und lädt nach einem Update von selbst neu"
@@ -53,11 +53,34 @@
       "Web: Versionsverlauf zeigt Versionen ohne Datum nur, wenn sie installiert sind; „Installiert“ über dem Titel, am Handy (≤ 480 px) Versions-Chip in eigener Zeile",
       "Web: Diagnose zeigt die letzten drei Neustarts, der Rest ist aufklappbar; Testorte in vier Karten, Auswahl als umbrechende Knöpfe (passte am Handy nicht in die Breite)",
       "Werkzeuge: web_screens.mjs speichert Unterseiten (#/a/b) als a-b.png",
-      "Web: Update-Seite mit Installieren-Knopf direkt unter der Fundmeldung, Changelog darunter, Knöpfe gleich breit; „Aus Datei“ als eigene Karte ganz unten"
+      "Web: Knöpfe in Aktionszeilen gleich breit (page.css: allein volle Breite, mehrere zu gleichen Teilen); Update-Seite mit Installieren über dem Changelog, „Aus Datei“ unten"
     ],
     "f": [
       "Web: Oberfläche lädt nach einer neuen Firmware-Version selbst neu; unbekannte Felder der Farbwahl bleiben beim Speichern erhalten (eine alte Seite setzte das Design zurück)",
-      "Web: „So entstand Pixelia“ schließt erst 2 s nach dem Öffnen per Tipp daneben (weitere Tipper aufs Zeichen schlossen es sofort); X und Escape sofort"
+      "Web: „So entstand Pixelia“ schließt erst 2 s nach dem Öffnen per Tipp daneben (weitere Tipper aufs Zeichen schlossen es sofort); X und Escape sofort",
+      "Werkzeuge: release_notes.py --check sortiert Vorabversionen nach Zahl (beta.10 nach beta.9), wie Firmware und Oberfläche"
+    ]
+  },
+  {
+    "v": "0.5.4-beta.10",
+    "d": "2026-10-22",
+    "t": "Knöpfe überall gleich breit (Vorschau)",
+    "s": "Vorabversion: einheitliche Knopfbreite in der ganzen Oberfläche",
+    "k": {
+      "s": "Vorabversion: Knöpfe überall gleich breit",
+      "i": [
+        "Knöpfe: Steht ein Knopf allein in seiner Zeile, geht er über die ganze Breite; mehrere teilen sich die Zeile gleichmäßig, Textknöpfe bleiben schmal"
+      ]
+    },
+    "i": [
+      "Web: .actions > .btn:not(.text, .xs) mit flex 1 1 0 und min-width max-content in page.css (z. B. Neustart, Werksreset, Sicherung, WLAN, PIN)"
+    ],
+    "h": [
+      "Doku: Vorabversion zum Ausprobieren, erscheint nur im Kanal Vorschau"
+    ],
+    "pr": [34],
+    "f": [
+      "Werkzeuge: release_notes.py --check sortiert Vorabversionen nach Zahl (beta.10 nach beta.9), wie Firmware und Oberfläche"
     ]
   },
   {

@@ -64,6 +64,13 @@
   gap: 8px;
   margin-top: 16px;
 }
+/* Knöpfe in Aktionszeilen gleich breit (seit 0.5.4, Wunsch des Users): ein Knopf allein füllt die Zeile, mehrere teilen
+   sie sich zu gleichen Teilen; passen sie nicht nebeneinander, bricht die Zeile um und jeder füllt seine eigene.
+   Textknöpfe (Abbrechen, Links) und kleine Knöpfe bleiben so schmal wie ihr Text. */
+.actions > .btn:not(.text, .xs) {
+  flex: 1 1 0;
+  min-width: max-content;
+}
 
 /* Listenzeilen in Karten (M3-Liste: Symbol, zwei Textzeilen, Aktion am Ende) */
 .list {
