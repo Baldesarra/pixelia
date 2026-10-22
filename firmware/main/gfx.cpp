@@ -431,8 +431,14 @@ void publish_camera(int ticks) {
 void draw_pixel_clock(pixelia::Canvas& canvas) {
     const uint32_t bits = s_clock_bits.load(std::memory_order_relaxed);
     if (!(bits & 1)) return;
-    int64_t local;
-    if (!timesync::local_us(&local)) return;
+    // Ortszeit nur einmal je Sekunde aus der Zeitzone rechnen (localtime_r kostet ~0,3 ms), dazwischen weiterzählen
+    static int64_t base_t = 0, base_local = 0;
+    const int64_t now = esp_timer_get_time();
+    if (!base_t || now - base_t >= 1000000) {
+        if (!timesync::local_us(&base_local)) return;
+        base_t = now;
+    }
+    const int64_t local = base_local + (now - base_t);
     const int64_t s = local / 1000000 % 86400;
     pixelia::ui::ClockStyle st;
     st.corner = static_cast<pixelia::ui::Corner>(bits >> 1 & 3);

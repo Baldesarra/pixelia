@@ -522,9 +522,11 @@ void client_names_json(Json& j) {
 
 esp_err_t camera_get(httpd_req_t* req) {
     const gfx::CameraState st = gfx::camera_state();
-    static pixelia::FigureInfo figs[64];  // nur der Webserver-Task ruft das auf
-    static int places[64];
-    const int n = gfx::figure_list(figs, places, 64);
+    // Liste im PSRAM (bis 64 Figuren à 28 Byte), der interne RAM bleibt frei
+    constexpr int kMax = 64;
+    auto* figs = static_cast<pixelia::FigureInfo*>(heap_caps_malloc(kMax * sizeof(pixelia::FigureInfo), MALLOC_CAP_SPIRAM));
+    auto* places = static_cast<int*>(heap_caps_malloc(kMax * sizeof(int), MALLOC_CAP_SPIRAM));
+    const int n = figs && places ? gfx::figure_list(figs, places, kMax) : 0;
     Json j;
     j.obj().num("mode", st.mode).num("target", st.target).str("targetName", st.target_name).num("place", st.place);
     j.num("returnIn", st.return_in_s);
@@ -535,6 +537,8 @@ esp_err_t camera_get(httpd_req_t* req) {
     for (int i = 0; i < n; ++i)
         j.obj().num("id", figs[i].id).str("name", figs[i].name).num("place", places[i]).boolean("lead", figs[i].lead).end_obj();
     j.end_arr().end_obj();
+    heap_caps_free(figs);
+    heap_caps_free(places);
     return send_json(req, j.text());
 }
 

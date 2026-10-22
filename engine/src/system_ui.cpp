@@ -76,8 +76,23 @@ void round_rect(Canvas& c, int x, int y, int w, int h, uint8_t color, int r) {
 }
 
 void framed(Canvas& c, int x, int y, int w, int h, uint8_t fill, uint8_t border, int radius) {
-    round_rect(c, x, y, w, h, border, radius);
-    round_rect(c, x + 1, y + 1, w - 2, h - 2, fill, radius > 0 ? radius - 1 : 0);
+    // Gleiches Bild wie Kontur-Fläche + Füllung darüber, aber jeder Bildpunkt nur einmal geschrieben (seit 0.5.6:
+    // die Engine-Puffer liegen im PSRAM, große Karten kosteten sonst über 2 ms je Bild)
+    if (w <= 0 || h <= 0) return;
+    const int r = std::min({radius, w / 2, h / 2});
+    const int ri = std::min({radius > 0 ? radius - 1 : 0, (w - 2) / 2, (h - 2) / 2});
+    auto inset = [](int yy, int hh, int rr) { return yy < rr ? rr - yy : (yy >= hh - rr ? yy - (hh - 1 - rr) : 0); };
+    for (int yy = 0; yy < h; ++yy) {
+        const int o = inset(yy, h, r);
+        if (yy == 0 || yy == h - 1 || w <= 2) {
+            c.fill_rect(x + o, y + yy, w - 2 * o, 1, border);
+            continue;
+        }
+        const int i = 1 + inset(yy - 1, h - 2, ri);  // Beginn der Füllung, von außen gezählt
+        c.fill_rect(x + o, y + yy, i - o, 1, border);
+        c.fill_rect(x + i, y + yy, w - 2 * i, 1, fill);
+        c.fill_rect(x + w - i, y + yy, i - o, 1, border);
+    }
 }
 
 void draw_qr(Canvas& c, const qr::Code& code, int x, int y, int scale, int quiet) {

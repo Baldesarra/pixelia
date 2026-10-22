@@ -13,8 +13,11 @@ constexpr int kW = kScreenWidth;
 constexpr int kH = kScreenHeight;
 SpriteSheet s_symbols{};
 
+// Schatten nur dort, wo er neben und unter der Karte zu sehen ist (eine Fläche darunter kostet im PSRAM zu viel)
 void shadowed(Canvas& c, int x, int y, int w, int h, int radius) {
-    round_rect(c, x - 1, y + 2, w + 2, h, kShadow, radius);
+    c.fill_rect(x - 1, y + 2 + radius, 1, h - 2 * radius, kShadow);
+    c.fill_rect(x + w, y + 2 + radius, 1, h - 2 * radius, kShadow);
+    c.fill_rect(x + radius, y + h, w - 2 * radius, 2, kShadow);
     framed(c, x, y, w, h, kSurface, kOutline, radius);
 }
 
@@ -28,6 +31,7 @@ void blit_scaled(Canvas& c, const CardPicture& p, int x, int y, const Rect& clip
             uint8_t v = s.pixels[sy * s.width + (p.flip ? s.width - 1 - sx : sx)];
             if (!v) continue;
             if (p.remap) v = p.remap[v];
+            if (v < p.light_base) v = static_cast<uint8_t>(v + p.light_add);
             const int px = x + sx * k, py = y + sy * k;
             const int x0 = std::max(px, clip.x), x1 = std::min(px + k, clip.x + clip.w);
             const int y0 = std::max(py, clip.y), y1 = std::min(py + k, clip.y + clip.h);
@@ -264,12 +268,21 @@ Rect draw_clock(Canvas& c, int hour, int minute, int second, const ClockStyle& s
 // --- Karte ---
 
 Rect card_rect(const Card& card, const CardStyle& st) {
-    (void)card;
     switch (st.layout) {
         case CardLayout::Center: return {50, 66, 300, 104};
         case CardLayout::Bar: return {6, kH - 82, kW - 12, 76};
-        default: return {kSideX, kSideY, kSideW, kSideH};
+        default: break;
     }
+    // Seitenkarte so hoch wie ihr Inhalt (jeder Bildpunkt kostet im PSRAM): Bild mit Name, Gedanke, Angaben, Hinweis
+    const int pw = card.picture.sprite.width * std::max(1, card.picture.scale);
+    const int ph = card.picture.sprite.height * std::max(1, card.picture.scale);
+    if (!card.picture.sprite.pixels || card.kind == Card::Kind::Exhibit || pw > 56) return {kSideX, kSideY, kSideW, kSideH};
+    const int w = kSideW - 16, lh = font::kLineHeight;
+    int h = 8 + std::max(ph + 6, 40) + 6 + 2;
+    if (!card.quote.empty()) h += std::min(font::wrapped_lines(w - 13, card.quote), 6) * lh + 4;
+    for (int i = 0; i < card.line_count; ++i) h += std::min(font::wrapped_lines(w, card.lines[i]), 3) * lh;
+    h += card.hint.empty() ? 8 : 22;
+    return {kSideX, kSideY, kSideW, std::clamp(h, 100, kSideH)};
 }
 
 void render_card(Canvas& c, const Card& card, const CardStyle& st) {

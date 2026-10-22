@@ -54,7 +54,21 @@ export type Status = {
     ghSeq?: number; // seit 0.4.2: ändert sich mit jedem neuen Stand von /api/update
   };
   rollback: { v: string; why: string } | null;
-  set: { rot: number; bright: number; lp: number; ui?: string; exp?: boolean };
+  set: {
+    rot: number;
+    bright: number;
+    lp: number;
+    ui?: string;
+    exp?: boolean;
+    // seit 0.5.6: Pixel-Uhr (Ecke 0 oben rechts, 1 oben links, 2 unten rechts, 3 unten links) und Kamera
+    clk?: boolean;
+    clkCorner?: number;
+    clkSec?: boolean;
+    camHome?: number;
+    camFig?: number;
+    camPlace?: number;
+    camRet?: number;
+  };
   auth?: { pin: boolean; lockS: number };
   diag: {
     boot: number;

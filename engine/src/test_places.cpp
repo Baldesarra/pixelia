@@ -978,6 +978,8 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
         card->picture.sprite = kit().figure.frame(view_of(Facing::Down).index * kPoses);
         card->picture.remap = kit().rows[f->row].table();
         card->picture.scale = 2;
+        card->picture.light_base = static_cast<uint8_t>(pal_.base());  // hellste Lichtstufe: auch nachts erkennbar
+        card->picture.light_add = static_cast<uint8_t>(pal_.base() * (pal_.levels() - 1));
         figure_mark(f->id, &card->mark_x, &card->mark_y, &card->mark_h);
         return true;
     }
@@ -992,6 +994,8 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
         if (l && l->sheet.pixels) {
             card->picture.sprite = l->sheet.frame(room_.part(hit.id).state, 0);
             card->picture.scale = l->sheet.width <= 24 && l->sheet.height <= 24 ? 3 : 2;
+            card->picture.light_base = static_cast<uint8_t>(pal_.base());
+            card->picture.light_add = static_cast<uint8_t>(pal_.base() * (pal_.levels() - 1));
             const uint8_t row = room_.part(hit.id).row;
             card->picture.remap = row > 0 && row < kRowCount ? kit().rows[row].table() : nullptr;
         }

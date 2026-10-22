@@ -3,6 +3,7 @@
   // Vorgeschichte, die Kapitel (ROADMAP ab 0.6.x) und die geplanten Seiten. Kommt eine Seite dazu, wird ihre Karte
   // zum Link (href) und wandert nach oben; „soon“ fällt dann weg.
   import { Card, Icon, WavyProgress, type IconName } from '../lib/m3';
+  import CameraCard from '../lib/CameraCard.svelte';
   import { device } from '../lib/status.svelte';
 
   const chapters = [
@@ -45,6 +46,8 @@
       <WavyProgress value={engine / 12} label="Fortschritt der Engine" />
     {/if}
   </Card>
+
+  <CameraCard />
 
   <h3>Die Kapitel</h3>
   <ol class="chapters">

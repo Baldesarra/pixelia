@@ -99,6 +99,9 @@ struct CardPicture {
     const uint8_t* remap = nullptr;  // Farbreihe (Figuren)
     bool flip = false;
     int scale = 2;
+    // Lichtstufe (light.h): Grundfarben unter light_base um light_add verschieben, z. B. nachts auf die hellste Stufe
+    uint8_t light_base = 0;
+    uint8_t light_add = 0;
 };
 
 struct Card {
