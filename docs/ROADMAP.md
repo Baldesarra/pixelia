@@ -249,7 +249,9 @@ fahrenden Zugs (0.9.x).
 - [ ] **0.5.7 Weltzeit, Kalender und Wetter-Simulation** (Hoch; bisher 0.5.6 „Dienste“, neu gefasst nach
       [SETTING.md](SETTING.md) Kapitel 9): Weltkalender (Tag 1, Jahreszeit 7 echte Tage, einstellbar, Weltjahr 28
       Tage), Dämmerung nach Weltjahreszeit, Zeitfenster (morgens … nachts) als Schnittstelle fürs Tagesgerüst,
-      Erstlinge (erster Schnee …) als Ereignis; **Wetter-Simulation** (viermal am Tag, nach Jahreszeit, Gewitter auch
+      Jahreszeitenwechsel in der Nacht von Sonntag auf Montag mit Jahreszeitenabend als festem Kalendertermin, Erstlinge
+      (erster Schnee …) als Ereignis; **echter Mond** (Phase aus dem Datum ohne Internet, sichtbar bei klarem Himmel,
+      Vollmond hebt die Nachthelligkeit an, [SETTING.md](SETTING.md) Kapitel 9); **Wetter-Simulation** (viermal am Tag, nach Jahreszeit, Gewitter auch
       mittendrin) füttert die Wetter-Schnittstelle aus 0.5.3; Nachtmodus und Helligkeitskurve; Download von GitHub
       robuster (Abbruch ohne Fortschritt, Weitermachen per HTTP-Range). Entfällt: Standort und echtes Wetter
       (Open-Meteo), weil die Weltjahreszeit gestaucht ist (Frage in [ZUSATZINHALTE.md](ZUSATZINHALTE.md))
@@ -262,7 +264,7 @@ fahrenden Zugs (0.9.x).
       „nur bei Tag“, „erst nach Bau“, „Werkzeug nötig“); Fahrzeuge als bewegliche Orte (Schnittstelle);
       **Ortszustände mit Zeitbezug** (Feuer und Glut, Licht, Nässe, Füllstand, angefangene Arbeit), die auch unsichtbar
       weiterlaufen; Lichtquellen-Arten (Kerze, Öllampe, Kamin, Kienspan, Laterne, Fackel) mit Stärke; **Stellplätze**
-      im Baukasten (sichtbare Bestände); Ereignis-Bus
+      im Baukasten (sichtbare Bestände, auch auf der Fensterbank: Kerze im Fenster); Ereignis-Bus
 - [ ] **0.5.9 Weltzustand, Figuren und Speicherstand** (xhigh): Weltzustand als Ganzes (Uhr, Wetter, Figuren, Chronik
       mit Zeitstempel); Figuren-Datensatz (Stammdaten, Charakterzüge, Interessen, Fähigkeiten in Stufen mit
       Erfahrungswert, Beziehungen in Stufen, Erinnerungen, Zuhause, Besitz); **Figuren-Baukasten** fürs Aussehen (Ebenen
@@ -298,7 +300,7 @@ fahrenden Zugs (0.9.x).
 |---|---|
 | Bühne (0.5.0) | Heute rechnen alle Orte mit 30 Hz; laut Setting rechnen unsichtbare Orte grob mit ~1 Hz auf Kern 0, auch bei Hunderten Orten ([SETTING.md](SETTING.md) Kapitel 15) |
 | Sprites (0.5.0) | Figur 28 hoch, 4 Richtungen, Ebenen für den Figuren-Baukasten; Animationen sitzen, liegen, arbeiten, tragen |
-| Raum-Baukasten (0.5.1) | Haus mit mehreren Räumen (Notunterkunft → Raum für Raum), Stellplätze, Benutzungspunkte für Arbeitsschritte, Besitzer und Erkennungsstücke, Ausgänge → Verbindungen mit Bedingungen |
+| Raum-Baukasten (0.5.1) | Haus mit mehreren Räumen (Notunterkunft → Raum für Raum), Stellplätze, Benutzungspunkte für Arbeitsschritte, Besitzer und Erkennungsstücke, Ausgänge → Verbindungen mit Bedingungen; Fenster groß genug für Wetter und Fensterbank ([STIL.md](STIL.md) Kapitel 8, heute 2 Kacheln breit) |
 | Farbe und Licht (0.5.2) | Reichen 80 Grundfarben für echte Orte? Rampen je Ortsart; Lichtquellen-Arten mit Brennstoff statt nur an/aus |
 | Wetter (0.5.3) | ein Wetter für die Welt statt je Bühne, kein Wetter unter Tage (Grube); `LightBoard` wird Ortszustand „Licht“ |
 | Experimentell → Orte (Web) | bleibt Prüfwerkzeug; die Welt bekommt eigene Seiten (0.6.x) |
@@ -557,4 +559,5 @@ Neue Wünsche des Users landen hier (mit Datum) und werden einer Version zugeord
 | 2026-10-21 | **Checkliste „Vor 1.0.0 klären“ und Liste der Zusatzinhalte nach 1.0** (Wunsch des Users) | ✅ [ZUSATZINHALTE.md](ZUSATZINHALTE.md) |
 | 2026-10-21 | **Jahreszeitenabende** (Wunsch des Users): Jahreszeiten wechseln sonntags; am letzten Abend jeder Jahreszeit großes Zusammenkommen in der Taverne, am Sommerende das **Sommerfeuer** auf dem geschmückten Dorfplatz (Holz wird angespart), am Herbstende der **Lichterabend** ([SETTING.md](SETTING.md) Kapitel 9 und 11) | 0.6.x (Kalender, Ereignis-Regisseur; Mindestziel Kapitel 1), Sommerfeuer am Dorfplatz ab 0.7.x |
 | 2026-10-21 | **Schlafenszeit eine Stunde später** (Wunsch des Users, er schaut abends länger zu): Frühaufsteher 22 Uhr, die meisten 23 Uhr, Nachteulen 1 Uhr ([SETTING.md](SETTING.md) Kapitel 6) | Tagesablauf (Rituale 0.5.11, Grundberufe 0.6.x) |
-| 2026-10-21 | **Echter Mond** (Idee von Claude, vom User gewählt): Mondphase von heute am Nachthimmel, Vollmond hellt die Nacht auf, manche gehen ohne Laterne heim | Himmel und Licht; Patch ordnet der Planungs-Chat ein |
+| 2026-10-21 | **Echter Mond** (Idee von Claude, vom User gewählt): Mondphase von heute am Nachthimmel, Vollmond hellt die Nacht auf, manche gehen ohne Laterne heim | 0.5.7 (Weltzeit und Kalender) |
+| 2026-10-22 | **Große Fenster mit Fensterbank** (Wunsch des Users): Die Fenster der Testräume sind zu klein, draußen erkennt man das Wetter kaum, und es passt keine Kerze davor. Fenster etwa 4–5 Kacheln breit wie in der Küche aus Skizze v4, mit einer Fensterbank als Stellplatz (Kerze, Blumentopf); Regel in [STIL.md](STIL.md) Kapitel 8 | Grafik-Format 0.5.5, Stellplätze und Nachprüfung 0.5.8, echte Räume 0.6.x |

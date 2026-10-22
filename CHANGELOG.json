@@ -43,9 +43,9 @@
       "Werkzeuge: release_notes.py --check verlangt k, warnt bei Messwerten und sortiert beta.10 nach beta.9; k für alle Versionen 0.1.0 bis 0.5.3 nachgetragen",
       "Doku: Neuplanung nach dem Setting: Phasen ab 0.6.x als Kapitel der Welt, 0.5.x bis 0.5.12 Gesamtprobe, Systemplan; CLAUDE.md und PROJEKTPLAN an Orte als Module und gemeinsamen Weltzustand angepasst",
       "Doku: ZUSATZINHALTE.md („Vor 1.0.0 klären“, Ideen nach 1.0), README neu; freie Grafik-Pakete geprüft und keines übernommen, eigene Grafiken im Stil der Küche aus Skizze v4 (STIL.md)",
-      "Doku: Setting ergänzt: Licht-Regeln (Lichtritzen, Laternen wie um 1850, echter Mond), Schlafenszeit eine Stunde später, Jahreszeitenabende mit Sommerfeuer und Lichterabend, Mindestziele Kapitel 1, Grube vor Lok"
+      "Doku: Setting ergänzt (Licht-Regeln, echter Mond, Schlafenszeit, Jahreszeitenabende, Mindestziele Kapitel 1, Grube vor Lok); Stilregel große Fenster mit Fensterbank, Mond und Jahreszeiten in 0.5.7"
     ],
-    "pr": [31, 32, 34],
+    "pr": [31, 32, 33, 34],
     "i": [
       "Web: Bundle 151 → 147 KB gzip trotz neuer Seiten und Designs: Icon-Pfade auf Raster 240 gerundet (−5,6 KB), Schrift nur noch wght 400–800 und wdth 100–120 (33 → 21 KB)",
       "Web: Versionsverlauf zeigt Versionen ohne Datum nur, wenn sie installiert sind; „Installiert“ über dem Titel, am Handy (≤ 480 px) Versions-Chip in eigener Zeile",
