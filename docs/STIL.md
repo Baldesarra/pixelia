@@ -169,6 +169,11 @@ braucht nicht jede Lampe eine eigene Leuchtfarbe.
 | naechste | fremde Farben werden zur nächsten Zeichenfarbe, die Vorschau zeigt das Ergebnis |
 | eigene | fremde Farben bleiben (höchstens 16 je Bild); sie stehen im Bild als Indizes 224–239 und die Engine legt sie beim Betreten auf freie Grundfarben des Ortes (Zuordnung kommt mit dem Hochladen, 0.7.x) |
 
+**Wahl der Fassung je Möbel** (Klarstellung des Users 2026-10-22): Beim Hochladen zeigt die Oberfläche beide Fassungen
+nebeneinander, die Originalfarben (eigene Farben) und die auf Pixelia-Farben umgerechnete; der User wählt je Möbel,
+welche eingebunden wird. Mit dem Werkzeug geht dasselbe heute schon: `wandeln … --farben eigene --vorschau a.png` und
+`--farben naechste --vorschau b.png` vergleichen, dann die gewählte Fassung in `pakete.json` eintragen (`"farben"`).
+
 **Pakete (`assets/<ordner>/pakete.json`).** Ein Ordner beschreibt seine Pakete: Palette, Kachelbilder (8 × 8, Kachel
 0 leer, `sperren` = versperrende Kacheln), Farbreihen (`{"platzhalter": "holz"}` = Rampe auf Rampe) und Bilder
 (`datei`, `bilder`, `zustaende`, `fuss`, `farben`). Namen wie „teil/lampe“ sind im ganzen Spiel eindeutig, die Engine

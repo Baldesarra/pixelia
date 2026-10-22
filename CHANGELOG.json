@@ -1,5 +1,21 @@
 [
   {
+    "v": "0.5.6",
+    "d": "",
+    "t": "",
+    "s": "",
+    "k": {
+      "s": "Schrift, Einblendungen und Touch (in Arbeit)",
+      "i": [
+        "Eigene Möbel: Beim späteren Hochladen wählst du je Möbel selbst, ob es deine Originalfarben behält oder in Pixelia-Farben umgerechnet wird"
+      ]
+    },
+    "h": [
+      "Doku: Eigene Möbel: der User wählt je Möbel zwischen Originalfarben und Pixelia-Farben, beide als Vorschau (STIL.md Kapitel 9, Projektplan Kapitel 14)"
+    ],
+    "pr": []
+  },
+  {
     "v": "0.5.5",
     "d": "2026-10-22",
     "t": "Asset-Quelle und Grafik-Werkzeug",
