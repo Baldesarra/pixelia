@@ -450,6 +450,7 @@ void gfx_task(void* arg) {
         s_stats.render_us_sum += render_us;
         if (render_us > s_stats.render_us_max) s_stats.render_us_max = render_us;
         s_stats.logic_us_sum += static_cast<uint64_t>(t1 - t0);
+        if (static_cast<uint32_t>(t1 - t0) > s_stats.logic_us_max) s_stats.logic_us_max = static_cast<uint32_t>(t1 - t0);
         s_stats.logic_ticks += ticks;
         s_stats.tick_hist[ticks < 2 ? ticks : 2]++;
         s_stats.world_minute = s_clock.hour() * 60 + s_clock.minute();
@@ -551,7 +552,7 @@ bool real_time() { return s_follow_real; }
 EngineStats engine_stats(bool reset_max) {
     portENTER_CRITICAL(&s_stats_lock);
     EngineStats s = s_stats;
-    if (reset_max) s_stats.render_us_max = 0;
+    if (reset_max) s_stats.render_us_max = s_stats.logic_us_max = 0;
     portEXIT_CRITICAL(&s_stats_lock);
     s.buffers_in_psram = s_buf_psram;
     s.buffers_ready = s_buf[0] != nullptr;

@@ -171,10 +171,11 @@ const AssetStore::Pack* AssetStore::get(const char* name) const {
     return nullptr;
 }
 
-bool AssetStore::read_pack(const char* name, Pack* out, const char** source) {
+bool AssetStore::read_pack(const char* name, AssetSource* primary, AssetSource* fallback, Pack* out,
+                           const char** source) {
     char file[40];
     std::snprintf(file, sizeof(file), "%s.pxa", name);
-    AssetSource* srcs[2] = {primary_, fallback_};
+    AssetSource* srcs[2] = {primary, fallback};
     for (AssetSource* src : srcs) {
         if (!src) continue;
         const uint64_t t0 = now();
@@ -229,6 +230,8 @@ void AssetStore::evict_for(uint32_t bytes, const Pack* keep) {
 }
 
 bool AssetStore::load_base(const char* pack) {
+    AssetSource* primary = nullptr;
+    AssetSource* fallback = nullptr;
     {
         std::lock_guard<std::mutex> g(lock_);
         Pack* p = get(pack);
@@ -237,10 +240,12 @@ bool AssetStore::load_base(const char* pack) {
         if (p->state == State::Ready) return true;
         p->state = State::Loading;
         p->asked = now();
+        primary = primary_;
+        fallback = fallback_;
     }
     Pack loaded;
     const char* source = "";
-    const bool ok = read_pack(pack, &loaded, &source);
+    const bool ok = read_pack(pack, primary, fallback, &loaded, &source);
     std::lock_guard<std::mutex> g(lock_);
     Pack* p = get(pack);
     if (!ok) {
@@ -334,6 +339,8 @@ void AssetStore::drop_unpinned() {
 
 bool AssetStore::work() {
     const char* name = nullptr;
+    AssetSource* primary = nullptr;
+    AssetSource* fallback = nullptr;
     {
         std::lock_guard<std::mutex> g(lock_);
         Pack* next = nullptr;
@@ -346,12 +353,15 @@ bool AssetStore::work() {
         if (!next) return false;
         next->state = State::Loading;
         name = next->name;
+        primary = primary_;
+        fallback = fallback_;
     }
     Pack loaded;
     const char* source = "";
-    const bool ok = read_pack(name, &loaded, &source);  // ohne Sperre: die Bühne zeichnet weiter
+    const bool ok = read_pack(name, primary, fallback, &loaded, &source);  // ohne Sperre: die Bühne zeichnet weiter
     std::lock_guard<std::mutex> g(lock_);
     Pack* p = get(name);
+    last_ = static_cast<int>(p - packs_);
     if (!ok) {
         p->state = State::Failed;
         ++failures_;
@@ -438,25 +448,32 @@ AssetStore::Stats AssetStore::stats() const {
     return s;
 }
 
+void AssetStore::info_of(const Pack& p, PackInfo& o) {
+    std::snprintf(o.name, sizeof(o.name), "%s", p.name);
+    o.state = p.state;
+    o.pins = p.pins;
+    o.base = p.base;
+    o.bytes = p.bytes;
+    o.file_bytes = p.file_bytes;
+    o.read_us = p.read_us;
+    o.unpack_us = p.unpack_us;
+    o.wait_us = p.wait_us;
+    o.source = p.source;
+    o.loads = p.loads;
+}
+
 int AssetStore::list(PackInfo* out, int max) const {
     std::lock_guard<std::mutex> g(lock_);
     int n = 0;
-    for (int i = 0; i < count_ && n < max; ++i) {
-        const Pack& p = packs_[i];
-        PackInfo& o = out[n++];
-        std::snprintf(o.name, sizeof(o.name), "%s", p.name);
-        o.state = p.state;
-        o.pins = p.pins;
-        o.base = p.base;
-        o.bytes = p.bytes;
-        o.file_bytes = p.file_bytes;
-        o.read_us = p.read_us;
-        o.unpack_us = p.unpack_us;
-        o.wait_us = p.wait_us;
-        o.source = p.source;
-        o.loads = p.loads;
-    }
+    for (int i = 0; i < count_ && n < max; ++i) info_of(packs_[i], out[n++]);
     return n;
+}
+
+bool AssetStore::last(PackInfo* out) const {
+    std::lock_guard<std::mutex> g(lock_);
+    if (last_ < 0) return false;
+    info_of(packs_[last_], *out);
+    return true;
 }
 
 AssetStore::Probe AssetStore::probe(AssetSource& src, const char* file) {

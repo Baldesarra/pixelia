@@ -444,7 +444,7 @@ std::string perf_json(bool with_tasks) {
     j.num("isrMaxUs", p.isr_max_us).num("desync", p.desync).end_obj();
     if (p.engine) {
         j.obj("engine").num("fps", p.fps, 1).num("render", p.render_ms, 2).num("renderMax", p.render_max_ms, 2);
-        j.num("logic", p.logic_ms, 2);
+        j.num("logic", p.logic_ms, 2).num("logicMax", p.logic_max_ms, 2);
         j.arr("ticks").num(nullptr, p.ticks[0]).num(nullptr, p.ticks[1]).num(nullptr, p.ticks[2]).end_arr();
         char wt[16];
         std::snprintf(wt, sizeof(wt), "%02d:%02d", p.world_minute / 60, p.world_minute % 60);
@@ -459,6 +459,13 @@ std::string perf_json(bool with_tasks) {
     const wifi::Status w = wifi::status();
     j.obj("wifi").str("state", wifi::state_name(w.state)).num("rssi", w.rssi).num("ch", w.channel).end_obj();
     j.raw("log", log_info_json());
+    // Grafik-Speicher (seit 0.5.5): Belegung, Laden, letztes Paket mit Zeit von der Anfrage bis geladen
+    const assets::Summary a = assets::summary();
+    j.obj("assets").num("used", a.used >> 10).num("budget", a.budget >> 10).num("peak", a.peak >> 10);
+    j.num("packs", a.packs).num("loads", a.loads).num("evictions", a.evictions).num("failures", a.failures);
+    j.str("source", a.source).boolean("littlefs", a.littlefs).boolean("sd", a.sd);
+    j.str("last", a.last).num("lastMs", a.last_us / 1000.0, 2).str("lastSource", a.last_source ? a.last_source : "");
+    j.end_obj();
     if (!with_tasks) {
         j.null("tasks").end_obj();
         return std::move(j.text());

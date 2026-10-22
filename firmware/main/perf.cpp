@@ -73,15 +73,16 @@ void perf_task(void*) {
                 s.render_ms = frames ? static_cast<float>((e.render_us_sum - e_prev.render_us_sum) / 1000.0 / frames) : 0;
                 s.render_max_ms = static_cast<float>(e.render_us_max / 1000.0);
                 s.logic_ms = frames ? static_cast<float>((e.logic_us_sum - e_prev.logic_us_sum) / 1000.0 / frames) : 0;
+                s.logic_max_ms = static_cast<float>(e.logic_us_max / 1000.0);
                 for (int k = 0; k < 3; ++k) s.ticks[k] = e.tick_hist[k] - e_prev.tick_hist[k];
                 s.sprites = e.sprites;
                 s.buf_psram = e.buffers_in_psram;
                 s.world_day = e.world_day;
                 s.world_minute = e.world_minute;
                 snprintf(engine, sizeof(engine),
-                         " | fps %.1f render %.2f/%.2fms logic %.2fms ticks %" PRIu32 "/%" PRIu32 "/%" PRIu32
+                         " | fps %.1f render %.2f/%.2fms logic %.2f/%.2fms ticks %" PRIu32 "/%" PRIu32 "/%" PRIu32
                          " sprites %d buf %s | welt Tag %d %02d:%02d",
-                         s.fps, s.render_ms, s.render_max_ms, s.logic_ms, s.ticks[0], s.ticks[1], s.ticks[2], e.sprites,
+                         s.fps, s.render_ms, s.render_max_ms, s.logic_ms, s.logic_max_ms, s.ticks[0], s.ticks[1], s.ticks[2], e.sprites,
                          e.buffers_in_psram ? "psram" : "int", e.world_day, e.world_minute / 60, e.world_minute % 60);
             }
             {

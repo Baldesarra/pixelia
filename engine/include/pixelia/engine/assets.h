@@ -185,6 +185,7 @@ public:
 
     Stats stats() const;
     int list(PackInfo* out, int max) const;
+    bool last(PackInfo* out) const;  // zuletzt von work() bearbeitetes Paket (Log der Lade-Task)
 
     // Messung ohne Speichern: Paket aus einer Quelle lesen, prüfen, entpacken und wieder freigeben
     struct Probe {
@@ -215,14 +216,16 @@ private:
     const Pack* get(const char* name) const;
     void touch(Pack& p) { p.last_use = ++use_clock_; }
     uint64_t now() const { return now_ ? now_() : 0; }
-    // Datei laden und entpacken (ohne Sperre); false = fehlt oder kaputt
-    bool read_pack(const char* name, Pack* out, const char** source);
+    // Datei laden und entpacken (ohne Sperre, Quellen vorher unter der Sperre übernommen); false = fehlt oder kaputt
+    bool read_pack(const char* name, AssetSource* primary, AssetSource* fallback, Pack* out, const char** source);
+    static void info_of(const Pack& p, PackInfo& o);
     void free_pack(Pack& p);
     void evict_for(uint32_t bytes, const Pack* keep);
 
     mutable std::mutex lock_;
     Pack packs_[kMaxPacks];
     int count_ = 0;
+    int last_ = -1;
     AssetSource* primary_ = nullptr;
     AssetSource* fallback_ = nullptr;
     uint32_t budget_ = 2u << 20;

@@ -3,3 +3,5 @@ dependencies:
   idf: ">=6.1"
   # mDNS (pixelia.local), seit ESP-IDF 5 nicht mehr im Kern enthalten
   espressif/mdns: "^1.14.0"
+  # LittleFS für die Partition „storage“ (seit 0.5.5: Asset-Pakete, später Speicherstand)
+  joltwallet/littlefs: "^1"

@@ -1,6 +1,9 @@
 // Hardware-Detektiv: I²C-Scan, GT911-Touch-Test, Stufentest der Hintergrundbeleuchtung
 
+#include <unistd.h>
+
 #include <array>
+#include <cstdio>
 #include <cstdlib>
 
 #include "app.h"
@@ -139,32 +142,36 @@ void touch_task(void*) {
 
 constexpr int kBlLevels[] = {100, 70, 40, 20, 10, 5, 1, 0};
 
-// Flash-Last wie bei OTA/Spielständen: Sektoren in „storage“ löschen und beschreiben, danach aufräumen
+// Flash-Last wie bei Spielständen: Datei in LittleFS immer wieder schreiben (je 4 KB mit fsync, also Löschen und
+// Schreiben im Flash), danach löschen. Seit 0.5.5 über das Dateisystem: vorher schrieb der Test roh in „storage“,
+// das würde LittleFS zerstören.
 void flash_stress_impl(int seconds) {
-    const esp_partition_t* part =
-        esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "storage");
-    if (!part) {
-        ESP_LOGE("flash", "Partition storage fehlt");
+    if (!assets::littlefs_ready()) {
+        ESP_LOGE("flash", "LittleFS nicht eingehängt");
         return;
     }
     constexpr size_t kSector = 4096;
-    constexpr size_t kRange = 256 * 1024;
+    constexpr int kSectors = 64;  // 256 KB je Durchgang
+    constexpr const char* kPath = "/data/flashlast.bin";
     static uint32_t buf[kSector / 4];
     for (size_t i = 0; i < kSector / 4; ++i) buf[i] = 0xA5A50000u + i;
     int64_t t0 = esp_timer_get_time();
     int64_t end = t0 + static_cast<int64_t>(seconds) * 1000000;
-    size_t off = 0, sectors = 0;
-    esp_err_t err = ESP_OK;
-    while (esp_timer_get_time() < end && err == ESP_OK) {
-        err = esp_partition_erase_range(part, off, kSector);
-        if (err == ESP_OK) err = esp_partition_write(part, off, buf, kSector);
-        ++sectors;
-        off = (off + kSector) % kRange;
+    size_t sectors = 0;
+    bool ok = true;
+    while (esp_timer_get_time() < end && ok) {
+        std::FILE* f = std::fopen(kPath, "wb");
+        ok = f != nullptr;
+        for (int i = 0; ok && i < kSectors && esp_timer_get_time() < end; ++i) {
+            ok = std::fwrite(buf, 1, kSector, f) == kSector && std::fflush(f) == 0 && fsync(fileno(f)) == 0;
+            ++sectors;
+        }
+        if (f) std::fclose(f);
     }
     double dt = (esp_timer_get_time() - t0) / 1e6;
-    esp_partition_erase_range(part, 0, kRange);
-    ESP_LOGI("flash", "%u Sektoren (%u KB) in %.1f s gelöscht und geschrieben: %s", static_cast<unsigned>(sectors),
-             static_cast<unsigned>(sectors * kSector / 1024), dt, esp_err_to_name(err));
+    std::remove(kPath);
+    ESP_LOGI("flash", "%u Sektoren (%u KB) in %.1f s in LittleFS geschrieben: %s", static_cast<unsigned>(sectors),
+             static_cast<unsigned>(sectors * kSector / 1024), dt, ok ? "ok" : "Fehler");
 }
 
 void backlight_steps_once() {
