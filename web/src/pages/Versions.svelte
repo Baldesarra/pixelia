@@ -1,6 +1,6 @@
 <script lang="ts">
-  // Seite „Versionsverlauf“: alle Versionen aus dem in die Firmware eingebetteten CHANGELOG.json als Timeline,
-  // die installierte markiert. Die neuesten drei und die installierte sind aufgeklappt.
+  // Seite „Versionsverlauf“: alle Versionen aus dem in die Firmware eingebetteten CHANGELOG.json als Timeline, die
+  // installierte markiert. Seit 0.5.4 nur die Kurzfassung; aufgeklappt sind die neueste und die installierte Version.
   import { onMount } from 'svelte';
   import { Button, Card, Chip, Icon, LoadingIndicator } from '../lib/m3';
   import ChangeEntry from '../lib/ChangeEntry.svelte';
@@ -13,8 +13,9 @@
 
   const fw = $derived(device.data?.v ?? '');
   const current = $derived(log && fw ? installedEntry(log, fw) : '');
-  const released = $derived(log?.filter((e) => e.d).length ?? 0);
-  const allOpen = $derived(!!log?.length && log.every((e) => open[e.v]));
+  // Unveröffentlichte Versionen (ohne Datum, z. B. 0.5.4 während der Vorschau) nur, wenn sie installiert sind
+  const shown = $derived(log?.filter((e) => e.d || e.v === current) ?? null);
+  const allOpen = $derived(!!shown?.length && shown.every((e) => open[e.v]));
 
   onMount(async () => {
     try {
@@ -26,16 +27,16 @@
   // Startzustand der Klappen, sobald Verlauf und Version da sind
   let seeded = false;
   $effect(() => {
-    if (seeded || !log || !fw) return;
+    if (seeded || !shown || !fw) return;
     seeded = true;
-    open = Object.fromEntries(log.map((e, k) => [e.v, k < 3 || e.v === current]));
+    open = Object.fromEntries(shown.map((e, k) => [e.v, k === 0 || e.v === current]));
   });
 
   function markOf(e: Entry): string {
     if (e.v !== current) return '';
     return e.d ? 'Installiert' : 'Installiert · Entwicklungsstand';
   }
-  const setAll = (v: boolean) => (open = Object.fromEntries((log ?? []).map((e) => [e.v, v])));
+  const setAll = (v: boolean) => (open = Object.fromEntries((shown ?? []).map((e) => [e.v, v])));
 </script>
 
 <div class="page-grid">
@@ -45,14 +46,13 @@
       <span class="end"><Chip tone="primary" icon="check_circle"><span class="tnum">installiert: {fw || '…'}</span></Chip></span>
     </h2>
     <p class="muted">
-      Was sich in jeder Version geändert hat, direkt aus der installierten Firmware. Neuere Versionen stehen auf GitHub;
-      vor einem Update zeigt die Seite System, was die gewählte Datei Neues bringt.
+      Alle Details mit Messwerten stehen bei jeder Version auf GitHub.
     </p>
     <div class="actions">
       <Button variant="tonal" icon="open_in_new" href="{REPO_URL}/releases" target="_blank" rel="noopener">Releases auf GitHub</Button>
-      {#if log?.length}
+      {#if shown?.length}
         <Button variant="text" icon="keyboard_arrow_down" onclick={() => setAll(!allOpen)}>{allOpen ? 'Alle zuklappen' : 'Alle aufklappen'}</Button>
-        <span class="muted small tnum count">{released} veröffentlicht{log.length > released ? ' · 1 in Arbeit' : ''}</span>
+        <span class="muted small tnum count">{shown.filter((e) => e.d).length} veröffentlicht</span>
       {/if}
     </div>
   </Card>
@@ -61,13 +61,13 @@
     <Card variant="error" class="wide">
       <p class="plain">Der Versionsverlauf ließ sich nicht laden. Ältere Firmware (vor 0.4.0) enthält ihn noch nicht.</p>
     </Card>
-  {:else if !log}
+  {:else if !shown}
     <div class="wide waiting"><LoadingIndicator size={56} label="Lade" /></div>
   {:else}
     <ol class="timeline wide">
-      {#each log as e, k (e.v)}
+      {#each shown as e, k (e.v)}
         {@const newer = !!current && cmpVersion(e.v, current) > 0}
-        <li class:current={e.v === current} class:newer class:last={k === log.length - 1}>
+        <li class:current={e.v === current} class:newer class:last={k === shown.length - 1}>
           <span class="rail" aria-hidden="true"><span class="dot"></span></span>
           <Card variant={e.v === current ? 'elevated' : 'filled'} shape={e.v === current ? 'extra-large' : 'large'} class="tl-card">
             <ChangeEntry entry={e} mark={markOf(e)} toggle bind:open={() => open[e.v] ?? false, (v) => (open[e.v] = v)} />

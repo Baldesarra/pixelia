@@ -226,7 +226,7 @@ constexpr size_t kPicBytes = kPixels + kPicPalette;
 
 esp_err_t picture_post(httpd_req_t* req) {
     if (!authorized(req)) return deny(req);
-    if (!exper::enabled()) return reply(req, false, "Experimentell ist aus");
+    // seit 0.5.4 ohne Experimentell (Seite Gerätetests)
     if (req->content_len != kPicBytes) return reply(req, false, "Bild muss 400 × 240 groß sein", "400 Bad Request");
     auto* buf = static_cast<uint8_t*>(heap_caps_malloc(kPicBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
     if (!buf) return reply(req, false, "Kein Speicher", "503 Service Unavailable");

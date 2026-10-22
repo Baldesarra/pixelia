@@ -8,6 +8,54 @@ import { ICONS } from './src/lib/m3/icon-names.ts';
 
 const target = process.env.PIXELIA_TARGET ?? 'http://pixelia';
 
+// Pfad eines Icons verkleinern (seit 0.5.4, spart ~6 KB gzip): Raster 960 → 240 (viewBox in Icon.svelte), ganze
+// Zahlen. Relative Befehle runden ohne Drift: jedes Delta zielt auf den gerundeten Zielpunkt, nicht auf den exakten.
+// Fehler höchstens 1/2 Einheit = 0,05 px bei 24 px.
+const ICON_SCALE = 4;
+function compactPath(d: string): string {
+  const ARGS: Record<string, number> = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4, Q: 4, T: 2, A: 7, Z: 0 };
+  const tokens = d.match(/[a-zA-Z]|-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?/g) ?? [];
+  let x = 0, y = 0, sx = 0, sy = 0; // exakter Punkt und Start des Teilpfads
+  let rx = 0, ry = 0, rsx = 0, rsy = 0; // gerundete Gegenstücke
+  const R = (v: number) => Math.round(v / ICON_SCALE);
+  let out = '';
+  let i = 0;
+  let cmd = '';
+  const num = (v: number) => {
+    const t = String(v);
+    out += out && /[\d.]$/.test(out) && !t.startsWith('-') ? ' ' + t : t;
+  };
+  while (i < tokens.length) {
+    if (/[a-zA-Z]/.test(tokens[i])) {
+      cmd = tokens[i++];
+      out += cmd;
+      if (cmd === 'z' || cmd === 'Z') [x, y, rx, ry] = [sx, sy, rsx, rsy];
+      if (ARGS[cmd.toUpperCase()] === 0) continue;
+    } else if (cmd === 'm') cmd = 'l'; else if (cmd === 'M') cmd = 'L';
+    const up = cmd.toUpperCase();
+    const rel = cmd !== up;
+    const a = tokens.slice(i, i + ARGS[up]).map(Number);
+    i += ARGS[up];
+    const ax = (v: number) => (rel ? x + v : v); // absolut
+    const ay = (v: number) => (rel ? y + v : v);
+    const ox = (v: number) => (rel ? R(v) - rx : R(v)); // Ausgabe
+    const oy = (v: number) => (rel ? R(v) - ry : R(v));
+    let nx = x, ny = y;
+    if (up === 'H') { nx = ax(a[0]); num(ox(nx)); }
+    else if (up === 'V') { ny = ay(a[0]); num(oy(ny)); }
+    else if (up === 'A') {
+      nx = ax(a[5]); ny = ay(a[6]);
+      [R(a[0]), R(a[1]), a[2], a[3], a[4], ox(nx), oy(ny)].forEach(num);
+    } else {
+      for (let k = 0; k < a.length; k += 2) { num(ox(ax(a[k]))); num(oy(ay(a[k + 1]))); }
+      nx = ax(a[a.length - 2]); ny = ay(a[a.length - 1]);
+    }
+    [x, y, rx, ry] = [nx, ny, R(nx), R(ny)];
+    if (up === 'M') [sx, sy, rsx, rsy] = [x, y, rx, ry];
+  }
+  return out;
+}
+
 // Material Symbols (Rounded, 400): aus den SVG-Dateien nur den Pfad übernehmen, nur für die Namen aus icon-names.ts
 function materialSymbols(): Plugin {
   const id = 'virtual:pixelia-icons';
@@ -23,7 +71,7 @@ function materialSymbols(): Plugin {
         );
         const d = /<path d="([^"]+)"/.exec(readFileSync(file, 'utf8'));
         if (!d) throw new Error(`Icon ${name}: kein Pfad gefunden`);
-        out[name] = d[1];
+        out[name] = compactPath(d[1]);
       }
       return `export default ${JSON.stringify(out)};`;
     },
@@ -165,6 +213,13 @@ function mockDevice(): Plugin {
   const SECT: [string, string][] = [['n', 'Neu'], ['i', 'Verbessert'], ['f', 'Behoben'], ['r', 'Entfernt'], ['g', 'Geprüft'], ['h', 'Hinweise']];
   const notesMd = (e: Entry) => {
     const l = [`## Pixelia ${e.v} – ${e.t}`, '', `*${e.s}* · ${e.d}`, ''];
+    // Kurzfassung wie tools/release_notes.py (seit 0.5.4)
+    const k = e.k as Record<string, string | string[]> | undefined;
+    if (k) {
+      l.push('### Kurz gesagt', '', `*${k.s}*`, '');
+      for (const [key, name] of SECT.slice(0, 4)) if (k[key]?.length) l.push(`**${name}**`, '', ...(k[key] as string[]).map((x) => `- ${x}`), '');
+      l.push('### Alle Details', '');
+    }
     for (const [k, name] of SECT) {
       const items = (e[k] as string[] | undefined) ?? [];
       if (items.length) l.push(`### ${name}`, ...items.map((x) => `- ${x}`), '');
@@ -407,6 +462,15 @@ function mockDevice(): Plugin {
           return ok();
         }
         if (a === 'picoff') return ((exp.pic = false), ok('Testbild beendet'));
+        if (a === 'test') {
+          const m = f.get('mode') ?? '';
+          if (m === 'engine') return (Object.assign(exp, { mode: 'engine', testS: -1 }), ok());
+          if (exp.trialS >= 0) return json(res, { ok: false, msg: 'Erst die Probe der Panel-Werte abschließen' });
+          if (m === 'touch') exp.touch.corners = 0;
+          Object.assign(exp, { mode: m, testS: 60 });
+          expRun();
+          return ok();
+        }
         if (!exp.on) return json(res, { ok: false, msg: 'Experimentell ist aus' });
         if (a === 'panel') {
           const p = panelOf(f);
@@ -440,20 +504,10 @@ function mockDevice(): Plugin {
           return ((exp.minute = Number(f.get('v'))), (exp.real = false), ok('Uhrzeit gestellt'));
         }
         if (a === 'speed') return ((exp.speed = Number(f.get('v'))), (exp.real = false), ok('Zeitraffer an'));
-        if (a === 'test') {
-          const m = f.get('mode') ?? '';
-          if (m === 'engine') return (Object.assign(exp, { mode: 'engine', testS: -1 }), ok());
-          if (exp.trialS >= 0) return json(res, { ok: false, msg: 'Erst die Probe der Panel-Werte abschließen' });
-          if (m === 'touch') exp.touch.corners = 0;
-          Object.assign(exp, { mode: m, testS: 60 });
-          expRun();
-          return ok();
-        }
         json(res, { ok: false, msg: 'Aktion unbekannt' });
       });
       server.middlewares.use('/api/picture', async (req, res) => {
         if (!authorized(req, new URLSearchParams())) return deny(res);
-        if (!exp.on) return json(res, { ok: false, msg: 'Experimentell ist aus' });
         const chunks: Buffer[] = [];
         for await (const c of req) chunks.push(c as Buffer);
         const body = Buffer.concat(chunks);
@@ -546,10 +600,11 @@ function mockDevice(): Plugin {
           seq: gh.checkedAt, old: (gh as Record<string, unknown>).old,
         });
       });
-      // Versionsverlauf wie in der Firmware: CHANGELOG.json aus dem Repo
+      // Versionsverlauf wie in der Firmware: CHANGELOG.json aus dem Repo, nur v, d, t, k (tools/release_notes.py --embed)
       server.middlewares.use('/api/changelog', (_req, res) => {
         res.setHeader('Content-Type', 'application/json');
-        res.end(readFileSync(fileURLToPath(new URL('../CHANGELOG.json', import.meta.url))));
+        const log = JSON.parse(readFileSync(fileURLToPath(new URL('../CHANGELOG.json', import.meta.url)), 'utf8')) as Entry[];
+        res.end(JSON.stringify(log.map(({ v, d, t, k }) => ({ v, d, t, k }))));
       });
       server.middlewares.use('/api/log', (req, res) => {
         const u = new URL(req.url ?? '', 'http://x');

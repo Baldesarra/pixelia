@@ -1,5 +1,6 @@
 // Versionsverlauf: Einträge aus CHANGELOG.json, eingebettet in die Firmware (tools/release_notes.py --embed).
 // Vom Gerät über GET /api/changelog, aus einer Update-Datei über den Block mit festem Marker in der .bin.
+// Seit 0.5.4 enthält die Firmware nur die Kurzfassung (k); die Details stehen in den Release-Notes auf GitHub.
 
 import { get } from './api';
 
@@ -8,6 +9,7 @@ export type ChangeEntry = {
   d: string; // Datum JJJJ-MM-TT, leer = noch nicht veröffentlicht
   t: string;
   s: string;
+  k?: Short; // Kurzfassung in Alltagssprache (seit 0.5.4), die Oberfläche zeigt nur sie
   n?: string[];
   i?: string[];
   f?: string[];
@@ -16,6 +18,9 @@ export type ChangeEntry = {
   h?: string[];
   pr?: number[];
 };
+
+/** Kurzfassung: Unterzeile und die Abschnitte Neu, Verbessert, Behoben, Entfernt mit „Stichwort: Satz“ */
+export type Short = { s?: string; n?: string[]; i?: string[]; f?: string[]; r?: string[] };
 
 export const SECTIONS = [
   { key: 'n', label: 'Neu', icon: 'add' },
@@ -27,6 +32,11 @@ export const SECTIONS = [
 ] as const;
 
 export const REPO_URL = 'https://github.com/Baldesarra/pixelia';
+/** Abschnitt der Release-Notes mit der Kurzfassung (tools/release_notes.py) */
+export const SHORT_TITLE = 'Kurz gesagt';
+
+/** Release einer Version auf GitHub; unveröffentlichte Stände → Liste aller Releases */
+export const releaseUrl = (e: Pick<ChangeEntry, 'v' | 'd'>) => (e.d ? `${REPO_URL}/releases/tag/v${e.v}` : `${REPO_URL}/releases`);
 
 let cached: Promise<ChangeEntry[]> | null = null;
 
@@ -115,14 +125,17 @@ export async function logFromBin(file: Blob): Promise<BinLog> {
 
 /**
  * Eintrag aus den Release-Notes eines GitHub-Releases (Markdown von tools/release_notes.py: „## Pixelia X – Titel“,
- * „*Untertitel* · Datum“, „### Neu“ … mit Stichpunkten, „### Pull Requests“). So zeigt die Vorschau die Version
+ * „*Untertitel* · Datum“, „### Kurz gesagt“, „### Neu“ … mit Stichpunkten, „### Pull Requests“). So zeigt die Vorschau die Version
  * auf GitHub mit denselben Abschnitten wie der Versionsverlauf, ohne die .bin dafür zu laden. Fremder Text landet
  * unter „Hinweise“.
  */
 export function entryFromNotes(v: string, md: string, date: string): ChangeEntry {
   const e: ChangeEntry = { v, d: date, t: '', s: '' };
-  const label = new Map<string, string>(SECTIONS.map((x) => [x.label, x.key]));
+  const label = new Map<string, string>(SECTIONS.map((x): [string, string] => [x.label, x.key]));
   let key: string | null = 'h';
+  let short: Short | null = null; // innerhalb von „### Kurz gesagt“ (seit 0.5.4)
+  let shortKey = 'n';
+  const push = (o: Record<string, unknown>, k: string, item: string) => void ((o[k] ??= []) as string[]).push(item);
   for (const raw of md.split('\n')) {
     const line = raw.trim();
     if (!line) continue;
@@ -133,13 +146,18 @@ export function entryFromNotes(v: string, md: string, date: string): ChangeEntry
       e.s = m[1];
       e.d = m[2];
     } else if ((m = /^###\s+(.*)$/.exec(line))) {
-      key = m[1] === 'Pull Requests' ? 'pr' : (label.get(m[1]) ?? 'h');
+      short = m[1] === SHORT_TITLE ? (e.k = {}) : null;
+      key = m[1] === 'Pull Requests' ? 'pr' : m[1] === 'Alle Details' ? 'h' : (label.get(m[1]) ?? 'h');
+    } else if (short && (m = /^\*\*(.+)\*\*$/.exec(line))) {
+      shortKey = label.get(m[1]) ?? 'n';
+    } else if (short && (m = /^\*(.+)\*$/.exec(line))) {
+      short.s = m[1];
+    } else if (short) {
+      push(short as Record<string, unknown>, shortKey, line.replace(/^[-*]\s+/, ''));
     } else if (key === 'pr') {
       e.pr = [...line.matchAll(/#(\d+)/g)].map((x) => +x[1]);
     } else if (key) {
-      const list = ((e as Record<string, unknown>)[key] as string[] | undefined) ?? [];
-      list.push(line.replace(/^[-*]\s+/, ''));
-      (e as Record<string, unknown>)[key] = list;
+      push(e as Record<string, unknown>, key, line.replace(/^[-*]\s+/, ''));
     }
   }
   return e;

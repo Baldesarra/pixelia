@@ -121,6 +121,12 @@ Firmware ≤ 75 % der App-Partition (6 MB).
   - Ein Stichpunkt = eine Änderung in einem Satz, **höchstens 220 Zeichen**, mit dem wichtigsten Messwert oder der
     Schnittstelle. **Höchstens 24 Stichpunkte pro Version**; Kleinigkeiten und Entwicklungsfehler zusammenfassen.
     Vorbild: Eintrag 0.2.2. `--check` prüft beide Grenzen.
+  - **Kurzfassung `k` (Pflicht, seit 0.5.4):** `{s: Unterzeile, n/i/f/r: Neu, Verbessert, Behoben, Entfernt}`, jeder
+    Punkt „Stichwort: Satz“ in Alltagssprache (Stichwort ein bis drei Wörter, z. B. „Wetter:“, „Regen und Schnee:“).
+    **Vollständig, nichts auslassen** (z. B. beim Wetter auch Wind und Blätter), aber ohne Messwerte, Prüfungen,
+    Hinweise und PR-Nummern. Nur sie zeigt die Oberfläche (Versionsverlauf, Vorschau vor dem Update, „Neu in dieser
+    Version“) und nur sie wird in die Firmware eingebettet; in den Release-Notes steht sie oben als „Kurz gesagt“.
+    Jeder PR pflegt `k` mit. Vorbild: Eintrag 0.5.3.
   - Jeder Stichpunkt beginnt mit dem Bereich: `System:`, `Display:`, `WLAN:`, `Web:`, `Update:`, `Engine:`, `Touch:`,
     `Simulator:`, `Doku:`, `Zug:`, `Dorf:`, `Held:`, `Liga:`, `Insel:` …
   - `python tools/release_notes.py --check` prüft das Format (läuft in der CI). Beim Release `d`, `t`, `s` setzen.

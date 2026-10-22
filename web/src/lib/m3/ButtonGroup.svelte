@@ -26,11 +26,12 @@
 </div>
 
 <style>
+  /* Volle Breite wie die Knöpfe darunter (seit 0.5.4: die Grenze von 480 px ließ die Gruppe in der 640-px-Spalte
+     schmaler als die Knöpfe) */
   .group {
     display: flex;
     gap: 2px;
     width: 100%;
-    max-width: 480px;
   }
   button {
     position: relative;

@@ -1,24 +1,11 @@
 <script lang="ts">
-  // Seite „System“: Update hochladen (mit Änderungsvorschau aus der gewählten .bin), Anzeige (Drehung, Helligkeit,
-  // langer Druck), Schutz (PIN), Sicherung (Export/Import), Diagnose (Kurzfassung, Details auf #/diagnose),
-  // Neustart und Werksreset.
-  import {
-    Button,
-    ButtonGroup,
-    Card,
-    Chip,
-    confirmDialog,
-    Icon,
-    LoadingIndicator,
-    promptDialog,
-    Slider,
-    Switch,
-    WavyProgress,
-  } from '../lib/m3';
+  // Seite „Update“ (System → Wartung): von GitHub (Kanal, Suche, Abbrechen, Hintergrundprüfung) oder aus Datei,
+  // je mit Kurzfassung der Änderungen; Fortschritt, Neustart und Probelauf.
+  import { Button, ButtonGroup, Card, confirmDialog, Icon, LoadingIndicator, Switch, WavyProgress } from '../lib/m3';
   import { device } from '../lib/status.svelte';
   import { auth } from '../lib/auth.svelte';
   import { onMount } from 'svelte';
-  import { get, post, type Backup, type GhState, type Reply } from '../lib/api';
+  import { get, post, type GhState } from '../lib/api';
   import { HEADER_BYTES, parseHeader, upload } from '../lib/firmware';
   import { cmpVersion, dateDe, entryFromNotes, installedEntry, logFromBin, parseFw, type ChangeEntry as Entry } from '../lib/changelog';
   import ChangeEntry from '../lib/ChangeEntry.svelte';
@@ -115,7 +102,7 @@
     if (s.v === waitingFor) {
       if (s.ota.trial) upMsg = { ok: null, text: `Neue Version ${s.v} läuft. Selbsttest: ${s.ota.trialS} von ${s.ota.trialNeed} s …` };
       else {
-        upMsg = { ok: true, text: `Update auf ${s.v} erfolgreich, Selbsttest bestanden.` };
+        upMsg = { ok: true, text: `Update auf ${s.v} erfolgreich.` };
         waitingFor = '';
         void loadGh(); // nach dem Neustart: Ergebnis der alten Prüfung ist weg
         sending = false;
@@ -143,7 +130,13 @@
   const ghCh = $derived(chLocal ?? gh?.ch ?? 'stable');
   const ghFresh = $derived(!!gh && gh.checkedS >= 0 && gh.checkedCh === ghCh);
   const ghTarget = $derived(ghFresh ? (gh?.rel[0] ?? null) : null);
-  const ghEntries = $derived(ghFresh && gh ? gh.rel.map((r) => entryFromNotes(r.v, r.notes, r.date)) : []);
+  // Nur Versionen, die neuer sind als die installierte (die Firmware liefert schon nur diese; bei Entwicklungsständen
+  // zählt die Basisversion)
+  const ghEntries = $derived(
+    ghFresh && gh && s
+      ? gh.rel.filter((r) => cmpVersion(r.v, parseFw(s.v).base) > 0).map((r) => entryFromNotes(r.v, r.notes, r.date))
+      : [],
+  );
   const noNet = $derived(!s ? '' : s.wifi.ap ? 'Im Setup-Modus hat Pixelia kein Internet. Erst das WLAN einrichten, dann nach Updates suchen.' : s.wifi.state !== 'verbunden' ? 'Pixelia ist gerade nicht mit dem WLAN verbunden.' : '');
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   let ghAt = 0; // Zeitpunkt der letzten Antwort, damit „zuletzt gesucht vor …“ weiterläuft
@@ -261,191 +254,7 @@
     upMsg = { ok: null, text: `Lade von GitHub: ${pct} % (${num(s.ota.bytes / 1024)} von ${num(s.ota.total / 1024)} KB)` };
   });
 
-  // --- Anzeige ----------------------------------------------------------------------------------------------
-  let bright = $state(80);
-  let lpS = $state(3);
-  let touchedAt = 0;
-  let brightTimer = 0;
-  $effect(() => {
-    if (!s || performance.now() - touchedAt < 3000) return;
-    bright = s.set.bright;
-    lpS = Math.round(s.set.lp / 100) / 10;
-  });
-  function setBright(v: number) {
-    touchedAt = performance.now();
-    clearTimeout(brightTimer);
-    brightTimer = window.setTimeout(() => post('/api/settings', { bright: v }).catch(() => null), 150);
-  }
-  function setLp(v: number) {
-    touchedAt = performance.now();
-    void post('/api/settings', { lp: Math.round(v * 1000) }).catch(() => null);
-  }
-  let rotLocal = $state<'0' | '180' | null>(null);
-  const rot = $derived(rotLocal ?? (String(s?.set.rot ?? 0) as '0' | '180'));
-  function setRot(v: '0' | '180') {
-    rotLocal = v;
-    void post('/api/settings', { rot: v })
-      .catch(() => null)
-      .finally(() => setTimeout(() => (rotLocal = null), 2500));
-  }
-
-  // --- Neustart --------------------------------------------------------------------------------------------
-  async function reboot() {
-    const ok = await confirmDialog({
-      title: 'Pixelia neu starten?',
-      text: 'Die Anzeige ist ein paar Sekunden dunkel, die Oberfläche verbindet sich danach von selbst neu.',
-      ok: 'Neu starten',
-      icon: 'restart_alt',
-      danger: true,
-    });
-    if (ok) await post('/api/reboot').catch(() => null);
-  }
-
   const ackRollback = () => post('/api/ota/ack').catch(() => null);
-
-  // --- Schutz (PIN) -----------------------------------------------------------------------------------------
-  const pinOn = $derived(!!s?.auth?.pin);
-  let loggedIn = $state<boolean | null>(null);
-  let pinMsg = $state<{ ok: boolean; text: string } | null>(null);
-  async function refreshAuth() {
-    loggedIn = (await auth.state().catch(() => null))?.ok ?? null;
-  }
-  // Nach PIN-Wechsel, Neustart oder Anmeldung in einem Dialog neu fragen
-  $effect(() => {
-    void pinOn;
-    void auth.token;
-    void refreshAuth();
-  });
-
-  async function setPin() {
-    pinMsg = null;
-    let first = '';
-    const pin = await promptDialog({
-      title: pinOn ? 'Neuer PIN' : 'PIN festlegen',
-      text: 'Schützt Einstellungen, Updates, Neustart, Werksreset, Befehle und Gerätenamen. Ansehen bleibt ohne PIN möglich.',
-      icon: 'password',
-      ok: 'Weiter',
-      field: {
-        label: 'PIN oder Passwort',
-        type: 'password',
-        autocomplete: 'new-password',
-        supporting: '4 bis 32 Zeichen, Ziffern oder Wörter',
-        check: async (v) => (v.length < 4 || v.length > 32 ? '4 bis 32 Zeichen' : ((first = v), null)),
-      },
-    });
-    if (pin === null) return;
-    const again = await promptDialog({
-      title: 'PIN wiederholen',
-      icon: 'password',
-      ok: 'Speichern',
-      field: {
-        label: 'PIN noch einmal',
-        type: 'password',
-        autocomplete: 'new-password',
-        check: async (v) => (v === first ? null : 'Stimmt nicht mit dem ersten überein'),
-      },
-    });
-    if (again === null) return;
-    const r = await post<Reply & { token?: string }>('/api/pin', { new: pin }).catch(() => null);
-    if (r?.ok && r.token) auth.save(r.token);
-    pinMsg = { ok: !!r?.ok, text: r?.msg ?? 'Keine Antwort vom Gerät' };
-  }
-
-  async function pinOff() {
-    const ok = await confirmDialog({
-      title: 'PIN ausschalten?',
-      text: 'Danach kann jeder im Heimnetz Einstellungen ändern, Updates installieren und Pixelia zurücksetzen.',
-      ok: 'Ausschalten',
-      icon: 'lock_open',
-      danger: true,
-    });
-    if (!ok) return;
-    const r = await post('/api/pin', { new: '' }).catch(() => null);
-    if (r?.ok) auth.save('');
-    pinMsg = { ok: !!r?.ok, text: r?.msg ?? 'Keine Antwort vom Gerät' };
-  }
-
-  async function logout() {
-    await auth.logout();
-    pinMsg = { ok: true, text: 'Abgemeldet. Dieser Browser fragt beim nächsten Ändern wieder nach dem PIN.' };
-  }
-
-  // --- Sicherung (Export/Import) ----------------------------------------------------------------------------
-  let importInput = $state<HTMLInputElement>();
-  let backupMsg = $state<{ ok: boolean; text: string } | null>(null);
-  let importing = $state(false);
-
-  function describe(b: Backup): string {
-    const parts = [
-      `Bilddrehung ${b.set.rot}°`,
-      `Helligkeit ${b.set.bright} %`,
-      `langer Druck ${num(b.set.lp / 1000, 1)} s`,
-    ];
-    if (b.set.ui) parts.push('Farbwahl der Oberfläche');
-    if (b.names.length) parts.push(`${b.names.length} Gerätename${b.names.length === 1 ? '' : 'n'}`);
-    return parts.join(', ');
-  }
-
-  async function importFile() {
-    const f = importInput?.files?.[0];
-    if (importInput) importInput.value = '';
-    if (!f) return;
-    backupMsg = null;
-    let b: Backup;
-    try {
-      b = JSON.parse(await f.text()) as Backup;
-      if (b.pixelia !== 'settings' || typeof b.set !== 'object') throw new Error();
-      b.names = Array.isArray(b.names) ? b.names.filter((n) => typeof n?.id === 'string' && typeof n?.name === 'string') : [];
-      b.wifi = Array.isArray(b.wifi) ? b.wifi : [];
-    } catch {
-      backupMsg = { ok: false, text: 'Das ist keine Pixelia-Sicherung (.json aus „Sicherung herunterladen“).' };
-      return;
-    }
-    const extra = [
-      b.wifi.length ? `WLAN-Netze (${b.wifi.join(', ')}) stehen nur zur Erinnerung drin, ohne Passwörter: bei Bedarf auf der Seite WLAN neu eintragen.` : '',
-      b.pin ? 'Ein PIN war gesetzt; er steckt nie in der Sicherung und wird hier nicht geändert.' : '',
-    ].filter(Boolean);
-    const ok = await confirmDialog({
-      title: 'Sicherung übernehmen?',
-      text: `Von ${b.host || 'Pixelia'} ${b.v ? `(${b.v}${b.date ? `, ${b.date}` : ''})` : ''}: ${describe(b)}. ${extra.join(' ')}`,
-      ok: 'Übernehmen',
-      icon: 'settings_backup_restore',
-    });
-    if (!ok) return;
-    importing = true;
-    const data: Record<string, string | number> = { rot: b.set.rot === 180 ? 180 : 0, bright: b.set.bright, lp: b.set.lp };
-    if (typeof b.set.ui === 'string' && b.set.ui) data.ui = b.set.ui;
-    const r = await post('/api/settings', data).catch(() => null);
-    let names = 0;
-    if (r?.ok) {
-      for (const n of b.names) {
-        const nr = await post('/api/clients/name', { id: n.id, name: n.name, create: 1 }).catch(() => null);
-        if (nr?.ok) names++;
-      }
-    }
-    importing = false;
-    backupMsg = r?.ok
-      ? { ok: true, text: `Übernommen: ${describe(b)}${b.names.length ? ` (${names} von ${b.names.length} Namen)` : ''}.` }
-      : { ok: false, text: r?.msg ?? 'Keine Antwort vom Gerät' };
-  }
-
-  // --- Werksreset -------------------------------------------------------------------------------------------
-  let factoryDone = $state(false);
-  async function factoryReset() {
-    const ok = await confirmDialog({
-      title: 'Auf Werkseinstellungen zurücksetzen?',
-      text: 'Löscht WLAN-Netze, Einstellungen, Farbwahl, Gerätenamen und den PIN. Pixelia startet danach im Setup-Modus und muss neu eingerichtet werden. Vorher am besten die Sicherung herunterladen.',
-      ok: 'Zurücksetzen',
-      icon: 'delete_forever',
-      danger: true,
-    });
-    if (!ok) return;
-    const r = await post('/api/factory-reset', { confirm: 1 }).catch(() => null);
-    if (r?.ok) {
-      factoryDone = true;
-      auth.save('');
-    }
-  }
 </script>
 
 {#snippet progress()}
@@ -497,7 +306,6 @@
     <Card class="wide">
       <h2 class="card-title">
         <Icon name="system_update_alt" size={20} />Update
-        <span class="end"><Chip><span class="tnum">installiert: {s.v}</span></Chip></span>
       </h2>
       {#if s.ota.trial && !waitingFor}
         <p>Probelauf von {s.v}: Selbsttest läuft ({s.ota.trialS} von {s.ota.trialNeed} s{s.ota.trialNote ? `, ${s.ota.trialNote}` : ''}).</p>
@@ -509,7 +317,6 @@
           <div class="actions"><Button variant="text" icon="close" disabled={cancelling} onclick={cancelGh}>Abbrechen</Button></div>
         {/if}
       {:else}
-        <h3 class="sub"><Icon name="cloud_download" size={18} />Von GitHub</h3>
         <div class="actions">
           <ButtonGroup
             label="Kanal"
@@ -519,6 +326,8 @@
             ]}
             bind:value={() => ghCh, setChannel}
           />
+        </div>
+        <div class="full">
           <Button variant="tonal" icon="refresh" disabled={!!noNet || ghChecking || sending} onclick={checkGh}>
             {ghChecking ? 'Suche …' : 'Nach Updates suchen'}
           </Button>
@@ -532,55 +341,72 @@
         {:else if ghMsg}
           <p class="err-text">{ghMsg}</p>
         {:else if ghTarget}
-          <p class="ok-text">
-            Neu auf GitHub: <b>Pixelia {ghTarget.v}</b>{ghTarget.pre ? ' (Vorschau)' : ''} vom {dateDe(ghTarget.date)} · {num(ghTarget.size / 1024)} KB{ghEntries.length > 1 ? ` · ${ghEntries.length} Versionen neuer als ${s.v}` : ''}
-          </p>
-          <div class="preview">
-            {#each ghEntries as e, k (e.v)}
-              <ChangeEntry entry={e} toggle open={k === 0} />
-            {/each}
-          </div>
-          <div class="actions">
+          <!-- Update vorhanden (seit 0.5.4, Variante B des Users): Knopf, Banner alt → neu, Neuerungen nur der neuen Versionen -->
+          <div class="full">
             <Button icon="system_update_alt" disabled={sending} onclick={installGh}>{ghTarget.v} installieren</Button>
           </div>
+          <div class="banner up">
+            <Icon name="download_for_offline" size={28} />
+            <div>
+              <span class="label">Update vorhanden</span>
+              <span class="big tnum">{s.v} → {ghTarget.v}</span>
+              <span class="meta tnum">{ghTarget.pre ? 'Vorschau' : 'Stabil'} · {dateDe(ghTarget.date)} · {num(ghTarget.size / 1024 / 1024, 1)} MB</span>
+            </div>
+          </div>
+          {#if ghEntries.length}
+            <h3 class="sub news"><Icon name="star_shine" size={20} />{ghEntries.length > 1 ? `Neuerungen in ${ghEntries.length} Versionen` : `Neuerungen in ${ghTarget.v}`}</h3>
+            <div class="preview">
+              {#each ghEntries as e, k (e.v)}
+                <ChangeEntry entry={e} toggle open={k === 0} />
+              {/each}
+            </div>
+          {/if}
         {:else if ghFresh}
-          <p>
-            Pixelia ist aktuell. {!gh?.latest ? 'In diesem Kanal gibt es auf GitHub noch keine Version.' : cmpVersion(parseFw(s.v).base, gh.latest) > 0 ? `Installiert ist ${s.v}, neuer als die neueste ${ghCh === 'stable' ? 'stabile ' : ''}Version auf GitHub (${gh.latest}).` : `Neueste ${ghCh === 'stable' ? 'stabile ' : ''}Version auf GitHub: ${gh.latest}.`}
-          </p>
+          <div class="banner ok">
+            <Icon name="check_circle" size={28} />
+            <div>
+              <span class="label">Pixelia ist aktuell</span>
+              <span class="big tnum">{s.v}</span>
+              <span class="meta tnum">
+                {!gh?.latest
+                  ? 'In diesem Kanal gibt es auf GitHub noch keine Version'
+                  : cmpVersion(parseFw(s.v).base, gh.latest) > 0
+                    ? `Neuer als die neueste ${ghCh === 'stable' ? 'stabile' : 'Vorschau-'}Version auf GitHub (${gh.latest})`
+                    : `Neueste ${ghCh === 'stable' ? 'stabile' : 'Vorschau-'}Version auf GitHub`}
+              </span>
+            </div>
+          </div>
         {:else}
           <p class="muted">
-            <b>Stabil</b>: nur fertige Versionen. <b>Vorschau</b>: auch Vorabversionen (beta) zum Ausprobieren. Installiert
-            wird nur auf Knopfdruck.
+            <b>Vorschau</b> zeigt auch Vorabversionen zum Ausprobieren. Installiert wird nur auf Knopfdruck.
           </p>
         {/if}
         {#if ghNote && !(via === 'github' && (sending || waitingFor))}<p>{ghNote}</p>{/if}
         {#if gh && ghAgo >= 0 && !ghChecking && !noNet}
           <p class="muted small">
-            Zuletzt gesucht vor {duration(ghAgo)}{gh.lastAuto ? ' (im Hintergrund)' : ''}{gh.rate.limit > 0 ? ` · freie GitHub-Abfragen: ${gh.rate.left} von ${gh.rate.limit} pro Stunde` : ''}
+            Gesucht vor {duration(ghAgo)}{gh.lastAuto ? ' (automatisch)' : ''}{gh.rate.limit > 0 && gh.rate.left < 10 ? ` · nur noch ${gh.rate.left} Suchen in dieser Stunde` : ''}
           </p>
         {/if}
-        {#if gh}
-          <div class="auto">
-            <Switch label="Täglich im Hintergrund suchen" checked={gh.auto !== false} onchange={setAuto} />
-            <span>
-              Einmal täglich im Hintergrund nach neuen Versionen suchen
-              <span class="muted small">Nur ein Hinweis (Punkt an „System“), installiert wird nie von selbst.</span>
-            </span>
-          </div>
-        {/if}
 
-        <h3 class="sub"><Icon name="upload_file" size={18} />Aus Datei</h3>
+        <div class="actions">
+          <Button variant="text" icon="history" href="#/versionen">Versionsverlauf</Button>
+        </div>
+      {/if}
+    </Card>
+
+    <!-- Aus Datei (seit 0.5.4 eigene Karte unten, Wunsch des Users): selten gebraucht -->
+    {#if !(s.ota.trial && !waitingFor) && !(s.ota.busy && !sending)}
+      <Card class="wide">
+        <h2 class="card-title"><Icon name="upload_file" size={20} />Aus Datei</h2>
         <p class="muted">
-          Neue Version als <b>.bin</b> wählen, z. B. <i>pixelia-v0.4.0.bin</i> von GitHub (nicht das Factory-Image). Die Datei
-          wird vor dem Hochladen geprüft, nach dem Neustart folgt ein Probelauf mit Selbsttest; scheitert er, kehrt Pixelia
-          zur alten Version zurück.
+          Eine <b>.bin</b> von GitHub wählen (nicht das Factory-Image). Scheitert der Selbsttest nach dem Neustart, kehrt
+          Pixelia zur alten Version zurück.
         </p>
         <input class="hidden" type="file" accept=".bin,application/octet-stream" bind:this={fileInput} onchange={pickFile} />
-        <div class="actions">
+        <div class="full">
           <Button variant="tonal" icon="upload_file" disabled={sending} onclick={() => fileInput?.click()}>Datei wählen</Button>
           <Button icon="system_update_alt" disabled={!file || sending} onclick={start}>Update installieren</Button>
           {#if cancel}<Button variant="text" onclick={() => cancel?.()}>Abbrechen</Button>{/if}
-          {#if !file && !sending}<Button variant="text" icon="history" href="#/versionen">Versionsverlauf</Button>{/if}
         </div>
         {#if fileInfo}<p class={fileInfo.ok ? '' : 'err-text'}>{fileInfo.text}</p>{/if}
         {#if preview && !waitingFor}
@@ -596,125 +422,21 @@
         {#if via === 'file'}
           {@render progress()}
         {/if}
-        {#if !upMsg && s.ota.passed}
-          <p class="ok-text">Letztes Update auf {s.v} erfolgreich, Selbsttest bestanden.</p>
-        {/if}
-      {/if}
-    </Card>
+      </Card>
+    {/if}
 
-    <Card>
-      <h2 class="card-title"><Icon name="light_mode" size={20} />Anzeige</h2>
-      <div class="setting">
-        <span>Bilddrehung</span>
-        <ButtonGroup
-          label="Bilddrehung"
-          options={[
-            { value: '0', label: '0° normal' },
-            { value: '180', label: '180°', icon: 'mobile_rotate' },
-          ]}
-          bind:value={() => rot, setRot}
-        />
-      </div>
-      <div class="setting">
-        <span class="row"><span>Helligkeit</span><span class="tnum">{bright} %</span></span>
-        <Slider label="Helligkeit" min={1} max={100} unit=" %" bind:value={bright} oninput={setBright} />
-      </div>
-      <div class="setting">
-        <span class="row"><span>Langer Druck (Info-Karte)</span><span class="tnum">{num(lpS, 1)} s</span></span>
-        <Slider label="Dauer langer Druck" min={1} max={10} step={0.5} unit=" s" bind:value={lpS} onchange={setLp} />
-      </div>
-    </Card>
-
-    <Card>
-      <h2 class="card-title">
-        <Icon name="shield_lock" size={20} />Schutz
-        <span class="end">
-          <Chip tone={pinOn ? 'primary' : 'neutral'} icon={pinOn ? 'lock' : 'lock_open'}>
-            {pinOn ? (loggedIn ? 'PIN an · angemeldet' : 'PIN an') : 'kein PIN'}
-          </Chip>
-        </span>
-      </h2>
-      <p class="muted">
-        {#if pinOn}
-          Einstellungen, Updates, Neustart, Werksreset, Befehle und Gerätenamen brauchen den PIN. Nach 5 Fehlversuchen
-          sperrt Pixelia 30 Sekunden, danach jedes Mal doppelt so lange.
-        {:else}
-          Optional: Ein PIN oder Passwort schützt Einstellungen, Updates, Neustart, Werksreset, Befehle und Gerätenamen.
-          Ansehen bleibt für alle im Heimnetz möglich.
-        {/if}
-      </p>
-      {#if s.auth?.lockS}<p class="err-text">Gesperrt nach Fehlversuchen, noch {s.auth.lockS} s.</p>{/if}
-      <div class="actions">
-        <Button variant={pinOn ? 'tonal' : 'filled'} icon="password" onclick={setPin}>{pinOn ? 'PIN ändern' : 'PIN festlegen'}</Button>
-        {#if pinOn}
-          <Button variant="text" class="danger" icon="lock_open" onclick={pinOff}>Ausschalten</Button>
-          {#if loggedIn && auth.token}<Button variant="text" icon="logout" onclick={logout}>Abmelden</Button>{/if}
-        {/if}
-      </div>
-      {#if pinMsg}<p class={pinMsg.ok ? 'ok-text' : 'err-text'}>{pinMsg.text}</p>{/if}
-      <p class="muted small">
-        PIN vergessen? Am Gerät lange aufs Display drücken, auf der Info-Karte „Zurücksetzen …“ tippen und „PIN
-        entfernen“ 3 Sekunden halten. Über das Netz geht das bewusst nicht.
-      </p>
-    </Card>
-
-    <Card>
-      <h2 class="card-title"><Icon name="settings_backup_restore" size={20} />Sicherung</h2>
-      <p class="muted">
-        Anzeige, Farbwahl und Gerätenamen als Datei sichern und wieder einspielen, z. B. nach einem Werksreset. Die Datei
-        enthält nie WLAN-Passwörter oder den PIN.
-      </p>
-      <input class="hidden" type="file" accept=".json,application/json" bind:this={importInput} onchange={importFile} />
-      <div class="actions">
-        <Button icon="download" href="/api/backup" download>Sicherung herunterladen</Button>
-        <Button variant="tonal" icon="upload" disabled={importing} onclick={() => importInput?.click()}>Einspielen</Button>
-      </div>
-      {#if backupMsg}<p class={backupMsg.ok ? 'ok-text' : 'err-text'}>{backupMsg.text}</p>{/if}
-    </Card>
-
-    <Card>
-      <h2 class="card-title">
-        <Icon name="monitor_heart" size={20} />Diagnose
-        {#if s.diag.crash}<span class="end"><Chip tone="error" icon="bug_report">Absturzbericht</Chip></span>{/if}
-      </h2>
-      <dl class="kv">
-        <dt>Start</dt>
-        <dd class="tnum">Nr. {s.diag.boot} · {s.diag.reset}</dd>
-        <dt>Seit dem Start</dt>
-        <dd class="tnum">{s.diag.errors} Fehler · {s.diag.warnings} Warnungen</dd>
-        <dt>Absturzbericht</dt>
-        <dd class={s.diag.crash ? 'err-text' : ''}>
-          {#if s.diag.crash}vorhanden: Task „{s.diag.crash.task}“{s.diag.crash.v ? ` · ${s.diag.crash.v}` : ''}{:else}keiner{/if}
-        </dd>
-      </dl>
-      <div class="actions">
-        <Button variant="tonal" icon="monitor_heart" href="#/diagnose">Abstürze und Neustarts</Button>
-        <Button variant="text" icon="download" href="/api/diag" download>Diagnosepaket</Button>
-      </div>
-    </Card>
-
-    <Card>
-      <h2 class="card-title"><Icon name="restart_alt" size={20} />Neustart und Werksreset</h2>
-      {#if factoryDone}
-        <p class="err-text">
-          Zurückgesetzt. Pixelia startet im Setup-Modus: Mit dem WLAN „Pixelia-Setup“ verbinden (Passwort steht auf dem
-          Display), dann öffnet sich die Einrichtung.
-        </p>
-      {:else}
-        <p class="muted">Läuft seit {duration(s.uptime)}. Beim Neustart bleiben Einstellungen und WLAN-Netze erhalten.</p>
-        <div class="actions">
-          <Button class="danger" icon="restart_alt" onclick={reboot}>Neu starten</Button>
-          <Button variant="text" icon="open_in_new" href="/setup">Einfache Einrichtungsseite</Button>
+    <!-- Tägliche Suche (seit 0.5.4 eigene Karte ganz unten, Wunsch des Users) -->
+    {#if gh}
+      <Card class="wide">
+        <div class="auto">
+          <Switch label="Täglich im Hintergrund suchen" checked={gh.auto !== false} onchange={setAuto} />
+          <span>
+            Täglich nach Updates suchen
+            <span class="muted small">Zeigt nur einen Punkt an „System“, installiert nie von selbst.</span>
+          </span>
         </div>
-        <p class="muted">
-          Der Werksreset löscht WLAN-Netze, Einstellungen, Farbwahl, Gerätenamen und PIN. Startzähler und Neustart-Historie
-          bleiben für die Diagnose.
-        </p>
-        <div class="actions">
-          <Button variant="outlined" class="danger" icon="delete_forever" onclick={factoryReset}>Werksreset …</Button>
-        </div>
-      {/if}
-    </Card>
+      </Card>
+    {/if}
   </div>
 {/if}
 
@@ -723,7 +445,6 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    margin-top: 12px;
   }
   .auto > span {
     display: flex;
@@ -757,11 +478,57 @@
     font: var(--md-sys-typescale-title-small);
     color: var(--md-sys-color-on-surface-variant);
   }
-  .card-title + .sub {
-    margin-top: 0;
+  /* Stand nach der Suche: Banner orange „Update vorhanden“ (feste Töne, Orange gibt es im Schema nicht), grün „aktuell“ */
+  .banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin: 4px 0 12px;
+    padding: 16px;
+    border-radius: var(--md-sys-shape-corner-large-increased);
   }
-  .sub + p {
-    margin-top: 0;
+  .banner > div {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+  .banner .label {
+    font: var(--md-sys-typescale-label-large);
+    font-weight: 750;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .banner .big {
+    font: var(--md-sys-typescale-title-large);
+    font-weight: 750;
+    overflow-wrap: anywhere;
+  }
+  .banner .meta {
+    font: var(--md-sys-typescale-body-medium);
+    opacity: 0.85;
+  }
+  .banner.up {
+    background: #ffdbc8;
+    color: #341100;
+  }
+  :global([data-theme='dark']) .banner.up {
+    background: #723600;
+    color: #ffdbc8;
+  }
+  .news {
+    color: var(--md-sys-color-on-surface);
+    font: var(--md-sys-typescale-title-medium);
+    font-weight: 700;
+  }
+  .banner.ok {
+    background: var(--pixelia-color-success-container);
+    color: var(--pixelia-color-on-success-container);
+  }
+  /* Suchen und Installieren gleich breit über die ganze Karte (Wunsch des Users) */
+  .full {
+    display: grid;
+    gap: 8px;
+    margin: 12px 0;
   }
   .small {
     font: var(--md-sys-typescale-body-small);
@@ -780,16 +547,6 @@
   }
   .grow {
     flex: 1;
-  }
-  .setting {
-    display: grid;
-    gap: 10px;
-    margin-bottom: 20px;
-    color: var(--md-sys-color-on-surface-variant);
-  }
-  .row {
-    display: flex;
-    justify-content: space-between;
   }
   /* Versionskarte: Pixel-Zeichen wie das Symbol im Browser-Tab */
   .brand {

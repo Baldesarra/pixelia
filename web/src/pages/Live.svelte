@@ -201,8 +201,7 @@
       <Button icon="photo_camera" disabled={!shown} onclick={screenshot}>Screenshot (PNG)</Button>
     </div>
     <p class="muted small">
-      Das Bild kommt mit 400 × 240 Pixeln und der Palette vom Gerät, höchstens drei Bilder pro Sekunde, damit das Display
-      bei 30 fps bleibt. Der Screenshot hat 800 × 480 Pixel wie das Display{frameNo ? ` (Bild ${frameNo})` : ''}.
+      Bis zu drei Bilder pro Sekunde; der Screenshot hat 800 × 480 Pixel{frameNo ? ` (Bild ${frameNo})` : ''}.
     </p>
   </Card>
 
@@ -266,7 +265,7 @@
 
     <Card class="wide">
       <h2 class="card-title"><Icon name="list" size={20} />Tasks</h2>
-      <p class="muted">Welche Task wie viel Rechenzeit braucht und wie viel Stack frei ist. Nur auf Knopfdruck.</p>
+      <p class="muted">Rechenzeit und freier Stack je Task, nur auf Knopfdruck.</p>
       <div class="actions">
         <Button variant="tonal" icon="list" disabled={loadingTasks} onclick={loadTasks}>{tasks ? 'Neu abrufen' : 'Task-Liste abrufen'}</Button>
       </div>

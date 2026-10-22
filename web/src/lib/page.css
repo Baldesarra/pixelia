@@ -6,6 +6,11 @@
   gap: 16px;
   align-items: start;
 }
+/* Karten dürfen schmaler als ihr Inhalt werden (breite Tabellen scrollen in der Karte), sonst wird die Seite am Handy
+   breiter als der Bildschirm (Gerät und Speicher, beta.11) */
+.page-grid > * {
+  min-width: 0;
+}
 .page-grid > .wide {
   grid-column: 1 / -1;
 }
@@ -63,6 +68,13 @@
   align-items: center;
   gap: 8px;
   margin-top: 16px;
+}
+/* Knöpfe in Aktionszeilen gleich breit (seit 0.5.4, Wunsch des Users): ein Knopf allein füllt die Zeile, mehrere teilen
+   sie sich zu gleichen Teilen; passen sie nicht nebeneinander, bricht die Zeile um und jeder füllt seine eigene.
+   Textknöpfe (Abbrechen, Links) und kleine Knöpfe bleiben so schmal wie ihr Text. */
+.actions > .btn:not(.text, .xs) {
+  flex: 1 1 0;
+  min-width: max-content;
 }
 
 /* Listenzeilen in Karten (M3-Liste: Symbol, zwei Textzeilen, Aktion am Ende) */
