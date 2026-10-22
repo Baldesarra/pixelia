@@ -1,7 +1,7 @@
 // „So entstand Pixelia“ (seit 0.5.4): Rückblick auf die Entwicklung, als Easter Egg nach 7× Tippen aufs
 // Pixelia-Zeichen oben links und als Seite unter System → Experimentell. Neue Arbeitsstände und Zwischenstände hier unten anhängen (Datum, Titel, ein bis zwei
 // Sätze, optional Links). Die Skizzen sind zu groß für die Firmware (zusammen ~920 KB) und liegen auf GitHub Pages
-// (pages.yml kopiert docs/skizzen); wo sie später auf dem Gerät liegen, entscheidet 0.5.5 (Asset-Quelle).
+// (pages.yml kopiert docs/skizzen); entschieden in 0.5.5: sie bleiben dort (Projektplan Kapitel 14).
 
 export const SKETCH_URL = 'https://baldesarra.github.io/pixelia/skizzen/';
 

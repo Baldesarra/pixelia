@@ -1,5 +1,55 @@
 [
   {
+    "v": "0.5.5",
+    "d": "2026-10-22",
+    "t": "Asset-Quelle und Grafik-Werkzeug",
+    "s": "Grafiken als Pakete aus Firmware, LittleFS oder SD, Grafik-Speicher im PSRAM, Werkzeug PNG → Pixelia-Farben",
+    "k": {
+      "s": "Grafiken kommen jetzt aus Paketen",
+      "n": [
+        "Grafik-Pakete: Alle Bilder der Testorte liegen jetzt als Bilddateien vor und werden als Pakete geladen; sie sehen genauso aus wie vorher",
+        "Laden beim Ortswechsel: Die Bilder eines Ortes werden im Hintergrund geladen, während das Bild abblendet; Nachbarorte werden schon vorher geladen",
+        "Speicher: Pakete kommen aus der Firmware oder dem internen Speicher, später auch von der SD-Karte; wird es eng, machen lange nicht besuchte Orte Platz",
+        "Lampen: Lampe und Laterne haben ein eigenes Bild für an und aus und folgen ihrem Licht",
+        "Grafik-Werkzeug: Wandelt gemalte Bilder in Pixelia-Farben um, zeigt fremde Farben, rechnet sie auf Wunsch um oder behält sie als eigene Farben",
+        "SD-Karte: Pixelia kann eine microSD-Karte einbinden und von ihr laden; vorbereitet, ausprobiert wird das, sobald eine Karte steckt",
+        "Leistung: Die Leistungsanzeige zeigt jetzt auch die längste Rechenzeit pro Bild"
+      ],
+      "i": [
+        "Flash-Test: Der Belastungstest schreibt jetzt in Dateien statt roh in den Speicher, damit bleiben gespeicherte Daten heil"
+      ]
+    },
+    "n": [
+      "Engine: Asset-Quelle und Grafik-Speicher (assets.h): Pakete eingebettet, aus LittleFS oder SD mit Rückfall, PSRAM-Budget 2 MB, Anheften, Vorladen der Nachbarorte, Verdrängen; Orte halten Kennungen statt Zeiger",
+      "Engine: Bühne lädt beim Ortswechsel über die Lade-Task; Abblenden wartet notfalls in der dunklen Mitte, Überblendung und Schnitt beginnen erst nach dem Laden; das Rechnen der Orte bleibt unberührt",
+      "Engine: Format PXA1 (PackBits, CRC-32, Kennungen FNV-1a) mit Bild, Kacheln, Farbreihe, Palette, Daten; Zustandsbilder je Teil (Room::set_state), Lampe und Laterne folgen ihrer Lichtquelle",
+      "Werkzeug: tools/asset_pack.py ohne Fremdbibliotheken: PNG-Streifen → Paletten-Indizes → Pakete, Zeichenpalette als GIMP-Palette mit Rampen; wandeln streng/naechste/eigene mit Vorschau",
+      "Engine: Testorte laden Palette, Figur, Kacheln, Farbreihen und Möbel aus assets/testorte (Pakete grund, moebel, wiese, raum) statt aus Malcode",
+      "System: LittleFS in der Partition storage (/data), microSD-Treiber über SPI2 (Pins 10–13, /sd), Lade-Task auf Kern 0; Befehle assets (quelle, kopieren, messen, leeren, budget) und sd",
+      "Diagnose: /api/perf mit logicMax (längste Logikzeit), holds (Warteschritte beim Abblenden) und assets (Belegung, Laden, letztes Paket); Leistungsanzeige mit Logik Mittel/Maximum",
+      "CI: python tools/asset_pack.py check baut alle Pakete und prüft assets/CREDITS.md (jede Datei eigen oder fremd mit CC0/CC-BY, fremde nur unter assets/fremd/)",
+      "Simulator: 5 Tests der Asset-Pakete (--test assets): Prüfsumme und Rückfall, Kennungen, Budget und Verdrängen, Warten beim Abblenden, Lampe an/aus"
+    ],
+    "pr": [],
+    "i": [
+      "System: Flash-Lasttest schreibt Dateien in LittleFS über die Lade-Task (bis 0.5.4 roh in storage, das hätte das Dateisystem zerstört)",
+      "System: Ablage kostet 8 KB internes RAM (LittleFS-Puffer im PSRAM, SPI-Interrupt nicht im IRAM, SD-Bus ohne Karte frei); Firmware 1,72 MB (29 %)"
+    ],
+    "f": [
+      "System: in der Entwicklung behoben: Stack-Überlauf der Konsole beim Befehl assets (Paketliste auf dem Stack); Werkzeug stürzte unter Windows bei umgeleiteter Ausgabe ab (jetzt UTF-8)"
+    ],
+    "g": [
+      "Gerät: Ortswechsel je 4× aus LittleFS und eingebettet: 29,8 fps, 0 Aussetzer, Abblenden wartete nie; Ladezeit je Ort eingebettet 0,3–0,6 ms, LittleFS 7,5–18 ms",
+      "Gerät: Zeichnen bis 8,8 ms, Logik im Mittel 0,9–1,3 ms, Maximum beim Betreten bis 17 ms (Abblenden) bzw. 23 ms (Überblendung); RAM 101 KB frei (Tiefstwert 93 KB), PSRAM 5,70 MB",
+      "Gerät: assets messen: 256 KB aus LittleFS in 118 ms (2,2 MB/s), Prüfsumme 26 ms; kleine Pakete 6–13 ms (Öffnen der Datei), eingebettet bis 1,4 ms; 0 Aussetzer; SD nicht gemessen (keine Karte)",
+      "Simulator: Testorte pixelgleich zu 0.5.4 (Raum nachts, Ausbau, Baustelle, Wiese, Platz), 26 Bühnen- und 5 Asset-Tests grün"
+    ],
+    "h": [
+      "Doku: Grafik-Format, Zeichenpalette und Namensregeln (Glas je Raum, Wetterfarben) in STIL.md Kapitel 9; Entscheidungen im Projektplan Kapitel 14, u. a. Skizzen bleiben auf GitHub Pages",
+      "System: Der erste Start legt LittleFS in storage neu an (144 ms); eingebettete Pakete liegen wegen XIP im PSRAM, große Ortspakete gehören später nach LittleFS oder auf die SD-Karte"
+    ]
+  },
+  {
     "v": "0.5.4",
     "d": "2026-10-22",
     "t": "Weboberfläche aufgeräumt",
