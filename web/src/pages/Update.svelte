@@ -337,7 +337,7 @@
         {:else if ghMsg}
           <p class="err-text">{ghMsg}</p>
         {:else if ghTarget}
-          <p class="ok-text">
+          <p class="new-text">
             Neu auf GitHub: <b>Pixelia {ghTarget.v}</b>{ghTarget.pre ? ' (Vorschau)' : ''} vom {dateDe(ghTarget.date)} · {num(ghTarget.size / 1024)} KB{ghEntries.length > 1 ? ` · ${ghEntries.length} Versionen neuer als ${s.v}` : ''}
           </p>
           <div class="full">
@@ -349,7 +349,7 @@
             {/each}
           </div>
         {:else if ghFresh}
-          <p>
+          <p class="ok-text">
             Pixelia ist aktuell. {!gh?.latest ? 'In diesem Kanal gibt es auf GitHub noch keine Version.' : cmpVersion(parseFw(s.v).base, gh.latest) > 0 ? `Installiert ist ${s.v}, neuer als die neueste ${ghCh === 'stable' ? 'stabile ' : ''}Version auf GitHub (${gh.latest}).` : `Neueste ${ghCh === 'stable' ? 'stabile ' : ''}Version auf GitHub: ${gh.latest}.`}
           </p>
         {:else}
@@ -363,15 +363,6 @@
           <p class="muted small">
             Zuletzt gesucht vor {duration(ghAgo)}{gh.lastAuto ? ' (im Hintergrund)' : ''}{gh.rate.limit > 0 ? ` · freie GitHub-Abfragen: ${gh.rate.left} von ${gh.rate.limit} pro Stunde` : ''}
           </p>
-        {/if}
-        {#if gh}
-          <div class="auto">
-            <Switch label="Täglich im Hintergrund suchen" checked={gh.auto !== false} onchange={setAuto} />
-            <span>
-              Einmal täglich im Hintergrund nach neuen Versionen suchen
-              <span class="muted small">Nur ein Hinweis (Punkt an „System“), installiert wird nie von selbst.</span>
-            </span>
-          </div>
         {/if}
 
         {#if !upMsg && s.ota.passed}
@@ -414,6 +405,19 @@
         {/if}
       </Card>
     {/if}
+
+    <!-- Tägliche Suche (seit 0.5.4 eigene Karte ganz unten, Wunsch des Users) -->
+    {#if gh}
+      <Card class="wide">
+        <div class="auto">
+          <Switch label="Täglich im Hintergrund suchen" checked={gh.auto !== false} onchange={setAuto} />
+          <span>
+            Einmal täglich im Hintergrund nach neuen Versionen suchen
+            <span class="muted small">Nur ein Hinweis (Punkt an „System“), installiert wird nie von selbst.</span>
+          </span>
+        </div>
+      </Card>
+    {/if}
   </div>
 {/if}
 
@@ -422,7 +426,6 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    margin-top: 12px;
   }
   .auto > span {
     display: flex;
@@ -455,6 +458,13 @@
     margin: 24px 0 12px;
     font: var(--md-sys-typescale-title-small);
     color: var(--md-sys-color-on-surface-variant);
+  }
+  /* Neue Version gefunden: Orange (Wunsch des Users; hell #c24e00 mit Kontrast ≥ 4,5:1), aktuell: Grün (ok-text) */
+  .new-text {
+    color: #c24e00;
+  }
+  :global([data-theme='dark']) .new-text {
+    color: #ffb470;
   }
   /* Suchen und Installieren gleich breit über die ganze Karte (Wunsch des Users) */
   .full {
