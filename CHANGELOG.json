@@ -18,7 +18,8 @@
       ],
       "i": [
         "Eigene Möbel: Beim späteren Hochladen wählst du je Möbel selbst, ob es deine Originalfarben behält oder in Pixelia-Farben umgerechnet wird",
-        "Karte: wird sparsamer gezeichnet, das Bild bleibt auch mit offener Karte flüssig"
+        "Karte: wird sparsamer gezeichnet, das Bild bleibt auch mit offener Karte flüssig",
+        "Pfeil: Über einer Figur steht nur noch ein Pfeil, solange ihre Karte offen ist, auch nicht mehr über der Hauptfigur oder beim Folgen"
       ],
       "f": [
         "Protokoll: falsch dargestellte Umlaute in älteren Meldungen der Konsole"
@@ -46,6 +47,7 @@
     ],
     "i": [
       "System: Konsole kamera, karte, meldung, uhr; /api/perf engine.overlay/overlayMax (Kosten der Einblendungen je Bild)",
+      "Engine: kein Dauer-Pfeil mehr über der Hauptfigur der Testorte, ein Pfeil markiert nur noch die Figur mit offener Karte",
       "Engine: Rahmen und Schatten schreiben jeden Bildpunkt nur einmal (PSRAM): Karte mit Uhr und Meldung 4,6 → 3,2 ms; Ortszeit der Uhr nur einmal je Sekunde (0,42 → 0,17 ms)"
     ],
     "f": [

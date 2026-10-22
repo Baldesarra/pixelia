@@ -878,14 +878,8 @@ void TestPlace::render_overlay(Canvas& fine) const {
     const char* t = title();
     fine.fill_rect(4, 4, font::text_width(t) + 8, 13, ui::kSurface);
     font::draw(fine, 8, 5, t, ui::kText);
-    // kleiner Pfeil über der Begleiterin (ihr folgt der Blick durch die Ausgänge)
-    for (int i = 0; i < count_; ++i) {
-        const Figure& f = figures_[i];
-        if (!f.guide) continue;
-        const int x = (f.x >> 8) * kCoarseScale, y = ((f.y >> 8) - 34) * kCoarseScale;
-        for (int r = 0; r < 5; ++r) fine.fill_rect(x - 5 + r, y + r, 11 - 2 * r, 1, ui::kBg);
-        for (int r = 0; r < 3; ++r) fine.fill_rect(x - 3 + r, y + 1 + r, 7 - 2 * r, 1, ui::kWhite);
-    }
+    // Kein Dauer-Pfeil über der Begleiterin mehr (Wunsch des Users 2026-10-22): einen Pfeil zeigt nur die offene
+    // Karte über ihrer Figur (overlay.h)
 }
 
 Sprite TestPlace::figure_frame(const Figure& f, bool* flip) const {
