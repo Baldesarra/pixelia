@@ -27,6 +27,7 @@
     firsts?: string[];
     seasonLen: number;
     weather: { kind: string; title: string; pct: number; override: boolean };
+    forecast?: { slot: string; kind: string; title: string; pct: number }[];
   };
 
   let w = $state<World | null>(null);
@@ -107,6 +108,14 @@
           ? ` ${w.weather.pct} %`
           : ''}{w.weather.override ? ' · Test' : ''}
       </dd>
+      {#if w.forecast?.length}
+        <dt>Danach</dt>
+        <dd class="forecast">
+          {#each w.forecast as f, i (i)}
+            <span title={f.title}><Icon name={weatherIcon[f.kind] ?? 'cloud'} size={18} />{f.slot}</span>
+          {/each}
+        </dd>
+      {/if}
     </dl>
     {#if w.firsts?.length}
       <div class="firsts">
@@ -159,6 +168,18 @@
     justify-content: flex-end;
     align-items: center;
     gap: 6px;
+  }
+  .forecast {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px 12px;
+  }
+  .forecast span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
   }
   .firsts {
     display: flex;

@@ -634,6 +634,10 @@ Arbeit pro Bauabschnitt kleiner gerechnet; die Zahl der Hände bleibt gleich:
   erste Frühling dauert bis zum ersten Sonntag, der mindestens eine Woche nach dem Spielstart liegt (7–13 Tage).
   Ist eine andere Länge eingestellt, ist der Jahreszeitenabend am letzten Tag der Jahreszeit.
 - **Erstlinge** jeder Jahreszeit (erste Schwalbe, erster Schnee) werden einmalig als Erinnerung gespeichert.
+- **Sonne nach der Weltjahreszeit [entschieden 2026-10-26, gebaut in 0.5.7]:** Der Frühling beginnt mit Tag- und
+  Nachtgleiche, der Sommer mit dem längsten Tag (etwa 4:35–20:55 Uhr), der Winter mit dem kürzesten (etwa 8:55–16:35
+  Uhr); der Lichterabend am Ende des Herbstes ist so die längste Nacht. Morgen- und Abenddämmerung behalten ihre Länge.
+  Wetterzeiten beginnen um 5, 11, 17 und 23 Uhr.
 - **Licht als System:** Laternen, Fackeln, Kerzen und Kamine brauchen Brennstoff aus dem Warenbuch. Das abendliche
   Anzünden ist ein Ritual, ein leerer Ort bleibt dunkel. Die Regeln stehen im nächsten Abschnitt.
 

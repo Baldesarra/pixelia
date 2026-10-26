@@ -506,6 +506,25 @@ void update_world_state(int ticks) {
     w.weather_pct = (env.weather.strength() * 100 + 127) / 255;
     w.weather_override = s_stage.weather_overridden();
     w.firsts = cal.state().firsts;
+    // Vorschau: die nächsten drei Wetterzeiten der Simulation, neu nur bei einer neuen Wetterzeit
+    static int64_t fc_key = INT64_MIN;
+    static uint32_t fc_rev = 0;
+    static int fc_kind[3] = {}, fc_pct[3] = {};
+    const int64_t key = pixelia::weather_slot_key(d.epoch_day, d.minute);
+    if (w.started && (key != fc_key || cal.revision() != fc_rev)) {
+        fc_key = key;
+        fc_rev = cal.revision();
+        for (int i = 0; i < 3; ++i) {
+            const pixelia::WeatherPick p = env.weather_sim.slot(cal, key + 1 + i);
+            fc_kind[i] = static_cast<int>(p.kind);
+            fc_pct[i] = (p.strength * 100 + 127) / 255;
+        }
+    }
+    for (int i = 0; i < 3; ++i) {
+        w.forecast_slot[i] = static_cast<int>(pixelia::slot_of_key(key + 1 + i));
+        w.forecast_kind[i] = fc_kind[i];
+        w.forecast_pct[i] = fc_pct[i];
+    }
     s_season_symbol.store(w.started ? w.season : -1, std::memory_order_relaxed);
     std::lock_guard<std::mutex> g(s_world_lock);
     s_world = w;

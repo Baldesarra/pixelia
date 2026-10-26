@@ -62,6 +62,18 @@
       .catch(() => null)
       .finally(() => setTimeout(() => (nightLocal = null), 2500));
   }
+  // Nachtzeiten (Wunsch des Users): Beginn 18–24 Uhr (24 = Mitternacht), Ende 4–10 Uhr
+  let nightFrom = $state(22);
+  let nightTo = $state(6);
+  $effect(() => {
+    if (!s || performance.now() - nightTouched < 3000) return;
+    nightFrom = s.set.nightFrom === 0 ? 24 : (s.set.nightFrom ?? 22);
+    nightTo = s.set.nightTo ?? 6;
+  });
+  function setNightHours() {
+    nightTouched = performance.now();
+    void post('/api/settings', { nightFrom: nightFrom % 24, nightTo }).catch(() => null);
+  }
   function setNightBr(v: number) {
     nightTouched = performance.now();
     clearTimeout(nightTimer);
@@ -139,7 +151,11 @@
       <div class="switch-row">
         <span
           >Nachts dimmen <span class="muted"
-            >22–6 Uhr, Berühren hellt 1 Minute auf{nightOn ? (s.set.nightNow ? ' · gerade Nacht' : ' · gerade Tag') : ''}</span
+            >{nightFrom % 24}–{nightTo} Uhr, auch die Uhr wird gedimmt; Berühren hellt 1 Minute auf{nightOn
+              ? s.set.nightNow
+                ? ' · gerade Nacht'
+                : ' · gerade Tag'
+              : ''}</span
           ></span
         >
         <Switch label="Nachtmodus" checked={nightOn} onchange={setNight} />
@@ -147,6 +163,14 @@
       <div class="setting">
         <span class="row"><span>Nacht-Helligkeit</span><span class="tnum">{nightBr} %</span></span>
         <Slider label="Nacht-Helligkeit" min={1} max={100} unit=" %" bind:value={nightBr} oninput={setNightBr} />
+      </div>
+      <div class="setting">
+        <span class="row"><span>Nacht beginnt</span><span class="tnum">{nightFrom % 24} Uhr</span></span>
+        <Slider label="Nacht beginnt" min={18} max={24} unit=" Uhr" bind:value={nightFrom} onchange={setNightHours} />
+      </div>
+      <div class="setting">
+        <span class="row"><span>Nacht endet</span><span class="tnum">{nightTo} Uhr</span></span>
+        <Slider label="Nacht endet" min={4} max={10} unit=" Uhr" bind:value={nightTo} onchange={setNightHours} />
       </div>
     </Card>
   </div>

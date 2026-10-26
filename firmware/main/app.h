@@ -16,13 +16,17 @@ namespace app {
 inline constexpr int kGfxCore = 1;
 inline constexpr int kSystemCore = 0;
 
-// Nacht (seit 0.5.7): eine Definition für die gedimmte Pixel-Uhr und den Nachtmodus (Wunsch des Users: 22–6 Uhr)
+// Nacht (seit 0.5.7): eine Definition für die gedimmte Pixel-Uhr und den Nachtmodus, Standard 22–6 Uhr, einstellbar
+// (Wunsch des Users); Stunden 0–23, Beginn nach dem Ende = über Mitternacht
 inline constexpr int kNightFrom = 22, kNightTo = 6;
-inline bool is_night(int hour) { return hour >= kNightFrom || hour < kNightTo; }
+bool is_night(int hour);
 
 // Nachtmodus der Hintergrundbeleuchtung (night.cpp): ab 22 Uhr sanft auf die Nacht-Helligkeit, ab 6 Uhr zurück
 namespace night {
 void init();
+void set_hours(int from, int to);  // aus den Einstellungen
+int from();
+int to();
 void refresh();   // Einstellung geändert: sofort anwenden
 void touched();   // Berühren: eine Minute hell
 bool active();    // gerade gedimmt (oder aufgehellt nach Berühren)
@@ -146,6 +150,8 @@ struct WorldInfo {
     bool moon_waxing, moon_up, moon_visible;
     char moon_title[24];
     int weather, weather_pct;
+    // Vorschau der Simulation (seit 0.5.7, Wunsch des Users): die nächsten drei Wetterzeiten
+    int forecast_slot[3], forecast_kind[3], forecast_pct[3];
     bool weather_override; // Prüfbefehl übersteuert die Simulation bis zur nächsten Wetterzeit
     int firsts;            // Bits der Erstlinge im Weltjahr
 };

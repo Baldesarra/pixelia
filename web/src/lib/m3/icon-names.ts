@@ -102,6 +102,7 @@ export const ICONS = [
   // Weltkalender und Nachtmodus (seit 0.5.7)
   'eco',
   'local_florist',
+  'energy_savings_leaf',
   'ac_unit',
   'calendar_month',
   'bedtime',

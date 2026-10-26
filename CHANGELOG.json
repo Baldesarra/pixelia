@@ -2,16 +2,47 @@
   {
     "v": "0.5.7",
     "d": "",
-    "t": "",
-    "s": "",
+    "t": "Weltzeit, Kalender und Wetter-Simulation",
+    "s": "Jahreszeiten, echter Mond, Wetter nach Jahreszeit und Nachtmodus",
     "k": {
-      "s": "Bewohner jünger",
+      "s": "Jahreszeiten, echter Mond, eigenes Wetter, Nachtmodus",
       "n": [
+        "Jahreszeiten: Die Welt hat einen eigenen Kalender. Eine Jahreszeit dauert eine Woche und wechselt in der Nacht auf Montag, der Sonntagabend ist der Jahreszeitenabend",
+        "Länge einstellbar: Auf der Seite Welt wählst du 3, 7, 14 oder 28 Tage je Jahreszeit",
+        "Dämmerung: Im Sommer bleibt es abends lange hell, im Winter wird es früh dunkel",
+        "Mond: Der Mond hat die Phase von heute, wandert über den Himmel und ist bei klarer Nacht zu sehen, auch durchs Fenster. Bei Vollmond ist die Nacht heller",
+        "Wetter: Das Wetter wechselt von selbst bis zu viermal am Tag und passt zur Jahreszeit, mit Nebel am Morgen, Gewittern im Sommer und Schnee im Winter",
+        "Erstlinge: Erster Schnee, erstes Gewitter, erster Herbstnebel und Vollmond kommen als Kurzmeldung, ebenso Jahreszeitenabend und Wechsel",
+        "Uhr: Vor der Pixel-Uhr steht ein Zeichen der Jahreszeit; Antippen zeigt Datum, Jahreszeit, Weltjahr und Mond",
+        "Nachtmodus: Nachts wird das Display sanft gedimmt; Nacht-Helligkeit und Nachtzeit sind einstellbar, Berühren hellt eine Minute auf",
+        "Weltkalender: Die Seite Welt zeigt Jahreszeit, Sonne, Mond, Wetter und die nächsten Wetterzeiten, die Übersicht eine Zeile dazu",
         "Bewohner: Die Handwerker und das Bauernpaar sind jünger; sie wissen noch nicht alles, machen aber alles mit Liebe"
+      ],
+      "i": [
+        "Helligkeit: Die Stufen der Helligkeit wirken jetzt gleichmäßig, die Mitte sieht aus wie halb so hell",
+        "Updates: Bricht das WLAN während eines Updates von GitHub kurz ab, macht der Download dort weiter, wo er war"
       ]
     },
     "n": [
+      "Engine: Weltkalender (`calendar.h`): Tag 1 = Spielstart, Jahreszeit 7 Tage (1–28 einstellbar), Wechsel Nacht auf Montag, erster Frühling 7–13 Tage, reine Rechnung aus Zustand und Datum",
+      "Engine: Zeitfenster des Tages und Schlafenszeiten als Schnittstelle (`DayPart`, `sleep_times`), Wetterzeiten 5/11/17/23 Uhr; Sonnenzeiten nach Weltjahreszeit, Sommer 4:36–20:54, Winter 8:54–16:36",
+      "Engine: Tageslicht verschiebt Morgen- und Abenddämmerung mit Auf- und Untergang (`Daylight::at` mit `SunTimes`), Tag und Nacht gestreckt",
+      "Engine: echter Mond (`sky.h`, Meeus Kap. 48): Phase, Lage am Himmel, nur bei Dunkelheit und klarem Himmel; Vollmond hebt die Nacht um etwa ein Drittel; gezeichnet über Farben mit Rolle Himmel",
+      "Engine: Wetter-Simulation (`weather_sim.h`): Gewichte je Jahreszeit und Wetterzeit, Wetterlage hält 40 %, Gewitter mittendrin 45–100 min, Kette über 8 Wetterzeiten ohne Speichern",
+      "Engine: Bühne schreibt Kalender, Himmel und Simulation je Weltminute fort; `wetter <Art>` übersteuert bis zur nächsten Wetterzeit, `wetter auto`; Erstlinge und Jahreszeitenereignisse als Warteschlange",
+      "Display: Jahreszeit-Symbole im Paket „system“ (10 Symbole), Kurzmeldung oben bis drei Zeilen, Uhr mit Symbol (`ClockStyle::symbol`)",
+      "System: Kalender als Blob „welt“ im NVS (alle 10 s und vor Neustart, Kern 0), Weltzeit erst nach NTP; Testuhr und Zeitraffer speichern nichts (`begin_test`/`end_test`)",
+      "System: Nachtmodus (`night.cpp`): eine Nacht für Uhr und Beleuchtung (Standard 22–6 Uhr), 15 min Abblenden, Berühren 60 s hell; Helligkeitskurve Exponent 2,2 ab kleinster Pulsbreite (`bldmin`)",
+      "Update: Download von GitHub macht nach 30 s ohne Fortschritt oder Verbindungsende per HTTP-Range weiter (bis 5 Anläufe); Prüfbefehl `update abriss`",
+      "Web: Karte Weltkalender auf der Seite Welt mit Vorschau der nächsten drei Wetterzeiten, Zeile in der Übersicht, Nachtmodus mit Nachtzeiten auf der Seite Display; `/api/world`, `/api/settings` `seasonLen`, `night*`",
+      "Simulator: `--weltjahr` (Weltjahr im Zeitraffer als Bericht), `--date`, `--jahreszeit`, `--test welt` (9 Prüfungen), Mondbefehle `mond a|b|c`, `mond <Phase> [Höhe] [Lage]`",
       "Doku: Bewohner jünger: Handwerker und Bauernpaar 10–14 Jahre jünger (Greta 24, Jakob 27), sie lernen noch und machen alles mit Liebe (SETTING.md Kapitel 3)"
+    ],
+    "f": [
+      "Engine: Schnee aus der Winternacht galt nach Mitternacht als „Erster Schnee“ des neuen Weltjahres; Schnee zählt nur noch im Herbst und Winter (im Zeitraffer gefunden)"
+    ],
+    "g": [
+      "Simulator: Weltjahr ab 26.10.2026: kein Schnee im Sommer, kein Gewitter im Winter, Schnee in 11 Winter-Wetterzeiten; Mondphasen gegen 7 bekannte Voll- und Neumonde (Finsternisse) auf ±0,4 h; 74 Selbsttests"
     ],
     "pr": [40]
   },

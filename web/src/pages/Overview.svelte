@@ -1,7 +1,7 @@
 <script lang="ts">
   // Seite „Übersicht“: Live-Status des Geräts (WebSocket /ws, 1/s); seit 0.5.4 mit Hinweis auf eine neue Version und
   // der Karte „Neu in dieser Version“ (Kurzfassung aus dem Versionsverlauf, je Version einmal wegklickbar)
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { Button, Card, Chip, CircularProgress, Icon, IconButton, LoadingIndicator, WavyProgress } from '../lib/m3';
   import Logo from '../lib/Logo.svelte';
   import { device } from '../lib/status.svelte';
@@ -9,6 +9,7 @@
   import { installedEntry, installedLog, type ChangeEntry } from '../lib/changelog';
   import ChangeEntryView from '../lib/ChangeEntry.svelte';
   import { duration, kb, num, signal, WIFI_STATE } from '../lib/format';
+  import { get } from '../lib/api';
 
   const s = $derived(device.data);
   const sig = $derived(signal(s?.wifi.rssi ?? 0));
@@ -23,6 +24,26 @@
     const e = log.find((x) => x.v === v);
     return e?.k && prefs.seen !== e.v ? e : null;
   });
+
+  // Welt in einer Zeile (seit 0.5.7, Wunsch des Users): Jahreszeit und Tag, Wetter, Mond; alle 60 s
+  type WorldLine = {
+    started: boolean;
+    seasonTitle?: string;
+    dayInSeason?: number;
+    seasonDays?: number;
+    moon?: { title: string };
+    weather: { title: string };
+  };
+  let world = $state<WorldLine | null>(null);
+  const loadWorld = () => get<WorldLine>('/api/world').then((w) => (world = w), () => null);
+  onMount(() => void loadWorld());
+  const worldTimer = window.setInterval(loadWorld, 60000);
+  onDestroy(() => clearInterval(worldTimer));
+  const worldText = $derived(
+    world?.started
+      ? `${world.seasonTitle}, Tag ${world.dayInSeason} von ${world.seasonDays} · ${world.weather.title} · ${world.moon?.title ?? ''}`
+      : '',
+  );
 </script>
 
 {#if !s}
@@ -38,6 +59,7 @@
         <div class="hero-text">
           <div class="name">Pixelia</div>
           <div class="meta tnum">Version {s.v} · {s.part} · {s.host}.local</div>
+          {#if worldText}<a class="meta world" href="#/welt">{worldText}</a>{/if}
         </div>
       </div>
       <div class="hero-foot">
@@ -276,6 +298,12 @@
   .meta {
     font: var(--md-sys-typescale-body-large);
     opacity: 0.85;
+  }
+  .world {
+    display: block;
+    margin-top: 2px;
+    color: inherit;
+    text-decoration: none;
   }
   .hero-foot {
     display: flex;

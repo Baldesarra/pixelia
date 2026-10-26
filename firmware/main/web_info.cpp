@@ -600,6 +600,17 @@ esp_err_t world_get(httpd_req_t* req) {
     j.obj("weather").str("kind", pixelia::weather_name(static_cast<pixelia::WeatherKind>(w.weather)));
     j.str("title", pixelia::weather_title(static_cast<pixelia::WeatherKind>(w.weather))).num("pct", w.weather_pct);
     j.boolean("override", w.weather_override).end_obj();
+    if (w.started) {
+        // Vorschau der Simulation (seit 0.5.7): die nächsten drei Wetterzeiten; ein Gewitter mittendrin steht nicht drin
+        constexpr const char* kSlots[] = {"morgens", "mittags", "abends", "nachts"};
+        j.arr("forecast");
+        for (int i = 0; i < 3; ++i) {
+            const auto k = static_cast<pixelia::WeatherKind>(w.forecast_kind[i]);
+            j.obj().str("slot", kSlots[w.forecast_slot[i] & 3]).str("kind", pixelia::weather_name(k));
+            j.str("title", pixelia::weather_title(k)).num("pct", w.forecast_pct[i]).end_obj();
+        }
+        j.end_arr();
+    }
     j.end_obj();
     return send_json(req, j.text());
 }

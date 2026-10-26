@@ -91,7 +91,7 @@ function mockDevice(): Plugin {
   const logLine = (n: number, l: string, m: string) => ({ n, b: 42, t: now() - (300 - n), u: n * 900, l, m });
   let logN = 300;
   // Einstellungen und Schutz wie auf dem Gerät (auth.cpp): PIXELIA_MOCK_PIN=1234 startet mit PIN
-  const set = { rot: 0, bright: 80, lp: 3000, ui: '', clk: true, clkCorner: 0, clkSec: false, camHome: 0, camFig: 0, camPlace: 1, camRet: 600, night: true, nightBr: 25, nightNow: false };
+  const set = { rot: 0, bright: 80, lp: 3000, ui: '', clk: true, clkCorner: 0, clkSec: false, camHome: 0, camFig: 0, camPlace: 1, camRet: 600, night: true, nightBr: 25, nightNow: false, nightFrom: 22, nightTo: 6 };
   // Weltkalender (seit 0.5.7, /api/world)
   let seasonLen = 7;
   // Kamera (seit 0.5.6): Orte und Figuren wie die Testorte
@@ -337,7 +337,7 @@ function mockDevice(): Plugin {
         if (f.has('clk')) set.clk = f.get('clk') === '1';
         if (f.has('clkCorner')) set.clkCorner = Number(f.get('clkCorner'));
         if (f.has('clkSec')) set.clkSec = f.get('clkSec') === '1';
-        for (const k of ['camHome', 'camFig', 'camPlace', 'camRet', 'nightBr'] as const) if (f.has(k)) set[k] = Number(f.get(k));
+        for (const k of ['camHome', 'camFig', 'camPlace', 'camRet', 'nightBr', 'nightFrom', 'nightTo'] as const) if (f.has(k)) set[k] = Number(f.get(k));
         if (f.has('night')) set.night = f.get('night') === '1';
         if (f.has('seasonLen')) seasonLen = Math.min(28, Math.max(1, Number(f.get('seasonLen'))));
         if (['camHome', 'camFig', 'camPlace'].some((k) => f.has(k))) cam.mode = 0;
@@ -351,6 +351,11 @@ function mockDevice(): Plugin {
           moon: { title: 'zunehmende Sichel', illum: 6, phase: 60, waxing: true, up: true, visible: false },
           firsts: ['Erstes Gewitter', 'Erster Herbstnebel', 'Erster Vollmond des Frühlings'],
           seasonLen, weather: { kind: 'regen', title: 'Regen', pct: 60, override: false },
+          forecast: [
+            { slot: 'abends', kind: 'bewoelkt', title: 'Bewölkt', pct: 80 },
+            { slot: 'nachts', kind: 'nebel', title: 'Nebel', pct: 70 },
+            { slot: 'morgens', kind: 'sonne', title: 'Sonne', pct: 100 },
+          ],
         });
       });
       server.middlewares.use('/api/camera', async (req, res) => {

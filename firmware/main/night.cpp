@@ -1,8 +1,8 @@
-// Nachtmodus (seit 0.5.7, Entscheidung des Users 2026-10-26: sanft dimmen): Nachts (22–6 Uhr, dieselbe Nacht wie die
-// gedimmte Pixel-Uhr, app::is_night) dimmt das Display ab 22 Uhr über 15 Minuten auf die Nacht-Helligkeit und ab 6 Uhr
-// wieder hoch. Berühren hellt für eine Minute auf. Ohne bekannte Uhrzeit gibt es keine Nacht. Zeitgeber „nacht“ alle
-// 250 ms auf Kern 0; die Hintergrundbeleuchtung wird nur bei einer Änderung neu gesetzt (Gerätetests stellen sie
-// selbst und bleiben so ungestört).
+// Nachtmodus (seit 0.5.7, Entscheidung des Users 2026-10-26: sanft dimmen): Nachts (Standard 22–6 Uhr, einstellbar,
+// dieselbe Nacht wie die gedimmte Pixel-Uhr, app::is_night) dimmt das Display zu Beginn über 15 Minuten auf die
+// Nacht-Helligkeit und am Ende wieder hoch. Berühren hellt für eine Minute auf. Ohne bekannte Uhrzeit gibt es keine
+// Nacht. Zeitgeber „nacht“ alle 250 ms auf Kern 0; die Hintergrundbeleuchtung wird nur bei einer Änderung neu gesetzt
+// (Gerätetests stellen sie selbst und bleiben so ungestört).
 
 #include <algorithm>
 #include <atomic>
@@ -23,15 +23,17 @@ constexpr int64_t kWakeUs = 60LL * 1000000;
 std::atomic<int64_t> s_wake_until{0};
 std::atomic<bool> s_active{false};
 std::atomic<bool> s_refresh{true};
+std::atomic<int> s_from{kNightFrom}, s_to{kNightTo};  // Stunden der Nacht (Einstellungen)
 int s_current = -1;  // angewendete Helligkeit (Prozent)
 esp_timer_handle_t s_timer = nullptr;
 
 int lerp(int a, int b, int num, int den) { return a + (b - a) * num / den; }
 
-// Helligkeit nach der Uhrzeit: Tag, Abblenden ab 22 Uhr, Nacht, Aufblenden ab 6 Uhr
+// Helligkeit nach der Uhrzeit: Tag, Abblenden zu Beginn der Nacht, Nacht, Aufblenden an ihrem Ende
 int target(const settings::Values& v, int minute) {
     const int day = v.brightness, low = std::min<int>(v.night_bright, v.brightness);
-    const int from = kNightFrom * 60, to = kNightTo * 60;
+    const int from = s_from.load() * 60, to = s_to.load() * 60;
+    if (from == to) return day;  // keine Nacht eingestellt
     if (minute >= from && minute < from + kFadeMinutes) return lerp(day, low, minute - from, kFadeMinutes);
     if (is_night(minute / 60)) return low;
     if (minute >= to && minute < to + kFadeMinutes) return lerp(low, day, minute - to, kFadeMinutes);
@@ -69,6 +71,14 @@ void init() {
 
 void refresh() { s_refresh.store(true); }
 
+void set_hours(int from, int to) {
+    s_from.store(((from % 24) + 24) % 24);
+    s_to.store(((to % 24) + 24) % 24);
+    s_refresh.store(true);
+}
+int from() { return s_from.load(); }
+int to() { return s_to.load(); }
+
 void touched() {
     if (s_active.load()) s_wake_until.store(esp_timer_get_time() + kWakeUs);
 }
@@ -77,3 +87,11 @@ bool active() { return s_active.load(); }
 bool awake() { return s_active.load() && esp_timer_get_time() < s_wake_until.load(); }
 
 }  // namespace app::night
+
+namespace app {
+bool is_night(int hour) {
+    const int f = night::from(), t = night::to();
+    if (f == t) return false;
+    return f > t ? hour >= f || hour < t : hour >= f && hour < t;
+}
+}  // namespace app
