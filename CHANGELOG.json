@@ -42,9 +42,11 @@
       "Engine: Schnee aus der Winternacht galt nach Mitternacht als „Erster Schnee“ des neuen Weltjahres; Schnee zählt nur noch im Herbst und Winter (im Zeitraffer gefunden)"
     ],
     "g": [
-      "Simulator: Weltjahr ab 26.10.2026: kein Schnee im Sommer, kein Gewitter im Winter, Schnee in 11 Winter-Wetterzeiten; Mondphasen gegen 7 bekannte Voll- und Neumonde (Finsternisse) auf ±0,4 h; 74 Selbsttests"
+      "Simulator: Weltjahr ab 26.10.2026: kein Schnee im Sommer, kein Gewitter im Winter, Schnee in 11 Winter-Wetterzeiten; Mondphasen gegen 7 bekannte Voll- und Neumonde (Finsternisse) auf ±0,4 h; 74 Selbsttests",
+      "Display: am Gerät 64 Figuren mit Regen nachts 29,8–30,3 fps, Zeichnen 14,5–15,7 ms (max 17,0), Logik max 3,6 ms; normal 5,1 ms; RAM 98 KB (Tiefstwert 91), PSRAM 5,58 MB; Firmware 1,79 MB (30 %)",
+      "Update: am Gerät Abriss bei 304 KB, Weitermachen ab Byte 311296, 1759 KB in 31,5 s, fps min 29,7, RAM-Tiefstwert 69 KB; Kalender blieb über zwei Neustarts erhalten"
     ],
-    "pr": [40]
+    "pr": [40, 41]
   },
   {
     "v": "0.5.6",
