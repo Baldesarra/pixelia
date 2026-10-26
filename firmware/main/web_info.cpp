@@ -555,7 +555,68 @@ esp_err_t camera_post(httpd_req_t* req) {
     return reply(req, true, "Ok");
 }
 
+// --- Weltzeit (seit 0.5.7): Kalender, Sonne, Mond, Wetter der Simulation -----------------------------------------
+
+std::string iso_day(int32_t days) {
+    int y, m, d;
+    pixelia::civil_from_days(days, &y, &m, &d);
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "%04d-%02d-%02d", y, m, d);
+    return buf;
+}
+
+std::string hhmm(int minute) {
+    char buf[8];
+    std::snprintf(buf, sizeof(buf), "%02d:%02d", minute / 60 % 24, minute % 60);
+    return buf;
+}
+
+esp_err_t world_get(httpd_req_t* req) {
+    const gfx::WorldInfo w = gfx::world_info();
+    const auto season = static_cast<pixelia::Season>(w.season & 3);
+    const auto next = static_cast<pixelia::Season>((w.season + 1) & 3);
+    Json j;
+    j.obj().boolean("valid", w.valid).boolean("started", w.started).boolean("test", w.test);
+    if (w.started) {
+        j.str("start", iso_day(w.start_day).c_str()).num("day", w.day).num("year", w.year);
+        j.str("season", pixelia::season_name(season)).str("seasonTitle", pixelia::season_title(season));
+        j.num("dayInSeason", w.day_in_season).num("seasonDays", w.season_days).boolean("evening", w.season_evening);
+        j.str("seasonFrom", iso_day(w.season_first).c_str()).str("seasonTo", iso_day(w.season_last).c_str());
+        j.str("next", pixelia::season_title(next)).str("nextFrom", iso_day(w.season_last + 1).c_str());
+        j.str("sunrise", hhmm(w.sunrise).c_str()).str("sunset", hhmm(w.sunset).c_str());
+        j.str("dayPart", pixelia::day_part_title(static_cast<pixelia::DayPart>(w.day_part)));
+        j.obj("moon").str("title", w.moon_title).num("illum", (w.moon_illum + 5) / 10).num("phase", w.moon_phase);
+        j.boolean("waxing", w.moon_waxing).boolean("up", w.moon_up).boolean("visible", w.moon_visible).end_obj();
+        j.arr("firsts");
+        constexpr const char* kFirsts[] = {"Erster Schnee", "Erstes Gewitter", "Erster Herbstnebel"};
+        for (int i = 0; i < 3; ++i)
+            if (w.firsts & (1 << i)) j.str(nullptr, kFirsts[i]);
+        for (int s = 0; s < 4; ++s)
+            if (w.firsts & (1 << (4 + s)))
+                j.str(nullptr, (std::string("Erster Vollmond ") + pixelia::season_genitive(static_cast<pixelia::Season>(s))).c_str());
+        j.end_arr();
+    }
+    j.num("seasonLen", w.season_len);
+    j.obj("weather").str("kind", pixelia::weather_name(static_cast<pixelia::WeatherKind>(w.weather)));
+    j.str("title", pixelia::weather_title(static_cast<pixelia::WeatherKind>(w.weather))).num("pct", w.weather_pct);
+    j.boolean("override", w.weather_override).end_obj();
+    if (w.started) {
+        // Vorschau der Simulation (seit 0.5.7): die nächsten drei Wetterzeiten; ein Gewitter mittendrin steht nicht drin
+        constexpr const char* kSlots[] = {"morgens", "mittags", "abends", "nachts"};
+        j.arr("forecast");
+        for (int i = 0; i < 3; ++i) {
+            const auto k = static_cast<pixelia::WeatherKind>(w.forecast_kind[i]);
+            j.obj().str("slot", kSlots[w.forecast_slot[i] & 3]).str("kind", pixelia::weather_name(k));
+            j.str("title", pixelia::weather_title(k)).num("pct", w.forecast_pct[i]).end_obj();
+        }
+        j.end_arr();
+    }
+    j.end_obj();
+    return send_json(req, j.text());
+}
+
 void register_info() {
+    add("/api/world", HTTP_GET, world_get);
     add("/api/camera", HTTP_GET, camera_get);
     add("/api/camera", HTTP_POST, camera_post);
     add("/api/system", HTTP_GET, system_get);

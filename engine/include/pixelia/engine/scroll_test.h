@@ -23,6 +23,7 @@ public:
     void init(uint64_t seed) override;
     void tick(const WorldClock& clock) override;
     void render(Canvas& canvas) const override;
+    bool sky_view(SkyView* out) const override;  // Himmel für den Mond (seit 0.5.7)
     const Palette& palette() const override { return palette_; }
     void set_load(int sprites) override { set_sprite_count(sprites); }
 

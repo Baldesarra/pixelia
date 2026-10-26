@@ -197,6 +197,7 @@ void on_touch(int fingers, int x, int y) {
     const uint32_t t = now_ms();
     if (fingers > 0 && !s_rec.pressed()) {
         s_samples = 0;
+        night::touched();  // nachts: eine Minute hell (seit 0.5.7)
     }
     if (fingers > 0) ++s_samples;
     if (s_reset_open) reset_touch(fingers, x, y, t);

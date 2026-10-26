@@ -630,7 +630,9 @@ void TestPlace::tick(const WorldClock& clock) {
     // Palette zur Tageszeit (Tageslicht, Lampen, Fenster, Himmel), Wetter und Farbrotation
     ticks_ = clock.ticks();
     if (env_ && env_->lights.version() != lights_version_) apply_lights();  // Licht an/aus, auch unsichtbar
-    Ambient a = daylight_.at(clock.us_of_day());
+    // Dämmerung nach der Weltjahreszeit und Mondlicht (seit 0.5.7)
+    Ambient a = daylight_.at(clock.us_of_day(), env_ ? &env_->sky.sun() : nullptr);
+    if (env_) env_->sky.apply(a, outdoor());
     if (env_) env_->weather.apply(a, outdoor());
     pal_.apply(a, clock.ticks(), palette_);
     room_.set_light_on(a.lamp > 0);
@@ -870,6 +872,22 @@ void TestPlace::render_layers(Canvas& work, CoarseLayers& out) const {
 
 void TestPlace::render_fine(Canvas& fine, const CoarseLayers& layers, const uint8_t* remap) const {
     weather_.draw(fine, layers, remap);
+}
+
+bool TestPlace::sky_view(SkyView* out) const {
+    // Nur der Raum zeigt Himmel: im Glas seiner Fenster (Rolle Himmel); die Fensterflächen von links nach rechts
+    if (kind_ != Kind::Room || !room_.ready()) return false;
+    out->count = 0;
+    for (int i = 0; i < room_.part_count() && out->count < SkyView::kMaxPanes; ++i) {
+        if (room_.part(i).part != kPWindow) continue;
+        const Rect r = room_.part_rect(i);
+        out->panes[out->count++] = {r.x * kCoarseScale, r.y * kCoarseScale, r.w * kCoarseScale, r.h * kCoarseScale};
+    }
+    std::sort(out->panes, out->panes + out->count, [](const Rect& a, const Rect& b) { return a.x < b.x; });
+    out->base = pal_.base();
+    out->first = kSky;
+    out->colors = 2;
+    return out->count > 0;
 }
 
 void TestPlace::render_overlay(Canvas& fine) const {

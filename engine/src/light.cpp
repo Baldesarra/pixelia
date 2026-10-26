@@ -1,5 +1,7 @@
 #include "pixelia/engine/light.h"
 
+#include "pixelia/engine/calendar.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -86,11 +88,27 @@ Daylight::Daylight(const LightKey* keys, int n, const SkyKey* sky, int sky_n) {
     std::copy_n(sky, sky_n_, sky_.begin());
 }
 
-Ambient Daylight::at(int64_t us_of_day) const {
+// Tageszeit auf die Zeit der Stützpunkte abbilden (Aufgang 6:30, Untergang 19:45): Dämmerungen verschoben, Tag und
+// Nacht gestreckt. t und Ergebnis in 1/256 Minuten.
+static int sun_remap(int t, const SunTimes& sun) {
+    constexpr int kRef[5] = {300, 480, 1110, 1350, 300 + 1440};
+    const int a[5] = {sun.rise - 90, sun.rise + 90, sun.set - 75, sun.set + 165, sun.rise - 90 + 1440};
+    if (!(a[0] < a[1] && a[1] < a[2] && a[2] < a[3] && a[3] < a[4])) return t;  // unsinnige Sonnenzeiten
+    int m = t;
+    if (m < a[0] * 256) m += kDayUnits;
+    int k = 0;
+    while (k < 3 && m >= a[k + 1] * 256) ++k;
+    const int s0 = a[k] * 256, s1 = a[k + 1] * 256;
+    const int r = kRef[k] * 256 + static_cast<int>(static_cast<int64_t>(m - s0) * (kRef[k + 1] - kRef[k]) * 256 / (s1 - s0));
+    return r % kDayUnits;
+}
+
+Ambient Daylight::at(int64_t us_of_day, const SunTimes* sun) const {
     Ambient a;
     int64_t us = us_of_day % kUsPerDay;
     if (us < 0) us += kUsPerDay;
-    const int t = static_cast<int>(us / kUsPerUnit);
+    int t = static_cast<int>(us / kUsPerUnit);
+    if (sun) t = sun_remap(t, *sun);
     int i, j, f;
     if (n_ > 0) {
         bracket(keys_.data(), n_, t, &i, &j, &f);

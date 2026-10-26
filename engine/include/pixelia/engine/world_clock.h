@@ -36,6 +36,11 @@ public:
     }
 
     int64_t world_us() const { return world_us_; }
+    // Weltzeit ist Ortszeit (Tage seit 1970 in day()); für den Mond die echte Zeit: Abstand Ortszeit − UTC
+    void set_utc_offset(int32_t seconds) { utc_offset_s_ = seconds; }
+    int32_t utc_offset() const { return utc_offset_s_; }
+    int64_t unix_s() const { return world_us_ / kUsPerSecond - utc_offset_s_; }
+    int minute_of_day() const { return static_cast<int>(us_of_day() / kUsPerMinute); }
     int64_t last_step_us() const { return last_step_us_; }  // Weltzeit des letzten Schritts
     uint64_t ticks() const { return ticks_; }
     int day() const { return static_cast<int>(world_us_ / kUsPerDay); }
@@ -51,6 +56,7 @@ private:
     int64_t last_step_us_ = 0;
     uint64_t ticks_ = 0;
     double speed_ = 1.0;
+    int32_t utc_offset_s_ = 0;
 };
 
 }  // namespace pixelia

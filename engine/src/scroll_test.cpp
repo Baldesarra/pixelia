@@ -266,6 +266,16 @@ void ScrollTest::tick(const WorldClock& clock) {
     apply_daylight(clock.hours());
 }
 
+bool ScrollTest::sky_view(SkyView* out) const {
+    // Himmelsverlauf kSky … kSky + 31 (feine Szene ohne Lichtstufen: Grundfarben = alle Farben)
+    out->panes[0] = {0, 2, kScreenWidth, 118};
+    out->count = 1;
+    out->base = kSceneColors;
+    out->first = kSky;
+    out->colors = 32;
+    return true;
+}
+
 void ScrollTest::render(Canvas& c) const {
     // Himmel
     for (int y = 0; y < kSkyRows; ++y) c.fill_row_pattern(y, sky_rows_[y]);

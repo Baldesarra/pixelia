@@ -28,6 +28,7 @@
 #include "esp_cache.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "github.h"
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -105,7 +106,8 @@ void print_help() {
     ESP_LOGI(TAG, "  ota | ntp | web | toast <Text>                 Update-Zustand, Uhrzeit, Webserver, Kurzmeldung");
     ESP_LOGI(TAG, "  tour [tap] | flash <Sekunden> | marks <n>      geführter Test (tap: Start per Tippen), Flash-Last");
     ESP_LOGI(TAG, "  pat <black|bars|frame|motion|touch|engine>   Testbild/Modus");
-    ESP_LOGI(TAG, "  bl <0-100> | bl cycle | bl stop | blf <Hz>      Hintergrundbeleuchtung");
+    ESP_LOGI(TAG, "  bl [<0-100>] | bl cycle | bl stop | blf <Hz>    Hintergrundbeleuchtung (ohne Wert: Kurve und Nachtmodus)");
+    ESP_LOGI(TAG, "  blduty <0-4095> | bldmin <Pulsbreite>            Pulsbreite direkt; kleinste noch leuchtende speichern");
     ESP_LOGI(TAG, "  pclk <MHz>                                    Pixeltakt zur Laufzeit");
     ESP_LOGI(TAG, "  timing <hfp> <hpw> <hbp> <vfp> <vpw> <vbp>     Porches (Panel neu anlegen)");
     ESP_LOGI(TAG, "  pol <hsync_idle_low> <vsync_idle_low> <pclk_neg>  Polaritäten 0/1");
@@ -117,7 +119,9 @@ void print_help() {
     ESP_LOGI(TAG, "  ort ausbau | ort baustelle | ort folgen 0/1 | ort pruefen 0/1   Testorte (Raum-Baukasten)");
     ESP_LOGI(TAG, "  bench [mem]   Zeichnen messen: Verdoppeln, Kopie des Hintergrunds; mem: PSRAM-Durchsatz, DMA");
     ESP_LOGI(TAG, "  time <HH:MM|real> | speed <Faktor>             Weltzeit stellen (real = echte Uhrzeit), Zeitraffer");
-    ESP_LOGI(TAG, "  wetter [<Art> [%%] [sofort]] | wetter blitz | wetter wind links|rechts   Wetter (Art: sonne bewoelkt regen schnee nebel gewitter wind)");
+    ESP_LOGI(TAG, "  wetter [<Art> [%%] [sofort]] | wetter blitz | wetter wind links|rechts   Wetter (Art: sonne bewoelkt regen schnee nebel gewitter wind; übersteuert bis zur nächsten Wetterzeit)");
+    ESP_LOGI(TAG, "  update abriss                                   nächster Download von GitHub trennt einmal (Weitermachen prüfen)");
+    ESP_LOGI(TAG, "  welt [laenge <Tage> | auto]                     Weltkalender, Mond, Wetter-Simulation (auto = Simulation wieder an)");
     ESP_LOGI(TAG, "  ort cmd <Befehl>   Befehl an Bühne/Ort, z. B. innenlicht um, regen fein, dichte 200, blitze 12 30");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
     ESP_LOGI(TAG, "  assets [quelle eingebettet|littlefs|sd | kopieren littlefs|sd | messen | leeren | budget <KB>]   Grafik-Pakete");
@@ -370,6 +374,9 @@ bool handle(char* line) {
         }
     } else if (is("ota")) {
         ota::log_status();
+    } else if (is("update") && argc >= 2 && std::strcmp(argv[1], "abriss") == 0) {
+        github::test_break();  // seit 0.5.7: Weitermachen per HTTP-Range prüfen
+        ESP_LOGI(TAG, "Nächster Download von GitHub trennt einmal nach 300 KB");
     } else if (is("toast") && argc >= 2) {
         // Kurzmeldung zum Prüfen der Anzeige; Wörter wieder zusammensetzen
         std::string text;
@@ -408,6 +415,45 @@ bool handle(char* line) {
             hwtest::backlight_cycle(false);
             board::backlight::set_percent(std::atoi(argv[1]));
             ESP_LOGI(TAG, "Helligkeit %d %%", board::backlight::percent());
+        }
+    } else if (is("bl") && argc == 1) {
+        // seit 0.5.7: Kurve und Nachtmodus
+        const settings::Values v = settings::get();
+        ESP_LOGI(TAG, "Helligkeit %d %% = Pulsbreite %lu von %lu (kleinste %lu), Nachtmodus %s (%u %%), gerade %s",
+                 board::backlight::percent(), static_cast<unsigned long>(board::backlight::duty()),
+                 static_cast<unsigned long>(board::backlight::kMaxDuty),
+                 static_cast<unsigned long>(board::backlight::min_duty()), v.night_on ? "an" : "aus", v.night_bright,
+                 night::awake() ? "aufgehellt" : night::active() ? "Nacht" : "Tag");
+    } else if (is("bldmin") && argc >= 2) {
+        settings::set_backlight_min(std::atoi(argv[1]));
+    } else if (is("blduty") && argc >= 2) {
+        // Pulsbreite direkt (Messung: kleinste noch leuchtende Stufe finden); der Nachtmodus stellt sie bei der
+        // nächsten Änderung zurück
+        hwtest::backlight_cycle(false);
+        board::backlight::set_duty(static_cast<uint32_t>(std::atoi(argv[1])));
+        ESP_LOGI(TAG, "Pulsbreite %lu von %lu", static_cast<unsigned long>(board::backlight::duty()),
+                 static_cast<unsigned long>(board::backlight::kMaxDuty));
+    } else if (is("welt")) {
+        // seit 0.5.7: Weltkalender, Mond, Wetter-Simulation; „welt laenge <Tage>“, „welt auto“ (Simulation wieder an)
+        if (argc >= 3 && std::strcmp(argv[1], "laenge") == 0) {
+            gfx::set_season_length(std::atoi(argv[2]));
+        } else if (argc >= 2 && std::strcmp(argv[1], "auto") == 0) {
+            gfx::place_command("wetter auto");
+        } else {
+            const gfx::WorldInfo w = gfx::world_info();
+            if (!w.started) {
+                ESP_LOGI(TAG, "Weltzeit %s, Kalender noch nicht gestartet", w.valid ? "läuft" : "wartet auf die Uhrzeit");
+            } else {
+                ESP_LOGI(TAG, "Welttag %d, Weltjahr %d, %s Tag %d/%d%s (Jahreszeit %d Tage)%s", w.day, w.year,
+                         pixelia::season_title(static_cast<pixelia::Season>(w.season)), w.day_in_season, w.season_days,
+                         w.season_evening ? ", Jahreszeitenabend" : "", w.season_len, w.test ? ", Testuhr" : "");
+                ESP_LOGI(TAG, "Sonne %02d:%02d–%02d:%02d, %s, Mond %s %d %%%s, Wetter %s %d %%%s", w.sunrise / 60,
+                         w.sunrise % 60, w.sunset / 60, w.sunset % 60,
+                         pixelia::day_part_title(static_cast<pixelia::DayPart>(w.day_part)), w.moon_title,
+                         (w.moon_illum + 5) / 10, w.moon_visible ? " (sichtbar)" : "",
+                         pixelia::weather_name(static_cast<pixelia::WeatherKind>(w.weather)), w.weather_pct,
+                         w.weather_override ? " (übersteuert)" : "");
+            }
         }
     } else if (is("blf") && argc >= 2) {
         esp_err_t err = board::backlight::set_frequency(static_cast<uint32_t>(std::atoi(argv[1])));

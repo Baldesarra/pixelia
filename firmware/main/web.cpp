@@ -124,6 +124,8 @@ std::string status_json() {
     j.str("ui", set.ui).boolean("exp", exper::enabled());
     j.boolean("clk", set.clock_on).num("clkCorner", set.clock_corner).boolean("clkSec", set.clock_seconds);
     j.num("camHome", set.cam_home).num("camFig", set.cam_figure).num("camPlace", set.cam_place).num("camRet", set.cam_return_s);
+    j.boolean("night", set.night_on).num("nightBr", set.night_bright).boolean("nightNow", night::active());
+    j.num("nightFrom", set.night_from).num("nightTo", set.night_to);
     j.end_obj();
     j.obj("auth").boolean("pin", auth::enabled()).num("lockS", auth::lock_seconds()).end_obj();
 
@@ -449,6 +451,15 @@ esp_err_t settings_post(httpd_req_t* req) {
     if (ch || cf || cp || cr)
         settings::set_camera(ch ? std::atoi(h.c_str()) : cur.cam_home, cf ? std::atoi(f.c_str()) : cur.cam_figure,
                              cp ? std::atoi(pl.c_str()) : cur.cam_place, cr ? std::atoi(r.c_str()) : cur.cam_return_s);
+    // Nachtmodus (seit 0.5.7): night (0/1), nightBr (1–100 %)
+    std::string n, nb, nf, nt;
+    const bool nn = form_value(body, "night", &n), nbr = form_value(body, "nightBr", &nb),
+               nfr = form_value(body, "nightFrom", &nf), nto = form_value(body, "nightTo", &nt);
+    if (nn || nbr || nfr || nto)
+        settings::set_night(nn ? n == "1" : cur.night_on, nbr ? std::atoi(nb.c_str()) : cur.night_bright,
+                            nfr ? std::atoi(nf.c_str()) : cur.night_from, nto ? std::atoi(nt.c_str()) : cur.night_to);
+    // Weltkalender (seit 0.5.7): Tage je Jahreszeit
+    if (form_value(body, "seasonLen", &v)) gfx::set_season_length(std::atoi(v.c_str()));
     return reply(req, true, "Gespeichert");
 }
 

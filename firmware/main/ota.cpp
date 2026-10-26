@@ -428,7 +428,10 @@ void restart_soon(int ms) {
     static esp_timer_handle_t timer = nullptr;
     if (!timer) {
         esp_timer_create_args_t args{};
-        args.callback = [](void*) { esp_restart(); };
+        args.callback = [](void*) {
+            app::gfx::save_world_now();  // Weltkalender (seit 0.5.7), falls noch nicht gespeichert
+            esp_restart();
+        };
         args.name = "neustart";
         esp_timer_create(&args, &timer);
     }

@@ -8,13 +8,19 @@
 // auf den Raum dahinter (WindowLight): Nachts leuchtet es nach draußen nur, wenn dort mindestens eine Lichtquelle
 // brennt. Außen- und Innenansicht lesen denselben Eintrag und zeigen so immer denselben Zustand. Warum ein Licht aus
 // ist (kein Brennholz, kein Lampenöl, Bewohner schläft), entscheidet später die Simulation.
+//
+// Seit 0.5.7 auch Kalender, Himmel (Sonne, Mond) und Wetter-Simulation: Die Bühne schreibt sie einmal je Weltminute
+// fort (Stage::tick), die Orte lesen nur.
 
 #include <array>
 #include <cstdint>
 #include <string_view>
 
+#include "pixelia/engine/calendar.h"
 #include "pixelia/engine/light.h"
+#include "pixelia/engine/sky.h"
 #include "pixelia/engine/weather.h"
+#include "pixelia/engine/weather_sim.h"
 
 namespace pixelia {
 
@@ -53,6 +59,9 @@ struct WindowLight {
 struct Environment {
     Weather weather;
     LightBoard lights;
+    WorldCalendar calendar;
+    Sky sky;
+    WeatherSim weather_sim;
 };
 
 }  // namespace pixelia

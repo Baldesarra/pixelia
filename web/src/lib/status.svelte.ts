@@ -68,6 +68,11 @@ export type Status = {
     camFig?: number;
     camPlace?: number;
     camRet?: number;
+    night?: boolean;   // Nachtmodus (seit 0.5.7)
+    nightBr?: number;
+    nightNow?: boolean;
+    nightFrom?: number;
+    nightTo?: number;
   };
   auth?: { pin: boolean; lockS: number };
   diag: {

@@ -58,6 +58,15 @@ struct FigureInfo {
     char name[24] = {};
 };
 
+// Wo ein Ort Himmel zeigt: Flächen (fein) und die Farben mit der Rolle Himmel (Grundfarben first … first+count−1,
+// in jeder Lichtstufe k × base + i)
+struct SkyView {
+    static constexpr int kMaxPanes = 4;
+    Rect panes[kMaxPanes];
+    int count = 0;
+    int base = 80, first = 0, colors = 0;
+};
+
 class Scene {
 public:
     virtual ~Scene() = default;
@@ -86,6 +95,9 @@ public:
     virtual void render_fine(Canvas& /*fine*/, const CoarseLayers& /*layers*/, const uint8_t* /*remap*/) const {}
     // Feine Einblendungen der Szene (Text, Markierungen) in 400×240, nach dem Verdoppeln gezeichnet
     virtual void render_overlay(Canvas& /*fine*/) const {}
+    // Wo der Ort Himmel zeigt (seit 0.5.7, sky.h): Flächen und Farben mit der Rolle Himmel; dort zeichnet die Bühne
+    // den Mond. false = kein Himmel
+    virtual bool sky_view(SkyView* /*out*/) const { return false; }
     // Umgebung (seit 0.5.3, environment.h: Wetter, Lichtquellen aller Orte); setzt die Bühne vor init()
     virtual void set_environment(Environment* /*env*/) {}
     // Wird sichtbar bzw. ist nicht mehr zu sehen (seit 0.5.1; z. B. Hintergrundbild vorzeichnen und freigeben).

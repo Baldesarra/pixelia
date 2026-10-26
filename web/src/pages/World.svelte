@@ -4,6 +4,7 @@
   // zum Link (href) und wandert nach oben; „soon“ fällt dann weg.
   import { Card, Icon, WavyProgress, type IconName } from '../lib/m3';
   import CameraCard from '../lib/CameraCard.svelte';
+  import WorldCard from '../lib/WorldCard.svelte';
   import { device } from '../lib/status.svelte';
 
   const chapters = [
@@ -47,6 +48,7 @@
     {/if}
   </Card>
 
+  <WorldCard />
   <CameraCard />
 
   <h3>Die Kapitel</h3>

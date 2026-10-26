@@ -28,6 +28,12 @@ struct Values {
     uint16_t cam_figure = 0;
     uint8_t cam_place = 0;
     uint16_t cam_return_s = 600;
+    // Nachtmodus (seit 0.5.7): nachts auf die Nacht-Helligkeit (Standard an, 25 %, 22–6 Uhr, Entscheidung des Users)
+    bool night_on = true;
+    uint8_t night_bright = 25;
+    uint8_t night_from = 22, night_to = 6;  // Stunden (einstellbar seit 0.5.7, Wunsch des Users)
+    // Kleinste noch leuchtende Pulsbreite der Hintergrundbeleuchtung (Helligkeitskurve, am Gerät gemessen)
+    uint16_t bl_min = 8;
 };
 
 inline constexpr int kLongPressMin = 1000;
@@ -44,6 +50,8 @@ void set_long_press_ms(int ms);
 bool set_ui(const std::string& json);  // false = zu lang oder Steuerzeichen
 void set_clock(bool on, int corner, bool seconds);
 void set_camera(int home, int figure, int place, int return_s);
+void set_night(bool on, int percent, int from, int to);
+void set_backlight_min(int duty);
 
 // Werksreset: Einstellungen, WLAN-Netze, Setup-Passwort, Gerätenamen und PIN löschen, dann Neustart.
 // Startzähler und Reset-Historie (NVS „diag“) bleiben für die Diagnose erhalten. why landet im Log.

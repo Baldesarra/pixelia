@@ -2,6 +2,7 @@
 # Unter ESP-IDF als Komponente eingebunden, sonst als normale Bibliothek (Simulator).
 set(PIXELIA_ENGINE_SRCS
     src/assets.cpp
+    src/calendar.cpp
     src/canvas.cpp
     src/color.cpp
     src/depth.cpp
@@ -18,13 +19,15 @@ set(PIXELIA_ENGINE_SRCS
     src/room.cpp
     src/scenes.cpp
     src/scroll_test.cpp
+    src/sky.cpp
     src/sprite.cpp
     src/stage.cpp
     src/system_ui.cpp
     src/test_places.cpp
     src/tiles.cpp
     src/tiny_font.cpp
-    src/weather.cpp)
+    src/weather.cpp
+    src/weather_sim.cpp)
 
 # Eingebettete Asset-Pakete (seit 0.5.5): tools/asset_pack.py baut sie aus assets/**/pakete.json und den PNGs
 set(PIXELIA_ASSETS_DIR "${CMAKE_CURRENT_LIST_DIR}/../assets")
