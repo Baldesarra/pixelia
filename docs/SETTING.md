@@ -221,23 +221,29 @@ mit dem Jäger als Sohn; dazu ein Bauernpaar und ein Waldarbeiter (2026-10-21); 
 |---|---|---|---|---|---|
 | **Sykora**, 30 | Hauptfigur, will Bürgermeister werden | vom Land, wollte in der Stadt Arbeit suchen | Abteil | eigenen Hof am Dorfrand | Tagebuch, Hut am Haken |
 | **Taylor**, 30 | Schäferin, Sängerin | Schäferstochter, mit ihrer Herde unterwegs zum Markt | Abteil neben dem Viehwagen | Schäferhaus mit Stall | Gitarre an der Wand, Hirtenstab, Schafsglocke |
-| Gustav, 58 | Wirt | Koch im Speisewagen, hat im Winter alle satt bekommen | Speisewagen (erste Taverne) | Taverne am Platz, wohnt oben | Kupferkessel, Kreidetafel mit Tagesgericht |
-| Emil, 47 | Lokführer, Imker, kommissarischer Dorfvorsteher, später Ratgeber | fuhr den Zug, fühlt sich für alle verantwortlich | Lokschuppen | Haus am Bahnhof mit Bienenstöcken | Signallaterne, Taschenuhr, Fahrplan an der Wand, Honigtöpfe |
-| Konrad, 56 | Schmied | auf dem Weg zu einer neuen Stelle in einer Fabrik | Gepäckwagen | Schmiede mit Esse | Amboss, Hufeisen über der Tür |
-| Jakob, 41 | Tischler | Wandergeselle auf der Walz | Warteraum | Tischlerei | Hobelbank, Späne am Boden, halbfertiger Stuhl |
-| Greta, 38 | Bäckerin | wollte in der Stadt eine Backstube übernehmen | Warteraum | Bäckerei mit Backofen | Brotschieber, Mehlsäcke, Brezel am Schild |
+| Gustav, 46 | Wirt | Koch im Speisewagen, hat im Winter alle satt bekommen | Speisewagen (erste Taverne) | Taverne am Platz, wohnt oben | Kupferkessel, Kreidetafel mit Tagesgericht |
+| Emil, 36 | Lokführer, Imker, kommissarischer Dorfvorsteher, später Ratgeber | fuhr den Zug, fühlt sich für alle verantwortlich | Lokschuppen | Haus am Bahnhof mit Bienenstöcken | Signallaterne, Taschenuhr, Fahrplan an der Wand, Honigtöpfe |
+| Konrad, 44 | Schmied | auf dem Weg zu einer neuen Stelle in einer Fabrik | Gepäckwagen | Schmiede mit Esse | Amboss, Hufeisen über der Tür |
+| Jakob, 27 | Tischler | Wandergeselle auf der Walz | Warteraum | Tischlerei | Hobelbank, Späne am Boden, halbfertiger Stuhl |
+| Greta, 24 | Bäckerin | wollte in der Stadt eine Backstube übernehmen | Warteraum | Bäckerei mit Backofen | Brotschieber, Mehlsäcke, Brezel am Schild |
 | Wilhelm, 66 | Bergmann a. D. | auf dem Weg zu seiner Schwester; erkennt die alte Grube am Berg | Abteil | Hütte am Hang | Grubenlampe, Erzbrocken auf dem Tisch |
 | Paul Brandt, 68 | Zimmermann im Ruhestand, schnitzt | mit Frau und Sohn unterwegs zu Verwandten | Abteil der Familie | Haus der Brandts | Schnitzbank, Holzfiguren auf dem Sims |
 | Lene Brandt, 66 | Weberin | wie Paul | Abteil der Familie | Haus der Brandts | Webstuhl, Garnkörbe |
 | Anton Brandt, 34 | Jäger | Sohn der Brandts; hat im Winter alle mit Wild versorgt | Abteil der Familie | Jagdhütte am Waldrand mit Räucherkammer | Geweih an der Wand, Felle, Flinte über dem Kamin, Fallen |
 | Martha, 72 | Kräuterfrau | **lebte schon hier**, half mit Kräutern durch den Winter | eigene Hütte am Waldrand | Kräutergarten, Pflanzenhaus | Kräuterbündel an der Decke, Mörser |
-| Hannes, 52 | Fischer, schneidet Schilf für Dächer | **lebte schon hier**, wortkarg, kennt jedes Wetter | eigene Hütte am See | Steg, Bootsschuppen, Räucherofen | Reusen, Netze zum Trocknen, Boot am Steg |
-| Otto, ~40 | Bauer: Felder, Hühner, später Mühle | Auswanderer auf dem Weg zum Hafen nach Amerika, Saatgut im Gepäck | Gepäckwagen | Bauernhof mit Scheune und Feldern | Saatgutkiste, Sense an der Wand |
-| Ida, ~38 | Bäuerin: Gemüse, Hühner, Raps und Öl | wie ihr Mann; „wir wollten neues Land, jetzt haben wir es hier“ | Gepäckwagen | Bauernhof | Hühnerkorb, Einmachgläser, Bild vom Schiff, das sie nie bestiegen haben |
+| Hannes, 40 | Fischer, schneidet Schilf für Dächer | **lebte schon hier**, wortkarg, kennt jedes Wetter | eigene Hütte am See | Steg, Bootsschuppen, Räucherofen | Reusen, Netze zum Trocknen, Boot am Steg |
+| Otto, ~29 | Bauer: Felder, Hühner, später Mühle | Auswanderer auf dem Weg zum Hafen nach Amerika, Saatgut im Gepäck | Gepäckwagen | Bauernhof mit Scheune und Feldern | Saatgutkiste, Sense an der Wand |
+| Ida, ~26 | Bäuerin: Gemüse, Hühner, Raps und Öl | wie ihr Mann; „wir wollten neues Land, jetzt haben wir es hier“ | Gepäckwagen | Bauernhof | Hühnerkorb, Einmachgläser, Bild vom Schiff, das sie nie bestiegen haben |
 | Veit, ~25 | Holzfäller und Köhler | wollte im Sägewerk der Stadt arbeiten; kräftig, still | Warteraum | Holzfällerhütte am Waldrand (ein Raum) mit Holzstapel, später Meiler | Axt im Hackklotz, Holzstapel, rußige Hände |
 | Katze (Name vom Betrachter) | vollwertige Figur | streunt im Bahnhof herum, niemand weiß woher | wo es warm ist | bleibt bei Sykora oder Taylor | Lieblingskissen, Gabenhaufen |
 
 Kinder gibt es zum Start nicht; Zugezogene können Kinder mitbringen, die Kinder bleiben.
+
+**Junge Handwerker [entschieden, Wunsch des Users 2026-10-26]:** Die Handwerker und das Bauernpaar sind jünger als
+zuerst geplant (Greta 24, Jakob 27, Ida 26, Otto 29, Emil 36, Hannes 40, Konrad 44, Gustav 46). Sie wissen noch
+nicht alles, machen aber alles mit Liebe: Fehlversuche und Lernen gehören dazu (Gretas erstes Brot ist zu dunkel,
+Jakobs Stuhl wackelt), und mit den Fähigkeitsstufen (0.5.9) sieht man sie besser werden. Erfahrung und Rat bringen die
+Älteren mit (Martha, Wilhelm, die Brandts). Die Startstufen der Fähigkeiten legt 0.6.x mit Zeitraffer-Bericht fest.
 
 **Emil, der Vertrauensmann [entschieden, Wunsch des Users 2026-10-21]:**
 
@@ -1036,3 +1042,4 @@ Fest beschlossene Punkte dieser Werkstatt. Am Ende als Zeilen ins Entscheidungsp
 | 2026-10-21 | **Jahreszeitenabende:** Jahreszeiten wechseln sonntags, am letzten Abend großes Zusammenkommen in der Taverne; am Sommerende das Sommerfeuer auf dem Dorfplatz (Holz wird angespart), am Herbstende der Lichterabend | Wunsch des Users |
 | 2026-10-21 | **Mindestziele Kapitel 1** (LEBENDIGKEIT Kapitel 2) | Entscheidung des Users, Werte von Claude vorgeschlagen |
 | 2026-10-21 | **Grube vor Lok:** Kapitel 3 „Die alte Grube“ (0.8.x) vor Kapitel 4 „Die Lok“ (0.9.x) | Entscheidung des Users in der Neuplanung (PR #31); die Lok braucht Kohle und Blei aus der Grube |
+| 2026-10-26 | **Junge Handwerker:** Greta 24, Jakob 27, Ida 26, Otto 29, Emil 36, Hannes 40, Konrad 44, Gustav 46; Sykora, Taylor, Veit, Anton und die Alten bleiben | Wunsch des Users |
