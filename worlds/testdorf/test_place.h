@@ -7,11 +7,9 @@
 // über den Grafik-Speicher (assets.h, Pakete grund, moebel, wiese, raum); die Orte selbst sind Daten (Kachelzeilen,
 // Raumliste, Ausgänge). Lampe und Laterne haben Zustandsbilder aus/an nach ihrer Lichtquelle.
 //
-// - testort-wiese: Wiese mit Hecke, Hauswand mit Tür (→ Raum) und Weg zum rechten Bildrand (→ Platz), kühles Licht
-// - testort-raum: Raum mit Tapete, Fenstern, Schrank, Bett, Tisch, Stühlen, Teppich, Lampe; Ausgang unten (→ Wiese),
-//   warmes Licht. Bett und Tisch haben zwei Ausbaustufen (Befehl „ausbau“), alle Möbel einen Zustand „im Bau“
-//   (Befehl „baustelle“: halbfertiges Bett bzw. Bretterstapel)
-// - testort-platz: gepflasterter Platz mit Bänken und Büschen, Ausgang am linken Bildrand (→ Wiese)
+// Seit 0.5.8 liest die Klasse die Daten eines Ortes (PlaceDef, place.h): Wiese, Raum, Platz und Kammer stehen je in
+// einer eigenen Datei in worlds/testdorf/orte/ (Kacheln, Raumliste, Verbindungen, Lichter, Fenster), die Ortsliste in
+// testdorf.cpp. Der Baukasten (Katalog, Palette, Figur) ist für alle Testorte gleich und steht hier.
 // Figuren laufen auf dem Kachelraster (Breitensuche um Möbel herum), benutzen freie Benutzungspunkte und wechseln
 // über Ausgänge den Ort. Eine Figur ist die Begleiterin: Ihr folgt der Blick der Bühne durch Türen und Bildränder.
 // Lastregler (set_load): Zahl der Figuren am Ort, 1–64; 0 = Standard des Ortes.
@@ -25,6 +23,7 @@
 
 #include "pixelia/engine/environment.h"
 #include "pixelia/engine/light.h"
+#include "pixelia/engine/place.h"
 #include "pixelia/engine/rng.h"
 #include "pixelia/engine/room.h"
 #include "pixelia/engine/scene.h"
@@ -35,11 +34,11 @@ namespace pixelia {
 
 class TestPlace : public Scene {
 public:
-    enum class Kind : uint8_t { Field, Room, Square };
     static constexpr int kMaxFigures = 64;
     static constexpr int kColors = 80;  // Grundfarben je Lichtstufe (drei Stufen, light.h)
 
-    explicit TestPlace(Kind kind) : kind_(kind) {}
+    // index: Nummer des Ortes in der Welt (Kennungen der Figuren: (index + 1) × 1000 + laufende Nummer)
+    TestPlace(const PlaceDef& def, int index);
     // Orte liegen im Grafik-Speicher (auf dem Gerät PSRAM): je ~2,5 KB Figuren, der interne RAM bleibt frei
     static void* operator new(size_t bytes);
     static void operator delete(void* p);
@@ -80,7 +79,8 @@ public:
     bool command(const char* cmd) override;
     const PlacePalette& place_palette() const { return pal_; }
     const PlaceWeather& weather() const { return weather_; }
-    bool outdoor() const { return kind_ != Kind::Room; }
+    bool outdoor() const { return def_.outdoor(); }
+    const PlaceDef& def() const { return def_; }
     // Brennt das Licht dieses Ortes? Wiese: das Licht im Raum hinter den Fenstern
     bool lights_on() const;
 
@@ -129,7 +129,8 @@ private:
     void apply_load();
     void draw(Canvas& c, bool with_background, CoarseLayers* layers = nullptr) const;
 
-    Kind kind_;
+    const PlaceDef& def_;
+    int index_ = 0;
     Rng rng_;
     Palette palette_{};   // zur Tageszeit ausgerechnet (tick)
     PlacePalette pal_{};  // Grundfarben, Rollen, Farbrotation

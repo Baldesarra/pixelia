@@ -21,7 +21,7 @@
 #include "pixelia/engine/overlay.h"
 #include "pixelia/engine/stage.h"
 #include "pixelia/engine/system_ui.h"
-#include "pixelia/engine/test_places.h"
+#include "testdorf/test_place.h"
 #include "net.h"
 #include "nvs.h"
 #include "settings.h"

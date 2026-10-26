@@ -403,7 +403,21 @@ void Stage::start_transition(int to, Transition t) {
     }
 }
 
-void Stage::deliver_travels() {
+void Stage::deliver_travels(const WorldClock& clock) {
+    // Ankünfte von Verbindungen mit Reisezeit (seit 0.5.8), in der Reihenfolge des Aufbruchs. Springt die Uhr zurück
+    // (Testuhr), kommt man gleich an
+    const int64_t now = clock.world_us();
+    for (int k = 0; k < transit_n_;) {
+        const Transit& tr = transit_[k];
+        if (now < tr.arrive_us && now >= tr.depart_us) {
+            ++k;
+            continue;
+        }
+        const Transit done = tr;
+        for (int j = k + 1; j < transit_n_; ++j) transit_[j - 1] = transit_[j];
+        --transit_n_;
+        arrive_at(done.from, done.to, done.t);
+    }
     // Reihenfolge der Orte fest: gehört zum deterministischen Ablauf
     for (int i = 0; i < count_; ++i) {
         Travel t;
@@ -414,12 +428,23 @@ void Stage::deliver_travels() {
                 scenes_[i]->arrive(t);
                 continue;
             }
-            ++travels_;
-            scenes_[to]->arrive(t);
-            const bool followed = follow_who_ == 0 ? t.follow : follow_who_ != kNobody && t.who == follow_who_;
-            if (followed && follow_ && i == active_ && from_ < 0 && pending_ < 0) start_transition(to, t.transition);
+            if (t.travel > 0 && transit_n_ < kMaxTransit) {
+                // auf der Verbindung: gehört keinem Ort, bis die Reisezeit um ist (eine Figur ist nie doppelt)
+                transit_[transit_n_++] = Transit{t, now, now + static_cast<int64_t>(t.travel) * 1000000,
+                                                 static_cast<uint8_t>(i), static_cast<uint8_t>(to)};
+                continue;
+            }
+            arrive_at(i, to, t);
         }
     }
+}
+
+void Stage::arrive_at(int from, int to, const Travel& t) {
+    ++travels_;
+    scenes_[to]->arrive(t);
+    // der Blick folgt bei der Ankunft (bei Wegen mit Reisezeit bleibt er so lange am Ausgangsort)
+    const bool followed = follow_who_ == 0 ? t.follow : follow_who_ != kNobody && t.who == follow_who_;
+    if (followed && follow_ && from == active_ && from_ < 0 && pending_ < 0) start_transition(to, t.transition);
 }
 
 bool Stage::merge_palettes() {
@@ -509,7 +534,7 @@ void Stage::tick(const WorldClock& clock) {
         else if (++step_ >= ticks_)
             from_ = -1;
     }
-    deliver_travels();
+    deliver_travels(clock);
     if (was && from_ < 0) {
         sync_pins();
         sync_entered();
@@ -583,11 +608,16 @@ const Palette& Stage::palette() const {
     return scenes_[active_]->palette();
 }
 
-void Stage::draw_scene(const Scene& s, Canvas& fine, bool moon) const {
+void Stage::draw_scene(const Scene& s, Canvas& fine, bool transition) const {
     SkyView view;
+    // Mond (seit 0.5.7) über dem Himmel bzw. Fensterglas, hinter den Partikeln. Seit 0.5.8 auch beim Abblenden, wenn
+    // der Ort eigene Mondfarben hat (die Farben der Oberfläche würden nicht mit abblenden)
+    auto moon = [&] {
+        if (env_.sky.moon_visible() && s.sky_view(&view) && (!transition || view.moon >= 0)) env_.sky.draw(fine, view);
+    };
     if (s.scale() != kCoarseScale) {
         s.render(fine);
-        if (moon && env_.sky.moon_visible() && s.sky_view(&view)) env_.sky.draw(fine, view);
+        moon();
         return;
     }
     if (!main_) {
@@ -599,9 +629,39 @@ void Stage::draw_scene(const Scene& s, Canvas& fine, bool moon) const {
     layers_.veil_grid = nullptr;
     s.render_layers(coarse, layers_);
     upscale2x(main_, fine, &layers_);
-    // Mond (seit 0.5.7) über dem Himmel bzw. Fensterglas, hinter den Partikeln; nicht während eines Wechsels
-    if (moon && env_.sky.moon_visible() && s.sky_view(&view)) env_.sky.draw(fine, view);
+    moon();
     s.render_fine(fine, layers_, nullptr);
+}
+
+bool Stage::shows_new(int x, int y) const {
+    // wie compose(): Schwelle je grobem Bildpunkt (zufällig bzw. Raster) gegen den Fortschritt
+    const int level = step_ * 256 / ticks_;
+    const int thr = trans_ == Transition::Pattern
+                        ? kBayer4[y & 3][x & 3] * 16 + 8
+                        : static_cast<int>(mix(static_cast<uint32_t>(y * kCoarseWidth + x) ^
+                                               mix(transitions_ * 0x9E3779B1u)) &
+                                           0xFF);
+    return thr < level;
+}
+
+namespace {
+struct OwnsCtx {
+    const Stage* stage;
+    bool is_new;
+};
+}  // namespace
+
+bool Stage::owns_pixel(const void* ctx, int x, int y) {
+    const auto* c = static_cast<const OwnsCtx*>(ctx);
+    return c->stage->shows_new(x >> 1, y >> 1) == c->is_new;
+}
+
+void Stage::draw_moon(const Scene& s, Canvas& fine, bool is_new) const {
+    // Überblendung (seit 0.5.8): Mond je Ort nur in dessen Bildpunkten, in den Farben der gemeinsamen Palette
+    SkyView view;
+    if (!env_.sky.moon_visible() || !s.sky_view(&view) || view.moon < 0) return;
+    const OwnsCtx ctx{this, is_new};
+    env_.sky.draw(fine, view, is_new ? map_to_.data() : map_from_.data(), &Stage::owns_pixel, &ctx);
 }
 
 void Stage::release_weather() {
@@ -664,7 +724,7 @@ void Stage::render(Canvas& fine) const {
             return;
         }
         const Scene& s = *scenes_[v];
-        draw_scene(s, fine, from_ < 0);
+        draw_scene(s, fine, from_ >= 0);
         if (from_ < 0) s.render_overlay(fine);
         return;
     }
@@ -673,7 +733,7 @@ void Stage::render(Canvas& fine) const {
     const Scene& b = *scenes_[active_];
     if (!entered(from_) || !entered(active_)) {  // Wechsel mitten in einem wartenden Abblenden
         if (entered(active_))
-            draw_scene(b, fine, false);
+            draw_scene(b, fine, true);
         else
             fine.clear(0);
         return;
@@ -699,6 +759,8 @@ void Stage::render(Canvas& fine) const {
         a.render(fine);
     }
     compose(fine, oc, nc);
+    draw_moon(a, fine, false);
+    draw_moon(b, fine, true);
     // Wetter des Ziels über dem ganzen Bild (Schleier gibt es während der Überblendung nicht)
     if (nc) b.render_fine(fine, layers_, map_to_.data());
 }

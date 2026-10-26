@@ -1,5 +1,47 @@
 [
   {
+    "v": "0.5.8",
+    "d": "",
+    "t": "",
+    "s": "",
+    "k": {
+      "s": "Große Fenster, Mond im Fenster, Kammer und Feldweg",
+      "n": [
+        "Großes Fenster: Der Testraum hat zwei große Fenster mit Vorhang und Fensterbank, auf der eine Kerze und Blumentöpfe stehen",
+        "Mond im Fenster: Nachts bei klarem Himmel steht der Mond ganz in einer Scheibe, passend zu seinem Stand am Himmel",
+        "Kammer: Hinter einer Innentür liegt ein zweiter Raum im Haus",
+        "Feldweg: Zwischen Platz und Wiese gibt es einen Feldweg, auf dem man eine Weile unterwegs ist; nachts nimmt ihn niemand",
+        "Karte einer Verbindung: zeigt die Art (Tür, Weg, Feldweg …), wie lange man unterwegs ist und warum sie gerade zu ist"
+      ],
+      "i": [
+        "Ortswechsel: Der Mond blendet mit dem Bild aus und ein, statt vorher zu verschwinden"
+      ]
+    },
+    "n": [
+      "Engine: Orte als Module (place.h): Daten je Ort in worlds/<gebiet>/orte/, eine Zeile Registrierung je Ort bzw. Gebiet (worlds/gebiete.cpp), jede .cpp in worlds/ wird mitgebaut",
+      "Engine: Verbindungen als Daten mit Art (Tür, Bildrand, Feldweg, Treppe, Bahnhof, Stolleneingang), Reisezeit und Bedingungen (nur bei Tag, nach Bau, Werkzeug, Fahrplan); Merker der Welt (WorldFlags)",
+      "Engine: Orts-Graph (PlaceGraph) prüft Ziele, Rückwege und Erreichbarkeit in beide Richtungen; Figuren auf Wegen mit Reisezeit gehören keinem Ort, bis sie ankommen",
+      "Engine: Stellplätze im Raum-Baukasten (SlotPoint, kPartOnSlot): Dinge stehen auf Fensterbank, Regal oder Tisch auf der Ebene ihres Trägers",
+      "Engine: Mond im Fenster aus den Scheiben des Fensterbilds (PaneRect, SkyView mit Gruppen), ganz in einer Scheibe, bei kleinen Scheiben kleiner",
+      "Dorf: Testdorf in worlds/testdorf/ mit Wiese, Raum, Platz und neu der Kammer; großes Fenster mit Vorhang (Wahl des Users), Kerze und Blumentopf als Testgrafiken",
+      "Simulator: `--test orte` (7 Prüfungen): Module, Graph, jede Verbindung per Tippen hin und zurück, Feldweg, Fensterbank, Mond im Fenster und beim Ortswechsel"
+    ],
+    "i": [
+      "Engine: Mond in eigenen Farben des Ortes (vier feste Grundfarben) blendet beim Abblenden mit und erscheint während der Überblendung in der gemeinsamen Palette",
+      "Dorf: Rückwand des Testraums eine Reihe höher, Möbel eine Reihe tiefer; Testfiguren haben fünf statt sechs Farbreihen (Türkis wurde Mondfarbe)"
+    ],
+    "f": [
+      "Dorf: Mond im Fenster des Testraums kaum zu sehen (Meldung des Users zu 0.5.7): Die alten Scheiben waren 5 × 5 grobe Punkte, der Mond 15 feine"
+    ],
+    "g": [
+      "Simulator: alle Selbsttests grün (Bühne 26, Asset-Pakete 5, Einblendungen 10, Weltzeit 9, Orte 7)"
+    ],
+    "h": [
+      "Doku: Teil 1 von 0.5.8; Ortszustände, Lichtquellen-Arten, Ereignis-Bus, Fahrzeuge und die Logik-Spitzen folgen in Teil 2"
+    ],
+    "pr": []
+  },
+  {
     "v": "0.5.7",
     "d": "2026-10-26",
     "t": "Weltzeit, Kalender und Wetter-Simulation",

@@ -14,7 +14,6 @@
         "farbreihe/gelb": {"platzhalter": "gelb"},
         "farbreihe/lavendel": {"platzhalter": "lavendel"},
         "farbreihe/gruen": {"platzhalter": "gruen"},
-        "farbreihe/tuerkis": {"platzhalter": "tuerkis"},
         "farbreihe/holz": {"platzhalter": "holz"},
         "farbreihe/tapete": {"wand": "tapete"}
       },
@@ -42,6 +41,9 @@
     "raum": {
       "bilder": {
         "teil/bild": {"datei": "teile/bild.png"},
+        "teil/fenster-gross": {"datei": "teile/fenster-gross.png"},
+        "teil/kerze": {"datei": "teile/kerze.png", "bilder": 2, "zustaende": 2},
+        "teil/blumentopf": {"datei": "teile/blumentopf.png"},
         "teil/teppich": {"datei": "teile/teppich.png"},
         "teil/schrank": {"datei": "teile/schrank.png"},
         "teil/bett/0": {"datei": "teile/bett-0.png"},

@@ -48,6 +48,18 @@ struct UsePoint {
     int8_t dz;       // Tiefenversatz der Figur, z. B. +8 = vor der Stuhllehne
 };
 
+// Stellplatz (seit 0.5.8): Fußpunkt eines kleinen Dings auf dem Teil (Fensterbank, Regal, Tisch), grobe Bildpunkte
+// relativ zur linken oberen Ecke des Bildes. Das Ding steht mit seiner untersten Zeile auf dieser Höhe, waagrecht
+// mittig
+struct SlotPoint {
+    int8_t x, y;
+};
+
+// Glasfläche eines Fensters (seit 0.5.8), grobe Bildpunkte relativ zum Bild: dort zeigt das Fenster den Himmel
+struct PaneRect {
+    uint8_t x, y, w, h;
+};
+
 struct PartStage {
     SpriteSheet sheet;      // Bild(er); mehr als ein Bild je Zustand = bewegtes Teil, wird nicht vorgezeichnet
     uint8_t w, h;           // Stellfläche in Kacheln (Lage = linke obere Ecke)
@@ -55,6 +67,10 @@ struct PartStage {
     uint8_t frame_ticks;    // Dauer eines Bildes bei bewegten Teilen (Logik-Schritte)
     const UsePoint* uses;
     uint8_t use_count;
+    const SlotPoint* slots = nullptr;  // Stellplätze (seit 0.5.8)
+    uint8_t slot_count = 0;
+    const PaneRect* panes = nullptr;   // Fensterscheiben (seit 0.5.8, Mond im Fenster)
+    uint8_t pane_count = 0;
 };
 
 struct PartDef {
@@ -81,10 +97,13 @@ struct PartCatalog {
 inline constexpr uint8_t kSignaturePart = 0xFF;  // Raumliste: „Erkennungsstück von Besitzer owner“
 inline constexpr uint8_t kPartFlipped = 1;
 inline constexpr uint8_t kPartBuilding = 2;  // im Bau
+// Steht auf einem Stellplatz (seit 0.5.8): x = Nummer des tragenden Teils in der Raumliste (muss davor stehen),
+// y = Stellplatz. Liegt auf der Ebene des Trägers, knapp davor; versperrt nichts
+inline constexpr uint8_t kPartOnSlot = 4;
 
 struct RoomPart {
     uint8_t part;   // Nummer im Katalog oder kSignaturePart
-    uint8_t x, y;   // Kachel-Lage
+    uint8_t x, y;   // Kachel-Lage (auf einem Stellplatz: Träger und Stellplatz)
     uint8_t stage;  // Ausbaustufe (darüber: die letzte vorhandene)
     uint8_t row;    // Farbreihe, 0 = wie gezeichnet
     uint8_t owner;  // Besitzer, 0 = niemand
@@ -92,8 +111,12 @@ struct RoomPart {
     uint8_t state = 0;  // Zustandsbild (seit 0.5.5, sprite.h: z. B. Lampe 0 = aus, 1 = an)
 };
 
-enum class ExitKind : uint8_t { Door, Edge };
+// Art einer Verbindung (seit 0.5.8 mehr als Tür und Bildrand, place.h): Tür, Bildrand, Weg mit Reisezeit, Treppe,
+// Bahnhof, Stolleneingang
+enum class ExitKind : uint8_t { Door, Edge, Path, Stairs, Station, Mine };
 
+// Ausgang = eine Seite einer Verbindung (Daten, place.h): Ziel und Ankunft im Zielort, seit 0.5.8 Reisezeit und
+// Bedingungen
 struct Exit {
     uint8_t x, y, w, h;  // Bereich in Kacheln: wer hier ankommt, geht hinaus
     uint8_t ax, ay;      // Ankunft: Kachel, auf der man von dort kommend erscheint
@@ -102,6 +125,9 @@ struct Exit {
     const char* to;      // Kennung des Zielortes
     uint8_t entry;       // Ausgang im Zielort, an dem man ankommt
     Transition transition;
+    uint16_t travel = 0;            // Reisezeit in Weltsekunden (so lange ist man auf der Verbindung)
+    uint8_t when = 0;               // Bedingungen (place.h, ExitWhen)
+    const char* needs = nullptr;    // Projekt bzw. Werkzeug zu kOpenAfterBuild / kOpenWithTool
 };
 
 // Vorlage eines Raums (Daten); load() kopiert sie in die änderbare Raumliste
@@ -155,7 +181,13 @@ public:
     const PartStage* stage(int i) const;  // fertige Ausbaustufe (Stellfläche)
     const PartStage* look(int i) const;   // was zu sehen ist: Stufe, Bau-Bild oder Materialstapel
     int find_part(PartKind kind, int start = 0) const;  // −1 = keins
-    Rect part_rect(int i) const;  // Stellfläche in groben Bildpunkten
+    Rect part_rect(int i) const;  // Stellfläche in groben Bildpunkten (auf einem Stellplatz: das Bild)
+    Rect image_rect(int i) const;  // Bild des Teils in groben Bildpunkten (seit 0.5.8), leer = nicht zu sehen
+    // Ebene, auf der ein Teil gezeichnet wird: Dinge auf Stellplätzen liegen auf der Ebene ihres Trägers
+    PartLayer layer_of(int i) const;
+    // Fußpunkt eines Stellplatzes von Teil i (grobe Bildpunkte, beim Spiegeln mitgespiegelt); false = gibt es nicht
+    bool slot_point(int i, int k, int* x, int* y) const;
+    int slot_item(int host, int k) const;  // Teil auf Stellplatz k von host, −1 = frei
     // Benutzungspunkt k von Teil i (beim Spiegeln mitgespiegelt); false = gibt es nicht
     bool use_point(int i, int k, int* tx, int* ty, UsePoint* out) const;
 
@@ -208,6 +240,8 @@ private:
     int resolve(const RoomPart& p) const;  // Teil-Nummer, −1 = nichts
     // Lage des Bildes: unten bündig mit der Stellfläche fw × fh, waagrecht mittig
     void place(const RoomPart& p, int fw, int fh, const PartStage& look, int* x, int* y, int* depth) const;
+    // Lage von Teil i (auch auf Stellplätzen); false = nicht zu sehen
+    bool locate(int i, const PartStage& look, int* x, int* y, int* depth, int nest = 0) const;
     const uint8_t* remap_of(const RoomPart& p, const PartStage& look) const;
     Sprite frame_of(const RoomPart& p, const PartStage& s) const;
     // bewegtes Teil (mehr als ein Bild je Zustand): wird nicht vorgezeichnet

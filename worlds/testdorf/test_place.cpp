@@ -1,4 +1,5 @@
-#include "pixelia/engine/test_places.h"
+#include "testdorf/test_place.h"
+#include "testdorf/testdorf.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -17,6 +18,8 @@
 
 namespace pixelia {
 
+using namespace testdorf;
+
 namespace {
 
 // Palette: alle Orte gleich aufgebaut, getönt wird am Ende (Wiese kühl, Raum warm, Platz neutral)
@@ -28,8 +31,9 @@ constexpr uint8_t kBloom = 10;  // 10..11
 constexpr uint8_t kFloor = 12;  // 12..15
 constexpr uint8_t kWall = 16;   // 16..19
 constexpr uint8_t kRamp = 20;   // 20..23 graue Platzhalter-Rampe, wird per Farbreihe ersetzt
-constexpr uint8_t kRows = 24;   // 24..47: sechs Farbreihen zu je 4 Farben
-constexpr int kFigureRows = 6;
+constexpr uint8_t kRows = 24;   // 24..43: fünf Farbreihen zu je 4 Farben
+constexpr int kFigureRows = 5;
+constexpr uint8_t kMoon = 44;   // 44..47 Mond: hell, Meer, Schatten, Hof (seit 0.5.8, Rolle fest; vorher Türkis)
 constexpr uint8_t kSkin = 48;  // 48..50
 constexpr uint8_t kHair = 51;  // 51..53
 constexpr uint8_t kEye = 54;
@@ -47,8 +51,6 @@ constexpr uint8_t kWater = 74;  // 74..77 Wasser (Farbrotation)
 constexpr uint8_t kFlame = 78;  // 78..79 Schirm der Lampe, leuchtet bei Dunkelheit (Farbrotation), Kern kGlow
 static_assert(kFlame + 2 <= 80, "Grundfarben passen in eine Lichtstufe");
 
-// Farbreihen des Katalogs: 0 wie gezeichnet, 1–6 rot, blau, gelb, lavendel, grün, türkis, 7 Holz, 8 Tapete
-constexpr int kRowWood = 7, kRowPaper = 8, kRowCount = 9;
 
 constexpr int kPoses = 5;  // Figur (Bild figur/test): Posen stehen, Schritt, Mitte, Schritt, atmen; drei Ansichten
 
@@ -62,15 +64,10 @@ enum Tile : uint8_t {
     kTGrassA = 1, kTGrassB, kTTuft, kTBloom, kTPath, kTPlankA, kTPlankB, kTStoneA, kTStoneB,
     kTWallFace, kTWallBase, kTWallBand, kTWallTop, kTHedge, kTHedgeFace, kTPebbles, kTFlowers, kTWater, kTileCount
 };
-constexpr const char* kLegend = " .,\"*=_-ocWST#hHsf~";
 static_assert(kTileCount == 19, "Legende passt zu den Kacheln");
 
-// Teile des Katalogs
-enum Part : uint8_t {
-    kPDoor, kPWindow, kPPicture, kPWardrobe, kPBed, kPTable, kPChair, kPCrate, kPRug, kPLamp, kPPlant, kPToken,
-    kPBush, kPBench, kPartCount,
-    kPBedFrame = kPartCount, kPSite  // Bilder „im Bau“: halbfertiges Bett, Materialstapel (keine eigenen Teile)
-};
+// Bilder „im Bau“: halbfertiges Bett, Materialstapel (keine eigenen Teile des Katalogs, testdorf.h)
+constexpr uint8_t kPBedFrame = kPartCount, kPSite = kPartCount + 1;
 
 // Benutzungspunkte (Kachel relativ zur Lage des Teils)
 constexpr UsePoint kUseWardrobe[] = {{0, 1, Facing::Up, UsePose::Stand, 0}, {1, 1, Facing::Up, UsePose::Stand, 0}};
@@ -82,6 +79,12 @@ constexpr UsePoint kUseCrate[] = {{0, 1, Facing::Up, UsePose::Stand, 0}};
 constexpr UsePoint kUseToken[] = {{0, 1, Facing::Up, UsePose::Stand, 0}};
 constexpr UsePoint kUseBench[] = {{0, 0, Facing::Down, UsePose::Sit, 4}, {1, 0, Facing::Down, UsePose::Sit, 4}};
 constexpr UsePoint kUseBuild[] = {{-1, 1, Facing::Right, UsePose::Stand, 0}};  // am halbfertigen Bett arbeiten
+constexpr UsePoint kUseWindowBig[] = {{1, 4, Facing::Up, UsePose::Stand, 0}, {3, 4, Facing::Up, UsePose::Stand, 0}};
+
+// Großes Fenster mit Vorhang und Fensterbank (seit 0.5.8, STIL.md Kapitel 8, Wahl des Users): Scheiben (Mond im
+// Fenster) und drei Stellplätze auf der Bank
+constexpr PaneRect kPanesBig[] = {{7, 4, 12, 8}, {7, 14, 12, 12}, {21, 4, 12, 8}, {21, 14, 12, 12}};
+constexpr SlotPoint kSillSlots[] = {{9, 29}, {20, 29}, {31, 29}};
 
 // Teil-Stufen: Bild (Kennung im Asset-Paket), Stellfläche fw × fh, Benutzungspunkte. Die Bilder liegen seit 0.5.5 als
 // PNG in assets/testorte/ (tools/asset_pack.py) und kommen über den Grafik-Speicher (assets.h)
@@ -91,6 +94,11 @@ struct StageSpec {
     uint8_t fw, fh;
     const UsePoint* uses;
     uint8_t use_count;
+    int8_t oy = 0;
+    const SlotPoint* slots = nullptr;
+    uint8_t slot_count = 0;
+    const PaneRect* panes = nullptr;
+    uint8_t pane_count = 0;
 };
 constexpr StageSpec kStages[] = {
     {kPDoor, "teil/tuer", 2, 3, nullptr, 0},
@@ -109,6 +117,9 @@ constexpr StageSpec kStages[] = {
     {kPToken, "teil/zeichen", 1, 1, kUseToken, 1},
     {kPBush, "teil/busch", 2, 2, nullptr, 0},
     {kPBench, "teil/bank", 2, 1, kUseBench, 2},
+    {kPWindowBig, "teil/fenster-gross", 5, 4, kUseWindowBig, 2, -6, kSillSlots, 3, kPanesBig, 4},
+    {kPCandle, "teil/kerze", 1, 1, nullptr, 0},  // Zustände aus, an (Talgkerze, Lichtquelle)
+    {kPPot, "teil/blumentopf", 1, 1, nullptr, 0},
     {kPBedFrame, "teil/bett/bau", 2, 3, kUseBuild, 1},  // im Bau: Rahmen ohne Matratze
     {kPSite, "teil/stapel", 1, 1, nullptr, 0},          // Materialstapel: Bretter
 };
@@ -135,14 +146,17 @@ constexpr PartSpec kParts[kPartCount] = {
     {"zeichen", PartKind::Deco, PartLayer::Standing, true},
     {"busch", PartKind::Deco, PartLayer::Standing, true},
     {"bank", PartKind::Seat, PartLayer::Standing, true},
+    {"fenster-gross", PartKind::Window, PartLayer::Wall, false},
+    {"kerze", PartKind::Light, PartLayer::Standing, false},
+    {"blumentopf", PartKind::Deco, PartLayer::Standing, false},
 };
 
 // Asset-Pakete (assets/testorte/pakete.json): Grundausstattung immer geladen, gemeinsame Möbel und Ortspakete beim
 // Betreten (TestPlace::packs)
 constexpr const char* kBasePack = "grund";
-constexpr const char* kRowNames[kRowCount] = {nullptr,          "farbreihe/rot",   "farbreihe/blau",
+constexpr const char* kRowNames[kRowCount] = {nullptr,          "farbreihe/rot",      "farbreihe/blau",
                                               "farbreihe/gelb", "farbreihe/lavendel", "farbreihe/gruen",
-                                              "farbreihe/tuerkis", "farbreihe/holz", "farbreihe/tapete"};
+                                              "farbreihe/holz", "farbreihe/tapete"};
 
 // Gemeinsamer Katalog aller Testorte. Figur, Kacheln, Palette und Farbreihen kommen aus der Grundausstattung, die
 // Bilder der Teile aus den Paketen der Orte
@@ -189,7 +203,8 @@ Kit& kit() {
         k->colors = store.palette(asset_id("palette/testorte"), &k->color_count);
         for (int s = 0; s < kStageCount; ++s) {
             const StageSpec& sp = kStages[s];
-            k->stages[s] = PartStage{SpriteSheet{}, sp.fw, sp.fh, 0, 0, 45, sp.uses, sp.use_count};
+            k->stages[s] = PartStage{SpriteSheet{}, sp.fw, sp.fh, 0, sp.oy, 45, sp.uses, sp.use_count,
+                                     sp.slots, sp.slot_count, sp.panes, sp.pane_count};
         }
         auto stage_of = [&](int part, int* n) {
             int first = 0;
@@ -242,99 +257,12 @@ Color grade(Color c, int mood) {
     return {cl(r), cl(g), cl(b)};
 }
 
-// --- Orte als Daten: Kachelzeilen (25 × 15), Raumliste, Ausgänge ---
-
-constexpr const char* kFieldFloor[kTilesY] = {
-    "hhhhhhhh.........hhhhhhhh", "hhhhhhhh.........hhhhhhhh", "HHHHHHHH.........HHHHHHHH",
-    ".........................", "...........==............", "...........==............",
-    "...........==............", "...........==............", "...........==............",
-    "...........==============", "...........==============", ".........................",
-    ".........................", ".........................", ".........................",
-};
-constexpr const char* kFieldWalls[kTilesY] = {
-    "        #########        ", "        TTTTTTTTT        ", "        WWWWWWWWW        ",
-    "        SSSSSSSSS        ",
-};
-constexpr const char* kFieldDeco[kTilesY] = {
-    "", "", "", "", "   f                 s   ", "", "      s          f       ", "", "",
-    "", "", "  f            s        ", "", "                     f   ", "",
-};
-constexpr RoomPart kFieldParts[] = {
-    {kPDoor, 11, 1, 0, kRowWood, 0, 0},  {kPWindow, 9, 1, 0, kRowWood, 0, 0},
-    {kPWindow, 14, 1, 0, kRowWood, 0, 0}, {kPBush, 2, 4, 0, 0, 0, 0},
-    {kPBush, 20, 4, 0, 0, 0, 0},          {kPBush, 4, 12, 0, 0, 0, 0},
-    {kPCrate, 15, 4, 0, kRowWood, 0, 0},  {kPBench, 18, 12, 0, kRowWood, 0, 0},
-};
-constexpr Exit kFieldExits[] = {
-    {11, 3, 2, 1, 11, 4, Facing::Down, ExitKind::Door, "testort-raum", 0, Transition::Fade},
-    {24, 9, 1, 2, 23, 9, Facing::Left, ExitKind::Edge, "testort-platz", 0, Transition::Fade},
-};
-
-constexpr const char* kRoomFloor[kTilesY] = {
-    "_________________________", "-------------------------", "_________________________",
-    "-------------------------", "_________________________", "-------------------------",
-    "_________________________", "-------------------------", "_________________________",
-    "-------------------------", "_________________________", "-------------------------",
-    "_________________________", "-------------------------", "_________________________",
-};
-constexpr const char* kRoomWalls[kTilesY] = {
-    "#########################", "#TTTTTTTTTTTTTTTTTTTTTTT#", "#WWWWWWWWWWWWWWWWWWWWWWW#",
-    "#WWWWWWWWWWWWWWWWWWWWWWW#", "#SSSSSSSSSSSSSSSSSSSSSSS#", "#                       #",
-    "#                       #", "#                       #", "#                       #",
-    "#                       #", "#                       #", "#                       #",
-    "#                       #", "#                       #", "##########  #############",
-};
-constexpr RoomPart kRoomParts[] = {
-    {kPWindow, 6, 2, 0, kRowWood, 0, 0},   {kPWindow, 16, 2, 0, kRowWood, 0, 0},
-    {kPPicture, 11, 2, 0, kRowWood, 0, 0}, {kPPicture, 13, 2, 0, kRowWood, 0, 0},
-    {kPRug, 8, 8, 0, 4, 0, 0},             {kPWardrobe, 2, 5, 0, kRowWood, 0, 0},
-    {kPBed, 21, 5, 0, 3, 0, 0},            {kPTable, 10, 8, 0, kRowWood, 0, 0},
-    {kPChair, 9, 9, 0, kRowWood, 0, 0},    {kPChair, 12, 9, 0, kRowWood, 0, kPartFlipped},
-    {kPLamp, 23, 12, 0, 3, 0, 0},          {kPPlant, 1, 12, 0, 1, 0, 0},
-    {kPCrate, 3, 12, 0, kRowWood, 0, 0},   {kSignaturePart, 17, 12, 0, 6, 1, 0},
-};
-constexpr Exit kRoomExits[] = {
-    {10, 14, 2, 1, 10, 13, Facing::Up, ExitKind::Door, "testort-wiese", 0, Transition::Fade},
-};
-
-constexpr const char* kSquareFloor[kTilesY] = {
-    "hhhhhhhhhhhhhhhhhhhhhhhhh", "hhhhhhhhhhhhhhhhhhhhhhhhh", "HHHHHHHHHHHHHHHHHHHHHHHHH",
-    "..ococococococococococo..", "..cocococococococococoo..", "..ococococococococococo..",
-    "..cocococococococococoo..", "..ococococococococococo..", "..cocococ~~~~~cocococoo..",
-    "==ocococo~~~~~ococococo..", "==cocococococococococoo..", "..ococococococococococo..",
-    "..cocococococococococoo..", "..ococococococococococo..", "hhhhhhhhhhhhhhhhhhhhhhhhh",
-};
-constexpr const char* kSquareDeco[kTilesY] = {
-    "", "", "", " f                     s ", "", "", "", "", "", "", "", "", "", " s                     f ", "",
-};
-constexpr RoomPart kSquareParts[] = {
-    {kPBush, 4, 3, 0, 0, 0, 0},           {kPBush, 19, 3, 0, 0, 0, 0},
-    {kPBush, 4, 11, 0, 0, 0, 0},          {kPBush, 19, 11, 0, 0, 0, 0},
-    {kPBench, 8, 4, 0, kRowWood, 0, 0},   {kPBench, 15, 4, 0, kRowWood, 0, 0},
-    {kPBench, 11, 11, 0, kRowWood, 0, 0}, {kPLamp, 12, 6, 0, 0, 0, 0},
-    {kPPlant, 7, 7, 0, 1, 0, 0},          {kPPlant, 17, 7, 0, 5, 0, 0},
-};
-constexpr Exit kSquareExits[] = {
-    {0, 9, 1, 2, 1, 9, Facing::Right, ExitKind::Edge, "testort-wiese", 1, Transition::Fade},
-};
-
-// Lichtkreise (seit 0.5.2): Wiese vor den Fenstern, Raum und Platz um die Lampe (Mitte am Fuß, grobe Bildpunkte)
-// Seit 0.5.3 gehören die Fenster der Wiese zum Raum dahinter (leuchten nur, wenn dort Licht brennt)
-constexpr const char* kRoomName = "testort-raum";
-constexpr WindowLight kFieldWindows[] = {{{80, 37, 22, 9, 190}, kRoomName}, {{120, 37, 22, 9, 190}, kRoomName}};
-constexpr LightCircle kRoomLights[] = {{188, 100, 58, 38, 255}};
-constexpr LightCircle kSquareLights[] = {{100, 56, 64, 40, 255}};
-
-constexpr RoomDef kRooms[3] = {
-    {{kFieldFloor, kFieldWalls, kFieldDeco}, kLegend, {0, 0, 0}, kFieldParts, 8, kFieldExits, 2},
-    {{kRoomFloor, kRoomWalls, nullptr}, kLegend, {0, kRowPaper, 0}, kRoomParts, 14, kRoomExits, 1},
-    {{kSquareFloor, nullptr, kSquareDeco}, kLegend, {0, 0, 0}, kSquareParts, 10, kSquareExits, 1},
-};
-
 int center_x(int tx) { return (tx * kTileSize + kTileSize / 2) << 8; }
 int center_y(int ty) { return (ty * kTileSize + kTileSize / 2) << 8; }
 
 }  // namespace
+
+TestPlace::TestPlace(const PlaceDef& def, int index) : def_(def), index_(index) {}
 
 void* TestPlace::operator new(size_t bytes) {
     void* p = asset_alloc(bytes);
@@ -345,13 +273,9 @@ void* TestPlace::operator new(size_t bytes) {
 
 void TestPlace::operator delete(void* p) { asset_free(p); }
 
-const char* TestPlace::name() const {
-    return kind_ == Kind::Field ? "testort-wiese" : kind_ == Kind::Room ? "testort-raum" : "testort-platz";
-}
+const char* TestPlace::name() const { return def_.id; }
 
-const char* TestPlace::title() const {
-    return kind_ == Kind::Field ? "Testort Wiese" : kind_ == Kind::Room ? "Testort Raum" : "Testort Platz";
-}
+const char* TestPlace::title() const { return def_.title; }
 
 void TestPlace::build_palette() {
     PlacePalette& p = pal_;
@@ -362,28 +286,25 @@ void TestPlace::build_palette() {
     for (int i = 1; i < kColors && i < k.color_count; ++i)
         c[i] = {k.colors[i * 3], k.colors[i * 3 + 1], k.colors[i * 3 + 2]};
     // Schatten der Figuren je Ort (die Zeichenpalette enthält den der Wiese)
-    if (kind_ != Kind::Field) c[kShadow] = kind_ == Kind::Room ? Color{100, 74, 56} : Color{118, 114, 108};
-    // Grundstimmung, dann Licht des Ortes: Wiese kühl, Raum warm, Platz neutral (verschiedene Paletten)
-    for (int i = 1; i < kColors; ++i) {
-        const Color g = grade(c[i], mood_);
-        p.set(i, kind_ == Kind::Field  ? tint(g, 246, 256, 268)
-                 : kind_ == Kind::Room ? tint(g, 268, 248, 222)
-                                       : tint(g, 258, 254, 246));
-    }
+    if (def_.shadow.r || def_.shadow.g || def_.shadow.b) c[kShadow] = def_.shadow;
+    // Grundstimmung, dann Licht des Ortes (Daten): Wiese kühl, Raum warm, Platz neutral (verschiedene Paletten)
+    for (int i = 1; i < kColors; ++i) p.set(i, tint(grade(c[i], mood_), def_.tint[0], def_.tint[1], def_.tint[2]));
+    // Mondfarben (seit 0.5.8): fest, damit der Mond nachts hell bleibt und beim Abblenden mit dem Ort ausblendet
+    for (int i = kMoon; i < kMoon + 4; ++i) p.set_fixed(i);
     // Rollen: Lampe leuchtet bei Dunkelheit, Fenster zeigen innen den Himmel, außen am Abend Licht
     p.set_glow(kFlame, {255, 210, 128});
     p.set_glow(kFlame + 1, {255, 186, 96});
     p.set_glow(kGlow, {255, 244, 204});
-    if (kind_ == Kind::Room) {
+    if (def_.glass == GlassRole::Sky) {
         p.set_sky(kSky, 2);
-    } else if (kind_ == Kind::Field) {
+    } else if (def_.glass == GlassRole::Glow) {
         p.set_glow(kSky, {255, 214, 130});
         p.set_glow(kSky + 1, {246, 178, 92});
     }
     p.add_cycle({kWater, 4, 7});   // Wasser: alle 7 Schritte ein Platz weiter
     p.add_cycle({kFlame, 2, 5});   // Lampe flackert
     p.set_lamp({255, 190, 112});
-    p.set_exposure(kind_ == Kind::Room ? 220 : 256);
+    p.set_exposure(def_.exposure);
     // Schatten durchscheinend: jede Farbe ein Stück Richtung Dunkelviolett (Farbtabelle)
     p.tint_table({24, 18, 34}, 96, shadow_);
     // Wetter (seit 0.5.3): Regen hellblau wie Glas, Schnee und Spritzer weiß, Blätter gelb und holzbraun; drinnen
@@ -395,7 +316,7 @@ void TestPlace::build_palette() {
     look.snow = kBloom;
     look.leaf[0] = kBloom + 1;
     look.leaf[1] = kWood + 1;
-    if (kind_ == Kind::Room) {
+    if (def_.glass == GlassRole::Sky) {
         look.window_first = kSky;
         look.window_count = 2;
     }
@@ -405,13 +326,14 @@ void TestPlace::build_palette() {
 
 bool TestPlace::lights_on() const {
     if (!env_) return true;
-    return kind_ == Kind::Field ? env_->lights.any_on(kRoomName) : env_->lights.on(name(), 0);
+    if (def_.window_count > 0) return env_->lights.any_on(def_.windows[0].room);  // Fenster: Licht im Raum dahinter
+    return env_->lights.on(name(), 0);
 }
 
 void TestPlace::apply_glow() {
-    // Licht aus: Lampenschirm bzw. Fensterglas leuchtet nachts nicht
-    const bool on = lights_on();
-    if (kind_ == Kind::Field) {
+    // Licht aus: Lampenschirm bzw. Fensterglas leuchtet nachts nicht (Raum: Flamme, solange Lampe oder Kerze brennt)
+    const bool on = def_.light_count > 1 && env_ ? env_->lights.any_on(name()) : lights_on();
+    if (def_.glass == GlassRole::Glow) {
         pal_.set_glow_on(kSky, on);
         pal_.set_glow_on(kSky + 1, on);
     } else {
@@ -424,11 +346,11 @@ void TestPlace::apply_glow() {
 void TestPlace::build_room() {
     const Kit& k = kit();
     if (!room_.init(&k.tileset, &k.catalog)) return;
-    room_.load(kRooms[static_cast<int>(kind_)]);
+    room_.load(*def_.room);
     room_.set_shadow_color(kShadow);
     room_.set_shadow_table(shadow_);
     apply_lights();
-    if (kind_ != Kind::Field) return;
+    if (!(def_.flags & kPlaceMeadow)) return;
     // Wiese: Gras im Schachbrett, dazu zufällig Büschel und Blüten (aus dem Startwert)
     TileMap& m = room_.tiles();
     for (int ty = 0; ty < kTilesY; ++ty)
@@ -476,17 +398,16 @@ void TestPlace::apply_lights() {
         if (light_inner_ >= 0) l.inner = static_cast<uint8_t>(light_inner_);
         c[n++] = l;
     };
-    if (kind_ == Kind::Field) {
-        for (const WindowLight& w : kFieldWindows)
-            if (!env_ || env_->lights.any_on(w.room)) add(w.circle);
-    } else if (lights_on()) {
-        add(kind_ == Kind::Room ? kRoomLights[0] : kSquareLights[0]);
+    for (int w = 0; w < def_.window_count; ++w)
+        if (!env_ || env_->lights.any_on(def_.windows[w].room)) add(def_.windows[w].circle);
+    // Lichtquellen des Ortes (Daten): Lichtkreis und Zustandsbild des Teils (aus/an, seit 0.5.5)
+    for (int s = 0; s < def_.light_count && n < Room::kMaxLights; ++s) {
+        const bool on = !env_ || env_->lights.on(name(), s);
+        if (on) add(def_.lights[s].circle);
+        if (def_.lights[s].part >= 0 && def_.lights[s].part < room_.part_count())
+            room_.set_state(def_.lights[s].part, on ? 1 : 0);
     }
     room_.set_lights(c.data(), n, pal_.base(), pal_.levels(), light_style_);
-    // Zustandsbild (seit 0.5.5): Lampe und Laterne aus bzw. an wie ihre Lichtquelle
-    const int lamp = kind_ != Kind::Field && lights_on() ? 1 : 0;
-    for (int i = 0; i < room_.part_count(); ++i)
-        if (room_.part(i).part == kPLamp) room_.set_state(i, lamp);
     apply_glow();
     lights_version_ = env_ ? env_->lights.version() : 0;
 }
@@ -497,29 +418,29 @@ void TestPlace::init(uint64_t seed) {
     seed_ = seed;
     enters_ = 0;
     ticks_ = 0;
-    if (env_ && kind_ != Kind::Field) env_->lights.declare(name(), 1);  // Lampe bzw. Laterne
+    // Lichtquellen des Ortes (Lampe, Laterne, Kerze …)
+    if (env_ && def_.light_count > 0) env_->lights.declare(name(), def_.light_count);
     build_palette();
     pal_.apply(daylight_.at(12 * 3600 * 1000000LL), 0, palette_);
     build_room();
     count_ = 0;
     out_count_ = 0;
     load_pending_ = false;
-    next_id_ = static_cast<uint16_t>(1000 * (static_cast<int>(kind_) + 1));  // Wiese 1000 (Begleiterin), Raum 2000 …
+    next_id_ = static_cast<uint16_t>(1000 * (index_ + 1));  // Wiese 1000 (Begleiterin), Raum 2000 …
     set_load(0);
     while (count_ < wanted_) {
         int tx = 0, ty = 0;
         if (!random_free_tile(&tx, &ty)) break;
         // Begleiterin: die erste Figur der Wiese
         spawn_at(figures_[count_], tx, ty, static_cast<Facing>(rng_.below(4)),
-                 static_cast<uint8_t>(1 + count_ % kFigureRows), kind_ == Kind::Field && count_ == 0);
+                 static_cast<uint8_t>(1 + count_ % kFigureRows), def_.guide && count_ == 0);
         ++count_;
     }
     load_pending_ = false;
 }
 
 void TestPlace::set_load(int figures) {
-    wanted_ = figures <= 0 ? (kind_ == Kind::Field ? 6 : kind_ == Kind::Room ? 3 : 4)
-                           : std::min(figures, kMaxFigures);
+    wanted_ = figures <= 0 ? def_.figures : std::min(figures, kMaxFigures);
     load_pending_ = true;
 }
 
@@ -563,8 +484,9 @@ void TestPlace::decide(Figure& f) {
     const int exits = room_.exit_count();
     const bool leave = exits > 0 && (f.guide ? f.here > 600 && r < 50 : r < 5);
     int gx = f.cx, gy = f.cy;
-    if (leave) {
-        const int e = static_cast<int>(rng_.below(static_cast<uint32_t>(exits)));
+    // Verbindungen mit Bedingung (nur bei Tag …) nur, wenn sie offen sind (seit 0.5.8, place.h)
+    const int e = leave ? static_cast<int>(rng_.below(static_cast<uint32_t>(exits))) : -1;
+    if (leave && (!env_ || exit_open(room_.exit(e), *env_))) {
         const Exit& x = room_.exit(e);
         gx = x.x + static_cast<int>(rng_.below(x.w));
         gy = x.y + static_cast<int>(rng_.below(x.h));
@@ -606,7 +528,7 @@ void TestPlace::reached(int i) {
             }
             const Exit& e = room_.exit(f.exit);
             Travel& t = out_[out_count_++];
-            t = Travel{e.to, e.entry, static_cast<uint8_t>(f.exit), e.transition, f.guide, f.id, f.row};
+            t = Travel{e.to, e.entry, static_cast<uint8_t>(f.exit), e.transition, f.guide, f.id, f.row, e.travel};
             remove_figure(i);
             return;
         }
@@ -726,7 +648,7 @@ void TestPlace::enter() {
 
 int TestPlace::packs(const char** out, int max) const {
     // gemeinsame Möbel, dazu das eigene Paket (der Platz kommt mit den gemeinsamen aus); „grund“ ist immer geladen
-    const char* own = kind_ == Kind::Field ? "wiese" : kind_ == Kind::Room ? "raum" : nullptr;
+    const char* own = def_.pack;
     int n = 0;
     if (n < max) out[n++] = "moebel";
     if (own && n < max) out[n++] = own;
@@ -751,7 +673,8 @@ bool TestPlace::command(const char* cmd) {
     if (std::sscanf(cmd, "innenlicht %11s", word) == 1) {
         const std::string_view w(word);
         if (!env_ || (w != "an" && w != "aus" && w != "um")) return false;
-        env_->lights.set_all(kRoomName, w == "um" ? !env_->lights.any_on(kRoomName) : w == "an");
+        const char* room = def_.window_count > 0 ? def_.windows[0].room : name();
+        env_->lights.set_all(room, w == "um" ? !env_->lights.any_on(room) : w == "an");
         return true;
     }
     if (std::sscanf(cmd, "regen %11s", word) == 1) {
@@ -876,17 +799,33 @@ void TestPlace::render_fine(Canvas& fine, const CoarseLayers& layers, const uint
 
 bool TestPlace::sky_view(SkyView* out) const {
     // Nur der Raum zeigt Himmel: im Glas seiner Fenster (Rolle Himmel); die Fensterflächen von links nach rechts
-    if (kind_ != Kind::Room || !room_.ready()) return false;
-    out->count = 0;
-    for (int i = 0; i < room_.part_count() && out->count < SkyView::kMaxPanes; ++i) {
-        if (room_.part(i).part != kPWindow) continue;
-        const Rect r = room_.part_rect(i);
-        out->panes[out->count++] = {r.x * kCoarseScale, r.y * kCoarseScale, r.w * kCoarseScale, r.h * kCoarseScale};
+    // Seit 0.5.8 die Scheiben der Fenster (Bild-Daten), je Fenster eine Gruppe, Fenster von links nach rechts
+    if (def_.glass != GlassRole::Sky || def_.underground() || !room_.ready()) return false;
+    std::array<int, 8> win{};
+    int wn = 0;
+    for (int i = 0; i < room_.part_count() && wn < static_cast<int>(win.size()); ++i) {
+        const PartStage* l = room_.look(i);
+        if (l && l->pane_count > 0 && !room_.image_rect(i).empty()) win[wn++] = i;
     }
-    std::sort(out->panes, out->panes + out->count, [](const Rect& a, const Rect& b) { return a.x < b.x; });
+    std::sort(win.begin(), win.begin() + wn,
+              [&](int a, int b) { return room_.image_rect(a).x < room_.image_rect(b).x; });
+    out->count = 0;
+    for (int w = 0; w < wn; ++w) {
+        const PartStage* l = room_.look(win[w]);
+        const Rect r = room_.image_rect(win[w]);
+        const bool flip = room_.part(win[w]).flags & kPartFlipped;
+        for (int k = 0; k < l->pane_count && out->count < SkyView::kMaxPanes; ++k) {
+            const PaneRect& p = l->panes[k];
+            const int x = flip ? r.w - p.x - p.w : p.x;
+            out->panes[out->count] = {(r.x + x) * kCoarseScale, (r.y + p.y) * kCoarseScale, p.w * kCoarseScale,
+                                      p.h * kCoarseScale};
+            out->group[out->count++] = static_cast<uint8_t>(w);
+        }
+    }
     out->base = pal_.base();
     out->first = kSky;
     out->colors = 2;
+    out->moon = kMoon;
     return out->count > 0;
 }
 
@@ -1008,10 +947,19 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
     if (hit.kind == Hit::Kind::Exit) {
         if (hit.id >= room_.exit_count()) return false;
         const Exit& e = room_.exit(hit.id);
-        const bool door = e.kind == ExitKind::Door;
+        const bool door = e.kind == ExitKind::Door || e.kind == ExitKind::Stairs;
         card->kind = Kind::Building;
-        card->title = door ? "Tür" : "Weg";
+        card->title = exit_kind_title(e.kind);
         card->place = e.to;  // die Bühne setzt das Ziel („→ …“) und wer dort ist
+        // seit 0.5.8: Reisezeit und Bedingung der Verbindung (der Betrachter kommt immer hin)
+        if (e.travel > 0) {
+            char buf[40];
+            std::snprintf(buf, sizeof(buf), e.travel < 120 ? "%u Sekunden unterwegs" : "%u Minuten unterwegs",
+                          static_cast<unsigned>(e.travel < 120 ? e.travel : e.travel / 60));
+            card->subtitle = buf;
+        }
+        const char* why = nullptr;
+        if (env_ && !exit_open(e, *env_, &why) && why) card->quote = why;
         card->hint = door ? "Betreten" : "Hingehen";
         card->hint_symbol = door ? ui::Symbol::House : ui::Symbol::Place;
         return true;

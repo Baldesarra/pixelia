@@ -50,6 +50,19 @@ private:
     uint32_t version_ = 0;
 };
 
+// Merker der Welt (seit 0.5.8): fertige Projekte, vorhandene Werkzeuge, stehende Fahrzeuge als Kennungen, bis
+// Warenbuch und Projekte (0.5.10) sie liefern. Die Bedingungen der Verbindungen lesen sie (place.h)
+class WorldFlags {
+public:
+    static constexpr int kMax = 16;
+    void set(std::string_view key, bool on);
+    bool has(std::string_view key) const;
+
+private:
+    std::array<std::array<char, 24>, kMax> k_{};
+    int n_ = 0;
+};
+
 // Fenster nach draußen: Lichtkreis vor dem Fenster, gehört zum Raum dahinter (Kennung des Ortes)
 struct WindowLight {
     LightCircle circle;
@@ -62,6 +75,7 @@ struct Environment {
     WorldCalendar calendar;
     Sky sky;
     WeatherSim weather_sim;
+    WorldFlags flags;
 };
 
 }  // namespace pixelia

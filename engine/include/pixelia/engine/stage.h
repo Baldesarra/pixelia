@@ -103,7 +103,11 @@ public:
     Hit hit(int x, int y) const;
     // Karte zum Treffer; bei Türen ergänzt die Bühne, wer im Ort dahinter ist
     bool describe(const Hit& hit, ui::Card* card) const;
-    uint32_t travels() const { return travels_; }  // Reisen zwischen Orten seit init()
+    uint32_t travels() const { return travels_; }  // Reisen zwischen Orten seit init() (gezählt bei der Ankunft)
+    // Unterwegs auf einer Verbindung mit Reisezeit (seit 0.5.8): Figuren, die keinem Ort gehören, bis sie ankommen
+    static constexpr int kMaxTransit = 16;
+    int in_transit() const { return transit_n_; }
+    const Travel& transit(int i) const { return transit_[i].t; }
     // Prüfansicht aller Orte (Stellflächen, Benutzungspunkte, Ausgänge)
     void set_inspect(bool on);
     bool inspect() const { return inspect_; }
@@ -146,12 +150,17 @@ private:
     void sync_pins();     // Pakete von active_, from_ und pending_ angeheftet, alle anderen gelöst
     void pin_scene(int i, bool on);
     void prefetch_neighbors();
-    void deliver_travels();
+    void deliver_travels(const WorldClock& clock);
+    void arrive_at(int from, int to, const Travel& t);
     bool merge_palettes();
     bool merge_palettes(int tolerance, bool last);
     void update_palette();
     int visible() const;
-    void draw_scene(const Scene& s, Canvas& fine, bool moon) const;
+    // transition: während eines Wechsels (Mond nur mit eigenen Mondfarben des Ortes, sie blenden mit dem Bild)
+    void draw_scene(const Scene& s, Canvas& fine, bool transition) const;
+    void draw_moon(const Scene& s, Canvas& fine, bool is_new) const;  // während einer Überblendung
+    bool shows_new(int cx, int cy) const;  // Überblendung: zeigt der grobe Bildpunkt schon das Ziel?
+    static bool owns_pixel(const void* ctx, int x, int y);
     void update_world(const WorldClock& clock);  // Kalender, Himmel, Wetter-Simulation (einmal je Weltminute)
     void compose(Canvas& fine, const uint8_t* old_coarse, const uint8_t* new_coarse) const;
 
@@ -167,6 +176,13 @@ private:
     int ticks_ = kDefaultTransitionTicks;
     uint32_t transitions_ = 0;
     uint32_t travels_ = 0;
+    struct Transit {
+        Travel t;
+        int64_t depart_us, arrive_us;  // Weltzeit
+        uint8_t from, to;
+    };
+    std::array<Transit, kMaxTransit> transit_{};
+    int transit_n_ = 0;
     uint32_t entered_ = 0;  // Bit je Ort: betreten
     AssetStore* assets_ = nullptr;
     uint32_t pinned_ = 0;   // Bit je Ort: Pakete angeheftet

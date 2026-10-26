@@ -38,6 +38,7 @@ struct Travel {
     bool follow = false;       // Hauptfigur: ihr folgt der Blick im Standardmodus (Kamera, camera.h)
     uint16_t who = 0;          // Kennung der Figur (seit 0.5.6 eindeutig über alle Orte, bleibt beim Reisen)
     uint8_t look = 0;          // Aussehen (Testorte: Farbreihe)
+    uint16_t travel = 0;       // Reisezeit der Verbindung in Weltsekunden (seit 0.5.8; so lange ist man unterwegs)
 };
 
 // Was an einer Stelle zu sehen ist (seit 0.5.6, Touch): das vorderste Teil nach Tiefe, durchsichtige Punkte zählen
@@ -59,12 +60,16 @@ struct FigureInfo {
 };
 
 // Wo ein Ort Himmel zeigt: Flächen (fein) und die Farben mit der Rolle Himmel (Grundfarben first … first+count−1,
-// in jeder Lichtstufe k × base + i)
+// in jeder Lichtstufe k × base + i). Seit 0.5.8 gehört jede Fläche zu einer Gruppe (ein Fenster mit mehreren
+// Scheiben; Gruppen von links nach rechts 0, 1, …), und der Ort kann eigene Mondfarben mitbringen: Dann blendet der
+// Mond beim Ortswechsel mit dem Bild aus und ein, statt zu verschwinden.
 struct SkyView {
-    static constexpr int kMaxPanes = 4;
+    static constexpr int kMaxPanes = 16;
     Rect panes[kMaxPanes];
+    uint8_t group[kMaxPanes] = {};
     int count = 0;
     int base = 80, first = 0, colors = 0;
+    int moon = -1;  // erste von vier Grundfarben (hell, Meer, Schatten, Hof), Rolle fest; −1 = Farben der Oberfläche
 };
 
 class Scene {
