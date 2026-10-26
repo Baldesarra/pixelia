@@ -25,6 +25,8 @@
 
 namespace pixelia {
 
+struct SunTimes;  // calendar.h
+
 // Geordnetes 4×4-Raster: true, wenn der Punkt (x, y) beim Anteil level16 (0 … 16) gesetzt ist
 inline bool dither4(int x, int y, int level16) {
     static constexpr uint8_t kBayer[4][4] = {{0, 8, 2, 10}, {12, 4, 14, 6}, {3, 11, 1, 9}, {15, 7, 13, 5}};
@@ -61,8 +63,11 @@ public:
     // Mindesthelligkeit 0 … 256 (Mittel der drei Kanäle): dunkler wird die Nacht nicht (Lesbarkeit am Display)
     void set_floor(int k256) { floor_ = k256; }
     int floor() const { return floor_; }
-    // Tageszeit in Mikrosekunden seit Mitternacht (WorldClock::us_of_day); zwischen den Stützpunkten linear
-    Ambient at(int64_t us_of_day) const;
+    // Tageszeit in Mikrosekunden seit Mitternacht (WorldClock::us_of_day); zwischen den Stützpunkten linear.
+    // Seit 0.5.7 mit Sonnenzeiten (calendar.h, nach der Weltjahreszeit): Die Stützpunkte gelten für Aufgang 6:30 und
+    // Untergang 19:45; Morgen- und Abenddämmerung wandern mit Auf- und Untergang und behalten ihre Länge, Tag und Nacht
+    // werden gestreckt bzw. gestaucht. nullptr = wie bis 0.5.6.
+    Ambient at(int64_t us_of_day, const SunTimes* sun = nullptr) const;
 
 private:
     std::array<LightKey, kMaxKeys> keys_{};

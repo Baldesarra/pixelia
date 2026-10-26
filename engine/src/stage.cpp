@@ -241,6 +241,10 @@ void Stage::prefetch_neighbors() {
 
 void Stage::init(uint64_t seed) {
     env_.weather.init(seed);
+    env_.weather_sim.init(seed ^ 0x57E77E5157ULL);
+    world_minute_ = INT64_MIN;
+    override_key_ = kNoOverride;
+    sim_applied_ = false;
     for (int i = 0; i < count_; ++i) scenes_[i]->init(seed + static_cast<uint64_t>(i) * 0x9E3779B97F4A7C15ULL);
     if (active_ >= count_) active_ = 0;
     from_ = -1;
@@ -306,9 +310,31 @@ bool Stage::command(const char* cmd) {
     if (!cmd) return false;
     char word[16] = {};
     int n = 0;
+    if (std::strcmp(cmd, "wetter auto") == 0) {
+        release_weather();
+        return true;
+    }
+    if (std::sscanf(cmd, "mond %15s", word) == 1) {
+        const std::string_view w(word);
+        if (w == "a" || w == "b" || w == "c") {
+            env_.sky.set_style(w == "a" ? MoonStyle::Halo : w == "b" ? MoonStyle::Plain : MoonStyle::Craters);
+        } else if (w == "echt") {
+            env_.sky.force(-1);
+        } else {
+            int phase = 0, up = 80, x = 50;
+            if (std::sscanf(cmd, "mond %d %d %d", &phase, &up, &x) < 1) return false;
+            env_.sky.force(std::clamp(phase, 0, 100) / 100.0, std::clamp(up, 0, 100) * 256 / 100,
+                           std::clamp(x, 0, 100) * 256 / 100);
+        }
+        world_minute_ = INT64_MIN;  // Himmel sofort neu
+        return true;
+    }
     if (std::sscanf(cmd, "wetter %15s", word) == 1) {
         WeatherKind k;
         if (!parse_weather(word, &k)) return false;
+        // Prüfbefehl: übersteuert die Simulation bis zur nächsten Wetterzeit
+        if (world_valid_) world_minute_ = INT64_MIN;
+        override_key_ = kPendingOverride;  // Wetterzeit im nächsten Schritt (die Uhr kann eben gestellt sein)
         int pct = 100;
         std::sscanf(cmd, "wetter %*s %d", &pct);
         const int strength = std::clamp(pct, 0, 100) * 255 / 100;
@@ -469,6 +495,7 @@ void Stage::tick(const WorldClock& clock) {
         pending_ = -1;
         start_transition(to, pending_trans_);  // setzt pending_ wieder, solange das Ziel noch lädt
     }
+    update_world(clock);
     env_.weather.tick();  // vor den Orten: alle sehen im selben Schritt dasselbe Wetter
     for (int i = 0; i < count_; ++i) scenes_[i]->tick(clock);
     const bool was = from_ >= 0;
@@ -556,9 +583,11 @@ const Palette& Stage::palette() const {
     return scenes_[active_]->palette();
 }
 
-void Stage::draw_scene(const Scene& s, Canvas& fine) const {
+void Stage::draw_scene(const Scene& s, Canvas& fine, bool moon) const {
+    SkyView view;
     if (s.scale() != kCoarseScale) {
         s.render(fine);
+        if (moon && env_.sky.moon_visible() && s.sky_view(&view)) env_.sky.draw(fine, view);
         return;
     }
     if (!main_) {
@@ -570,7 +599,57 @@ void Stage::draw_scene(const Scene& s, Canvas& fine) const {
     layers_.veil_grid = nullptr;
     s.render_layers(coarse, layers_);
     upscale2x(main_, fine, &layers_);
+    // Mond (seit 0.5.7) über dem Himmel bzw. Fensterglas, hinter den Partikeln; nicht während eines Wechsels
+    if (moon && env_.sky.moon_visible() && s.sky_view(&view)) env_.sky.draw(fine, view);
     s.render_fine(fine, layers_, nullptr);
+}
+
+void Stage::release_weather() {
+    override_key_ = kNoOverride;
+    sim_applied_ = false;
+    world_minute_ = INT64_MIN;  // im nächsten Schritt neu
+}
+
+void Stage::update_world(const WorldClock& clock) {
+    if (!world_valid_) return;
+    const int64_t us = clock.world_us();
+    const int64_t day = us >= 0 ? us / WorldClock::kUsPerDay : (us - WorldClock::kUsPerDay + 1) / WorldClock::kUsPerDay;
+    const int minute = clock.minute_of_day();
+    const int64_t wm = day * 1440 + minute;
+    if (wm == world_minute_) return;
+    const bool first = !sim_applied_ && world_minute_ == INT64_MIN && override_key_ == kNoOverride;
+    world_minute_ = wm;
+    WorldCalendar& cal = env_.calendar;
+    if (!cal.started()) cal.start(day);
+    cal.update(day, minute);
+    const int64_t key = weather_slot_key(day, minute);
+    if (override_key_ == kPendingOverride) override_key_ = key;  // vor dem ersten Schritt übersteuert
+    if (override_key_ != kNoOverride && key != override_key_) {
+        override_key_ = kNoOverride;  // neue Wetterzeit: die Simulation übernimmt wieder (weich)
+        sim_applied_ = false;
+    }
+    if (override_key_ == kNoOverride) {
+        const WeatherPick p = env_.weather_sim.at(cal, day, minute);
+        if (!sim_applied_ || p.kind != sim_pick_.kind || p.strength != sim_pick_.strength) {
+            if (first)
+                env_.weather.set_now(p.kind, p.strength);  // nach dem Start gleich das Wetter von jetzt
+            else
+                env_.weather.set(p.kind, p.strength);
+        }
+        if (!sim_applied_ || p.wind_dir != sim_pick_.wind_dir) env_.weather.set_wind_dir(p.wind_dir);
+        sim_pick_ = p;
+        sim_applied_ = true;
+        // Erstlinge aus dem simulierten Wetter, sobald es zu sehen ist
+        const WeatherState& s = env_.weather.state();
+        const Season season = cal.date().season;  // das Weltjahr beginnt im Frühling: Schnee zählt ab dem Herbst
+        if (p.kind == WeatherKind::Snow && s.snow > 80 && (season == Season::Autumn || season == Season::Winter))
+            cal.first(First::Snow);
+        if (p.kind == WeatherKind::Storm && s.storm > 100) cal.first(First::Storm);
+        if (p.kind == WeatherKind::Fog && s.fog > 100 && season == Season::Autumn) cal.first(First::AutumnFog);
+    }
+    env_.sky.update(cal.date(), clock.unix_s(), env_.weather.state());
+    const MoonInfo& m = env_.sky.moon();
+    if (m.illum >= 985 && m.up > 0 && env_.sky.dark() >= 256) cal.first(First::FullMoon);
 }
 
 void Stage::render(Canvas& fine) const {
@@ -585,7 +664,7 @@ void Stage::render(Canvas& fine) const {
             return;
         }
         const Scene& s = *scenes_[v];
-        draw_scene(s, fine);
+        draw_scene(s, fine, from_ < 0);
         if (from_ < 0) s.render_overlay(fine);
         return;
     }
@@ -594,7 +673,7 @@ void Stage::render(Canvas& fine) const {
     const Scene& b = *scenes_[active_];
     if (!entered(from_) || !entered(active_)) {  // Wechsel mitten in einem wartenden Abblenden
         if (entered(active_))
-            draw_scene(b, fine);
+            draw_scene(b, fine, false);
         else
             fine.clear(0);
         return;

@@ -1,6 +1,7 @@
 #include "board/backlight.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include "board/pins.h"
 #include "driver/ledc.h"
@@ -11,8 +12,10 @@ namespace {
 constexpr ledc_timer_t kTimer = LEDC_TIMER_0;
 constexpr ledc_channel_t kChannel = LEDC_CHANNEL_0;
 constexpr ledc_timer_bit_t kResolution = LEDC_TIMER_12_BIT;
-constexpr uint32_t kMaxDuty = (1u << 12) - 1;
+constexpr double kGamma = 2.2;
 int s_percent = 0;
+uint32_t s_duty = 0;
+uint32_t s_min_duty = kDefaultMinDuty;
 uint32_t s_freq = 0;
 }  // namespace
 
@@ -38,14 +41,34 @@ esp_err_t init(uint32_t freq_hz) {
     return err;
 }
 
-void set_percent(int percent) {
-    s_percent = std::clamp(percent, 0, 100);
-    uint32_t duty = (kMaxDuty * static_cast<uint32_t>(s_percent) + 50) / 100;
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, kChannel, duty);
+uint32_t duty_for(int percent) {
+    percent = std::clamp(percent, 0, 100);
+    if (percent == 0) return 0;
+    const double f = std::pow((percent - 1) / 99.0, kGamma);  // 1 % = kleinste Pulsbreite, 100 % = volle
+    return s_min_duty + static_cast<uint32_t>(std::lround(f * (kMaxDuty - s_min_duty)));
+}
+
+void set_duty(uint32_t duty) {
+    s_duty = std::min(duty, kMaxDuty);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, kChannel, s_duty);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, kChannel);
 }
 
+uint32_t duty() { return s_duty; }
+
+void set_percent(int percent) {
+    s_percent = std::clamp(percent, 0, 100);
+    set_duty(duty_for(s_percent));
+}
+
 int percent() { return s_percent; }
+
+void set_min_duty(uint32_t duty) {
+    s_min_duty = std::clamp<uint32_t>(duty, 1, kMaxDuty / 4);
+    if (s_freq) set_percent(s_percent);  // erst nach init()
+}
+
+uint32_t min_duty() { return s_min_duty; }
 
 esp_err_t set_frequency(uint32_t freq_hz) {
     esp_err_t err = ledc_set_freq(LEDC_LOW_SPEED_MODE, kTimer, freq_hz);

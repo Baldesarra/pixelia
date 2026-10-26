@@ -115,7 +115,19 @@ public:
     const Weather& weather() const { return env_.weather; }
     // Prüfbefehl: „wetter <art> [0–100] [sofort]“, „wind links|rechts“, „blitz“, „blitze <min s> [max s]“ wirken auf die Bühne,
     // alles andere geht an den sichtbaren Ort (Scene::command). false = unbekannt
+    // Seit 0.5.7: „wetter <art>“ übersteuert die Wetter-Simulation bis zur nächsten Wetterzeit, „wetter auto“ gibt sie
+    // frei; „mond a|b|c“ (Aussehen), „mond <Phase 0–100> [Höhe 0–100]“ bzw. „mond echt“ (Vergleichsbilder)
     bool command(const char* cmd);
+
+    // Weltzeit (seit 0.5.7): Kalender, Himmel und Wetter-Simulation laufen erst, wenn die Uhr stimmt (Gerät: nach
+    // NTP oder mit der Testuhr; Simulator: sofort). Ohne gestarteten Kalender beginnt Tag 1 beim ersten Schritt.
+    void set_world_time(bool valid) { world_valid_ = valid; }
+    bool world_time() const { return world_valid_; }
+    // Wetter-Simulation an (Standard) oder Übersteuerung durch die Prüfbefehle aktiv (bis Wetterzeit override_key)
+    bool weather_overridden() const { return override_key_ != kNoOverride; }
+    void release_weather();  // Simulation wieder an
+    // Ereignisse der Welt (Jahreszeitenabend, Wechsel, Erstlinge) abholen
+    bool poll_event(WorldEvent* out) { return env_.calendar.poll(out); }
 
     void tick(const WorldClock& clock);
     void set_load(int load);  // Lastregler der sichtbaren Szene
@@ -139,7 +151,8 @@ private:
     bool merge_palettes(int tolerance, bool last);
     void update_palette();
     int visible() const;
-    void draw_scene(const Scene& s, Canvas& fine) const;
+    void draw_scene(const Scene& s, Canvas& fine, bool moon) const;
+    void update_world(const WorldClock& clock);  // Kalender, Himmel, Wetter-Simulation (einmal je Weltminute)
     void compose(Canvas& fine, const uint8_t* old_coarse, const uint8_t* new_coarse) const;
 
     std::array<std::unique_ptr<Scene>, kMaxScenes> scenes_{};
@@ -163,6 +176,13 @@ private:
     bool follow_ = true;
     uint16_t follow_who_ = 0;
     bool inspect_ = false;
+    // Weltzeit (seit 0.5.7)
+    static constexpr int64_t kNoOverride = INT64_MIN, kPendingOverride = INT64_MIN + 1;
+    bool world_valid_ = true;
+    int64_t world_minute_ = INT64_MIN;  // zuletzt fortgeschriebene Weltminute (Tag × 1440 + Minute)
+    int64_t override_key_ = kNoOverride;
+    WeatherPick sim_pick_{};
+    bool sim_applied_ = false;
     // Gemeinsame Palette während einer Überblendung: Index der Szene → Platz, Platz → Quelle (Szene, Index)
     std::array<uint8_t, 256> map_from_{};
     std::array<uint8_t, 256> map_to_{};

@@ -19,7 +19,7 @@ class AssetStore;
 namespace pixelia::ui {
 
 // --- Symbole (Paket „system“, Bild „ui/symbole“, 9 × 9, einfarbig) ---
-enum class Symbol : uint8_t { Thought, Follow, House, Find, New, Place, None = 255 };
+enum class Symbol : uint8_t { Thought, Follow, House, Find, New, Place, Spring, Summer, Autumn, Winter, None = 255 };
 bool load_symbols(AssetStore& store);  // false = Paket fehlt (dann ohne Symbole)
 void draw_symbol(Canvas& canvas, int x, int y, Symbol symbol, uint8_t color);
 
@@ -70,7 +70,7 @@ private:
     uint32_t version_ = 0;
 };
 
-// Kurzmeldung zeichnen (unten wie bis 0.5.5 oder oben als schmale Leiste)
+// Kurzmeldung zeichnen (unten wie bis 0.5.5 oder oben als schmale Leiste; oben seit 0.5.7 bis drei Zeilen, getrennt\n// durch \\n, ab der zweiten gedämpft)
 void draw_toast(Canvas& canvas, const Toast& toast, ToastPlace place);
 
 // --- Pixel-Uhr ---
@@ -81,6 +81,9 @@ struct ClockStyle {
     bool seconds = false;
     font::Style face = font::Style::Bold;
     bool dim = false;  // nachts gedimmt (Wunsch des Users 2026-10-22: 22–6 Uhr)
+    // Symbol links neben der Uhrzeit (seit 0.5.7: Jahreszeit, Wunsch des Users 2026-10-26), None = keins
+    Symbol symbol = Symbol::None;
+    uint8_t symbol_color = kText;
 };
 // Ortsname nach einem Wechsel (oben links, kurz eingeblendet)
 void draw_place_label(Canvas& canvas, std::string_view title);

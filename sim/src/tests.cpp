@@ -321,6 +321,7 @@ struct StageRun {
         opt.scene = start;
         opt.seed = seed;
         setup_stage(opt, stage);
+        stage.set_world_time(false);  // Prüfungen bis 0.5.6: Wetter nur per Befehl (Weltzeit: --test welt)
         clock.advance(0);
         stage.tick(clock);
     }
@@ -1272,8 +1273,8 @@ int run_group(const char* title, const std::vector<Case>& cases) {
 
 int run_tests(const std::string& which) {
     if (which != "gestures" && which != "redact" && which != "stage" && which != "assets" && which != "overlay" &&
-        which != "all") {
-        std::printf("FEHLER: Test \"%s\" gibt es nicht (gestures, redact, stage, assets, overlay, all)\n", which.c_str());
+        which != "welt" && which != "all") {
+        std::printf("FEHLER: Test \"%s\" gibt es nicht (gestures, redact, stage, assets, overlay, welt, all)\n", which.c_str());
         return 2;
     }
     int failed = 0;
@@ -1282,6 +1283,7 @@ int run_tests(const std::string& which) {
     if (which == "stage" || which == "all") failed += run_group("Bühne", stage_cases());
     if (which == "assets" || which == "all") failed += run_group("Asset-Pakete", asset_cases());
     if (which == "overlay" || which == "all") failed += run_group("Einblendungen, Touch und Kamera", overlay_cases());
+    if (which == "welt" || which == "all") failed += run_world_tests();
     return failed ? 1 : 0;
 }
 

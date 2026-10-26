@@ -50,6 +50,7 @@ public:
     void render(Canvas& canvas) const override;
     void render_layers(Canvas& work, CoarseLayers& out) const override;
     void render_fine(Canvas& fine, const CoarseLayers& layers, const uint8_t* remap) const override;
+    bool sky_view(SkyView* out) const override;  // Raum: Fensterglas (seit 0.5.7, Mond)
     void render_overlay(Canvas& fine) const override;
     void set_environment(Environment* env) override { env_ = env; }
     const Palette& palette() const override { return palette_; }

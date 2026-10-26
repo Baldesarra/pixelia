@@ -6,6 +6,7 @@
 #include <cstring>
 #include <string>
 
+#include "pixelia/engine/calendar.h"
 #include "pixelia/engine/scene.h"
 #include "sim.h"
 
@@ -37,7 +38,11 @@ void print_help() {
         "  --every K               Abstand der Bilder in Logik-Schritten (Standard 3)\n"
         "  --count N               Zahl der Bilder (Standard 8)\n"
         "  --seed N                Startwert für den Zufall (Standard 1)\n"
-        "  --day N                 Welttag beim Start (Standard 0)\n"
+        "  --day N                 Tag beim Start in Tagen seit 1970 (Standard 0)\n"
+        "  --date JJJJ-MM-TT       Datum beim Start (statt --day), z. B. 2026-10-26\n"
+        "  --weltjahr DATEI        Weltjahr im Zeitraffer als Bericht (Markdown): Kalender, Wetter, Mond, Erstlinge\n"
+        "  --tage N                Tage im Bericht (Standard: ein Weltjahr und der nächste Frühling)\n"
+        "  --jahreszeit N          Tage je Jahreszeit (Standard 7)\n"
         "  --time HH:MM            Uhrzeit beim Start (Standard 12:00)\n"
         "  --speed X               Zeitraffer, 1 = Echtzeit, 60 = eine Weltminute pro Sekunde\n"
         "  --frames N              N Logik-Schritte vorspulen (30 pro Sekunde)\n"
@@ -54,7 +59,7 @@ void print_help() {
         "                          toast-ip, info, info-setup, info-offline, hold\n"
         "  --test NAME             Selbsttest ohne Hardware: gestures (Tippen, langer Druck),\n"
         "                          redact (Passwort-Filter der Diagnose), stage (Bühne, Determinismus,\n"
-        "                          Sprites, Farbreihen), all\n"
+        "                          Sprites, Farbreihen), welt (Kalender, Mond, Wetter-Simulation), all\n"
         "\n"
         "Fenster: Leertaste Pause, +/- Zeitraffer, T eine Stunde weiter, S Screenshot, Esc Ende,\n"
         "         1–9 Ort wechseln, U Übergang durchschalten,\n"
@@ -93,6 +98,19 @@ int main(int argc, char** argv) {
             opt.seed = std::strtoull(next(), nullptr, 0);
         } else if (a == "--day") {
             opt.day = std::atoi(next());
+        } else if (a == "--date") {
+            int y = 0, mo = 0, d = 0;
+            if (std::sscanf(next(), "%d-%d-%d", &y, &mo, &d) != 3) {
+                std::fprintf(stderr, "FEHLER: Datum als JJJJ-MM-TT angeben\n");
+                return 2;
+            }
+            opt.day = static_cast<int>(pixelia::days_from_civil(y, mo, d));
+        } else if (a == "--weltjahr") {
+            opt.world_report = next();
+        } else if (a == "--tage") {
+            opt.report_days = std::atoi(next());
+        } else if (a == "--jahreszeit") {
+            opt.season_len = std::clamp(std::atoi(next()), 1, 28);
         } else if (a == "--time") {
             if (!parse_time(next(), &opt.hour, &opt.minute)) {
                 std::fprintf(stderr, "FEHLER: Uhrzeit als HH:MM angeben\n");
@@ -149,6 +167,7 @@ int main(int argc, char** argv) {
             return 2;
         }
     }
+    if (!opt.world_report.empty()) return sim::world_report(opt);
     if (!pixelia::make_scene(opt.scene.c_str())) {
         std::fprintf(stderr, "FEHLER: Szene \"%s\" gibt es nicht (%s)\n", opt.scene.c_str(), pixelia::scene_names());
         return 2;

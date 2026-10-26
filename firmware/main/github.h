@@ -36,6 +36,8 @@ bool start_check(char* error, size_t error_len);
 // older: Version aus der Liste der älteren Versionen (Downgrade)
 bool start_install(const char* version, bool older, char* error, size_t error_len);
 bool cancel_install();  // false, wenn kein Download läuft
+// Prüfung (seit 0.5.7): der nächste Download trennt einmal nach 300 KB die Verbindung und macht per Range weiter
+void test_break();
 
 void set_auto(bool on);   // Prüfung im Hintergrund (NVS upd_auto, Standard an)
 std::string available();  // neuere Version laut letzter Prüfung (auch über Neustarts), leer = keine

@@ -23,6 +23,8 @@
 #include "pixelia/engine/system_ui.h"
 #include "pixelia/engine/test_places.h"
 #include "net.h"
+#include "nvs.h"
+#include "settings.h"
 #include "ui.h"
 
 namespace app::gfx {
@@ -125,6 +127,19 @@ EngineStats s_stats{};
 // Weltzeit folgt der echten Uhrzeit (NTP), bis jemand per Befehl Uhrzeit oder Zeitraffer verstellt
 volatile bool s_follow_real = true;
 int64_t s_next_real_sync = 0;
+bool s_real_synced = false;  // echte Uhrzeit einmal übernommen (dann läuft die Weltzeit)
+
+// Weltzeit (seit 0.5.7): Kalender im NVS (Blob „welt“, gespeichert auf Kern 0), Stand für die Weboberfläche
+constexpr const char* kWorldKey = "welt";
+std::mutex s_world_lock;
+WorldInfo s_world{};
+pixelia::CalendarState s_cal_save{};
+std::atomic<bool> s_cal_dirty{false};
+uint32_t s_cal_rev_saved = 0;
+std::atomic<int> s_req_season_len{0};
+std::atomic<int> s_season_symbol{-1};  // Jahreszeit für die Pixel-Uhr, −1 = Kalender läuft noch nicht
+uint32_t s_world_ticks = 0;
+esp_timer_handle_t s_world_timer = nullptr;
 
 // Systemanzeigen: von allen Tasks geschrieben (s_ui), im Grafik-Task als Kopie benutzt (s_ui_local)
 struct UiState {
@@ -213,6 +228,8 @@ void follow_real_time(int64_t now) {
     s_next_real_sync = now + 1000000;
     int64_t local;
     if (!timesync::local_us(&local)) return;
+    s_real_synced = true;
+    s_clock.set_utc_offset(static_cast<int32_t>(local / 1000000 - static_cast<int64_t>(time(nullptr))));  // Mond
     int64_t diff = local - s_clock.world_us();
     if (std::llabs(diff) > 2000000) {
         bool first = s_clock.world_us() < 365LL * pixelia::WorldClock::kUsPerDay;
@@ -351,7 +368,14 @@ pixelia::ui::ClockStyle clock_style(int hour) {
     st.on = bits & 1;
     st.corner = static_cast<pixelia::ui::Corner>(bits >> 1 & 3);
     st.seconds = bits >> 3 & 1;
-    st.dim = hour >= 22 || hour < 6;
+    st.dim = is_night(hour);
+    // Jahreszeit links neben der Uhrzeit (seit 0.5.7, Wunsch des Users): Keimling, Sonne, Blatt, Schneeflocke
+    if (const int s = s_season_symbol.load(std::memory_order_relaxed); s >= 0) {
+        constexpr uint8_t kColors[4] = {pixelia::ui::kSuccess, pixelia::ui::kWarning, pixelia::ui::kError,
+                                        pixelia::ui::kText};
+        st.symbol = static_cast<pixelia::ui::Symbol>(static_cast<int>(pixelia::ui::Symbol::Spring) + (s & 3));
+        st.symbol_color = kColors[s & 3];
+    }
     return st;
 }
 
@@ -363,10 +387,128 @@ void show_date() {
     const time_t now = time(nullptr);
     tm lt;
     localtime_r(&now, &lt);
-    char buf[64];
-    std::snprintf(buf, sizeof(buf), "%s, %d. %s %d", kDays[lt.tm_wday % 7], lt.tm_mday, kMonths[lt.tm_mon % 12],
-                  lt.tm_year + 1900);
-    app::ui::toast(buf, pixelia::ui::Tone::Info, 4);
+    char buf[160];
+    int n = std::snprintf(buf, sizeof(buf), "%s, %d. %s %d", kDays[lt.tm_wday % 7], lt.tm_mday, kMonths[lt.tm_mon % 12],
+                          lt.tm_year + 1900);
+    // seit 0.5.7 zweite Zeile: Jahreszeit, Tag, Weltjahr, Mond (Wunsch des Users 2026-10-26)
+    WorldInfo w;
+    {
+        std::lock_guard<std::mutex> g(s_world_lock);
+        w = s_world;
+    }
+    if (w.started) {
+        const std::string moon = w.moon_title;
+        const char* season = pixelia::season_title(static_cast<pixelia::Season>(w.season));
+        if (w.season_evening)
+            std::snprintf(buf + n, sizeof(buf) - n, "\n%s, letzter Tag · Weltjahr %d\nMond: %s", season, w.year, moon.c_str());
+        else
+            std::snprintf(buf + n, sizeof(buf) - n, "\n%s, Tag %d von %d · Weltjahr %d\nMond: %s", season, w.day_in_season,
+                          w.season_days, w.year, moon.c_str());
+    }
+    app::ui::toast(buf, pixelia::ui::Tone::Info, 6);
+}
+
+// Kalender ins NVS (Kern 0, Zeitgeber „welt“ bzw. vor einem Neustart)
+void save_world(void* = nullptr) {
+    if (!s_cal_dirty.exchange(false) || app::settings::frozen()) return;
+    pixelia::CalendarState st;
+    {
+        std::lock_guard<std::mutex> g(s_world_lock);
+        st = s_cal_save;
+    }
+    nvs_handle_t h;
+    if (nvs_open("pixelia", NVS_READWRITE, &h) != ESP_OK) return;
+    esp_err_t err = nvs_set_blob(h, kWorldKey, &st, sizeof(st));
+    if (err == ESP_OK) err = nvs_commit(h);
+    nvs_close(h);
+    if (err != ESP_OK) ESP_LOGW(TAG, "Weltkalender nicht gespeichert: %s", esp_err_to_name(err));
+}
+
+void load_world() {
+    nvs_handle_t h;
+    if (nvs_open("pixelia", NVS_READONLY, &h) != ESP_OK) return;
+    pixelia::CalendarState st;
+    size_t len = sizeof(st);
+    const esp_err_t err = nvs_get_blob(h, kWorldKey, &st, &len);
+    nvs_close(h);
+    if (err != ESP_OK || len != sizeof(st) || st.version != pixelia::CalendarState::kVersion) return;
+    s_stage.environment().calendar.set_state(st);
+    s_cal_rev_saved = s_stage.environment().calendar.revision();
+    int y, m, d;
+    pixelia::civil_from_days(st.start_day, &y, &m, &d);
+    ESP_LOGI(TAG, "Weltkalender geladen: Tag 1 = %02d.%02d.%04d, Jahreszeit %u Tage", d, m, y, st.season_len);
+}
+
+// Weltzeit fortschreiben (Grafik-Task, nach den Logik-Schritten): Testuhr, Länge, Meldungen, Speichern, Stand
+void update_world_state(int ticks) {
+    pixelia::WorldCalendar& cal = s_stage.environment().calendar;
+    const bool test = !s_follow_real;
+    if (test && !cal.testing()) {
+        cal.begin_test();
+        ESP_LOGI(TAG, "Testuhr: Kalender wird nicht gespeichert, Erstlinge zählen nicht");
+    } else if (!test && cal.testing()) {
+        cal.end_test();
+        ESP_LOGI(TAG, "Weltzeit wieder echt: Kalender wie vor dem Test");
+    }
+    if (!s_stage.world_time() && (test || s_real_synced)) s_stage.set_world_time(true);
+    if (const int n = s_req_season_len.exchange(0)) {
+        cal.set_season_length(n);
+        ESP_LOGI(TAG, "Jahreszeit dauert jetzt %d Tage", n);
+    }
+    pixelia::WorldEvent e;
+    while (s_stage.poll_event(&e)) {
+        ESP_LOGI(TAG, "Welt: %s (Tag %d)", e.text.c_str(), e.day);
+        app::ui::world_toast(e.text, pixelia::ui::Tone::Info, 6);
+    }
+    if (!cal.testing() && cal.started() && cal.revision() != s_cal_rev_saved) {
+        if (s_cal_rev_saved == 0 && cal.state().start_day >= 0 && cal.date().day == 1) {
+            int y, m, d;
+            pixelia::civil_from_days(cal.state().start_day, &y, &m, &d);
+            ESP_LOGI(TAG, "Weltkalender beginnt: Tag 1 = %02d.%02d.%04d", d, m, y);
+        }
+        std::lock_guard<std::mutex> g(s_world_lock);
+        s_cal_save = cal.state();
+        s_cal_rev_saved = cal.revision();
+        s_cal_dirty.store(true);
+    }
+    // Stand für Weboberfläche, Uhr und Datum: jede Sekunde
+    s_world_ticks += ticks;
+    if (s_world_ticks < static_cast<uint32_t>(pixelia::kTicksPerSecond)) return;
+    s_world_ticks = 0;
+    const pixelia::Environment& env = s_stage.environment();
+    const pixelia::CalendarDate& d = cal.date();
+    const pixelia::MoonInfo& mo = env.sky.moon();
+    WorldInfo w{};
+    w.valid = s_stage.world_time();
+    w.started = cal.started() && w.valid;
+    w.test = cal.testing();
+    w.start_day = cal.state().start_day;
+    w.day = d.day;
+    w.year = d.year;
+    w.season = static_cast<int>(d.season);
+    w.day_in_season = d.day_in_season;
+    w.season_days = d.season_days;
+    w.season_len = cal.state().season_len;
+    w.weekday = d.weekday;
+    w.season_evening = d.season_evening;
+    w.season_first = static_cast<int32_t>(d.season_first);
+    w.season_last = static_cast<int32_t>(d.season_last);
+    w.sunrise = d.sun.rise;
+    w.sunset = d.sun.set;
+    w.day_part = static_cast<int>(pixelia::day_part(d.minute));
+    w.moon_illum = mo.illum;
+    w.moon_phase = static_cast<int>(mo.phase * 1000);
+    w.moon_waxing = mo.waxing;
+    w.moon_up = mo.up > 0;
+    w.moon_visible = env.sky.moon_visible();
+    std::snprintf(w.moon_title, sizeof(w.moon_title), "%s", pixelia::moon_phase_title(mo));
+    w.weather = static_cast<int>(env.weather.kind());
+    w.weather_pct = (env.weather.strength() * 100 + 127) / 255;
+    w.weather_override = s_stage.weather_overridden();
+    w.firsts = cal.state().firsts;
+    s_season_symbol.store(w.started ? w.season : -1, std::memory_order_relaxed);
+    std::lock_guard<std::mutex> g(s_world_lock);
+    s_world = w;
 }
 
 // Karte mitführen: Markierung jedes Bild, Inhalt (Tätigkeit) jede Sekunde; schließt bei Ortswechsel und nach 20 s
@@ -663,6 +805,7 @@ void gfx_task(void* arg) {
             s_camera.tick(s_stage);
         }
         s_place.store(s_stage.active(), std::memory_order_relaxed);
+        update_world_state(ticks);
         update_card(t0, ticks);
         after_ticks(t0);
         publish_camera(ticks);
@@ -771,6 +914,12 @@ void start(const board::display::Timing& timing) {
     pixelia::add_standard_scenes(s_stage);
     s_stage.init(kSeed);  // Landschaft (Ort 0) bekommt genau kSeed, wie vor 0.5.0
     s_landscape = std::max(0, s_stage.find("scrolltest"));
+    // Weltzeit (seit 0.5.7): erst mit bekannter Uhrzeit; Kalender aus dem NVS, gespeichert alle 10 s auf Kern 0
+    s_stage.set_world_time(false);
+    load_world();
+    const esp_timer_create_args_t ta = {.callback = save_world, .arg = nullptr, .dispatch_method = ESP_TIMER_TASK,
+                                        .name = "welt", .skip_unhandled_events = true};
+    if (esp_timer_create(&ta, &s_world_timer) == ESP_OK) esp_timer_start_periodic(s_world_timer, 10LL * 1000000);
     s_coarse = static_cast<uint8_t*>(heap_caps_malloc(pixelia::kCoarsePixels, MALLOC_CAP_SPIRAM));
     s_coarse_aux = static_cast<uint8_t*>(heap_caps_malloc(pixelia::kCoarsePixels, MALLOC_CAP_SPIRAM));
     s_stage.set_buffers(s_coarse, s_coarse_aux);
@@ -895,6 +1044,15 @@ void set_real_time(bool on) {
     s_follow_real = on;
 }
 bool real_time() { return s_follow_real; }
+
+WorldInfo world_info() {
+    std::lock_guard<std::mutex> g(s_world_lock);
+    return s_world;
+}
+void set_season_length(int days) {
+    s_req_season_len.store(std::clamp(days, pixelia::WorldCalendar::kMinSeasonDays, pixelia::WorldCalendar::kMaxSeasonDays));
+}
+void save_world_now() { save_world(); }
 
 EngineStats engine_stats(bool reset_max) {
     portENTER_CRITICAL(&s_stats_lock);

@@ -76,6 +76,11 @@ void init() {
         if (nvs_get_u8(h, "cam_plc", &v) == ESP_OK) s_values.cam_place = v;
         if (nvs_get_u16(h, "cam_fig", &ms) == ESP_OK) s_values.cam_figure = ms;
         if (nvs_get_u16(h, "cam_ret", &ms) == ESP_OK) s_values.cam_return_s = ms;
+        if (nvs_get_u8(h, "night", &v) == ESP_OK) {
+            s_values.night_on = v & 0x80;
+            s_values.night_bright = static_cast<uint8_t>(std::clamp<int>(v & 0x7F, 1, 100));
+        }
+        if (nvs_get_u16(h, "bl_min", &ms) == ESP_OK) s_values.bl_min = ms;
         nvs_close(h);
     }
     const Values& sv = s_values;
@@ -106,9 +111,33 @@ void set_brightness(int percent) {
         std::lock_guard<std::mutex> g(s_lock);
         s_values.brightness = v;
     }
-    board::backlight::set_percent(v);
+    night::refresh();  // seit 0.5.7 setzt der Nachtmodus die Beleuchtung (nachts die Nacht-Helligkeit)
     save_u8("bright", v);
     ESP_LOGI(TAG, "Helligkeit %u %% gespeichert", v);
+}
+
+void set_night(bool on, int percent) {
+    const auto p = static_cast<uint8_t>(std::clamp(percent, 1, 100));
+    {
+        std::lock_guard<std::mutex> g(s_lock);
+        s_values.night_on = on;
+        s_values.night_bright = p;
+    }
+    night::refresh();
+    save_u8("night", static_cast<uint8_t>((on ? 0x80 : 0) | p));
+    ESP_LOGI(TAG, "Nachtmodus %s, Nacht-Helligkeit %u %% gespeichert", on ? "an" : "aus", p);
+}
+
+void set_backlight_min(int duty) {
+    board::backlight::set_min_duty(static_cast<uint32_t>(std::max(duty, 1)));
+    const auto d = static_cast<uint16_t>(board::backlight::min_duty());
+    {
+        std::lock_guard<std::mutex> g(s_lock);
+        s_values.bl_min = d;
+    }
+    night::refresh();
+    save_u16("bl_min", d);
+    ESP_LOGI(TAG, "Kleinste Pulsbreite %u von %lu gespeichert", d, static_cast<unsigned long>(board::backlight::kMaxDuty));
 }
 
 void set_long_press_ms(int ms) {

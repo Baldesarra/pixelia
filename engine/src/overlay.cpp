@@ -240,15 +240,24 @@ void draw_toast(Canvas& c, const Toast& t, ToastPlace place) {
         draw_toast(c, t.text, t.tone);
         return;
     }
-    // oben: eine Zeile, schmale Leiste mit Punkt in der Farbe des Tons
-    constexpr int kMaxText = kW - 120;
-    const std::string text = font::ellipsize(t.text, kMaxText);
-    const int w = font::text_width(text) + 26, h = 15;
+    // oben: schmale Leiste mit Punkt in der Farbe des Tons, eine Zeile (seit 0.5.7 bis drei, getrennt durch \n)
+    constexpr int kMaxText = kW - 120, kLines = 3, kLineH = 10;
+    std::string lines[kLines];
+    int n = 0, tw = 0;
+    for (size_t pos = 0; pos <= t.text.size() && n < kLines;) {
+        size_t end = t.text.find('\n', pos);
+        if (end == std::string::npos) end = t.text.size();
+        lines[n] = font::ellipsize(std::string_view(t.text).substr(pos, end - pos), kMaxText);
+        tw = std::max(tw, font::text_width(lines[n++]));
+        pos = end + 1;
+    }
+    const int w = tw + 26, h = 15 + (n - 1) * kLineH;
     const int x = (kW - w) / 2, y = 5;
     round_rect(c, x - 1, y + 1, w + 2, h + 1, kShadow, 4);
     framed(c, x, y, w, h, kSurface, kOutline, 4);
     round_rect(c, x + 7, y + 5, 5, 5, tone_color(t.tone), 1);
-    font::draw(c, x + 17, y + 4 - font::kCapTop, text, kText);
+    for (int i = 0; i < n; ++i)
+        font::draw(c, x + 17, y + 4 - font::kCapTop + i * kLineH, lines[i], i ? kTextDim : kText);
 }
 
 // --- Uhr ---
@@ -263,7 +272,8 @@ void clock_text(char* buf, size_t n, int h, int m, int s, bool seconds) {
 Rect clock_rect(const ClockStyle& st) {
     char buf[16];
     clock_text(buf, sizeof(buf), 88, 88, 88, st.seconds);  // breiteste Ziffern
-    const int w = font::text_width(buf, 1, st.face) + 10, h = font::cap_height(st.face) + 8;
+    const int sym = st.symbol != Symbol::None && s_symbols.pixels ? 12 : 0;
+    const int w = font::text_width(buf, 1, st.face) + 10 + sym, h = font::cap_height(st.face) + 8;
     const bool right = st.corner == Corner::TopRight || st.corner == Corner::BottomRight;
     const bool top = st.corner == Corner::TopRight || st.corner == Corner::TopLeft;
     return {right ? kW - w - 5 : 5, top ? 5 : kH - h - 5, w, h};
@@ -276,6 +286,8 @@ Rect draw_clock(Canvas& c, int hour, int minute, int second, const ClockStyle& s
     round_rect(c, r.x - 1, r.y + 1, r.w + 2, r.h + 1, kShadow, 3);
     framed(c, r.x, r.y, r.w, r.h, st.dim ? kBg : kSurface, st.dim ? kSurfaceHigh : kOutline, 3);
     const uint8_t ink = st.dim ? kOutline : kText;
+    if (st.symbol != Symbol::None && s_symbols.pixels)
+        draw_symbol(c, r.x + 5, r.y + (r.h - 9) / 2, st.symbol, st.dim ? kOutline : st.symbol_color);
     // Ziffern einzeln, damit der blinkende Doppelpunkt nichts verschiebt
     const int y = r.y + 4 - font::cap_top(st.face);
     int x = r.x + r.w - 5 - font::text_width(buf, 1, st.face);

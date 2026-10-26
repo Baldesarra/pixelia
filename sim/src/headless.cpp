@@ -102,6 +102,22 @@ bool render_overlay_screen(const std::string& name, pixelia::Canvas& canvas, con
     } else if (name == "meldung-oben" || name == "meldung-unten") {
         tp = name == "meldung-oben" ? ui::ToastPlace::Top : ui::ToastPlace::Bottom;
         what.clear();
+    } else if (name == "uhr-datum" || name == "uhr-nacht") {
+        // seit 0.5.7: Jahreszeit vor der Uhr, Antippen zeigt Datum und Welt in zwei Zeilen (wie gfx.cpp show_date)
+        const pixelia::Environment& env = stage.environment();
+        const pixelia::CalendarDate& d = env.calendar.date();
+        constexpr uint8_t kColors[4] = {ui::kSuccess, ui::kWarning, ui::kError, ui::kText};
+        clk.symbol = static_cast<ui::Symbol>(static_cast<int>(ui::Symbol::Spring) + static_cast<int>(d.season));
+        clk.symbol_color = kColors[static_cast<int>(d.season)];
+        clk.dim = name == "uhr-nacht";
+        const std::string moon = pixelia::moon_phase_title(env.sky.moon());
+        ui::Toast t;
+        t.text = "Montag, 26. Oktober 2026\n" + std::string(pixelia::season_title(d.season)) + ", Tag " +
+                 std::to_string(d.day_in_season) + " von " + std::to_string(d.season_days) + " · Weltjahr " +
+                 std::to_string(d.year) + "\nMond: " + moon;
+        ui::draw_toast(canvas, t, ui::ToastPlace::Top);
+        ui::draw_clock(canvas, clk.dim ? 23 : 14, 5, 32, clk, true);
+        return true;
     } else {
         return false;
     }

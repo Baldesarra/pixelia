@@ -16,6 +16,19 @@ namespace app {
 inline constexpr int kGfxCore = 1;
 inline constexpr int kSystemCore = 0;
 
+// Nacht (seit 0.5.7): eine Definition für die gedimmte Pixel-Uhr und den Nachtmodus (Wunsch des Users: 22–6 Uhr)
+inline constexpr int kNightFrom = 22, kNightTo = 6;
+inline bool is_night(int hour) { return hour >= kNightFrom || hour < kNightTo; }
+
+// Nachtmodus der Hintergrundbeleuchtung (night.cpp): ab 22 Uhr sanft auf die Nacht-Helligkeit, ab 6 Uhr zurück
+namespace night {
+void init();
+void refresh();   // Einstellung geändert: sofort anwenden
+void touched();   // Berühren: eine Minute hell
+bool active();    // gerade gedimmt (oder aufgehellt nach Berühren)
+bool awake();     // nach Berühren aufgehellt
+}  // namespace night
+
 namespace sysinfo {
 void log_all();
 void log_heap();
@@ -114,6 +127,31 @@ float speed();
 void set_real_time(bool on);
 bool real_time();
 EngineStats engine_stats(bool reset_max);
+
+// Weltzeit (seit 0.5.7, engine/calendar.h, sky.h, weather_sim.h): Kalender, Mond und Wetter-Simulation laufen, sobald
+// die Uhrzeit bekannt ist (NTP) oder die Testuhr gestellt ist. Der Kalender liegt bis zum Speicherstand (0.5.9) als
+// Blob „welt“ im NVS. Stand für die Weboberfläche jede Sekunde neu.
+struct WorldInfo {
+    bool valid;            // Weltzeit läuft
+    bool started;          // Kalender gestartet (Tag 1 = start_day)
+    bool test;             // Testuhr oder Zeitraffer: Kalender wird nicht gespeichert
+    int32_t start_day;     // Tage seit 1970
+    int day, year, season, day_in_season, season_days, season_len, weekday;
+    bool season_evening;
+    int32_t season_first, season_last;  // Tage seit 1970
+    int sunrise, sunset;   // Minuten des Tages
+    int day_part;          // pixelia::DayPart
+    int moon_illum;        // Promille
+    int moon_phase;        // Promille (0 Neumond, 500 Vollmond)
+    bool moon_waxing, moon_up, moon_visible;
+    char moon_title[24];
+    int weather, weather_pct;
+    bool weather_override; // Prüfbefehl übersteuert die Simulation bis zur nächsten Wetterzeit
+    int firsts;            // Bits der Erstlinge im Weltjahr
+};
+WorldInfo world_info();
+void set_season_length(int days);  // 1–28, die laufende Jahreszeit bleibt
+void save_world_now();             // Kalender sofort ins NVS (vor einem Neustart)
 
 // Touch der Welt und Kamera (seit 0.5.6, engine/overlay.h und camera.h). Eingaben in Leinwand-Koordinaten
 // (400 × 240) übernimmt der Grafik-Task vor dem nächsten Logik-Schritt: Probe = Finger aufgesetzt (Figur darunter?),

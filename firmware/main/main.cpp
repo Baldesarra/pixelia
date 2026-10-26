@@ -50,7 +50,9 @@ extern "C" void app_main() {
 
     const app::settings::Values set = app::settings::get();
     ESP_ERROR_CHECK(board::backlight::init());
+    board::backlight::set_min_duty(set.bl_min);  // Helligkeitskurve (seit 0.5.7)
     board::backlight::set_percent(set.brightness);
+    app::night::init();                          // Nachtmodus 22–6 Uhr (seit 0.5.7)
     ESP_LOGI("bl", "Hintergrundbeleuchtung: PWM %lu Hz, 12 Bit, %d %%",
              static_cast<unsigned long>(board::backlight::frequency()), board::backlight::percent());
 

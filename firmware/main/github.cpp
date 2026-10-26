@@ -240,6 +240,7 @@ std::string s_older_json = "[]";
 // Abbrechen (Knopf in der Oberfläche) und Ergebnis
 std::atomic<bool> s_cancel{false};
 bool s_cancelled = false;
+std::atomic<bool> s_test_break{false};  // seit 0.5.7: nächster Download trennt einmal nach 300 KB (Befehl „update abriss“)
 // Prüfung im Hintergrund (NVS upd_auto, upd_last = Unix-Zeit der letzten Prüfung, upd_new = gefundene Version)
 bool s_auto = true;
 uint32_t s_last_unix = 0;
@@ -277,10 +278,12 @@ struct Http {
     esp_http_client_handle_t h = nullptr;
     int rate_left = -1, rate_limit = -1, retry_after = -1;
     long rate_reset = 0;
-    ~Http() {
+    ~Http() { reset(); }
+    void reset() {
         if (!h) return;
         esp_http_client_close(h);
         esp_http_client_cleanup(h);
+        h = nullptr;
     }
 };
 
@@ -294,8 +297,9 @@ esp_err_t on_event(esp_http_client_event_t* e) {
     return ESP_OK;
 }
 
-// Anfrage öffnen, Weiterleitungen folgen (auch auf andere Server); Statuscode oder -1 mit Fehlertext
-int open(Http& x, const char* url, bool api, int64_t* length, char* error, size_t error_len) {
+// Anfrage öffnen, Weiterleitungen folgen (auch auf andere Server); Statuscode oder -1 mit Fehlertext.
+// from > 0: nur ab diesem Byte (HTTP-Range, seit 0.5.7: Download weitermachen), Antwort 206
+int open(Http& x, const char* url, bool api, int64_t* length, char* error, size_t error_len, int64_t from = 0) {
     char ua[48];
     std::snprintf(ua, sizeof(ua), "Pixelia/%s", esp_app_get_description()->version);
     esp_http_client_config_t c{};
@@ -316,6 +320,11 @@ int open(Http& x, const char* url, bool api, int64_t* length, char* error, size_
     if (api) {
         esp_http_client_set_header(x.h, "Accept", "application/vnd.github+json");
         esp_http_client_set_header(x.h, "X-GitHub-Api-Version", "2022-11-28");
+    }
+    char range[40];
+    if (from > 0) {
+        std::snprintf(range, sizeof(range), "bytes=%lld-", static_cast<long long>(from));
+        esp_http_client_set_header(x.h, "Range", range);
     }
     for (int hop = 0; hop < 5; ++hop) {
         esp_err_t err = esp_http_client_open(x.h, 0);
@@ -641,17 +650,66 @@ void install_job(Target target) {
     size_t got = 0, filled = 0;
     bool started = false;
     int64_t last_sample = 0;
+    // seit 0.5.7: Ohne Fortschritt (WLAN-Aussetzer) nach kStallUs neu verbinden und per HTTP-Range ab dem letzten
+    // Byte weitermachen, höchstens kResumes Mal (0.4.1 → 0.4.2 hing einmal vier Minuten bei 432 KB)
+    constexpr int64_t kStallUs = 30LL * 1000000;
+    constexpr int kResumes = 5;
+    int resumes = 0;
+    int64_t last_progress = esp_timer_get_time();
+    auto resume = [&](const char* why) -> bool {
+        if (resumes >= kResumes || s_cancel) {
+            std::snprintf(error, sizeof(error), "Download nach %u KB abgebrochen (%s, %d Versuche)",
+                          static_cast<unsigned>(got / 1024), why, resumes + 1);
+            return false;
+        }
+        ++resumes;
+        ESP_LOGW(TAG, "Download bei %u KB: %s, neuer Versuch %d/%d ab Byte %u", static_cast<unsigned>(got / 1024), why,
+                 resumes, kResumes, static_cast<unsigned>(got));
+        x.reset();
+        vTaskDelay(pdMS_TO_TICKS(2000 * resumes));
+        int64_t rest = 0;
+        char err2[128] = "";
+        const int st = open(x, target.url.c_str(), false, &rest, err2, sizeof(err2), static_cast<int64_t>(got));
+        if (st == 206 && (rest <= 0 || static_cast<uint64_t>(rest) == target.size - got)) {
+            last_progress = esp_timer_get_time();
+            return true;
+        }
+        if (st == 200) {
+            // Server ignoriert Range: von vorn lesen und das Vorhandene überspringen
+            char skip[512];
+            for (size_t done = 0; done < got;) {
+                const int r = read_some(x, skip, static_cast<int>(std::min(sizeof(skip), got - done)));
+                if (r <= 0) {
+                    std::snprintf(error, sizeof(error), "Download nach %u KB abgebrochen (Überspringen)", static_cast<unsigned>(got / 1024));
+                    return false;
+                }
+                done += static_cast<size_t>(r);
+            }
+            last_progress = esp_timer_get_time();
+            return true;
+        }
+        std::snprintf(error, sizeof(error), "Download nach %u KB abgebrochen (%s)", static_cast<unsigned>(got / 1024),
+                      st < 0 ? err2 : "Weitermachen nicht möglich");
+        return false;
+    };
     while (got < target.size) {
         if (s_cancel) {
             std::snprintf(error, sizeof(error), "abgebrochen nach %u KB", static_cast<unsigned>(got / 1024));
             break;
         }
-        const size_t want = std::min(kChunk - filled, static_cast<size_t>(target.size - got));
-        int r = read_some(x, reinterpret_cast<char*>(buf + filled), static_cast<int>(want));
-        if (r <= 0) {
-            std::snprintf(error, sizeof(error), "Download nach %u KB abgebrochen", static_cast<unsigned>(got / 1024));
-            break;
+        if (got > 300 * 1024 && s_test_break.exchange(false)) {  // Prüfung: Verbindung mitten im Download trennen
+            if (!resume("Test: Verbindung getrennt")) break;
+            continue;
         }
+        const size_t want = std::min(kChunk - filled, static_cast<size_t>(target.size - got));
+        const int r = esp_http_client_read(x.h, reinterpret_cast<char*>(buf + filled), static_cast<int>(want));
+        if (r <= 0) {
+            const bool timeout = r == -ESP_ERR_HTTP_EAGAIN;
+            if (timeout && esp_timer_get_time() - last_progress < kStallUs) continue;  // noch warten
+            if (!resume(timeout ? "30 s ohne Fortschritt" : r == 0 ? "Verbindung beendet" : "Lesefehler")) break;
+            continue;
+        }
+        last_progress = esp_timer_get_time();
         got += r;
         filled += r;
         if (!started) {
@@ -699,10 +757,10 @@ void install_job(Target target) {
     if (ota::finish(error, sizeof(error)) != ESP_OK) return set_error(error);
     const double secs = (esp_timer_get_time() - t0) / 1e6;
     ESP_LOGW(TAG, "Update von GitHub: %u KB in %.1f s (Verbindung %.1f s, %.0f KB/s), RAM-Tiefstwert %u KB, PSRAM %u KB, "
-             "fps min %.1f, Stack frei %u Byte; Neustart",
+             "fps min %.1f, Stack frei %u Byte, %d× weitergemacht; Neustart",
              static_cast<unsigned>(target.size / 1024), secs, (t_conn - t0) / 1e6,
              target.size / 1024.0 / ((esp_timer_get_time() - t_conn) / 1e6), ram_min, psram_min, fps_min,
-             static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+             static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)), resumes);
     ota::restart_soon(1500);
 }
 
@@ -806,6 +864,8 @@ void set_auto(bool on) {
     s_auto = on;
     ++s_seq;
 }
+
+void test_break() { s_test_break.store(true); }
 
 bool cancel_install() {
     if (s_job != Job::Install) return false;

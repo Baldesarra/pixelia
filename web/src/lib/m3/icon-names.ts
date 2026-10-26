@@ -81,7 +81,7 @@ export const ICONS = [
   'monitoring',
   'photo_camera',
   'tune',
-  'energy_savings_leaf',
+  'local_florist',
   'undo',
   'list',
   'videocam',
@@ -99,6 +99,12 @@ export const ICONS = [
   'foggy',
   'thunderstorm',
   'air',
+  // Weltkalender und Nachtmodus (seit 0.5.7)
+  'eco',
+  'local_florist',
+  'ac_unit',
+  'calendar_month',
+  'bedtime',
   'bolt',
   'upgrade',
   // Aufgeräumte Oberfläche (0.5.4): Navigation Welt, Unterseiten, Darstellung, Ausblick, Rückblick

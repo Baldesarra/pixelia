@@ -46,6 +46,28 @@
   const horiz = $derived(corner % 2 === 1 ? 'links' : 'rechts');
   const cornerOf = (v: string, h: string) => (v === 'unten' ? 2 : 0) + (h === 'links' ? 1 : 0);
 
+  // Nachtmodus (seit 0.5.7): 22–6 Uhr wie die gedimmte Uhr, Nacht-Helligkeit
+  let nightLocal = $state<boolean | null>(null);
+  const nightOn = $derived(nightLocal ?? s?.set.night ?? true);
+  let nightBr = $state(25);
+  let nightTouched = 0;
+  let nightTimer = 0;
+  $effect(() => {
+    if (!s || performance.now() - nightTouched < 3000) return;
+    nightBr = s.set.nightBr ?? 25;
+  });
+  function setNight(on: boolean) {
+    nightLocal = on;
+    void post('/api/settings', { night: on ? '1' : '0' })
+      .catch(() => null)
+      .finally(() => setTimeout(() => (nightLocal = null), 2500));
+  }
+  function setNightBr(v: number) {
+    nightTouched = performance.now();
+    clearTimeout(nightTimer);
+    nightTimer = window.setTimeout(() => post('/api/settings', { nightBr: v }).catch(() => null), 150);
+  }
+
   let rotLocal = $state<'0' | '180' | null>(null);
   const rot = $derived(rotLocal ?? (String(s?.set.rot ?? 0) as '0' | '180'));
   function setRot(v: '0' | '180') {
@@ -85,7 +107,7 @@
     <Card>
       <h2 class="card-title"><Icon name="schedule" size={20} />Pixel-Uhr</h2>
       <div class="switch-row">
-        <span>Uhr anzeigen <span class="muted">Ortszeit, 24 Stunden</span></span>
+        <span>Uhr anzeigen <span class="muted">Ortszeit, davor die Jahreszeit; antippen zeigt Datum und Mond</span></span>
         <Switch label="Pixel-Uhr" checked={clkOn} onchange={(v) => setClock({ on: v })} />
       </div>
       <div class="setting">
@@ -110,6 +132,21 @@
       <div class="switch-row">
         <span>Sekunden <span class="muted">sonst blinkt der Doppelpunkt</span></span>
         <Switch label="Sekunden" checked={clkSec} onchange={(v) => setClock({ sec: v })} />
+      </div>
+    </Card>
+    <Card>
+      <h2 class="card-title"><Icon name="bedtime" size={20} />Nachtmodus</h2>
+      <div class="switch-row">
+        <span
+          >Nachts dimmen <span class="muted"
+            >22–6 Uhr, Berühren hellt 1 Minute auf{nightOn ? (s.set.nightNow ? ' · gerade Nacht' : ' · gerade Tag') : ''}</span
+          ></span
+        >
+        <Switch label="Nachtmodus" checked={nightOn} onchange={setNight} />
+      </div>
+      <div class="setting">
+        <span class="row"><span>Nacht-Helligkeit</span><span class="tnum">{nightBr} %</span></span>
+        <Slider label="Nacht-Helligkeit" min={1} max={100} unit=" %" bind:value={nightBr} oninput={setNightBr} />
       </div>
     </Card>
   </div>
