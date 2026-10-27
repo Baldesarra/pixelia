@@ -22,6 +22,11 @@
 //   betreten, wenn seine Pakete geladen sind. Abblenden beginnt sofort und wartet in der dunklen Mitte auf das Ziel;
 //   Überblendung, Raster und Schnitt beginnen erst, wenn das Ziel geladen ist (bis dahin bleibt der alte Ort). Das
 //   Rechnen aller Orte läuft davon unberührt weiter.
+// - Seit 0.5.8 Teil 2: Ereignis-Bus (events.h) mit Zustellung zu Beginn jedes Schritts; die Bühne meldet Ankunft und
+//   Aufbruch der Figuren, der Kalender seine Ereignisse. Ortszustände (place_state.h) schreibt die Bühne je Weltminute
+//   fort (nach einem Sprung der Uhr Minute für Minute). Rechenspitzen verteilt: Überblendung und Raster betreten das
+//   Ziel einen Schritt vor dem Mischen der Paletten (Vorbereitung), gemischt wird ein Durchgang je Schritt, bis einer
+//   passt (so lange bleibt der alte Ort zu sehen), der Wetter-Vorlauf läuft über mehrere Schritte.
 
 #include <array>
 #include <cstdint>
@@ -103,7 +108,11 @@ public:
     Hit hit(int x, int y) const;
     // Karte zum Treffer; bei Türen ergänzt die Bühne, wer im Ort dahinter ist
     bool describe(const Hit& hit, ui::Card* card) const;
-    uint32_t travels() const { return travels_; }  // Reisen zwischen Orten seit init()
+    uint32_t travels() const { return travels_; }  // Reisen zwischen Orten seit init() (gezählt bei der Ankunft)
+    // Unterwegs auf einer Verbindung mit Reisezeit (seit 0.5.8): Figuren, die keinem Ort gehören, bis sie ankommen
+    static constexpr int kMaxTransit = 16;
+    int in_transit() const { return transit_n_; }
+    const Travel& transit(int i) const { return transit_[i].t; }
     // Prüfansicht aller Orte (Stellflächen, Benutzungspunkte, Ausgänge)
     void set_inspect(bool on);
     bool inspect() const { return inspect_; }
@@ -126,8 +135,9 @@ public:
     // Wetter-Simulation an (Standard) oder Übersteuerung durch die Prüfbefehle aktiv (bis Wetterzeit override_key)
     bool weather_overridden() const { return override_key_ != kNoOverride; }
     void release_weather();  // Simulation wieder an
-    // Ereignisse der Welt (Jahreszeitenabend, Wechsel, Erstlinge) abholen
-    bool poll_event(WorldEvent* out) { return env_.calendar.poll(out); }
+    // Kurzmeldungen der Welt (Jahreszeitenabend, Wechsel, Erstlinge) abholen; seit 0.5.8 ein Leser am Ereignis-Bus
+    bool poll_event(WorldEvent* out) { return env_.events.poll(toast_reader_, out); }
+    EventBus& events() { return env_.events; }
 
     void tick(const WorldClock& clock);
     void set_load(int load);  // Lastregler der sichtbaren Szene
@@ -146,13 +156,20 @@ private:
     void sync_pins();     // Pakete von active_, from_ und pending_ angeheftet, alle anderen gelöst
     void pin_scene(int i, bool on);
     void prefetch_neighbors();
-    void deliver_travels();
-    bool merge_palettes();
-    bool merge_palettes(int tolerance, bool last);
+    void deliver_travels(const WorldClock& clock);
+    void arrive_at(int from, int to, const Travel& t);
+    // Ein Durchgang mit Toleranz; last: ist alles belegt, die nächste Farbe nehmen (gelingt immer)
+    bool merge_palettes(int from, int to, int tolerance, bool last);
     void update_palette();
     int visible() const;
-    void draw_scene(const Scene& s, Canvas& fine, bool moon) const;
+    // transition: während eines Wechsels (Mond nur mit eigenen Mondfarben des Ortes, sie blenden mit dem Bild)
+    void draw_scene(const Scene& s, Canvas& fine, bool transition) const;
+    void draw_moon(const Scene& s, Canvas& fine, bool is_new) const;  // während einer Überblendung
+    bool shows_new(int cx, int cy) const;  // Überblendung: zeigt der grobe Bildpunkt schon das Ziel?
+    static bool owns_pixel(const void* ctx, int x, int y);
     void update_world(const WorldClock& clock);  // Kalender, Himmel, Wetter-Simulation (einmal je Weltminute)
+    void step_states(int64_t world_minute);      // Ortszustände bis zu dieser Weltminute
+    void publish_travel(EventKind kind, int from, int to, const Travel& t);
     void compose(Canvas& fine, const uint8_t* old_coarse, const uint8_t* new_coarse) const;
 
     std::array<std::unique_ptr<Scene>, kMaxScenes> scenes_{};
@@ -161,12 +178,21 @@ private:
     int active_ = 0;
     int from_ = -1;     // Szene, von der aus gewechselt wird (−1 = kein Übergang)
     int pending_ = -1;  // angeforderter Wechsel für den nächsten tick()
+    int arming_ = -1;   // Vorbereitung: Ziel schon betreten, Paletten werden in den nächsten Schritten gemischt
+    int merge_to_ = -1, merge_try_ = 0;  // Mischen: ein Durchgang je Schritt (Toleranz 0, 12, 30, 60)
     Transition pending_trans_ = Transition::Dissolve;
     Transition trans_ = Transition::Cut;
     int step_ = 0;
     int ticks_ = kDefaultTransitionTicks;
     uint32_t transitions_ = 0;
     uint32_t travels_ = 0;
+    struct Transit {
+        Travel t;
+        int64_t depart_us, arrive_us;  // Weltzeit
+        uint8_t from, to;
+    };
+    std::array<Transit, kMaxTransit> transit_{};
+    int transit_n_ = 0;
     uint32_t entered_ = 0;  // Bit je Ort: betreten
     AssetStore* assets_ = nullptr;
     uint32_t pinned_ = 0;   // Bit je Ort: Pakete angeheftet
@@ -183,11 +209,15 @@ private:
     int64_t override_key_ = kNoOverride;
     WeatherPick sim_pick_{};
     bool sim_applied_ = false;
+    int64_t state_minute_ = INT64_MIN;  // Ortszustände fortgeschrieben bis hier
+    int toast_reader_ = -1;
     // Gemeinsame Palette während einer Überblendung: Index der Szene → Platz, Platz → Quelle (Szene, Index)
     std::array<uint8_t, 256> map_from_{};
     std::array<uint8_t, 256> map_to_{};
     std::array<uint8_t, kSceneColors> slot_scene_{};
     std::array<uint8_t, kSceneColors> slot_index_{};
+    std::array<uint8_t, 512> cell_head_{};          // Farbgitter beim Mischen: erster Platz je Zelle
+    std::array<uint8_t, kSceneColors> cell_next_{};  // nächster Platz in derselben Zelle
     int slots_ = 0;
     Palette palette_{};
     uint8_t* main_ = nullptr;

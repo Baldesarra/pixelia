@@ -7,17 +7,19 @@
 // über den Grafik-Speicher (assets.h, Pakete grund, moebel, wiese, raum); die Orte selbst sind Daten (Kachelzeilen,
 // Raumliste, Ausgänge). Lampe und Laterne haben Zustandsbilder aus/an nach ihrer Lichtquelle.
 //
-// - testort-wiese: Wiese mit Hecke, Hauswand mit Tür (→ Raum) und Weg zum rechten Bildrand (→ Platz), kühles Licht
-// - testort-raum: Raum mit Tapete, Fenstern, Schrank, Bett, Tisch, Stühlen, Teppich, Lampe; Ausgang unten (→ Wiese),
-//   warmes Licht. Bett und Tisch haben zwei Ausbaustufen (Befehl „ausbau“), alle Möbel einen Zustand „im Bau“
-//   (Befehl „baustelle“: halbfertiges Bett bzw. Bretterstapel)
-// - testort-platz: gepflasterter Platz mit Bänken und Büschen, Ausgang am linken Bildrand (→ Wiese)
+// Seit 0.5.8 liest die Klasse die Daten eines Ortes (PlaceDef, place.h): Wiese, Raum, Platz und Kammer stehen je in
+// einer eigenen Datei in worlds/testdorf/orte/ (Kacheln, Raumliste, Verbindungen, Lichter, Fenster), die Ortsliste in
+// testdorf.cpp. Der Baukasten (Katalog, Palette, Figur) ist für alle Testorte gleich und steht hier.
 // Figuren laufen auf dem Kachelraster (Breitensuche um Möbel herum), benutzen freie Benutzungspunkte und wechseln
 // über Ausgänge den Ort. Eine Figur ist die Begleiterin: Ihr folgt der Blick der Bühne durch Türen und Bildränder.
 // Lastregler (set_load): Zahl der Figuren am Ort, 1–64; 0 = Standard des Ortes.
 // Seit 0.5.3 Wetter (weather.h): Wiese und Platz draußen mit Partikeln und Schleiern, der Raum zeigt es in den
-// Fenstern. Lichtquellen in der Umgebung (environment.h): die Lampe des Raumes, die Laterne des Platzes; die Fenster
-// der Wiese gehören zum Raum und leuchten nachts nur, wenn dort Licht brennt (Befehl „innenlicht an|aus|um“).
+// Fenstern. Seit 0.5.8 Teil 2 Ortszustände (place_state.h) statt der Lichtquellen-Tafel: Lampe, Kerze und Ofen des
+// Raumes, Laterne, Nässe und Becken des Platzes, Nässe der Wiese. Die Fenster der Wiese gehören zum Raum und leuchten
+// nachts nur, wenn dort Licht mit Schein nach außen brennt (Befehl „innenlicht an|aus|um“). Der Ort zeigt die Zustände
+// (Zustandsbilder, Lichtkreise nach der Stärke, nasser Boden dunkler, Pfützen) und erfährt Änderungen über den
+// Ereignis-Bus (events.h); unsichtbar baut er sein Licht nur in seinem Takt-Schlitz neu (verteilt die Rechenzeit).
+// Unter Tage (kPlaceUnderground): kein Wetter, kein Himmel, Licht immer wie nachts.
 
 #include <array>
 #include <cstddef>
@@ -25,6 +27,7 @@
 
 #include "pixelia/engine/environment.h"
 #include "pixelia/engine/light.h"
+#include "pixelia/engine/place.h"
 #include "pixelia/engine/rng.h"
 #include "pixelia/engine/room.h"
 #include "pixelia/engine/scene.h"
@@ -35,11 +38,11 @@ namespace pixelia {
 
 class TestPlace : public Scene {
 public:
-    enum class Kind : uint8_t { Field, Room, Square };
     static constexpr int kMaxFigures = 64;
     static constexpr int kColors = 80;  // Grundfarben je Lichtstufe (drei Stufen, light.h)
 
-    explicit TestPlace(Kind kind) : kind_(kind) {}
+    // index: Nummer des Ortes in der Welt (Kennungen der Figuren: (index + 1) × 1000 + laufende Nummer)
+    TestPlace(const PlaceDef& def, int index);
     // Orte liegen im Grafik-Speicher (auf dem Gerät PSRAM): je ~2,5 KB Figuren, der interne RAM bleibt frei
     static void* operator new(size_t bytes);
     static void operator delete(void* p);
@@ -76,13 +79,17 @@ public:
     // Seit 0.5.2 zum Vergleichen: „stimmung n“ (Grundstimmung 0–2), „tageslicht n“ (0–2), „nacht n“ (Mindest-
     // helligkeit 0–256), „licht weich|hart“ (Ränder der Lichtkreise). Seit 0.5.3: „innenlicht an|aus|um“ (Lampe
     // des Raumes, wirkt auf Raum und Fenster der Wiese), „regen striche|tropfen|fein“, „schnee gemischt|klein|gross“,
-    // „dichte <%>“ (Partikel), „nebelbaenke <%>“
+    // „dichte <%>“ (Partikel), „nebelbaenke <%>“. Seit 0.5.8 Teil 2: „ofen kalt|glut|feuer|abdecken“, „nass <%>“,
+    // „becken <%>“
     bool command(const char* cmd) override;
     const PlacePalette& place_palette() const { return pal_; }
     const PlaceWeather& weather() const { return weather_; }
-    bool outdoor() const { return kind_ != Kind::Room; }
-    // Brennt das Licht dieses Ortes? Wiese: das Licht im Raum hinter den Fenstern
+    bool outdoor() const { return def_.outdoor(); }
+    const PlaceDef& def() const { return def_; }
+    // Brennt das Licht dieses Ortes? Wiese: Licht mit Schein nach außen im Raum hinter den Fenstern
     bool lights_on() const;
+    // Ortszustand dieses Ortes nach Kennung (Index in PlaceStates), −1 = keiner
+    int state_index(const char* id) const;
 
     int figure_count() const { return count_; }
     struct FigureView {
@@ -116,8 +123,10 @@ private:
 
     void build_palette();
     void build_room();
-    void apply_lights();
+    void apply_states();  // Lichtkreise, Zustandsbilder, Glühen (seit 0.5.8 Teil 2, vorher apply_lights)
     void apply_glow();
+    void apply_wet();     // nasser Boden: Weg und Pflaster dunkler
+    void read_events();
     bool random_free_tile(int* tx, int* ty);
     void spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide, uint16_t id = 0);
     const Figure* figure_by_id(uint16_t id) const;
@@ -129,7 +138,8 @@ private:
     void apply_load();
     void draw(Canvas& c, bool with_background, CoarseLayers* layers = nullptr) const;
 
-    Kind kind_;
+    const PlaceDef& def_;
+    int index_ = 0;
     Rng rng_;
     Palette palette_{};   // zur Tageszeit ausgerechnet (tick)
     PlacePalette pal_{};  // Grundfarben, Rollen, Farbrotation
@@ -148,8 +158,23 @@ private:
     int out_count_ = 0;
     Environment* env_ = nullptr;
     PlaceWeather weather_;
-    uint32_t lights_version_ = 0;
+    int state_first_ = -1, state_n_ = 0;  // Ortszustände in der Umgebung
+    int wet_state_ = -1, wet_level_ = -1;
+    int reader_ = -1;                     // Leser am Ereignis-Bus
+    bool states_dirty_ = true;
+    bool entered_ = false;
     uint64_t seed_ = 0;
+    // Rauch aus dem Schornstein (seit 0.5.8): nur zu sehen, eigener Zufall (ändert die Figuren nicht)
+    struct Puff {
+        int16_t x, y;  // feine Bildpunkte × 16
+        int8_t vx;
+        uint8_t age, life;
+    };
+    std::array<Puff, 24> smoke_{};
+    int smoke_n_ = 0;
+    int smoke_state_ = -1;
+    uint32_t smoke_rng_ = 1;
+    void tick_smoke();
     uint32_t enters_ = 0;
     uint64_t ticks_ = 0;
     uint16_t next_id_ = 0;

@@ -3,11 +3,12 @@
 // Die Bühne hält sie und gibt sie jedem Ort (Scene::set_environment); bis zum gemeinsamen Weltzustand (0.5.9) ist
 // sie der einzige Weg, auf dem ein Ort etwas über einen anderen erfährt.
 //
-// Lichtquellen (LightBoard): Lampe, Kerze, Kamin je Ort mit Zustand an/aus. Der Zustand gehört zu den Ortsdaten und
-// gilt auch, solange der Ort nicht zu sehen ist (unsichtbare Orte rechnen weiter). Ein Fenster am Außenort verweist
-// auf den Raum dahinter (WindowLight): Nachts leuchtet es nach draußen nur, wenn dort mindestens eine Lichtquelle
-// brennt. Außen- und Innenansicht lesen denselben Eintrag und zeigen so immer denselben Zustand. Warum ein Licht aus
-// ist (kein Brennholz, kein Lampenöl, Bewohner schläft), entscheidet später die Simulation.
+// Seit 0.5.8 statt der Lichtquellen-Tafel (LightBoard) die Ortszustände (place_state.h): Licht mit Brennstoff, Feuer und
+// Glut, Nässe, Füllstand, angefangene Arbeit. Sie gehören zu den Ortsdaten und laufen weiter, solange der Ort nicht zu
+// sehen ist. Ein Fenster am Außenort verweist auf den Raum dahinter (WindowLight): Nachts leuchtet es nach draußen,
+// wenn dort Licht mit Schein nach außen brennt, umso größer, je mehr Licht (Summe der Stärken). Außen- und Innenansicht
+// lesen denselben Eintrag und zeigen so immer denselben Zustand. Dazu der Ereignis-Bus (events.h) und die Fahrzeuge
+// (vehicle.h).
 //
 // Seit 0.5.7 auch Kalender, Himmel (Sonne, Mond) und Wetter-Simulation: Die Bühne schreibt sie einmal je Weltminute
 // fort (Stage::tick), die Orte lesen nur.
@@ -17,37 +18,27 @@
 #include <string_view>
 
 #include "pixelia/engine/calendar.h"
+#include "pixelia/engine/events.h"
 #include "pixelia/engine/light.h"
+#include "pixelia/engine/place_state.h"
 #include "pixelia/engine/sky.h"
+#include "pixelia/engine/vehicle.h"
 #include "pixelia/engine/weather.h"
 #include "pixelia/engine/weather_sim.h"
 
 namespace pixelia {
 
-class LightBoard {
+// Merker der Welt (seit 0.5.8): fertige Projekte, vorhandene Werkzeuge, stehende Fahrzeuge als Kennungen, bis
+// Warenbuch und Projekte (0.5.10) sie liefern. Die Bedingungen der Verbindungen lesen sie (place.h)
+class WorldFlags {
 public:
-    static constexpr int kMaxPlaces = 16;
-    static constexpr int kMaxSources = 16;  // je Ort
-
-    // Ort mit n Lichtquellen anmelden (alle an); schon bekannt: nur die Zahl ändern. false = voll
-    bool declare(std::string_view place, int sources);
-    void set(std::string_view place, int source, bool on);
-    void set_all(std::string_view place, bool on);
-    bool on(std::string_view place, int source) const;
-    bool any_on(std::string_view place) const;  // brennt dort mindestens ein Licht?
-    int sources(std::string_view place) const;
-    uint32_t version() const { return version_; }  // zählt jede Änderung (Orte bauen ihr Licht nur dann neu)
+    static constexpr int kMax = 16;
+    void set(std::string_view key, bool on);
+    bool has(std::string_view key) const;
 
 private:
-    struct Entry {
-        char place[24];
-        uint8_t sources;
-        uint16_t on;  // Bit je Lichtquelle
-    };
-    int find(std::string_view place) const;
-    std::array<Entry, kMaxPlaces> e_{};
+    std::array<std::array<char, 24>, kMax> k_{};
     int n_ = 0;
-    uint32_t version_ = 0;
 };
 
 // Fenster nach draußen: Lichtkreis vor dem Fenster, gehört zum Raum dahinter (Kennung des Ortes)
@@ -58,10 +49,14 @@ struct WindowLight {
 
 struct Environment {
     Weather weather;
-    LightBoard lights;
+    PlaceStates states;  // seit 0.5.8 (vorher LightBoard lights)
     WorldCalendar calendar;
     Sky sky;
     WeatherSim weather_sim;
+    WorldFlags flags;
+    EventBus events;     // seit 0.5.8
+    Vehicles vehicles;   // seit 0.5.8
+    int64_t world_minute = INT64_MIN;  // Weltminute (Tag × 1440 + Minute), INT64_MIN = Weltzeit läuft noch nicht
 };
 
 }  // namespace pixelia

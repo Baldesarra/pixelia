@@ -185,7 +185,46 @@ Rect Room::part_rect(int i) const {
     const PartStage* s = stage(i);
     if (!s) return {};
     const RoomPart& p = st_->parts[i];
+    if (p.flags & kPartOnSlot) return image_rect(i);
     return {p.x * kTileSize, p.y * kTileSize, s->w * kTileSize, s->h * kTileSize};
+}
+
+Rect Room::image_rect(int i) const {
+    const PartStage* l = look(i);
+    int x, y, depth;
+    if (!l || !l->sheet.pixels || !locate(i, *l, &x, &y, &depth)) return {};
+    return {x, y, l->sheet.width, l->sheet.height};
+}
+
+PartLayer Room::layer_of(int i) const {
+    for (int n = 0; n < 4 && i >= 0 && i < part_count(); ++n) {
+        const RoomPart& p = st_->parts[i];
+        if (!(p.flags & kPartOnSlot)) {
+            const PartDef* d = def(i);
+            return d ? d->layer : PartLayer::Standing;
+        }
+        i = p.x;  // Träger
+    }
+    return PartLayer::Standing;
+}
+
+bool Room::slot_point(int i, int k, int* x, int* y) const {
+    const PartStage* l = look(i);
+    if (!l || k < 0 || k >= l->slot_count || !l->sheet.pixels) return false;
+    int px, py, depth;
+    if (!locate(i, *l, &px, &py, &depth)) return false;
+    const SlotPoint& sp = l->slots[k];
+    *x = px + ((st_->parts[i].flags & kPartFlipped) ? l->sheet.width - 1 - sp.x : sp.x);
+    *y = py + sp.y;
+    return true;
+}
+
+int Room::slot_item(int host, int k) const {
+    for (int i = 0; i < part_count(); ++i) {
+        const RoomPart& p = st_->parts[i];
+        if ((p.flags & kPartOnSlot) && p.x == host && p.y == k) return i;
+    }
+    return -1;
 }
 
 bool Room::use_point(int i, int k, int* tx, int* ty, UsePoint* out) const {
@@ -226,7 +265,7 @@ void Room::rebuild_walk() {
     for (int i = 0; i < st_->part_count; ++i) {
         const PartDef* d = def(i);
         const PartStage* s = stage(i);
-        if (!d || !s || !d->blocks) continue;
+        if (!d || !s || !d->blocks || (st_->parts[i].flags & kPartOnSlot)) continue;
         const RoomPart& p = st_->parts[i];
         for (int y = p.y; y < p.y + s->h && y < kTilesY; ++y)
             for (int x = p.x; x < p.x + s->w && x < kTilesX; ++x) st_->walk[y][x] = 0;
@@ -270,6 +309,29 @@ void Room::place(const RoomPart& p, int fw, int fh, const PartStage& look, int* 
     *depth = bottom - 1;
 }
 
+bool Room::locate(int i, const PartStage& lk, int* x, int* y, int* depth, int nest) const {
+    const RoomPart& p = st_->parts[i];
+    if (!(p.flags & kPartOnSlot)) {
+        const PartStage* s = stage(i);
+        if (!s) return false;
+        place(p, s->w, s->h, lk, x, y, depth);
+        return true;
+    }
+    // auf einem Stellplatz: Fußpunkt des Trägers, knapp vor ihm
+    const int host = p.x;
+    if (nest > 3 || host >= i || host < 0) return false;  // Träger steht immer davor (keine Schleifen)
+    const PartStage* hl = look(host);
+    if (!hl || p.y >= hl->slot_count) return false;
+    int hx, hy, hd;
+    if (!locate(host, *hl, &hx, &hy, &hd, nest + 1)) return false;
+    const SlotPoint& sp = hl->slots[p.y];
+    const int fx = hx + ((st_->parts[host].flags & kPartFlipped) ? hl->sheet.width - 1 - sp.x : sp.x);
+    *x = fx - lk.sheet.width / 2;
+    *y = hy + sp.y - lk.sheet.height + 1;
+    *depth = hd + 1;
+    return true;
+}
+
 Sprite Room::frame_of(const RoomPart& p, const PartStage& s) const {
     // Zustandsbilder (seit 0.5.5): Zustand des Teils wählt seine Bilder, deren Animation läuft mit den Schritten
     const int frames = std::max(s.sheet.frames_per_state(), 1);
@@ -293,10 +355,10 @@ void Room::draw_static(Canvas& c, bool standing) const {
             const PartDef* d = def(i);
             const PartStage* s = stage(i);
             const PartStage* l = look(i);
-            if (!d || !s || !l || !l->sheet.pixels || d->layer != want || moving(*l)) continue;
+            if (!d || !s || !l || !l->sheet.pixels || layer_of(i) != want || moving(*l)) continue;
             const RoomPart& p = st_->parts[i];
             int x, y, depth;
-            place(p, s->w, s->h, *l, &x, &y, &depth);
+            if (!locate(i, *l, &x, &y, &depth)) continue;
             c.blit(frame_of(p, *l), x, y, p.flags & kPartFlipped, remap_of(p, *l));
         }
     }
@@ -307,10 +369,10 @@ void Room::draw_static(Canvas& c, bool standing) const {
         const PartDef* d = def(i);
         const PartStage* s = stage(i);
         const PartStage* l = look(i);
-        if (!d || !s || !l || !l->sheet.pixels || d->layer != PartLayer::Standing || moving(*l)) continue;
+        if (!d || !s || !l || !l->sheet.pixels || layer_of(i) != PartLayer::Standing || moving(*l)) continue;
         const RoomPart& p = st_->parts[i];
         int x, y, depth;
-        place(p, s->w, s->h, *l, &x, &y, &depth);
+        if (!locate(i, *l, &x, &y, &depth)) continue;
         list.add_at(frame_of(p, *l), x, y, depth, p.flags & kPartFlipped, remap_of(p, *l));
     }
     list.draw(c, true);
@@ -404,6 +466,13 @@ void Room::draw_inspect(Canvas& fine, uint8_t blocked, uint8_t part, uint8_t use
             const int dy = up.facing == Facing::Up ? -1 : up.facing == Facing::Down ? 1 : 0;
             for (int s = 4; s < 9; ++s) fine.fill_rect(cx + dx * s, cy + dy * s, 1, 1, use);
         }
+        // Stellplätze (seit 0.5.8): Fußpunkt als kleines Kreuz
+        for (int k2 = 0;; ++k2) {
+            int sx, sy;
+            if (!slot_point(i, k2, &sx, &sy)) break;
+            fine.fill_rect(sx * k - 2, sy * k + 1, 6, 1, use);
+            fine.fill_rect(sx * k, sy * k - 1, 2, 5, use);
+        }
     }
     for (int i = 0; i < st_->exit_count; ++i) {
         const Exit& e = st_->exits[i];
@@ -423,13 +492,13 @@ int Room::hit_part(int x, int y, int* depth_out) const {
         if (!d || !s || !l || !l->sheet.pixels) continue;
         const RoomPart& p = st_->parts[i];
         int px, py, depth;
-        place(p, s->w, s->h, *l, &px, &py, &depth);
+        if (!locate(i, *l, &px, &py, &depth)) continue;
         const Sprite fr = frame_of(p, *l);
         const int sx = x - px, sy = y - py;
         if (sx < 0 || sy < 0 || sx >= fr.width || sy >= fr.height) continue;
         const bool flip = p.flags & kPartFlipped;
         if (!fr.pixels[sy * fr.width + (flip ? fr.width - 1 - sx : sx)]) continue;
-        if (d->layer != PartLayer::Standing) depth = kFlatDepth;
+        if (layer_of(i) != PartLayer::Standing) depth = kFlatDepth;
         // gleiche Tiefe: das später eingetragene Teil liegt vorn (stabile Sortierung)
         if (best < 0 || depth >= best_depth) {
             best = i;
@@ -471,11 +540,11 @@ DepthList& Room::begin(Canvas& c, bool with_background, CoarseLayers* layers) co
         const PartStage* l = look(i);
         if (!d || !s || !l || !l->sheet.pixels) continue;  // Bild fehlt (Paket nicht geladen)
         const bool anim = moving(*l);
-        const bool flat = d->layer != PartLayer::Standing;
+        const bool flat = layer_of(i) != PartLayer::Standing;
         if (flat && !anim) continue;  // steht im Hintergrund bzw. wurde eben gezeichnet
         const RoomPart& p = st_->parts[i];
         int x, y, depth;
-        place(p, s->w, s->h, *l, &x, &y, &depth);
+        if (!locate(i, *l, &x, &y, &depth)) continue;
         list.add_at(frame_of(p, *l), x, y, flat ? kFlatDepth : depth, p.flags & kPartFlipped, remap_of(p, *l),
                     bg && !anim);
     }

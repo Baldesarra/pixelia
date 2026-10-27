@@ -1,5 +1,71 @@
 [
   {
+    "v": "0.5.8",
+    "d": "",
+    "t": "",
+    "s": "",
+    "k": {
+      "s": "Fenster mit Mond, Herd mit Glut, Becken, nasser Boden",
+      "n": [
+        "Großes Fenster: Der Testraum hat zwei große Fenster mit Vorhang und Fensterbank, auf der eine Kerze und Blumentöpfe stehen",
+        "Mond im Fenster: Nachts bei klarem Himmel steht der Mond ganz in einer Scheibe, passend zu seinem Stand am Himmel",
+        "Kammer: Hinter einer Innentür liegt ein zweiter Raum im Haus",
+        "Feldweg: Zwischen Platz und Wiese gibt es einen Feldweg, auf dem man eine Weile unterwegs ist; nachts nimmt ihn niemand",
+        "Karte einer Verbindung: zeigt die Art (Tür, Weg, Feldweg …), wie lange man unterwegs ist und warum sie gerade zu ist",
+        "Herd: Im Testraum steht ein Herd mit Rohr; er brennt morgens, mittags und abends, nachts glimmt unter der Abdeckung die Glut",
+        "Wasserbecken: Auf dem Platz steht ein rundes Becken; Regen füllt es, wer daraus schöpft, leert es",
+        "Nasser Boden: Bei Regen werden Weg und Pflaster dunkel und es bilden sich Pfützen; danach trocknet alles über Stunden",
+        "Kerze für Heimkehrer: Die Kerze auf der Fensterbank brennt nachts, solange die Begleiterin unterwegs ist; kommt sie heim, ist sie aus",
+        "Licht nach Art: Kerze, Lampe, Laterne, Herdfeuer und Glut leuchten verschieden weit; je mehr im Raum brennt, desto heller die Fenster draußen",
+        "Karte: Herd, Becken, Lampe, Kerze und Pfützen zeigen beim Antippen, was gerade los ist (Glut, Wasserstand, Brenndauer)",
+        "Herd von draußen: Über dem Haus steigt Rauch auf, solange der Herd brennt; brennt nur er, glimmen die Fenster orange"
+      ],
+      "i": [
+        "Lampe und Laterne: brennen von der Dämmerung bis 23 Uhr und morgens vor Sonnenaufgang statt den ganzen Tag",
+        "Ortswechsel: Der Mond blendet mit dem Bild aus und ein, statt vorher zu verschwinden",
+        "Ortswechsel: Betreten und Überblenden verteilen ihre Rechenarbeit auf mehrere Bilder"
+      ],
+      "r": [
+        "Testfiguren: eine Farbreihe weniger (Grün wurde zur Glut im Herd)"
+      ]
+    },
+    "n": [
+      "Engine: Orte als Module (place.h): Daten je Ort in worlds/<gebiet>/orte/, eine Zeile Registrierung je Ort bzw. Gebiet (worlds/gebiete.cpp), jede .cpp in worlds/ wird mitgebaut",
+      "Engine: Verbindungen als Daten mit Art (Tür, Bildrand, Feldweg, Treppe, Bahnhof, Stolleneingang), Reisezeit und Bedingungen (nur bei Tag, nach Bau, Werkzeug, Fahrplan); Merker der Welt (WorldFlags)",
+      "Engine: Orts-Graph (PlaceGraph) prüft Ziele, Rückwege und Erreichbarkeit in beide Richtungen; Figuren auf Wegen mit Reisezeit gehören keinem Ort, bis sie ankommen",
+      "Engine: Stellplätze im Raum-Baukasten (SlotPoint, kPartOnSlot): Dinge stehen auf Fensterbank, Regal oder Tisch auf der Ebene ihres Trägers",
+      "Engine: Mond im Fenster aus den Scheiben des Fensterbilds (PaneRect, SkyView mit Gruppen), ganz in einer Scheibe, bei kleinen Scheiben kleiner",
+      "Dorf: Testdorf in worlds/testdorf/ mit Wiese, Raum, Platz und neu der Kammer; großes Fenster mit Vorhang (Wahl des Users), Kerze und Blumentopf als Testgrafiken",
+      "Engine: Ortszustände (place_state.h) statt LightBoard: Licht mit Brennstoff, Feuer und Glut, Nässe, Füllstand, Arbeit; je Weltminute für alle Orte gleich, Sprünge bis 1 Tag nachgeholt",
+      "Engine: Lichtquellen-Arten (LightKind, SETTING Kap. 9) mit Stärke 1–4 → Radius und Helligkeit; Schein nach außen = Summe bis 6; Hausregeln Abendlicht, Heimkehrer, Herdfeuer bis 0.5.11",
+      "Engine: Ereignis-Bus (events.h): feste Ereignisse im Ringpuffer, Zustellung an der Takt-Grenze, Leser mit Maske; Kalender, Ortszustände, Ankunft und Aufbruch melden dorthin",
+      "Engine: Fahrzeuge als bewegliche Orte (vehicle.h): Fahrplan als Rechnung aus der Weltminute; Verbindungen mit Fahrplan nur am stehenden Fahrzeug offen (exit_open mit Ort)",
+      "Engine: unter Tage (kPlaceUnderground) kein Wetter, kein Himmel, Licht wie nachts, kein Regen auf Nässe und Füllstand",
+      "Dorf: Herd mit Rohr, rundes Becken und Pfützen als Testgrafiken (Wahl des Users), Glut mit eigenen Farben; Nässe dunkelt Weg und Pflaster in 8 Stufen ab",
+      "Dorf: Karte zeigt den Ortszustand (PlaceStates::describe), Rauch aus dem Schornstein (PlaceDef::chimney), Fenster orange bei reinem Herdfeuer; Konsole `ort cmd zustaende`",
+      "Simulator: `--test orte` (18 Prüfungen): Module, Graph, Verbindungen per Tippen, Fensterbank, Mond; Ortszustände sichtbar/unsichtbar und nach Uhrsprung gleich, Bus, Fahrzeug, unter Tage"
+    ],
+    "i": [
+      "Engine: Mond in eigenen Farben des Ortes (vier feste Grundfarben) blendet beim Abblenden mit und erscheint während der Überblendung in der gemeinsamen Palette",
+      "Engine: Rechenspitzen verteilt: Ziel einen Schritt vor dem Mischen betreten, je Schritt ein Durchgang über ein Farbgitter, Wetter-Vorlauf mit Budget, Licht unsichtbarer Orte im eigenen Takt",
+      "Engine: Kalender ohne eigene Warteschlange (Ereignis-Bus); Stage::poll_event liest die Kurzmeldungen als Leser am Bus",
+      "Dorf: Rückwand des Testraums eine Reihe höher, Möbel eine Reihe tiefer; Testfiguren mit vier Farbreihen (Türkis wurde Mond, Grün die Glut)"
+    ],
+    "f": [
+      "Dorf: Mond im Fenster des Testraums kaum zu sehen (Meldung des Users zu 0.5.7): Die alten Scheiben waren 5 × 5 grobe Punkte, der Mond 15 feine"
+    ],
+    "g": [
+      "Simulator: alle Selbsttests grün (Bühne 26, Asset-Pakete 5, Einblendungen 10, Weltzeit 9, Orte 7, Ortszustände 11)",
+      "Gerät: 64 Figuren, Regen, 9 Ortswechsel: 30,0 fps, Zeichnen 11,2 ms (max 11,7), Logik 2,2 ms (max 13,3, vorher bis 23); RAM 94 KB frei (Tiefstwert 86 KB), PSRAM 5,59 MB; Firmware 1,85 MB"
+    ],
+    "h": [
+      "Doku: Nachprüfung Phase A als Tabelle in docs/ROADMAP.md; Nachweisbilder docs/nachweise/0.5.8-*.png (Fenster, Mond, Ortszustände)"
+    ],
+    "pr": [
+      42
+    ]
+  },
+  {
     "v": "0.5.7",
     "d": "2026-10-26",
     "t": "Weltzeit, Kalender und Wetter-Simulation",
@@ -46,7 +112,10 @@
       "Display: am Gerät 64 Figuren mit Regen nachts 29,8–30,3 fps, Zeichnen 14,5–15,7 ms (max 17,0), Logik max 3,6 ms; normal 5,1 ms; RAM 98 KB (Tiefstwert 91), PSRAM 5,58 MB; Firmware 1,79 MB (30 %)",
       "Update: am Gerät Abriss bei 304 KB, Weitermachen ab Byte 311296, 1759 KB in 31,5 s, fps min 29,7, RAM-Tiefstwert 69 KB; Kalender blieb über zwei Neustarts erhalten"
     ],
-    "pr": [40, 41]
+    "pr": [
+      40,
+      41
+    ]
   },
   {
     "v": "0.5.6",

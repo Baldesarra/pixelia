@@ -54,11 +54,21 @@ public:
     // Prüfungen und Vergleichsbilder: Phase, Höhe und Lage fest vorgeben (phase < 0 = wieder echt)
     void force(double phase, int up = 200, int x = 160);
 
-    // Mond in die Himmelsflächen zeichnen (fein, nach dem Verdoppeln)
-    void draw(Canvas& fine, const SkyView& view) const;
+    // Mond in die Himmelsflächen zeichnen (fein, nach dem Verdoppeln). Seit 0.5.8 steht er in einem Fenster ganz in
+    // einer Scheibe (Lage nach seinem Stand am Himmel, bei kleinen Scheiben kleiner). Während einer Überblendung:
+    // remap = Farben des Ortes → gemeinsame Palette, owns(ctx, x, y) = zeigt dieser Bildpunkt den Ort?
+    using OwnsFn = bool (*)(const void* ctx, int x, int y);
+    void draw(Canvas& fine, const SkyView& view, const uint8_t* remap = nullptr, OwnsFn owns = nullptr,
+              const void* ctx = nullptr) const;
+    // Wo der Mond gezeichnet würde (Prüfungen): Mitte und Halbmesser fein; false = nicht zu sehen
+    bool place(const SkyView& view, int* cx, int* cy, int* r, Rect* pane = nullptr) const;
 
 private:
-    void draw_disc(Canvas& fine, int cx, int cy, const SkyView& view, const Rect& clip) const;
+    struct DiscColors {
+        uint8_t lit, sea, dark, halo;
+    };
+    void draw_disc(Canvas& fine, int cx, int cy, int r, const Rect& clip, const uint8_t* sky_lut,
+                   const DiscColors& col, OwnsFn owns, const void* ctx) const;
 
     SunTimes sun_{};
     MoonInfo moon_{};

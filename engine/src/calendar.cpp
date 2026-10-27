@@ -220,23 +220,12 @@ void WorldCalendar::update(int64_t day, int minute) {
         return before < t && t <= now;
     };
     const CalendarDate& d = date_;
-    if (d.season_evening && crossed(kEveningMinute)) {
-        WorldEvent e;
-        e.kind = WorldEvent::Kind::SeasonEvening;
-        e.season = d.season;
-        e.day = d.day;
-        e.text = std::string("Letzter Abend ") + season_genitive(d.season);
-        push(e);
-    }
-    if (d.day_in_season == 1 && d.season_no > 0 && crossed(kMorningMinute)) {
-        WorldEvent e;
-        e.kind = WorldEvent::Kind::SeasonBegins;
-        e.season = d.season;
-        e.day = d.day;
-        e.text = std::string("Der ") + season_title(d.season) + " beginnt · " +
-                 (d.season == Season::Spring ? "Weltjahr " + std::to_string(d.year) : "Tag " + std::to_string(d.day));
-        push(e);
-    }
+    if (d.season_evening && crossed(kEveningMinute))
+        push(EventKind::SeasonEvening, First::Snow, std::string("Letzter Abend ") + season_genitive(d.season));
+    if (d.day_in_season == 1 && d.season_no > 0 && crossed(kMorningMinute))
+        push(EventKind::SeasonBegins, First::Snow,
+             std::string("Der ") + season_title(d.season) + " beginnt · " +
+                 (d.season == Season::Spring ? "Weltjahr " + std::to_string(d.year) : "Tag " + std::to_string(d.day)));
 }
 
 uint16_t WorldCalendar::first_bit(First f) const {
@@ -255,36 +244,28 @@ bool WorldCalendar::first(First f) {
     if (!started() || has_first(f)) return false;
     st_.firsts = static_cast<uint16_t>(st_.firsts | first_bit(f));
     ++revision_;
-    WorldEvent e;
-    e.kind = WorldEvent::Kind::First;
-    e.first = f;
-    e.season = date_.season;
-    e.day = date_.day;
+    std::string text;
     switch (f) {
-        case First::Snow: e.text = "Erster Schnee in diesem Jahr"; break;
-        case First::Storm: e.text = "Erstes Gewitter in diesem Jahr"; break;
-        case First::AutumnFog: e.text = "Erster Herbstnebel"; break;
-        case First::FullMoon: e.text = std::string("Erster Vollmond ") + season_genitive(date_.season); break;
+        case First::Snow: text = "Erster Schnee in diesem Jahr"; break;
+        case First::Storm: text = "Erstes Gewitter in diesem Jahr"; break;
+        case First::AutumnFog: text = "Erster Herbstnebel"; break;
+        case First::FullMoon: text = std::string("Erster Vollmond ") + season_genitive(date_.season); break;
     }
-    push(e);
+    push(EventKind::First, f, text);
     return true;
 }
 
-void WorldCalendar::push(const WorldEvent& e) {
-    if (queue_n_ == kQueue) {  // voll: das älteste fällt raus
-        queue_first_ = (queue_first_ + 1) % kQueue;
-        --queue_n_;
-    }
-    queue_[(queue_first_ + queue_n_) % kQueue] = e;
-    ++queue_n_;
-}
-
-bool WorldCalendar::poll(WorldEvent* out) {
-    if (queue_n_ == 0) return false;
-    *out = std::move(queue_[queue_first_]);
-    queue_first_ = (queue_first_ + 1) % kQueue;
-    --queue_n_;
-    return true;
+void WorldCalendar::push(EventKind kind, First f, const std::string& text) {
+    if (!bus_) return;
+    WorldEvent e;
+    e.kind = kind;
+    e.a = static_cast<uint8_t>(date_.season);
+    e.b = static_cast<uint8_t>(f);
+    e.day = date_.day;
+    const size_t n = std::min(text.size(), sizeof(e.text) - 1);
+    text.copy(e.text, n);
+    e.text[n] = 0;
+    bus_->publish(e);
 }
 
 void WorldCalendar::begin_test() {

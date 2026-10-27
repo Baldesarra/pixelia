@@ -8,6 +8,7 @@
 
 #include "pixelia/engine/light.h"
 #include "pixelia/engine/overlay.h"
+#include "pixelia/engine/place.h"
 #include "pixelia/engine/system_ui.h"
 
 namespace pixelia {
@@ -177,7 +178,12 @@ void flatten_layers(uint8_t* coarse, const CoarseLayers& layers) {
     }
 }
 
-Stage::Stage() : assets_(&asset_store()) {}
+Stage::Stage() : assets_(&asset_store()) {
+    // Ereignis-Bus (seit 0.5.8): Kalender und Ortszustände melden dorthin, Kurzmeldungen liest die Anzeige
+    env_.calendar.set_bus(&env_.events);
+    env_.states.set_bus(&env_.events);
+    toast_reader_ = env_.events.subscribe(kCalendarEvents);
+}
 
 Stage::~Stage() {
     for (int i = 0; i < count_; ++i) pin_scene(i, false);
@@ -245,6 +251,10 @@ void Stage::init(uint64_t seed) {
     world_minute_ = INT64_MIN;
     override_key_ = kNoOverride;
     sim_applied_ = false;
+    state_minute_ = INT64_MIN;
+    env_.world_minute = INT64_MIN;
+    env_.events.clear();
+    arming_ = -1;
     for (int i = 0; i < count_; ++i) scenes_[i]->init(seed + static_cast<uint64_t>(i) * 0x9E3779B97F4A7C15ULL);
     if (active_ >= count_) active_ = 0;
     from_ = -1;
@@ -264,7 +274,7 @@ void Stage::sync_entered() {
     for (int i = 0; i < count_; ++i) {
         const bool have = entered_ & (1u << i);
         // betreten erst, wenn die Pakete geladen sind (bzw. fehlgeschlagen: dann fehlen nur Bilder)
-        const bool want = (i == active_ || i == from_) && (have || scene_ready(i));
+        const bool want = (i == active_ || i == from_ || i == arming_) && (have || scene_ready(i));
         if (want == have) continue;
         if (want) {
             scenes_[i]->enter();
@@ -287,6 +297,7 @@ void Stage::set_active(int index) {
     active_ = index;
     from_ = -1;
     pending_ = -1;
+    arming_ = -1;
     hold_ = false;
     sync_pins();
     sync_entered();
@@ -382,6 +393,39 @@ void Stage::start_transition(int to, Transition t) {
         sync_pins();
         return;
     }
+    if (!cut && t != Transition::Fade && !entered(to)) {
+        // Vorbereitung (seit 0.5.8): erst betreten (Hintergrundbild, Wetter-Vorlauf), im nächsten Schritt die Paletten
+        // mischen und beginnen. So fallen die beiden teuren Teile nicht in denselben Schritt
+        arming_ = to;
+        pending_ = to;
+        pending_trans_ = t;
+        sync_entered();
+        return;
+    }
+    // Paletten mischen (seit 0.5.8): erst exakt; reichen die 240 Farben nicht (nachts, drinnen ↔ draußen mit Wetter),
+    // ähnliche Farben zusammenlegen (für die 0,6 s unsichtbar). Ein Durchgang je Schritt, bis einer passt
+    bool fade = false;
+    if (!cut && t != Transition::Fade) {
+        if (scenes_[active_]->scale() != kCoarseScale && scenes_[to]->scale() != kCoarseScale) {
+            fade = true;  // beide fein: über Schwarz
+        } else {
+            constexpr int kTolerance[] = {0, 12, 30, 60};
+            if (merge_to_ != to) {
+                merge_to_ = to;
+                merge_try_ = 0;
+            }
+            const int k = std::min(merge_try_, 3);
+            if (!merge_palettes(active_, to, kTolerance[k], k == 3)) {
+                ++merge_try_;
+                arming_ = to;
+                pending_ = to;
+                pending_trans_ = t;
+                return;
+            }
+        }
+    }
+    merge_to_ = -1;
+    arming_ = -1;
     from_ = -1;  // laufenden Übergang abschließen
     hold_ = false;
     ++transitions_;
@@ -394,16 +438,26 @@ void Stage::start_transition(int to, Transition t) {
     from_ = active_;
     active_ = to;
     step_ = 0;
-    trans_ = t;
+    trans_ = fade ? Transition::Fade : t;
     sync_pins();
-    sync_entered();  // vor merge_palettes: ein Ort darf seine Palette beim Betreten setzen (Abblenden: erst geladen)
-    if (t != Transition::Fade) {
-        const bool both_fine = scenes_[from_]->scale() != kCoarseScale && scenes_[to]->scale() != kCoarseScale;
-        if (both_fine || !merge_palettes()) trans_ = Transition::Fade;
-    }
+    sync_entered();  // Abblenden: das Ziel wird betreten, sobald es geladen ist
 }
 
-void Stage::deliver_travels() {
+void Stage::deliver_travels(const WorldClock& clock) {
+    // Ankünfte von Verbindungen mit Reisezeit (seit 0.5.8), in der Reihenfolge des Aufbruchs. Springt die Uhr zurück
+    // (Testuhr), kommt man gleich an
+    const int64_t now = clock.world_us();
+    for (int k = 0; k < transit_n_;) {
+        const Transit& tr = transit_[k];
+        if (now < tr.arrive_us && now >= tr.depart_us) {
+            ++k;
+            continue;
+        }
+        const Transit done = tr;
+        for (int j = k + 1; j < transit_n_; ++j) transit_[j - 1] = transit_[j];
+        --transit_n_;
+        arrive_at(done.from, done.to, done.t);
+    }
     // Reihenfolge der Orte fest: gehört zum deterministischen Ablauf
     for (int i = 0; i < count_; ++i) {
         Travel t;
@@ -414,59 +468,91 @@ void Stage::deliver_travels() {
                 scenes_[i]->arrive(t);
                 continue;
             }
-            ++travels_;
-            scenes_[to]->arrive(t);
-            const bool followed = follow_who_ == 0 ? t.follow : follow_who_ != kNobody && t.who == follow_who_;
-            if (followed && follow_ && i == active_ && from_ < 0 && pending_ < 0) start_transition(to, t.transition);
+            if (t.travel > 0 && transit_n_ < kMaxTransit) {
+                // auf der Verbindung: gehört keinem Ort, bis die Reisezeit um ist (eine Figur ist nie doppelt)
+                transit_[transit_n_++] = Transit{t, now, now + static_cast<int64_t>(t.travel) * 1000000,
+                                                 static_cast<uint8_t>(i), static_cast<uint8_t>(to)};
+                publish_travel(EventKind::Departed, i, to, t);
+                continue;
+            }
+            arrive_at(i, to, t);
         }
     }
 }
 
-bool Stage::merge_palettes() {
-    // Erst exakt; reichen die 240 Farben nicht (nachts, drinnen ↔ draußen mit Wetter), ähnliche Farben zusammenlegen:
-    // für die 0,6 s der Überblendung unsichtbar, am Ende gilt wieder die eigene Palette (seit 0.5.3, vorher Abblenden)
-    constexpr int kTolerance[] = {0, 12, 30};
-    for (int t : kTolerance)
-        if (merge_palettes(t, false)) return true;
-    return merge_palettes(60, true);
+void Stage::publish_travel(EventKind kind, int from, int to, const Travel& t) {
+    WorldEvent e;
+    e.kind = kind;
+    e.place = scenes_[to]->name();
+    e.from = scenes_[from]->name();
+    e.who = t.who;
+    e.lead = t.follow;
+    e.day = env_.calendar.date().day;
+    env_.events.publish(e);
+}
+
+void Stage::arrive_at(int from, int to, const Travel& t) {
+    ++travels_;
+    scenes_[to]->arrive(t);
+    publish_travel(EventKind::Arrived, from, to, t);
+    // der Blick folgt bei der Ankunft (bei Wegen mit Reisezeit bleibt er so lange am Ausgangsort)
+    const bool followed = follow_who_ == 0 ? t.follow : follow_who_ != kNobody && t.who == follow_who_;
+    if (followed && follow_ && from == active_ && from_ < 0 && pending_ < 0) start_transition(to, t.transition);
 }
 
 // Ein Durchgang mit Toleranz (Summe der Abstände je Kanal); last: ist alles belegt, die nächste Farbe nehmen
-bool Stage::merge_palettes(int tolerance, bool last) {
+bool Stage::merge_palettes(int from, int to, int tolerance, bool last) {
+    // Seit 0.5.8 über ein grobes Farbgitter (8 × 8 × 8 Zellen zu je 32 Stufen): gesucht wird nur in den Zellen, die
+    // die Toleranz erreichen kann, statt in allen Plätzen (Rechenspitze beim Start einer Überblendung)
     slots_ = 0;
     map_from_.fill(0);
     map_to_.fill(0);
+    cell_head_.fill(0xFF);
+    const int reach = (tolerance + 31) / 32;
+    auto dist = [](const Color& a, const Color& b) { return std::abs(a.r - b.r) + std::abs(a.g - b.g) + std::abs(a.b - b.b); };
     auto add = [&](int si, std::array<uint8_t, 256>& map) {
         const Scene& s = *scenes_[si];
         const Palette& p = s.palette();
         const int n = std::clamp(s.colors(), 1, kSceneColors);
         for (int i = 0; i < n; ++i) {
             const Color c = p[i];
+            const int cr = c.r >> 5, cg = c.g >> 5, cb = c.b >> 5;
             int slot = -1, best = 1 << 30;
-            for (int k = 0; k < slots_; ++k) {
-                const Color m = palette_[k];
-                const int d = std::abs(m.r - c.r) + std::abs(m.g - c.g) + std::abs(m.b - c.b);
-                if (d < best) {
-                    best = d;
-                    slot = k;
-                    if (d <= tolerance) break;  // erste passende reicht
-                }
-            }
+            for (int r = std::max(0, cr - reach); r <= std::min(7, cr + reach); ++r)
+                for (int g = std::max(0, cg - reach); g <= std::min(7, cg + reach); ++g)
+                    for (int b = std::max(0, cb - reach); b <= std::min(7, cb + reach); ++b)
+                        for (int k = cell_head_[(r * 8 + g) * 8 + b]; k != 0xFF; k = cell_next_[k]) {
+                            const int d = dist(palette_[k], c);
+                            if (d < best || (d == best && k < slot)) {
+                                best = d;
+                                slot = k;
+                            }
+                        }
             if (best > tolerance) {
                 if (slots_ < kSceneColors) {
                     slot = slots_++;
                     palette_[slot] = c;
                     slot_scene_[slot] = static_cast<uint8_t>(si);
                     slot_index_[slot] = static_cast<uint8_t>(i);
+                    const int cell = (cr * 8 + cg) * 8 + cb;
+                    cell_next_[slot] = cell_head_[cell];
+                    cell_head_[cell] = static_cast<uint8_t>(slot);
                 } else if (!last) {
                     return false;
+                } else if (slot < 0) {
+                    // alles belegt und nichts in Reichweite: die nächste aller Farben (selten)
+                    for (int k = 0; k < slots_; ++k)
+                        if (const int d = dist(palette_[k], c); d < best) {
+                            best = d;
+                            slot = k;
+                        }
                 }
             }
             map[i] = static_cast<uint8_t>(slot);
         }
         return true;
     };
-    return add(from_, map_from_) && add(active_, map_to_);
+    return add(from, map_from_) && add(to, map_to_);
 }
 
 int Stage::visible() const {
@@ -490,6 +576,7 @@ void Stage::update_palette() {
 }
 
 void Stage::tick(const WorldClock& clock) {
+    env_.events.deliver();  // Takt-Grenze: was im letzten Schritt gemeldet wurde, sehen jetzt alle
     if (pending_ >= 0) {
         const int to = pending_;
         pending_ = -1;
@@ -509,7 +596,7 @@ void Stage::tick(const WorldClock& clock) {
         else if (++step_ >= ticks_)
             from_ = -1;
     }
-    deliver_travels();
+    deliver_travels(clock);
     if (was && from_ < 0) {
         sync_pins();
         sync_entered();
@@ -583,11 +670,16 @@ const Palette& Stage::palette() const {
     return scenes_[active_]->palette();
 }
 
-void Stage::draw_scene(const Scene& s, Canvas& fine, bool moon) const {
+void Stage::draw_scene(const Scene& s, Canvas& fine, bool transition) const {
     SkyView view;
+    // Mond (seit 0.5.7) über dem Himmel bzw. Fensterglas, hinter den Partikeln. Seit 0.5.8 auch beim Abblenden, wenn
+    // der Ort eigene Mondfarben hat (die Farben der Oberfläche würden nicht mit abblenden)
+    auto moon = [&] {
+        if (env_.sky.moon_visible() && s.sky_view(&view) && (!transition || view.moon >= 0)) env_.sky.draw(fine, view);
+    };
     if (s.scale() != kCoarseScale) {
         s.render(fine);
-        if (moon && env_.sky.moon_visible() && s.sky_view(&view)) env_.sky.draw(fine, view);
+        moon();
         return;
     }
     if (!main_) {
@@ -599,9 +691,39 @@ void Stage::draw_scene(const Scene& s, Canvas& fine, bool moon) const {
     layers_.veil_grid = nullptr;
     s.render_layers(coarse, layers_);
     upscale2x(main_, fine, &layers_);
-    // Mond (seit 0.5.7) über dem Himmel bzw. Fensterglas, hinter den Partikeln; nicht während eines Wechsels
-    if (moon && env_.sky.moon_visible() && s.sky_view(&view)) env_.sky.draw(fine, view);
+    moon();
     s.render_fine(fine, layers_, nullptr);
+}
+
+bool Stage::shows_new(int x, int y) const {
+    // wie compose(): Schwelle je grobem Bildpunkt (zufällig bzw. Raster) gegen den Fortschritt
+    const int level = step_ * 256 / ticks_;
+    const int thr = trans_ == Transition::Pattern
+                        ? kBayer4[y & 3][x & 3] * 16 + 8
+                        : static_cast<int>(mix(static_cast<uint32_t>(y * kCoarseWidth + x) ^
+                                               mix(transitions_ * 0x9E3779B1u)) &
+                                           0xFF);
+    return thr < level;
+}
+
+namespace {
+struct OwnsCtx {
+    const Stage* stage;
+    bool is_new;
+};
+}  // namespace
+
+bool Stage::owns_pixel(const void* ctx, int x, int y) {
+    const auto* c = static_cast<const OwnsCtx*>(ctx);
+    return c->stage->shows_new(x >> 1, y >> 1) == c->is_new;
+}
+
+void Stage::draw_moon(const Scene& s, Canvas& fine, bool is_new) const {
+    // Überblendung (seit 0.5.8): Mond je Ort nur in dessen Bildpunkten, in den Farben der gemeinsamen Palette
+    SkyView view;
+    if (!env_.sky.moon_visible() || !s.sky_view(&view) || view.moon < 0) return;
+    const OwnsCtx ctx{this, is_new};
+    env_.sky.draw(fine, view, is_new ? map_to_.data() : map_from_.data(), &Stage::owns_pixel, &ctx);
 }
 
 void Stage::release_weather() {
@@ -650,6 +772,43 @@ void Stage::update_world(const WorldClock& clock) {
     env_.sky.update(cal.date(), clock.unix_s(), env_.weather.state());
     const MoonInfo& m = env_.sky.moon();
     if (m.illum >= 985 && m.up > 0 && env_.sky.dark() >= 256) cal.first(First::FullMoon);
+    env_.world_minute = wm;
+    step_states(wm);
+}
+
+void Stage::step_states(int64_t wm) {
+    // Ortszustände (seit 0.5.8): Minute für Minute bis jetzt, nach einem Sprung höchstens einen Tag nach; beim Start
+    // und wenn die Uhr zurückspringt nur die jetzige Minute
+    if (state_minute_ == INT64_MIN || wm < state_minute_) state_minute_ = wm - 1;
+    if (wm - state_minute_ > 1440) state_minute_ = wm - 1440;
+    StateInput in;
+    in.sun = env_.sky.sun();
+    const WeatherState& w = env_.weather.state();
+    in.rain = std::max<int>(w.rain, w.storm);
+    // Trocknen: Sonne und Wind, bei Wolken und Nebel langsamer; im Sommer schneller, im Winter langsamer
+    int dry = 96 - w.cloud * 56 / 255 + w.wind * 32 / 255;
+    dry = dry * (255 - w.fog * 3 / 4) / 255;
+    const Season season = env_.calendar.date().season;
+    if (season == Season::Summer) dry = dry * 3 / 2;
+    if (season == Season::Winter) dry /= 2;
+    in.dry_day = std::max(4, dry);
+    in.dry_night = std::max(2, dry / 6);
+    // Hauptfigur: in welchem Haushalt (Kerze für Heimkehrer); unterwegs auf einer Verbindung = nicht daheim
+    const uint16_t who = lead();
+    const int at = find_figure(who);
+    if (at >= 0) {
+        in.lead_known = true;
+        const PlaceDef* d = find_place(scenes_[at]->name());
+        in.lead_house = d ? d->house : nullptr;
+    } else {
+        for (int k = 0; k < transit_n_; ++k) in.lead_known = in.lead_known || transit_[k].t.follow;
+    }
+    env_.states.set_day(env_.calendar.date().day);
+    for (int64_t m = state_minute_ + 1; m <= wm; ++m) {
+        const int64_t mod = ((m % 1440) + 1440) % 1440;
+        env_.states.step(static_cast<int>(mod), in);
+    }
+    state_minute_ = wm;
 }
 
 void Stage::render(Canvas& fine) const {
@@ -664,7 +823,7 @@ void Stage::render(Canvas& fine) const {
             return;
         }
         const Scene& s = *scenes_[v];
-        draw_scene(s, fine, from_ < 0);
+        draw_scene(s, fine, from_ >= 0);
         if (from_ < 0) s.render_overlay(fine);
         return;
     }
@@ -673,7 +832,7 @@ void Stage::render(Canvas& fine) const {
     const Scene& b = *scenes_[active_];
     if (!entered(from_) || !entered(active_)) {  // Wechsel mitten in einem wartenden Abblenden
         if (entered(active_))
-            draw_scene(b, fine, false);
+            draw_scene(b, fine, true);
         else
             fine.clear(0);
         return;
@@ -699,6 +858,8 @@ void Stage::render(Canvas& fine) const {
         a.render(fine);
     }
     compose(fine, oc, nc);
+    draw_moon(a, fine, false);
+    draw_moon(b, fine, true);
     // Wetter des Ziels über dem ganzen Bild (Schleier gibt es während der Überblendung nicht)
     if (nc) b.render_fine(fine, layers_, map_to_.data());
 }

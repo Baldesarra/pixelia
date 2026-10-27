@@ -13,8 +13,6 @@
         "farbreihe/blau": {"platzhalter": "blau"},
         "farbreihe/gelb": {"platzhalter": "gelb"},
         "farbreihe/lavendel": {"platzhalter": "lavendel"},
-        "farbreihe/gruen": {"platzhalter": "gruen"},
-        "farbreihe/tuerkis": {"platzhalter": "tuerkis"},
         "farbreihe/holz": {"platzhalter": "holz"},
         "farbreihe/tapete": {"wand": "tapete"}
       },
@@ -31,7 +29,9 @@
         "teil/busch": {"datei": "teile/busch.png"},
         "teil/bank": {"datei": "teile/bank.png"},
         "teil/lampe": {"datei": "teile/lampe.png", "bilder": 4, "zustaende": 2},
-        "teil/pflanze": {"datei": "teile/pflanze.png"}
+        "teil/pflanze": {"datei": "teile/pflanze.png"},
+        "teil/becken": {"datei": "teile/becken.png", "bilder": 4, "zustaende": 4},
+        "teil/pfuetze": {"datei": "teile/pfuetze.png", "bilder": 2, "zustaende": 2}
       }
     },
     "wiese": {
@@ -42,6 +42,10 @@
     "raum": {
       "bilder": {
         "teil/bild": {"datei": "teile/bild.png"},
+        "teil/fenster-gross": {"datei": "teile/fenster-gross.png"},
+        "teil/kerze": {"datei": "teile/kerze.png", "bilder": 2, "zustaende": 2},
+        "teil/blumentopf": {"datei": "teile/blumentopf.png"},
+        "teil/ofen": {"datei": "teile/ofen.png", "bilder": 3, "zustaende": 3},
         "teil/teppich": {"datei": "teile/teppich.png"},
         "teil/schrank": {"datei": "teile/schrank.png"},
         "teil/bett/0": {"datei": "teile/bett-0.png"},
