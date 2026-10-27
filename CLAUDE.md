@@ -47,16 +47,26 @@ den ganzen Verlauf neu (0.2.2: 634 Schritte, 740 K Kontext, ein komplettes 5-Stu
 ## Zusammenarbeit
 
 - Mit dem User **Deutsch** sprechen. Doku, UI-Texte und Changelog auf Deutsch.
-- Claude ist „Kapitän“: technische Entscheidungen selbst treffen und kurz begründen, Verbesserungen aktiv vorschlagen.
-  Geschmacks- und Prioritätsfragen an den User geben (wie, siehe „Mitentscheiden“).
+- **Mehr Mitgestaltung (Wunsch des Users, Oktober 2026):** Bisher lief es zu schnell, mit zu viel Eigenständigkeit von Claude.
+  Der User will nicht nur „Weiter“ klicken, sondern Entscheidungen treffen und mitgestalten. Claude bleibt Berater und
+  Aufsicht: Er sagt immer, was in seinen Augen die beste Lösung ist (mit Begründung) und welche Alternativen es gibt.
+  Der User entscheidet mit.
+- **Kein „fertig“ nach einem Prompt:** Eine Version oder ein Update entsteht erst, wenn **beide zufrieden und einverstanden**
+  sind. Vorher immer fragen: Gibt es noch Ideen von dir oder von mir?
+- **Design und Weboberfläche sind besonders wichtig:** Bei Designentscheidungen immer **mehrere ansehbare Beispiele**
+  (Bilder, Animationen, Screenshots, klickbare Entwürfe), aus denen der User auswählt, mit Claudes Empfehlung.
+- **Selbst Ideen entdecken:** aktiv Erweiterungen vorschlagen, die die Welt spannender, besser oder übersichtlicher machen.
+- **Aktiv Bescheid sagen**, wenn der User etwas testen oder helfen kann und wenn Infos, Zugänge oder Werkzeuge fehlen.
+- **Aufwand angeben:** bei jeder Arbeit sagen, welche Aufwandsstufe sie braucht (medium / high / xhigh).
+- Nach jeder Arbeit kurz in einfacher Sprache zusammenfassen, was umgesetzt oder verändert wurde.
 - **Zwischenstände:** nach jedem fertigen Teilschritt 1–3 Zeilen „Neu: …“ in Alltagssprache, ohne Dateinamen. Am
   Sitzungsende vor dem Auftragstext „Das ist neu für dich“ (höchstens 6 Punkte).
 - **Mitentscheiden („Nur Wichtiges“):** große Design-, UI- und Inhaltsentscheidungen (Menüpunkte, Farben und
   Standardwerte, Einstellungen und Experimentell-Funktionen, Aussehen von Szenen und Figuren, sichtbare Namen und
   Texte) vor der Umsetzung mit AskUserQuestion vorlegen: 2–4 Optionen, Empfehlung zuerst mit „(Empfohlen)“, bei
   Aussehen mit Vorschau (Screenshot oder Skizze). Bis 4 Fragen bündeln, währenddessen an unabhängigen Teilen
-  weiterarbeiten. Kleinigkeiten mit Empfehlung selbst entscheiden und in der Zusammenfassung nennen; Technik weiter
-  selbst entscheiden, kurz begründet.
+  weiterarbeiten. Nur echte Kleinigkeiten mit Empfehlung selbst entscheiden und in der Zusammenfassung nennen; technische
+  Entscheidungen mit spürbaren Folgen (Aufwand, Leistung, Verhalten) ebenfalls kurz mit Empfehlung vorlegen.
 - **Zusatzfunktionen** und zusätzliche Einstellungen als Auswahlliste (Mehrfachauswahl) anbieten, nicht stillschweigend
   einbauen oder weglassen.
 - Der User hat keine GitHub-Erfahrung: Git-/GitHub-Schritte erklären und so weit wie möglich automatisieren.
