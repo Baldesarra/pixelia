@@ -12,6 +12,7 @@
 #include "pixelia/engine/place.h"
 #include "pixelia/engine/save.h"
 #include "pixelia/engine/stage.h"
+#include "pixelia/engine/tiles.h"
 
 namespace pixelia {
 
@@ -40,7 +41,8 @@ void duration_text(int64_t minutes, char* out, size_t n) {
 
 // Abschnitte des Speicherstands (Kennung, Version)
 constexpr char kWorld[] = "WELT", kCal[] = "KAL ", kPlaces[] = "ORTE", kStates[] = "ZUST", kFlags[] = "MERK",
-               kFigs[] = "FIGS", kChron[] = "CHRO", kVisits[] = "BESU";
+               kFigs[] = "FIGS", kChron[] = "CHRO", kVisits[] = "BESU",
+               kDoings[] = "TAET";  // seit 0.5.9 Teil 2: Takt-Grenze und Tätigkeiten
 
 }  // namespace
 
@@ -121,17 +123,14 @@ Travel Stage::travel_of(const FigureRecord& f, int to_scene) const {
 }
 
 void Stage::adopt_figures() {
-    // in der Reihenfolge des Weltzustands: gehört zum deterministischen Ablauf
-    const FigureBook& book = env_.figures;
+    // jede Figur an einem Ort bekommt eine Kachel (irgendwo frei) und entscheidet an der ersten Takt-Grenze; in der
+    // Reihenfolge des Weltzustands, mit dem Zufall je Figur (seit 0.5.9 Teil 2, world_sim.cpp)
+    FigureBook& book = env_.figures;
     for (int k = 0; k < book.count(); ++k) {
-        const FigureRecord& f = book.at(k);
+        FigureRecord& f = book.at(k);
         if (f.where.kind != Whereabouts::Kind::Place) continue;
         const int s = scene_of(f.where.place);
-        if (s < 0) continue;
-        Travel t = travel_of(f, s);
-        t.entry = kAnyEntry;
-        t.travel = 0;
-        scenes_[s]->arrive(t);
+        if (s >= 0) start_doing(f, s, kAnyEntry, INT64_MIN);
     }
 }
 
@@ -145,11 +144,9 @@ void Stage::rebuild_transit() {
         const int to = scene_of(f.where.place), from = scene_of(f.where.from);
         if (to < 0 || from < 0 || transit_n_ >= kMaxTransit) {
             // Ziel nicht auf der Bühne (oder zu viele unterwegs): gleich angekommen
+            const uint8_t entry = f.where.entry;
             f.where.kind = Whereabouts::Kind::Place;
-            if (to >= 0) {
-                Travel t = travel_of(f, to);
-                scenes_[to]->arrive(t);
-            }
+            if (to >= 0) start_doing(f, to, entry, INT64_MIN);
             continue;
         }
         transit_[transit_n_++] = Transit{travel_of(f, to), f.where.depart_us, f.where.arrive_us,
@@ -211,6 +208,8 @@ void Stage::note_wake() {
 }
 
 const char* Stage::check_figures(char* buf, int n) const {
+    // seit 0.5.9 Teil 2: Wo eine Figur ist, sagt allein ihr Feld where; gezeigt wird sie nur in einem betretenen Ort,
+    // dort aber genau einmal (die Darstellung folgt dem Weltzustand in jedem Schritt)
     const FigureBook& book = env_.figures;
     for (int k = 0; k < book.count(); ++k) {
         const FigureRecord& f = book.at(k);
@@ -227,8 +226,9 @@ const char* Stage::check_figures(char* buf, int n) const {
         } else if (f.where.kind == Whereabouts::Kind::Place) {
             const int s = scene_of(f.where.place);
             if (moving) err = "gehört einem Ort, ist aber unterwegs";
-            else if (seen != (s >= 0 ? 1 : 0)) err = seen ? "ist doppelt im Bild" : "fehlt in ihrem Ort";
-            else if (s >= 0 && at != s) err = "ist im falschen Ort";
+            else if (seen > 1) err = "ist doppelt im Bild";
+            else if (seen && at != s) err = "ist im falschen Ort";
+            else if (!seen && s >= 0 && entered(s)) err = "fehlt in ihrem Ort";
         } else if (seen || moving != 1) {
             err = seen ? "ist unterwegs und zugleich im Bild" : "ist unterwegs, aber nicht auf der Verbindung";
         }
@@ -237,17 +237,6 @@ const char* Stage::check_figures(char* buf, int n) const {
                           f.name.data(), err, seen, moving);
             return buf;
         }
-    }
-    // fremde Figuren: im Bild oder unterwegs, aber nicht im Weltzustand (Statisten ausgenommen)
-    FigureInfo list[64];
-    for (int i = 0; i < count_; ++i) {
-        const int m = scenes_[i]->figures(list, 64);
-        for (int k = 0; k < m; ++k)
-            if (list[k].id < kStatistIds && !book.find(list[k].id)) {
-                std::snprintf(buf, n, "Figur %u in %s gehört nicht zur Welt", static_cast<unsigned>(list[k].id),
-                              scenes_[i]->name());
-                return buf;
-            }
     }
     for (int j = 0; j < transit_n_; ++j) {
         const FigureRecord* f = book.find(transit_[j].t.who);
@@ -420,6 +409,34 @@ size_t Stage::save_state(uint8_t* buf, size_t cap, uint32_t generation) const {
         w.u16(v.from);
         w.u16(v.to);
     }
+
+    // Tätigkeiten (seit 0.5.9 Teil 2): letzte Takt-Grenze und der laufende Zeitblock jeder Figur (unterwegs zählt nur
+    // die laufende Nummer: Zufall der nächsten Entscheidung). So geht nach einem Neustart jede Tätigkeit genau dort
+    // weiter (fehlt der Abschnitt, entscheiden alle neu)
+    w.chunk(kDoings, 1);
+    w.i64(grid_);
+    w.u16(static_cast<uint16_t>(book.count()));
+    for (int k = 0; k < book.count(); ++k) {
+        const FigureRecord& f = book.at(k);
+        const Doing& d = f.doing;
+        const size_t r = w.record_begin();
+        w.u16(f.id);
+        w.u8(static_cast<uint8_t>(d.kind));
+        w.u8(d.part);
+        w.u8(d.k);
+        w.u8(d.exit);
+        w.u8(d.sx);
+        w.u8(d.sy);
+        w.u8(d.gx);
+        w.u8(d.gy);
+        w.u16(d.steps);
+        w.u32(d.seq);
+        w.i64(d.start_us);
+        w.i64(d.walk_us);
+        w.i64(d.end_us);
+        w.i64(d.since_us);
+        w.record_end(r);
+    }
     return w.finish();
 }
 
@@ -517,9 +534,9 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
             const int m = d.u8();
             for (int k = 0; k < m && d.ok(); ++k) env_.flags.set(d.view(), true);
         } else if (std::strcmp(tag, kFigs) == 0) {
-            // Figuren aus den Orten und von den Verbindungen nehmen, dann die gespeicherten setzen
+            // Figuren von den Verbindungen nehmen, dann die gespeicherten setzen (die Orte zeigen, was im Weltzustand
+            // steht)
             figures = true;
-            for (int i = 0; i < count_; ++i) scenes_[i]->clear_figures();
             transit_n_ = 0;
             env_.figures.clear();
             const int m = d.u16();
@@ -651,7 +668,7 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
                 v.to = d.u16();
                 if (d.ok()) env_.visits.add(v);
             }
-        } else if (std::strcmp(tag, kPlaces) != 0) {
+        } else if (std::strcmp(tag, kPlaces) != 0 && std::strcmp(tag, kDoings) != 0) {
             ++rep.skipped_chunks;  // neuere Firmware: unbekannt, übersprungen
         }
     }
@@ -661,6 +678,52 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
     if (figures) {
         adopt_figures();
         rebuild_transit();
+        // Tätigkeiten (seit 0.5.9 Teil 2) nach den Figuren, egal wo der Abschnitt steht; ohne ihn (Stand aus Teil 1)
+        // setzt der erste Schritt alle neu an
+        grid_ = INT64_MIN;
+        SaveChunks c2(data, n);
+        while (c2.next(tag, &version, &d)) {
+            if (std::strcmp(tag, kDoings) != 0) continue;
+            const int64_t grid = d.i64();
+            const int m = d.u16();
+            for (int k = 0; k < m && d.ok(); ++k) {
+                SaveReader r = d.record();
+                const uint16_t id = r.u16();
+                Doing x;
+                x.kind = static_cast<DoingKind>(r.u8());
+                x.part = r.u8();
+                x.k = r.u8();
+                x.exit = r.u8();
+                x.sx = r.u8();
+                x.sy = r.u8();
+                x.gx = r.u8();
+                x.gy = r.u8();
+                x.steps = r.u16();
+                x.seq = r.u32();
+                x.start_us = r.i64();
+                x.walk_us = r.i64();
+                x.end_us = r.i64();
+                x.since_us = r.i64();
+                FigureRecord* f = env_.figures.find(id);
+                const bool sane = r.ok() && x.kind < DoingKind::kCount && x.sx < kTilesX && x.gx < kTilesX &&
+                                  x.sy < kTilesY && x.gy < kTilesY && x.start_us <= x.walk_us && x.walk_us <= x.end_us;
+                if (!f || !sane) continue;
+                if (f->where.kind != Whereabouts::Kind::Place || x.kind == DoingKind::None) {
+                    f->doing.seq = x.seq;  // unterwegs (oder beim Laden gleich angekommen): nur die laufende Nummer
+                    continue;
+                }
+                f->doing = x;
+                ++rep.doings;
+            }
+            if (d.ok() && grid != INT64_MIN) grid_ = grid;
+        }
+        // ohne gespeicherte Tätigkeit: an der nächsten Takt-Grenze entscheiden
+        for (int k = 0; grid_ != INT64_MIN && k < env_.figures.count(); ++k) {
+            Doing& x = env_.figures.at(k).doing;
+            if (x.end_us != INT64_MIN) continue;
+            x.start_us = x.walk_us = x.since_us = grid_;
+            x.end_us = grid_ + kGridUs;
+        }
     }
     for (int k = 0; k < env_.figures.count(); ++k) rep.transit += env_.figures.at(k).where.kind == Whereabouts::Kind::Link;
     world_minute_ = INT64_MIN;
@@ -669,6 +732,8 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
     past_key_ = INT64_MIN;
     saved_minute_ = minute_of_us(h.world_us);
     world_us_ = h.world_us;
+    for (int i = 0; figures && i < count_; ++i)
+        if (entered(i)) scenes_[i]->refresh(world_us_);  // gezeigt wird ab sofort der geladene Stand
     wake_pending_ = true;
     caught_up_ = skipped_ = 0;
     rep.ok = true;

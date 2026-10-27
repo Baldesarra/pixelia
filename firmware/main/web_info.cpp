@@ -630,6 +630,7 @@ esp_err_t world_get(httpd_req_t* req) {
             for (int i = 0; i < v->figures; ++i) {
                 const gfx::FigureRow& f = v->fig[i];
                 j.obj().num("id", f.id).str("name", f.name).num("age", f.age).str("place", f.place).str("home", f.home);
+                j.str("doing", f.doing);
                 j.boolean("lead", f.lead).boolean("moving", f.moving).num("relations", f.relations).num("memories", f.memories);
                 j.arr("skills");
                 for (int k = 0; k < f.skill_n; ++k) {

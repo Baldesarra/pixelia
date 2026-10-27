@@ -475,6 +475,9 @@ void load_save() {
         ESP_LOGW(TAG, "Speicherstand ungültig (%s): die Welt beginnt neu", r.why);
         return;
     }
+    // seit 0.5.9 Teil 2: Die Weltuhr läuft bis zur echten Uhrzeit (NTP) ab dem gespeicherten Stand weiter. So gehen die
+    // Tätigkeiten nahtlos weiter, und der Sprung auf die echte Zeit (Dauer des Neustarts) wird genau nachgeholt
+    if (!s_real_synced) s_clock.set_world_us(r.saved_us);
     std::lock_guard<std::mutex> g(s_world_lock);
     s_save.loaded = true;
     s_save.generation = h.generation;
@@ -482,9 +485,9 @@ void load_save() {
     s_save.figures = r.figures;
     s_save.transit = r.transit;
     s_save.chronicle = r.chronicle;
-    ESP_LOGI(TAG, "Speicherstand %lu geladen (Platz %c, %.1f KB, %lld µs): %d Figuren, %d unterwegs, %d Zustände, "
-             "%d Einträge Chronik%s; Stack frei %u Byte", static_cast<unsigned long>(h.generation), slot ? 'b' : 'a', d.size() / 1024.0,
-             static_cast<long long>(esp_timer_get_time() - t), r.figures, r.transit, r.states, r.chronicle,
+    ESP_LOGI(TAG, "Speicherstand %lu geladen (Platz %c, %.1f KB, %lld µs): %d Figuren, %d unterwegs, %d Tätigkeiten, "
+             "%d Zustände, %d Einträge Chronik%s; Stack frei %u Byte", static_cast<unsigned long>(h.generation), slot ? 'b' : 'a', d.size() / 1024.0,
+             static_cast<long long>(esp_timer_get_time() - t), r.figures, r.transit, r.doings, r.states, r.chronicle,
              r.unknown_places ? ", Orte fehlen (Figuren im ersten Ort)" : "", static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
 }
 
@@ -551,6 +554,9 @@ void fill_view() {
         std::snprintf(r.home, sizeof(r.home), "%s", f.home.data());
         const pixelia::PlaceDef* p = pixelia::place_at(f.where.place);
         std::snprintf(r.place, sizeof(r.place), "%s%s", r.moving ? "unterwegs nach " : "", p ? p->title : "?");
+        constexpr const char* kDoing[] = {"", "steht", "geht umher", "ist beschäftigt", "geht hinaus"};
+        const int dk = static_cast<int>(f.doing.kind);
+        std::snprintf(r.doing, sizeof(r.doing), "%s", r.moving || dk >= 5 ? "" : kDoing[dk]);
         for (int s = 0; s < pixelia::kSkills && r.skill_n < 8; ++s)
             if (f.skills[s].level != pixelia::SkillLevel::Unknown)
                 r.skills[r.skill_n++] = {static_cast<uint8_t>(s), static_cast<uint8_t>(f.skills[s].level)};
@@ -965,7 +971,16 @@ void gfx_task(void* arg) {
         follow_real_time(t0);
         for (int i = 0; i < ticks; ++i) {
             s_clock.advance(step_us);
+            const int64_t ts = esp_timer_get_time();
+            const bool was = s_stage.transitioning();
             s_stage.tick(s_clock);
+            // Diagnose (0.5.9 Teil 2): lange Logik-Schritte mit Phase des Übergangs ins Log
+            if (const int64_t d = esp_timer_get_time() - ts; d > 8000)
+                ESP_LOGW(TAG, "Logik %lld µs: %s → %s, Übergang %s (Schritt %d, vorher %s), Takt-Grenzen %d",
+                         static_cast<long long>(d),
+                         s_stage.transition_from() >= 0 ? s_stage.scene(s_stage.transition_from()).name() : "-",
+                         s_stage.scene(s_stage.active()).name(), s_stage.transitioning() ? "läuft" : "aus",
+                         s_stage.transition_step(), was ? "lief" : "aus", s_stage.last_grid_steps());
             s_camera.tick(s_stage);
         }
         s_place.store(s_stage.active(), std::memory_order_relaxed);

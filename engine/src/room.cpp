@@ -302,6 +302,47 @@ bool Room::step_toward(int fx, int fy, int tx, int ty, Facing* dir) const {
     return false;
 }
 
+int Room::path(int fx, int fy, int tx, int ty, Facing* dirs, int max) const {
+    if (fx == tx && fy == ty) return 0;
+    if (!st_ || tx < 0 || ty < 0 || tx >= kTilesX || ty >= kTilesY || fx < 0 || fy < 0 || fx >= kTilesX ||
+        fy >= kTilesY)
+        return -1;
+    // wie step_toward: vom Ziel aus suchen, bis der Start gefunden ist; dann den Richtungen bis zum Ziel folgen
+    std::memset(st_->next, kUnseen, sizeof(st_->next));
+    int head = 0, tail = 0;
+    st_->queue[tail++] = static_cast<uint16_t>(ty * kTilesX + tx);
+    st_->next[ty * kTilesX + tx] = 0;
+    const int from = fy * kTilesX + fx;
+    bool found = false;
+    while (head < tail && !found) {
+        const int c = st_->queue[head++];
+        const int cx = c % kTilesX, cy = c / kTilesX;
+        for (int d = 0; d < 4; ++d) {
+            const int nx = cx + kStepX[d], ny = cy + kStepY[d];
+            if (nx < 0 || ny < 0 || nx >= kTilesX || ny >= kTilesY) continue;
+            const int n = ny * kTilesX + nx;
+            if (st_->next[n] != kUnseen) continue;
+            if (n != from && !st_->walk[ny][nx]) continue;
+            st_->next[n] = static_cast<uint8_t>(d ^ 1);
+            if (n == from) {
+                found = true;
+                break;
+            }
+            st_->queue[tail++] = static_cast<uint16_t>(n);
+        }
+    }
+    if (!found) return -1;
+    int steps = 0, x = fx, y = fy;
+    while ((x != tx || y != ty) && steps < kTileCells) {
+        const int d = st_->next[y * kTilesX + x];
+        if (dirs && steps < max) dirs[steps] = static_cast<Facing>(d);
+        x += kStepX[d];
+        y += kStepY[d];
+        ++steps;
+    }
+    return steps;
+}
+
 void Room::place(const RoomPart& p, int fw, int fh, const PartStage& look, int* x, int* y, int* depth) const {
     const int bottom = (p.y + fh) * kTileSize;
     *x = p.x * kTileSize + (fw * kTileSize - look.sheet.width) / 2 + ((p.flags & kPartFlipped) ? -look.ox : look.ox);

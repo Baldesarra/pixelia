@@ -61,6 +61,10 @@ const char* memory_kind_name(MemoryKind k) {
                                     "entfernt", "besuch",     "gabe",        "ereignis"};
     return static_cast<int>(k) < static_cast<int>(MemoryKind::kCount) ? n[static_cast<int>(k)] : "?";
 }
+const char* doing_kind_name(DoingKind k) {
+    static const char* const n[] = {"keine", "steht", "geht", "benutzt", "geht-hinaus"};
+    return static_cast<int>(k) < static_cast<int>(DoingKind::kCount) ? n[static_cast<int>(k)] : "?";
+}
 
 const Relation* FigureRecord::relation(uint16_t other) const {
     for (const Relation& r : relations)

@@ -458,8 +458,9 @@ bool handle(char* line) {
                         n += std::snprintf(skills + n, sizeof(skills) - n, "%s%s %s", k ? ", " : "",
                                            pixelia::skill_title(static_cast<pixelia::Skill>(f.skills[k].skill)),
                                            pixelia::skill_level_title(static_cast<pixelia::SkillLevel>(f.skills[k].level)));
-                    ESP_LOGI(TAG, "%4u %-14s %2u J. %s%s · %s · %u Bez., %u Erinn.", f.id, f.name, f.age, f.place,
-                             f.lead ? " (Hauptfigur)" : "", skills, f.relations, f.memories);
+                    ESP_LOGI(TAG, "%4u %-14s %2u J. %s%s%s%s · %s · %u Bez., %u Erinn.", f.id, f.name, f.age, f.place,
+                             f.doing[0] ? ", " : "", f.doing, f.lead ? " (Hauptfigur)" : "", skills, f.relations,
+                             f.memories);
                 }
                 ESP_LOGI(TAG, "%d Figuren, Besuche %d (%d laufen)", v.figures, v.visits, v.visits_open);
             } else {

@@ -121,6 +121,26 @@ struct Whereabouts {
     int64_t depart_us = 0, arrive_us = 0;  // Verbindung: Weltzeit
 };
 
+// --- Tätigkeit als Zeitblock (seit 0.5.9 Teil 2: Stufen der Simulation, SETTING.md Kapitel 15) ---
+// Los um start_us von Kachel (sx, sy), am Ziel (gx, gy) um walk_us (steps Kacheln Weg), fertig um end_us. Der Planer
+// des Ortes entscheidet sie (Scene::decide) und bucht ihre Wirkung an ihrem Ende (Scene::finish), sichtbar oder nicht
+// derselbe Code: gleiche Wirkung, andere Darstellung. Die volle Stufe zeigt nur, wo die Figur gerade ist.
+// Hinausgehen (Leave) endet immer an einer Takt-Grenze (ganze Weltsekunde): Bis dahin wartet die Figur an der Tür,
+// dann übergibt die Bühne sie in einem Schritt.
+enum class DoingKind : uint8_t { None, Idle, Wander, Use, Leave, kCount };  // None: gleich neu entscheiden
+const char* doing_kind_name(DoingKind k);  // keine, steht, geht, benutzt, geht hinaus
+struct Doing {
+    DoingKind kind = DoingKind::None;
+    uint8_t part = 0xFF, k = 0;  // Use: Teil (Nummer in der Raumliste) und Benutzungspunkt
+    uint8_t exit = 0xFF;         // Leave: Ausgang
+    uint8_t sx = 0, sy = 0;      // Start-Kachel
+    uint8_t gx = 0, gy = 0;      // Ziel-Kachel (danach steht die Figur dort)
+    uint16_t steps = 0;          // Weglänge in Kacheln (0 = steht schon dort)
+    uint32_t seq = 0;            // laufende Nummer der Entscheidung (Zufall je Figur, Darstellung erkennt den Wechsel)
+    int64_t start_us = 0, walk_us = 0, end_us = 0;  // Weltzeit
+    int64_t since_us = 0;        // am Ort seit (Ankunft)
+};
+
 enum FigureFlag : uint8_t { kFigLead = 1, kFigGuest = 2 };
 
 struct FigureRecord {
@@ -143,6 +163,7 @@ struct FigureRecord {
     std::array<Interest, kInterests> interests{};
     FigureLook look{};
     Whereabouts where{};
+    Doing doing{};  // seit 0.5.9 Teil 2: laufende Tätigkeit (nur am Ort; Speicherstand: Abschnitt TAET)
     std::array<SkillState, kSkills> skills{};
     std::array<Relation, kRelations> relations{};
     std::array<Memory, kMemories> memories{};

@@ -14,8 +14,8 @@
 //   240 Farben oder sind beide fein, wird stattdessen über Schwarz geblendet.
 // - Betreten (seit 0.5.1): Die Bühne meldet jedem Ort, ob er zu sehen ist (enter/leave); während eines Übergangs
 //   sind beide Orte betreten. Räume zeichnen dabei ihr Hintergrundbild vor bzw. geben es frei.
-// - Ausgänge (seit 0.5.1): Nach jedem Schritt holt die Bühne die Reisenden aller Orte ab (take_travel) und gibt sie
-//   im Zielort ab (arrive). Folgt der Blick (follow) und ist der Ort gerade zu sehen, wechselt die Bühne mit dem
+// - Ausgänge (seit 0.5.1): Wer hinausgeht, kommt im Zielort an (seit 0.5.9 Teil 2 an der Takt-Grenze, über den
+//   Weltzustand). Folgt der Blick (follow) und ist der Ort gerade zu sehen, wechselt die Bühne mit dem
 //   Übergang des Ausgangs (Standard Abblenden). Gibt es den Zielort nicht, kommt der Reisende am selben Ausgang zurück.
 // - Grafik-Pakete (seit 0.5.5, assets.h): Die Bühne heftet die Pakete des sichtbaren Ortes, des Ortes, von dem aus
 //   gewechselt wird, und des angeforderten Ziels an und lädt die Pakete der Nachbarorte vorab. Ein Ort wird erst
@@ -33,6 +33,16 @@
 //   Chronik und Besuche trägt sie aus dem Ereignis-Bus ein. Speicherstand als Ganzes: save_state/load_state
 //   (world_save.cpp, Format save.h); nach dem Laden holt sie die Ortszustände nach (bis 3 Tage, verteilt auf mehrere
 //   Schritte, Wetter der verpassten Zeit aus der Wetter-Simulation).
+// - Seit 0.5.9 Teil 2 Stufen der Simulation (world_sim.cpp, SETTING.md Kapitel 15, Entscheidung des Users 2026-10-27:
+//   beide auf Kern 1): Tätigkeiten sind Zeitblöcke in Weltzeit (figure.h, Doing), die der Planer jedes Ortes
+//   entscheidet (Scene::decide, finish). Grob: An jeder Takt-Grenze (ganze Weltsekunde) arbeitet die Bühne für alle Orte
+//   die Blockenden bis dahin in Zeitreihenfolge ab (gleichzeitig: nach Kennung), dann die Übergaben (Hinausgehen endet
+//   immer an einer Takt-Grenze, Ankünfte von Verbindungen ebenso) und die Regeln der Orte (Scene::step). Voll: Die
+//   betretenen Orte arbeiten dazwischen in jedem Schritt die Blockenden bis jetzt ab und zeigen, wo jede Figur in ihrem
+//   Block gerade ist (Scene::tick, nur betretene Orte). Weil sich Orte nur an Takt-Grenzen berühren und jede
+//   Entscheidung zur Zeit ihres Blockendes fällt, bucht ein Ort sichtbar wie unsichtbar dasselbe (P10, --test speicher).
+//   Springt die Uhr (zurück oder mehr als kActivityCatchUp vor), setzt die Bühne alle Figuren neu an (gleicher Ort, neue
+//   Tätigkeit); bis dahin holt sie Tätigkeiten genau nach, höchstens kMaxGridPerTick Takt-Grenzen je Schritt.
 
 #include <array>
 #include <cstdint>
@@ -115,6 +125,14 @@ public:
     // Karte zum Treffer; bei Türen ergänzt die Bühne, wer im Ort dahinter ist
     bool describe(const Hit& hit, ui::Card* card) const;
     uint32_t travels() const { return travels_; }  // Reisen zwischen Orten seit init() (gezählt bei der Ankunft)
+    // Stufen der Simulation (seit 0.5.9 Teil 2): Takt-Grenze in Weltzeit (ganze Sekunden)
+    static constexpr int64_t kGridUs = 1000000;
+    static constexpr int kMaxGridPerTick = 150;                    // Takt-Grenzen je Schritt (Zeitraffer 3600: 120)
+    static constexpr int64_t kActivityCatchUp = 10 * 60 * kGridUs;  // Tätigkeiten genau nachholen bis 10 Weltminuten
+    int64_t grid_us() const { return grid_; }  // zuletzt abgearbeitete Takt-Grenze, INT64_MIN = noch keine
+    uint32_t decisions() const { return decisions_; }  // Entscheidungen der Planer seit init() (Messung)
+    int last_grid_steps() const { return last_grid_steps_; }  // Takt-Grenzen im letzten Schritt
+    uint32_t reseats() const { return reseats_; }  // Neuansätze nach Sprüngen der Uhr
     // Unterwegs auf einer Verbindung mit Reisezeit (seit 0.5.8): Figuren, die keinem Ort gehören, bis sie ankommen
     static constexpr int kMaxTransit = 16;
     int in_transit() const { return transit_n_; }
@@ -157,6 +175,7 @@ public:
         int figures = 0, transit = 0, states = 0, chronicle = 0;
         int unknown_places = 0;    // Bezüge auf Orte, die es nicht mehr gibt (Figuren kommen in den ersten Ort)
         int skipped_chunks = 0;    // unbekannte Abschnitte (neuere Firmware)
+        int doings = 0;            // laufende Tätigkeiten übernommen (seit 0.5.9 Teil 2; 0 = alle neu angesetzt)
     };
     // Weltzustand in buf schreiben, an einer Takt-Grenze (zwischen zwei tick()); Länge, 0 = Puffer zu klein
     size_t save_state(uint8_t* buf, size_t cap, uint32_t generation) const;
@@ -190,8 +209,16 @@ private:
     void sync_pins();     // Pakete von active_, from_ und pending_ angeheftet, alle anderen gelöst
     void pin_scene(int i, bool on);
     void prefetch_neighbors();
-    void deliver_travels(const WorldClock& clock);
-    void arrive_at(int from, int to, const Travel& t);
+    // Stufen der Simulation (world_sim.cpp)
+    void advance(int64_t now);                     // Takt-Grenzen bis now, dann die betretenen Orte bis now
+    void reseat(int64_t now);                      // nach einem Sprung der Uhr: alle neu ansetzen
+    void plan(int scene, int64_t until);           // Blockenden des Ortes bis until (einschließlich)
+    void run_doing(int scene, FigureRecord& f);    // ein Blockende: Wirkung, Übergabe oder nächste Tätigkeit
+    void depart(int scene, FigureRecord& f);       // Hinausgehen an der Takt-Grenze
+    void deliver_transit(int64_t at);              // Ankünfte von Verbindungen bis at
+    void start_doing(FigureRecord& f, int scene, uint8_t entry, int64_t at);  // angekommen: Kachel, gleich entscheiden
+    uint64_t doing_seed(uint16_t who, uint32_t seq) const;
+    void arrive_at(int from, int to, const Travel& t, int64_t at);
     // Ein Durchgang mit Toleranz; last: ist alles belegt, die nächste Farbe nehmen (gelingt immer)
     bool merge_palettes(int from, int to, int tolerance, bool last);
     void update_palette();
@@ -264,6 +291,10 @@ private:
     int64_t caught_up_ = 0, skipped_ = 0;
     int64_t past_key_ = INT64_MIN;         // Nachholen: Wetterzeit, für die past_rain_ gilt
     int past_rain_ = 0;
+    // Stufen der Simulation (seit 0.5.9 Teil 2)
+    int64_t grid_ = INT64_MIN;
+    uint32_t decisions_ = 0, reseats_ = 0;
+    int last_grid_steps_ = 0;
     // Gemeinsame Palette während einer Überblendung: Index der Szene → Platz, Platz → Quelle (Szene, Index)
     std::array<uint8_t, 256> map_from_{};
     std::array<uint8_t, 256> map_to_{};

@@ -268,6 +268,9 @@ void Stage::init(uint64_t seed) {
     saved_minute_ = INT64_MIN;
     caught_up_ = skipped_ = 0;
     past_key_ = INT64_MIN;
+    grid_ = INT64_MIN;  // Stufen der Simulation (seit 0.5.9 Teil 2): der erste Schritt setzt alle an
+    decisions_ = reseats_ = 0;
+    last_grid_steps_ = 0;
     for (int i = 0; i < count_; ++i) scenes_[i]->init(seed + static_cast<uint64_t>(i) * 0x9E3779B97F4A7C15ULL);
     populate_figures();  // seit 0.5.9: die Figuren gehören der Welt, die Orte zeigen sie
     adopt_figures();
@@ -458,58 +461,6 @@ void Stage::start_transition(int to, Transition t) {
     sync_entered();  // Abblenden: das Ziel wird betreten, sobald es geladen ist
 }
 
-void Stage::deliver_travels(const WorldClock& clock) {
-    // Ankünfte von Verbindungen mit Reisezeit (seit 0.5.8), in der Reihenfolge des Aufbruchs. Springt die Uhr zurück
-    // (Testuhr), kommt man gleich an
-    const int64_t now = clock.world_us();
-    for (int k = 0; k < transit_n_;) {
-        const Transit& tr = transit_[k];
-        if (now < tr.arrive_us && now >= tr.depart_us) {
-            ++k;
-            continue;
-        }
-        const Transit done = tr;
-        for (int j = k + 1; j < transit_n_; ++j) transit_[j - 1] = transit_[j];
-        --transit_n_;
-        arrive_at(done.from, done.to, done.t);
-    }
-    // Reihenfolge der Orte fest: gehört zum deterministischen Ablauf
-    for (int i = 0; i < count_; ++i) {
-        Travel t;
-        for (int n = 0; n < 16 && scenes_[i]->take_travel(&t); ++n) {
-            const int to = t.to ? find(t.to) : -1;
-            if (to < 0) {
-                t.entry = t.from_exit;
-                scenes_[i]->arrive(t);
-                continue;
-            }
-            if (t.travel > 0 && transit_n_ < kMaxTransit) {
-                // auf der Verbindung: gehört keinem Ort, bis die Reisezeit um ist (eine Figur ist nie doppelt). Im
-                // Weltzustand wechselt das Feld where im selben Schritt
-                const Transit tr{t, now, now + static_cast<int64_t>(t.travel) * 1000000, static_cast<uint8_t>(i),
-                                 static_cast<uint8_t>(to)};
-                transit_[transit_n_++] = tr;
-                if (FigureRecord* f = env_.figures.find(t.who)) {
-                    Whereabouts& w = f->where;
-                    w.kind = Whereabouts::Kind::Link;
-                    w.place = static_cast<uint8_t>(place_of_[to]);
-                    w.from = static_cast<uint8_t>(place_of_[i]);
-                    w.entry = t.entry;
-                    w.from_exit = t.from_exit;
-                    w.transition = static_cast<uint8_t>(t.transition);
-                    w.depart_us = tr.depart_us;
-                    w.arrive_us = tr.arrive_us;
-                }
-                const CalendarDate& d = env_.calendar.date();
-                env_.visits.leave(t.who, d.day, d.minute);
-                publish_travel(EventKind::Departed, i, to, t);
-                continue;
-            }
-            arrive_at(i, to, t);
-        }
-    }
-}
-
 void Stage::publish_travel(EventKind kind, int from, int to, const Travel& t) {
     WorldEvent e;
     e.kind = kind;
@@ -519,17 +470,6 @@ void Stage::publish_travel(EventKind kind, int from, int to, const Travel& t) {
     e.lead = t.follow;
     e.day = env_.calendar.date().day;
     env_.events.publish(e);
-}
-
-void Stage::arrive_at(int from, int to, const Travel& t) {
-    ++travels_;
-    scenes_[to]->arrive(t);
-    set_where_place(t.who, to);  // Übergabe im Weltzustand: im selben Schritt
-    note_arrival(t.who, to);
-    publish_travel(EventKind::Arrived, from, to, t);
-    // der Blick folgt bei der Ankunft (bei Wegen mit Reisezeit bleibt er so lange am Ausgangsort)
-    const bool followed = follow_who_ == 0 ? t.follow : follow_who_ != kNobody && t.who == follow_who_;
-    if (followed && follow_ && from == active_ && from_ < 0 && pending_ < 0) start_transition(to, t.transition);
 }
 
 // Ein Durchgang mit Toleranz (Summe der Abstände je Kanal); last: ist alles belegt, die nächste Farbe nehmen
@@ -616,9 +556,15 @@ void Stage::tick(const WorldClock& clock) {
         pending_ = -1;
         start_transition(to, pending_trans_);  // setzt pending_ wieder, solange das Ziel noch lädt
     }
+    // Seit 0.5.9 Teil 2: Tätigkeiten und Übergaben (world_sim.cpp) vor Kalender und Ortszuständen, damit beide Stufen
+    // bei jeder Entscheidung dieselbe Umgebung sehen
+    advance(world_us_);
     update_world(clock);
     env_.weather.tick();  // vor den Orten: alle sehen im selben Schritt dasselbe Wetter
-    for (int i = 0; i < count_; ++i) scenes_[i]->tick(clock);
+    // volle Stufe: nur die betretenen Orte zeigen (seit 0.5.9 Teil 2; vorher rechneten alle Orte mit 30 Hz)
+    const uint32_t ticked = entered_;
+    for (int i = 0; i < count_; ++i)
+        if (entered(i)) scenes_[i]->tick(clock);
     const bool was = from_ >= 0;
     if (from_ >= 0) {
         // Abblenden: vor der zweiten Hälfte muss das Ziel betreten sein; sonst in der dunklen Mitte warten
@@ -630,12 +576,14 @@ void Stage::tick(const WorldClock& clock) {
         else if (++step_ >= ticks_)
             from_ = -1;
     }
-    deliver_travels(clock);
     if (was && from_ < 0) {
         sync_pins();
         sync_entered();
     }
     if (from_ < 0 && !entered(active_)) sync_entered();  // z. B. nach set_active, sobald geladen
+    // eben erst betreten (Mitte des Abblendens, geladen): gleich einmal zeigen, damit Palette und Figuren stimmen
+    for (int i = 0; i < count_; ++i)
+        if (entered(i) && !(ticked & (1u << i))) scenes_[i]->tick(clock);
     if (from_ >= 0) update_palette();
     if (from_ < 0 && pending_ < 0 && prefetched_ != active_) prefetch_neighbors();
 }

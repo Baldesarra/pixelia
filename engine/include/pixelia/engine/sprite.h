@@ -69,6 +69,10 @@ struct Animation {
     AnimMode mode;
 };
 
+// Bild der Animation t Logik-Schritte nach ihrem Beginn (seit 0.5.9 Teil 2): ohne Zustand, aus der Weltzeit gerechnet;
+// so zeigt ein Ort dasselbe Bild, egal seit wann er zu sehen ist
+int anim_frame_at(const Animation& a, uint32_t t);
+
 class Animator {
 public:
     // Neue Animation; dieselbe läuft ohne restart einfach weiter

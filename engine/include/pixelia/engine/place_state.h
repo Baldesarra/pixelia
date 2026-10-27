@@ -121,6 +121,8 @@ public:
     void set_bus(EventBus* bus) { bus_ = bus; }
     void set_day(int day) { day_ = day; }
     uint32_t version() const { return version_; }  // zählt jeden Stufenwechsel
+    // Stufenwechsel der Zustände eines Ortes (seit 0.5.9 Teil 2: die Darstellung zeichnet nur nach eigenen Änderungen neu)
+    uint32_t place_version(std::string_view place) const;
 
     // Speicherstand (seit 0.5.9, save.h): alles, was sich ändert, je Zustand; restore meldet nichts auf den Bus
     struct Saved {
@@ -158,6 +160,7 @@ private:
     std::array<Place, kMaxPlaces> places_{};
     int places_n_ = 0;
     std::array<Entry, kMax> e_{};
+    std::array<uint16_t, kMax> rev_{};  // Stufenwechsel je Zustand
     int n_ = 0;
     EventBus* bus_ = nullptr;
     int day_ = 0;

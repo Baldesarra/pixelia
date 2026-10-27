@@ -877,10 +877,11 @@ std::vector<Case> stage_cases() {
              };
              if (lit() == 0 || place(w).room().light_count() != 2) return std::string("Fenster leuchten nicht");
              r.stage.command("innenlicht aus");
-             r.run(5);  // seit 0.5.8: unsichtbare Orte bauen ihr Licht im eigenen Takt-Schlitz neu (bis 4 Schritte)
+             r.run(5);
              if (lit() != 0 || place(w).room().light_count() != 0) return std::string("Fensterschein trotz Licht aus");
-             if (place(raum).room().light_count() != 0 || place(raum).lights_on())
-                 return std::string("unsichtbarer Raum: Licht noch an");
+             // seit 0.5.9 Teil 2 zeigt ein unsichtbarer Ort nichts (seine Lichtkarte baut er beim Betreten): hier zählt
+             // der Weltzustand
+             if (place(raum).lights_on()) return std::string("unsichtbarer Raum: Licht noch an");
              r.stage.go(raum, pixelia::Transition::Cut);
              r.run(2);
              if (lit() != 0) return std::string("Raum hell trotz Licht aus");
@@ -1699,7 +1700,7 @@ std::vector<Case> state_cases() {
              e.place = "testort-kammer";
              e.lead = true;
              r.stage.events().publish(e);
-             r.run(3);
+             r.run(31);  // seit 0.5.9 Teil 2: Regeln an der nächsten Takt-Grenze (höchstens 1 Weltsekunde)
              if (st.on(kerze)) return std::string("Kerze brennt weiter, obwohl sie heimgekommen ist");
              return raum.room().part(14).state == 0 ? std::string() : std::string("Kerzenbild bleibt „an“");
          }},
@@ -1841,6 +1842,32 @@ uint16_t run_until_link(StageRun& r) {
             if (book.at(k).where.kind == Kind::Link) return book.at(k).id;
     }
     return 0;
+}
+
+// Aufenthalt und Tätigkeit aller Figuren als Text (Vergleich zweier Abläufe)
+std::string doings_text(const pixelia::Stage& s) {
+    std::string t;
+    const FigureBook& book = s.environment().figures;
+    for (int k = 0; k < book.count(); ++k) {
+        const FigureRecord& f = book.at(k);
+        const pixelia::Doing& d = f.doing;
+        char line[160];
+        std::snprintf(line, sizeof(line), "%u:%d@%d %s %d,%d→%d,%d #%u %lld/%lld\n", static_cast<unsigned>(f.id),
+                      static_cast<int>(f.where.kind), f.where.place, pixelia::doing_kind_name(d.kind), d.sx, d.sy, d.gx,
+                      d.gy, static_cast<unsigned>(d.seq), static_cast<long long>(d.walk_us),
+                      static_cast<long long>(d.end_us));
+        t += line;
+    }
+    return t;
+}
+
+// erste Zeile, in der zwei Texte abweichen
+std::string first_diff(const std::string& a, const std::string& b) {
+    size_t k = 0;
+    while (k < a.size() && k < b.size() && a[k] == b[k]) ++k;
+    const size_t from = a.rfind('\n', k == 0 ? 0 : k - 1);
+    const size_t start = from == std::string::npos ? 0 : from + 1;
+    return a.substr(start, a.find('\n', start) - start) + " ≠ " + b.substr(start, b.find('\n', start) - start);
 }
 
 void fix_crc(std::vector<uint8_t>& d) {
@@ -2036,6 +2063,98 @@ std::vector<Case> save_cases() {
              if (!f || f->where.kind != Kind::Place) return std::string("nicht angekommen");
              if (arrivals != 1) return "Ankünfte: " + std::to_string(arrivals);
              return b.stage.environment().figures.count() == 14 ? std::string() : std::string("Zahl der Figuren");
+         }},
+        // --- Stufen der Simulation (seit 0.5.9 Teil 2) ---
+        {"P10 gleiche Wirkung: Orte ein- und ausblenden ergibt Differenz 0 zwischen voller und grober Stufe (Echtzeit und Zeitraffer 60)",
+         [] {
+             // drei Abläufe mit gleichem Startwert: kein Testort zu sehen (alles grob), immer die Wiese, alle 7 Weltsekunden
+             // ein anderer Ort (Schnitt, Überblendung, Abblenden: dabei zwei Orte zugleich voll)
+             for (const double speed : {1.0, 60.0}) {
+                 const int ticks = speed == 1.0 ? 30 * 900 : 30 * 240;  // 15 Weltminuten bzw. 4 Weltstunden
+                 std::vector<uint8_t> save[3];
+                 std::string doings[3];
+                 uint32_t decisions = 0, travels = 0;
+                 for (int run = 0; run < 3; ++run) {
+                     StageRun r(31, run == 0 ? "scrolltest" : "testort-wiese");
+                     world_run(r, 17, 30, speed);
+                     const pixelia::Transition kinds[] = {pixelia::Transition::Cut, pixelia::Transition::Dissolve,
+                                                          pixelia::Transition::Fade};
+                     for (int t = 0, k = 0; t < ticks; t += 7 * 30, ++k) {
+                         r.run(std::min(7 * 30, ticks - t));
+                         if (run == 2) r.stage.go(1 + (k * 3) % (r.stage.count() - 1), kinds[k % 3]);
+                         if (std::string e = figures_ok(r.stage); !e.empty()) return "Lauf " + std::to_string(run) + ": " + e;
+                     }
+                     // verglichen wird genau an einer Takt-Grenze: dazwischen ist der sichtbare Ort schon weiter
+                     const int64_t g = pixelia::Stage::kGridUs;
+                     r.clock.set_world_us((r.clock.world_us() / g + 1) * g);
+                     r.stage.tick(r.clock);
+                     save[run] = save_of(r.stage);
+                     doings[run] = doings_text(r.stage);
+                     if (run == 0) decisions = r.stage.decisions(), travels = r.stage.travels();
+                 }
+                 const std::string at = speed == 1.0 ? "Echtzeit: " : "Zeitraffer 60: ";
+                 if (decisions < 100 || travels < 3)
+                     return at + "zu wenig los (" + std::to_string(decisions) + " Entscheidungen, " +
+                            std::to_string(travels) + " Reisen)";
+                 for (int run = 1; run < 3; ++run) {
+                     if (doings[run] != doings[0])
+                         return at + (run == 1 ? "Wiese sichtbar" : "Orte wechselnd") + ": " + first_diff(doings[0], doings[run]);
+                     if (save[run] != save[0]) {
+                         size_t k = 0;
+                         while (k < save[0].size() && k < save[run].size() && save[0][k] == save[run][k]) ++k;
+                         return at + "Speicherstand weicht ab bei Byte " + std::to_string(k) + " von " +
+                                std::to_string(save[0].size());
+                     }
+                 }
+             }
+             return std::string();
+         }},
+        {"Neustart mitten in einer Übergabe (an der Tür, auf dem Weg): danach an genau einem Ort, Tätigkeiten gehen genau so weiter",
+         [] {
+             for (const pixelia::DoingKind wait : {pixelia::DoingKind::Leave, pixelia::DoingKind::None}) {
+                 // a läuft bis jemand an der Tür wartet (bzw. auf einer Verbindung ist), wird gespeichert und läuft weiter
+                 StageRun a(13, "testort-wiese");
+                 world_run(a, 11, 0, 1.0);
+                 uint16_t who = 0;
+                 for (int t = 0; t < 30 * 1200 && !who; ++t) {
+                     a.run(1);
+                     const FigureBook& book = a.stage.environment().figures;
+                     for (int k = 0; k < book.count() && !who; ++k) {
+                         const FigureRecord& f = book.at(k);
+                         const bool door = f.where.kind == Kind::Place && f.doing.kind == pixelia::DoingKind::Leave &&
+                                           a.clock.world_us() >= f.doing.walk_us && a.clock.world_us() < f.doing.end_us;
+                         if (wait == pixelia::DoingKind::Leave ? door : f.where.kind == Kind::Link) who = f.id;
+                     }
+                 }
+                 const std::string at = wait == pixelia::DoingKind::Leave ? "an der Tür: " : "auf dem Weg: ";
+                 if (!who) return at + "niemand gefunden";
+                 const std::vector<uint8_t> s = save_of(a.stage);
+                 // b beginnt neu, lädt den Stand und läuft im selben Takt weiter
+                 StageRun b(13, "testort-wiese");
+                 pixelia::Stage::LoadReport rep;
+                 if (!b.stage.load_state(s.data(), s.size(), &rep)) return at + "Laden: " + rep.why;
+                 if (rep.doings == 0) return at + "keine Tätigkeit übernommen";
+                 resume_like(b, a);
+                 if (std::string e = figures_ok(b.stage); !e.empty()) return at + "nach dem Laden: " + e;
+                 const int start_place = a.stage.environment().figures.find(who)->where.place;
+                 bool moved = false;
+                 for (int t = 0; t < 30 * 120; ++t) {
+                     a.run(1);
+                     b.run(1);
+                     if (std::string e = figures_ok(b.stage); !e.empty()) return at + e;
+                     const FigureRecord* f = b.stage.environment().figures.find(who);
+                     // an der Tür: hinaus (anderer Ort oder Verbindung); auf dem Weg: angekommen (where.place = Ziel)
+                     if (wait == pixelia::DoingKind::Leave)
+                         moved = moved || f->where.kind == Kind::Link ||
+                                 (f->where.kind == Kind::Place && f->where.place != start_place);
+                     else
+                         moved = moved || f->where.kind == Kind::Place;
+                 }
+                 if (!moved) return at + "Figur hat den Ort nicht gewechselt";
+                 if (doings_text(a.stage) != doings_text(b.stage))
+                     return at + "nach 2 Weltminuten verschieden: " + first_diff(doings_text(a.stage), doings_text(b.stage));
+             }
+             return std::string();
          }},
         {"Stromausfall beim Speichern: abgebrochene oder kaputte Datei, es gilt der vorige Stand; Laden stürzt nie ab",
          [] {

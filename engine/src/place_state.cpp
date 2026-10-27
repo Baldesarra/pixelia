@@ -136,6 +136,7 @@ void PlaceStates::update_phase(int i) {
     if (p == e.phase) return;
     e.phase = static_cast<uint8_t>(p);
     ++version_;
+    ++rev_[i];
     if (!bus_) return;
     WorldEvent ev;
     ev.kind = EventKind::StateChanged;
@@ -395,7 +396,15 @@ void PlaceStates::restore(int i, const Saved& s) {
     e.ruled = s.bits & 8;
     e.phase = static_cast<uint8_t>(compute_phase(e));  // aus den Werten (die gespeicherte Stufe ist nur ein Hinweis)
     ++version_;
+    ++rev_[i];
     ++restored_;
+}
+
+uint32_t PlaceStates::place_version(std::string_view place) const {
+    uint32_t v = 0;
+    for (int i = 0; i < n_; ++i)
+        if (place == places_[e_[i].place].id) v += rev_[i];
+    return v;
 }
 
 }  // namespace pixelia

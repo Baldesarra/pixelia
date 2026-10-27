@@ -34,7 +34,8 @@ set(PIXELIA_ENGINE_SRCS
     src/vehicle.cpp
     src/weather.cpp
     src/weather_sim.cpp
-    src/world_save.cpp)
+    src/world_save.cpp
+    src/world_sim.cpp)
 
 # Welten (seit 0.5.8): Orte und Gebiete als Module in worlds/<gebiet>/, jede .cpp dort wird mitgebaut
 if(CMAKE_BUILD_EARLY_EXPANSION)  # ESP-IDF liest die Datei zuerst im Skript-Modus: dort ohne CONFIGURE_DEPENDS

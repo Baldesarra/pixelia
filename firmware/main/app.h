@@ -184,6 +184,7 @@ struct FigureRow {
     bool lead, moving;
     char name[16];
     char place[32];  // Ort bzw. „unterwegs nach …“
+    char doing[16];  // laufende Tätigkeit (seit 0.5.9 Teil 2): steht, geht umher, ist beschäftigt, geht hinaus
     char home[16];
     uint8_t skill_n;
     struct {

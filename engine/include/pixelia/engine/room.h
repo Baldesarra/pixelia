@@ -205,8 +205,12 @@ public:
     // Nächster Schritt von (fx, fy) nach (tx, ty) über freie Kacheln (Breitensuche, Ziel darf versperrt sein, z. B.
     // ein Bett); false = schon da oder kein Weg
     bool step_toward(int fx, int fy, int tx, int ty, Facing* dir) const;
+    // Ganzer Weg in einer Breitensuche (seit 0.5.9 Teil 2, Planer der Tätigkeiten): Zahl der Schritte (0 = schon da,
+    // −1 = kein Weg); dirs (optional) bekommt die ersten max Richtungen
+    int path(int fx, int fy, int tx, int ty, Facing* dirs = nullptr, int max = 0) const;
 
     void tick();   // Bilder bewegter Teile
+    void set_ticks(uint64_t ticks) { ticks_ = static_cast<uint32_t>(ticks); }  // seit 0.5.9 Teil 2: aus der Weltzeit (gleiches Bild, egal seit wann zu sehen)
     void enter();  // Hintergrundbild anlegen und vorzeichnen
     void leave();  // Hintergrundbild freigeben
     bool has_background() const { return bg_ != nullptr; }
