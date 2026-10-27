@@ -1,4 +1,4 @@
-// Info, Hardware und verbundene Geräte für die Weboberfläche (0.3.1, Projektplan 4.12 und Kapitel 8).
+﻿// Info, Hardware und verbundene Geräte für die Weboberfläche (0.3.1, Projektplan 4.12 und Kapitel 8).
 //
 //   GET  /api/system          Board, Panel, Touch, Chip mit Temperatur, Flash, PSRAM, MACs, Pins, Netz (Maske,
 //                             Gateway, DNS), Uhrzeit, Partitionstabelle mit Belegung, NVS, Build
@@ -36,6 +36,7 @@
 #include "esp_timer.h"
 #include "esp_wifi.h"
 #include "json.h"
+#include "pixelia/engine/figure.h"
 #include "lwip/sockets.h"
 #include "net.h"
 #include "nvs.h"
@@ -611,12 +612,62 @@ esp_err_t world_get(httpd_req_t* req) {
         }
         j.end_arr();
     }
+    // Speicherstand (seit 0.5.9): zuletzt gespeichert vor ago Sekunden (−1 = seit dem Start noch nicht)
+    const gfx::SaveInfo s = gfx::save_info();
+    const int64_t now = esp_timer_get_time();
+    j.obj("save").num("gen", static_cast<int64_t>(s.generation)).num("bytes", static_cast<int64_t>(s.bytes));
+    j.num("ago", s.at_us ? (now - s.at_us) / 1000000 : -1).num("next", s.next_us > now ? (s.next_us - now) / 1000000 : 0);
+    j.boolean("loaded", s.loaded).num("packUs", static_cast<int64_t>(s.pack_us)).num("writeMs", static_cast<int64_t>(s.write_ms));
+    j.num("figures", s.figures).num("transit", s.transit).num("chronicle", s.chronicle);
+    j.num("caughtUp", s.caught_up).num("skipped", s.skipped).num("catchingUp", s.catching_up);
+    j.boolean("test", s.test).boolean("waiting", s.waiting).str("error", s.error).end_obj();
+    // Figuren und Chronik nur auf Wunsch (?mehr=1): die Grafik-Task füllt die Ansicht im nächsten Bild
+    std::string more;
+    if (query_value(req, "mehr", &more) && more == "1") {
+        static gfx::WorldView* v = static_cast<gfx::WorldView*>(heap_caps_malloc(sizeof(gfx::WorldView), MALLOC_CAP_SPIRAM));
+        if (v && gfx::world_view(v)) {
+            j.arr("figures");
+            for (int i = 0; i < v->figures; ++i) {
+                const gfx::FigureRow& f = v->fig[i];
+                j.obj().num("id", f.id).str("name", f.name).num("age", f.age).str("place", f.place).str("home", f.home);
+                j.boolean("lead", f.lead).boolean("moving", f.moving).num("relations", f.relations).num("memories", f.memories);
+                j.arr("skills");
+                for (int k = 0; k < f.skill_n; ++k) {
+                    j.obj().str("t", pixelia::skill_title(static_cast<pixelia::Skill>(f.skills[k].skill)));
+                    j.str("l", pixelia::skill_level_title(static_cast<pixelia::SkillLevel>(f.skills[k].level)));
+                    j.num("n", f.skills[k].level).end_obj();
+                }
+                j.end_arr().end_obj();
+            }
+            j.end_arr();
+            j.arr("chronicle");
+            for (int i = 0; i < v->chronicle; ++i)
+                j.obj().num("day", v->ch[i].day).str("time", hhmm(v->ch[i].minute).c_str()).num("kind", v->ch[i].kind)
+                    .str("text", v->ch[i].text).end_obj();
+            j.end_arr();
+            j.num("visits", v->visits).num("visitsOpen", v->visits_open);
+        }
+    }
     j.end_obj();
     return send_json(req, j.text());
 }
 
+// Speicherstand jetzt schreiben (seit 0.5.9, Knopf auf der Seite Welt)
+esp_err_t world_post(httpd_req_t* req) {
+    std::string body, a;
+    if (!read_body(req, &body, 128)) return reply(req, false, "Ungültige Anfrage");
+    if (!authorized(req, &body)) return deny(req);
+    form_value(body, "a", &a);
+    if (a != "save") return reply(req, false, "Unbekannte Aktion");
+    const gfx::SaveInfo s = gfx::save_info();
+    if (s.test) return reply(req, false, "Testuhr läuft: es wird nicht gespeichert");
+    if (s.waiting) return reply(req, false, "Die Uhrzeit fehlt noch: es wird noch nicht gespeichert");
+    return reply(req, gfx::request_save(), "Speicherstand wird geschrieben");
+}
+
 void register_info() {
     add("/api/world", HTTP_GET, world_get);
+    add("/api/world", HTTP_POST, world_post);
     add("/api/camera", HTTP_GET, camera_get);
     add("/api/camera", HTTP_POST, camera_post);
     add("/api/system", HTTP_GET, system_get);

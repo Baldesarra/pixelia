@@ -136,7 +136,7 @@ void unmount_sd() {
 }
 
 // Aufträge an die Lade-Task (Dateisystem-Arbeit braucht Stack; Konsole und Testläufe haben nur 3–4 KB)
-enum class Job : uint8_t { CopyLfs, CopySd, Measure, FlashLoad, SdRetry };
+enum class Job : uint8_t { CopyLfs, CopySd, Measure, FlashLoad, SdRetry, SaveWorld };
 struct JobReq {
     Job job;
     int arg;
@@ -170,6 +170,7 @@ void run_job(const JobReq& r) {
             unmount_sd();
             mount_sd();
             break;
+        case Job::SaveWorld: app::gfx::write_save(); break;
     }
     if (r.done) xSemaphoreGive(r.done);
 }
@@ -398,6 +399,7 @@ void start() {
 }
 
 bool flash_load(int seconds) { return post(Job::FlashLoad, seconds, seconds + 30); }
+bool save_world() { return post(Job::SaveWorld); }
 
 bool littlefs_ready() { return s_lfs; }
 bool sd_ready() { return s_sd; }

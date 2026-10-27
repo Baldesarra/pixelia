@@ -157,7 +157,54 @@ struct WorldInfo {
 };
 WorldInfo world_info();
 void set_season_length(int days);  // 1–28, die laufende Jahreszeit bleibt
-void save_world_now();             // Kalender sofort ins NVS (vor einem Neustart)
+void save_world_now();             // Kalender ins NVS und Speicherstand schreiben (vor einem Neustart, wartet ≤ 3 s)
+
+// Speicherstand (seit 0.5.9, engine/save.h): Weltzustand als Ganzes in LittleFS (/data/welt-a.pxw, -b.pxw)
+struct SaveInfo {
+    bool loaded;            // beim Start geladen
+    uint32_t generation;    // zuletzt geschrieben bzw. geladen
+    uint32_t bytes;
+    int64_t at_us;          // Laufzeit (esp_timer) der letzten Speicherung, 0 = seit dem Start noch keine
+    int64_t next_us;        // nächste regelmäßige Speicherung
+    uint32_t pack_us, write_ms;
+    int figures, transit, chronicle;
+    int64_t caught_up, skipped, catching_up;  // Nachholen nach dem Laden (Weltminuten)
+    bool test;              // Testuhr oder Zeitraffer: es wird nicht gespeichert
+    bool waiting;           // Weltzeit wartet auf die Uhrzeit: es wird noch nicht gespeichert
+    char error[48];
+};
+SaveInfo save_info();
+bool request_save();  // im nächsten Bild packen, danach schreibt die Lade-Task; false = läuft schon
+void write_save();    // Lade-Task (Kern 0): gepackten Stand in den älteren Platz schreiben
+
+// Figuren und Chronik für Weboberfläche und Konsole: die Grafik-Task füllt die Ansicht auf Anfrage im nächsten Bild
+struct FigureRow {
+    uint16_t id;
+    uint8_t age;
+    bool lead, moving;
+    char name[16];
+    char place[32];  // Ort bzw. „unterwegs nach …“
+    char home[16];
+    uint8_t skill_n;
+    struct {
+        uint8_t skill, level;
+    } skills[8];
+    uint8_t relations, memories;
+};
+struct ChronicleRow {
+    int32_t day;
+    uint16_t minute;
+    uint8_t kind;
+    char text[60];
+};
+struct WorldView {
+    int figures;
+    FigureRow fig[48];
+    int chronicle;       // neueste zuerst
+    ChronicleRow ch[32];
+    int visits, visits_open;
+};
+bool world_view(WorldView* out);  // false = Grafik-Task antwortet nicht
 
 // Touch der Welt und Kamera (seit 0.5.6, engine/overlay.h und camera.h). Eingaben in Leinwand-Koordinaten
 // (400 × 240) übernimmt der Grafik-Task vor dem nächsten Logik-Schritt: Probe = Finger aufgesetzt (Figur darunter?),
@@ -222,6 +269,8 @@ const char* source();
 Summary summary();
 // Flash-Last in LittleFS (Test: Bild bleibt ruhig?); läuft auf der Lade-Task, wartet bis zum Ende. false = ging nicht
 bool flash_load(int seconds);
+// Speicherstand schreiben (seit 0.5.9): Auftrag an die Lade-Task, ohne zu warten
+bool save_world();
 // Befehle „assets …“ und „sd …“ (argv[0] = Befehl)
 void console(int argc, char** argv);
 }  // namespace assets

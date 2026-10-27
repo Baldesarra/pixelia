@@ -5,6 +5,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
+#include <new>
+#include <vector>
 
 #include "pixelia/engine/place.h"
 #include "pixelia/engine/save.h"
@@ -80,7 +83,7 @@ void Stage::populate_figures() {
             const PlaceDef& pd = *area.places[i];
             for (int k = 0; k < pd.figures; ++k) {
                 const bool lead = pd.guide && k == 0;
-                char name[16];
+                char name[24];
                 if (lead)
                     std::snprintf(name, sizeof(name), "Begleiterin");
                 else
@@ -200,9 +203,9 @@ void Stage::note_wake() {
     c.minute = static_cast<uint16_t>(env_.calendar.date().minute);
     if (gap > kCatchUpMinutes) {
         duration_text(kCatchUpMinutes, done, sizeof(done));
-        std::snprintf(c.text, sizeof(c.text), "Pixelia war %s aus, nachgeholt: %s", off, done);
+        std::snprintf(c.text, sizeof(c.text), "Pixelia war %.14s aus, nachgeholt: %.14s", off, done);
     } else {
-        std::snprintf(c.text, sizeof(c.text), "Pixelia war %s aus", off);
+        std::snprintf(c.text, sizeof(c.text), "Pixelia war %.20s aus", off);
     }
     env_.chronicle.add(c);
 }
@@ -430,9 +433,10 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
     rep.generation = h.generation;
     rep.saved_us = h.world_us;
 
-    // Ortsliste zuerst: Nummer im Speicherstand → Nummer in der Welt (−1 = gibt es nicht mehr)
-    std::array<int16_t, 256> remap;
-    remap.fill(-1);
+    // Ortsliste zuerst: Nummer im Speicherstand → Nummer in der Welt (−1 = gibt es nicht mehr). Große Teile auf dem
+    // Heap: Geladen wird beim Start im Haupt-Task mit 3,5 KB Stack (ein Figuren-Datensatz allein hat 1,1 KB)
+    std::vector<int16_t> remap(256, -1);
+    auto fp = std::make_unique<FigureRecord>();
     int places = 0;
     {
         SaveChunks c(data, n);
@@ -521,7 +525,7 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
             const int m = d.u16();
             for (int k = 0; k < m && d.ok(); ++k) {
                 SaveReader r = d.record();
-                FigureRecord f;
+                FigureRecord& f = *new (fp.get()) FigureRecord();  // an Ort und Stelle: kein Zwischenstück auf dem Stack
                 f.id = r.u16();
                 f.flags = r.u8();
                 f.age = r.u8();

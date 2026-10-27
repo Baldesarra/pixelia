@@ -90,8 +90,9 @@ bool FigureBook::ensure() {
 }
 
 void FigureBook::clear() {
+    // an Ort und Stelle neu (ein Zwischenstück hätte 1,1 KB auf dem Stack; geladen wird im Haupt-Task mit 3,5 KB)
     if (f_)
-        for (int i = 0; i < kMax; ++i) f_[i] = FigureRecord{};
+        for (int i = 0; i < kMax; ++i) new (&f_[i]) FigureRecord();
     n_ = 0;
     next_ = 1;
     ++version_;
@@ -100,8 +101,7 @@ void FigureBook::clear() {
 FigureRecord* FigureBook::add(const FigureDef& def, uint8_t place, uint16_t id) {
     if (id == 0) id = next_;
     if (n_ >= kMax || id == 0 || find(id) || !ensure()) return nullptr;
-    FigureRecord& f = f_[n_++];
-    f = FigureRecord{};
+    FigureRecord& f = *new (&f_[n_++]) FigureRecord();
     f.id = id;
     if (id >= next_) next_ = static_cast<uint16_t>(id + 1);
     f.flags = def.lead ? kFigLead : 0;

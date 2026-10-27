@@ -1,5 +1,57 @@
 [
   {
+    "v": "0.5.9",
+    "d": "",
+    "t": "",
+    "s": "",
+    "k": {
+      "s": "Die Welt merkt sich alles, auch über Neustarts",
+      "n": [
+        "Speicherstand: Die Welt speichert sich alle 5 Minuten und vor jedem Neustart oder Update; nach dem Einschalten geht sie genau dort weiter",
+        "Sicher bei Stromausfall: Es gibt immer zwei Stände; bricht das Schreiben ab, gilt der vorige",
+        "Nachholen: War Pixelia aus, holt die Welt bis zu 3 Tage nach (Glut kühlt aus, Boden trocknet, Reisende kommen an), mit dem Wetter der verpassten Zeit",
+        "Figuren: Jede Figur hat Namen, Alter, Charakterzüge, Interessen, Zuhause, Besitz und Erinnerungen",
+        "Fähigkeiten: 27 Fähigkeiten in Stufen von unbekannt bis Meister; wer etwas noch nicht kann, misslingt öfter und lernt auch daraus",
+        "Lernen voneinander: Wer etwas gezeigt bekommt, lernt schneller, und die beiden kommen sich dabei näher",
+        "Beziehungen: von fremd über bekannt und vertraut bis hilft, dazu Familie, Zuneigung und Rivalität",
+        "Chronik: Die Welt schreibt mit, was passiert (Jahreszeitenabende, Erstlinge, neue Stufen, Pausen), mit Tag und Uhrzeit",
+        "Besuche: Die Welt merkt sich, wer wann bei wem zu Besuch war",
+        "Konsole: welt speichern, welt figuren und welt chronik"
+      ],
+      "i": [
+        "Figuren: gehören jetzt der Welt statt einem Ort; jede ist immer an genau einem Ort oder auf genau einem Weg"
+      ]
+    },
+    "n": [
+      "Engine: Figuren-Datensatz (figure.h): Stammdaten, Charakterzüge, Interessen, 27 Fähigkeiten mit Stufe und Erfahrung, 24 Beziehungen, 32 Erinnerungen, Zuhause, Besitz, Aussehen-Ebenen; FigureBook im PSRAM (48 × 1,1 KB)",
+      "Engine: Fähigkeiten mit Fehlversuchen (try_skill: misslungen, mit Makel, gelungen), Lernen aus Fehlern, Zeigen nur vom Besseren (teach), erstes Mal und erster Fehlversuch als Erinnerung",
+      "Engine: Beziehungen in Stufen fremd → bekannt → vertraut → hilft, beidseitig, Flags Familie/Zuneigung/Rivalität; Ereignisse SkillUp und BondChanged auf dem Bus",
+      "Engine: Weltzustand als Ganzes in der Umgebung (Figuren, Chronik, Besuche); Aufenthalt je Figur in einem Feld (Ort oder Verbindung), Übergabe im selben Schritt; Stage::check_figures",
+      "Engine: Speicherstand PXW1 (save.h): Abschnitte mit eigener Version, Orte und Fähigkeiten als Kennungen, CRC-32, zwei Plätze mit Generation; Stage::save_state/load_state (world_save.cpp)",
+      "Engine: Nachholen nach dem Laden bis 3 Tage (Wunsch des Users), 240 Weltminuten je Schritt, Regen der verpassten Zeit aus der Wetter-Simulation; Chronik-Eintrag „Pixelia war … aus“",
+      "Engine: Chronik (64 Einträge mit Welttag und Minute) und Besuchsverlauf (64 Besuche) im PSRAM, beide im Speicherstand",
+      "Dorf: Testorte zeigen die Figuren der Welt; Statisten des Lastreglers (Kennungen ab 0xC000) bleiben am Ort und stehen in keinem Speicherstand",
+      "System: Speicherstand in LittleFS /data/welt-a.pxw und -b.pxw: Kern 1 packt alle 5 min (Wunsch des Users) in 96 KB PSRAM, die Lade-Task schreibt; vor Neustart und Update, nicht unter der Testuhr",
+      "Web: /api/world mit Abschnitt save, ?mehr=1 mit Figuren und Chronik; POST /api/world a=save (mit PIN); Konsole welt speichern|figuren|chronik",
+      "Simulator: --test speicher (11 Prüfungen): jede Figur genau einmal, Neustart mitten auf dem Weg, Stromausfall an jeder Stelle, 300 kaputte Stände, alter Stand 0.5.9 aus sim/testdata, Nachholen"
+    ],
+    "i": [
+      "Engine: Lastregler set_load füllt mit Statisten auf (0 = keine) statt mit eigenen Testfiguren der Orte"
+    ],
+    "f": [
+      "System: Laden im Haupt-Task lief über den Stack (3,5 KB, ein Datensatz 1,1 KB als lokale Variable); jetzt in der Grafik-Task, Datensätze an Ort und Stelle (3,3 KB frei). Der Rückfall nach dem Absturz im Probelauf griff"
+    ],
+    "g": [
+      "Simulator: alle Selbsttests grün (Bühne 26, Asset-Pakete 5, Einblendungen 10, Weltzeit 9, Orte 7, Ortszustände 11, Speicherstand 11)",
+      "Gerät: Speicherstand 1,9 KB, packen 0,9–1,1 ms (Kern 1), schreiben 54–70 ms (Kern 0), laden 2,0–2,6 ms; über Update-Neustarts und mit Figur unterwegs geladen",
+      "Gerät: 30,3 fps, Zeichnen 5,6 ms, Logik max 1,3 ms; 64 Figuren, Regen, Ortswechsel, Speichern: 29,8 fps, Zeichnen 8,9 ms (max 9,4), Logik max 3,1 ms; RAM 93 KB (Tiefstwert 85), PSRAM 5,35 MB; Firmware 1,88 MB"
+    ],
+    "h": [
+      "Doku: 0.5.9 Teil 1 (Weltzustand, Figuren-Datensatz, Speicherstand, Nachholen); Teil 2 folgt: Stufen der Simulation, Figuren-Baukasten, Übergaben zwischen den Kernen, Weboberfläche"
+    ],
+    "pr": []
+  },
+  {
     "v": "0.5.8",
     "d": "2026-10-27",
     "t": "Orte und Gebiete",

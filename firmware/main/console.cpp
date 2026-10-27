@@ -122,6 +122,7 @@ void print_help() {
     ESP_LOGI(TAG, "  wetter [<Art> [%%] [sofort]] | wetter blitz | wetter wind links|rechts   Wetter (Art: sonne bewoelkt regen schnee nebel gewitter wind; übersteuert bis zur nächsten Wetterzeit)");
     ESP_LOGI(TAG, "  update abriss                                   nächster Download von GitHub trennt einmal (Weitermachen prüfen)");
     ESP_LOGI(TAG, "  welt [laenge <Tage> | auto]                     Weltkalender, Mond, Wetter-Simulation (auto = Simulation wieder an)");
+    ESP_LOGI(TAG, "  welt speichern | figuren | chronik              Speicherstand jetzt schreiben, Figuren mit Ort, Chronik (seit 0.5.9)");
     ESP_LOGI(TAG, "  ort cmd <Befehl>   Befehl an Bühne/Ort, z. B. innenlicht um, ofen glut, nass 80, becken 50, regen fein, blitze 12 30");
     ESP_LOGI(TAG, "  ort cmd zustaende  Ortszustände ins Log (Herd, Kerze, Lampe, Becken, Nässe)");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
@@ -395,6 +396,7 @@ bool handle(char* line) {
             ota::restart_soon(1000);
         } else {
             ESP_LOGI(TAG, "Neustart");
+            gfx::save_world_now();  // seit 0.5.9: Speicherstand vorher schreiben
             vTaskDelay(pdMS_TO_TICKS(100));
             esp_restart();
         }
@@ -440,6 +442,31 @@ bool handle(char* line) {
             gfx::set_season_length(std::atoi(argv[2]));
         } else if (argc >= 2 && std::strcmp(argv[1], "auto") == 0) {
             gfx::place_command("wetter auto");
+        } else if (argc >= 2 && std::strcmp(argv[1], "speichern") == 0) {
+            ESP_LOGI(TAG, "%s", gfx::request_save() ? "Speicherstand wird geschrieben" : "Speichern läuft schon");
+        } else if (argc >= 2 && (std::strcmp(argv[1], "figuren") == 0 || std::strcmp(argv[1], "chronik") == 0)) {
+            // 6 KB: im PSRAM, nicht auf dem Stack der Konsole und nicht im internen RAM
+            static auto* view = static_cast<gfx::WorldView*>(heap_caps_malloc(sizeof(gfx::WorldView), MALLOC_CAP_SPIRAM));
+            gfx::WorldView& v = *view;
+            if (!view || !gfx::world_view(view)) {
+                ESP_LOGW(TAG, "Grafik-Task antwortet nicht");
+            } else if (argv[1][0] == 'f') {
+                for (int i = 0; i < v.figures; ++i) {
+                    const gfx::FigureRow& f = v.fig[i];
+                    char skills[96] = "";
+                    for (int k = 0, n = 0; k < f.skill_n; ++k)
+                        n += std::snprintf(skills + n, sizeof(skills) - n, "%s%s %s", k ? ", " : "",
+                                           pixelia::skill_title(static_cast<pixelia::Skill>(f.skills[k].skill)),
+                                           pixelia::skill_level_title(static_cast<pixelia::SkillLevel>(f.skills[k].level)));
+                    ESP_LOGI(TAG, "%4u %-14s %2u J. %s%s · %s · %u Bez., %u Erinn.", f.id, f.name, f.age, f.place,
+                             f.lead ? " (Hauptfigur)" : "", skills, f.relations, f.memories);
+                }
+                ESP_LOGI(TAG, "%d Figuren, Besuche %d (%d laufen)", v.figures, v.visits, v.visits_open);
+            } else {
+                for (int i = v.chronicle - 1; i >= 0; --i)
+                    ESP_LOGI(TAG, "Tag %d, %02d:%02d  %s", static_cast<int>(v.ch[i].day), v.ch[i].minute / 60,
+                             v.ch[i].minute % 60, v.ch[i].text);
+            }
         } else {
             const gfx::WorldInfo w = gfx::world_info();
             if (!w.started) {
@@ -455,6 +482,18 @@ bool handle(char* line) {
                          pixelia::weather_name(static_cast<pixelia::WeatherKind>(w.weather)), w.weather_pct,
                          w.weather_override ? " (übersteuert)" : "");
             }
+            const gfx::SaveInfo s = gfx::save_info();
+            const int64_t now = esp_timer_get_time();
+            ESP_LOGI(TAG, "Speicherstand %lu, %.1f KB, %s, packen %lu µs, schreiben %lu ms, %d Figuren (%d unterwegs)%s%s",
+                     static_cast<unsigned long>(s.generation), s.bytes / 1024.0,
+                     s.at_us ? (std::to_string((now - s.at_us) / 1000000) + " s her").c_str()
+                             : (s.loaded ? "geladen" : "noch keiner"),
+                     static_cast<unsigned long>(s.pack_us), static_cast<unsigned long>(s.write_ms), s.figures, s.transit,
+                     s.test ? ", Testuhr: speichert nicht" : s.waiting ? ", wartet auf die Uhrzeit" : "",
+                     s.error[0] ? (std::string(", Fehler: ") + s.error).c_str() : "");
+            if (s.loaded)
+                ESP_LOGI(TAG, "Nachgeholt %lld min, übersprungen %lld min, offen %lld min", static_cast<long long>(s.caught_up),
+                         static_cast<long long>(s.skipped), static_cast<long long>(s.catching_up));
         }
     } else if (is("blf") && argc >= 2) {
         esp_err_t err = board::backlight::set_frequency(static_cast<uint32_t>(std::atoi(argv[1])));
