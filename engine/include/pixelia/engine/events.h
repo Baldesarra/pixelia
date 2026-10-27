@@ -40,12 +40,12 @@ struct WorldEvent {
     const char* place = nullptr;  // Kennung des Ortes (feste Zeichenkette der Ortsdaten), nullptr = die Welt
     const char* from = nullptr;   // Ankunft und Aufbruch: Herkunft
     bool lead = false;            // die Figur ist die Hauptfigur (Begleiterin)
-    char text[64] = {};           // Kurzmeldung (UTF-8), leer = keine
+    char text[56] = {};           // Kurzmeldung (UTF-8), leer = keine
 };
 
 class EventBus {
 public:
-    static constexpr int kQueue = 64;  // Ereignisse im Ringpuffer
+    static constexpr int kQueue = 32;  // Ereignisse im Ringpuffer (je Schritt meist keins, selten mehr als zwei)
     static constexpr int kReaders = 8;
 
     // Leser anmelden: Index, −1 = voll. Ein neuer Leser sieht nur, was ab dem nächsten Schritt zugestellt wird

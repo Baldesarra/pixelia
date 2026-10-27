@@ -724,7 +724,9 @@ std::vector<Case> stage_cases() {
              for (auto* r : {&a, &n}) {
                  r->run(1);
                  r->stage.go(2, Transition::Dissolve);
-                 r->run(2);
+                 // seit 0.5.8: Vorbereitung, dann ein Durchgang Mischen je Schritt (höchstens vier)
+                 for (int i = 0; i < 12 && !r->stage.transitioning(); ++i) r->run(1);
+                 r->run(1);
              }
              if (a.stage.transition() != Transition::Dissolve) return std::string("tagsüber nicht überblendet");
              const pixelia::Palette p1 = a.stage.palette();
@@ -1761,7 +1763,7 @@ std::vector<Case> state_cases() {
              for (int m = 0; m < 60; ++m) env.states.step(m, in);
              return wet >= 0 && env.states.value(wet) == 0 ? std::string() : std::string("unter Tage nass vom Regen");
          }},
-        {"Rechenspitzen verteilt: Überblendung betritt das Ziel einen Schritt vor dem Mischen, Wetter-Vorlauf über Schritte",
+        {"Rechenspitzen verteilt: Überblendung betritt das Ziel vor dem Mischen, mischt je Schritt einen Durchgang, Wetter-Vorlauf über Schritte",
          [] {
              StageRun r(27, "testort-wiese");
              r.stage.command("wetter schnee 100 sofort");  // Schnee braucht den längsten Vorlauf
@@ -1773,8 +1775,13 @@ std::vector<Case> state_cases() {
                  return std::string("Ziel nicht vorbereitet bzw. Übergang schon begonnen");
              auto& tp = static_cast<pixelia::TestPlace&>(r.stage.scene(platz));
              const int warm1 = tp.weather().peak();
-             r.run(1);
-             if (!r.stage.transitioning()) return std::string("Übergang beginnt nicht nach der Vorbereitung");
+             int passes = 0;
+             while (!r.stage.transitioning() && passes < 12) {
+                 r.run(1);
+                 ++passes;
+             }
+             if (!r.stage.transitioning() || passes > 5)
+                 return "Übergang beginnt nicht nach Vorbereitung und Mischen (" + std::to_string(passes) + " Schritte)";
              r.run(4);
              const int warm5 = tp.weather().peak();
              return warm5 > warm1 && warm1 > 0 ? std::string()
@@ -1782,6 +1789,7 @@ std::vector<Case> state_cases() {
          }},
     };
 }
+
 
 int run_group(const char* title, const std::vector<Case>& cases) {
     int failed = 0;

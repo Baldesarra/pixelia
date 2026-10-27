@@ -402,6 +402,29 @@ void Stage::start_transition(int to, Transition t) {
         sync_entered();
         return;
     }
+    // Paletten mischen (seit 0.5.8): erst exakt; reichen die 240 Farben nicht (nachts, drinnen ↔ draußen mit Wetter),
+    // ähnliche Farben zusammenlegen (für die 0,6 s unsichtbar). Ein Durchgang je Schritt, bis einer passt
+    bool fade = false;
+    if (!cut && t != Transition::Fade) {
+        if (scenes_[active_]->scale() != kCoarseScale && scenes_[to]->scale() != kCoarseScale) {
+            fade = true;  // beide fein: über Schwarz
+        } else {
+            constexpr int kTolerance[] = {0, 12, 30, 60};
+            if (merge_to_ != to) {
+                merge_to_ = to;
+                merge_try_ = 0;
+            }
+            const int k = std::min(merge_try_, 3);
+            if (!merge_palettes(active_, to, kTolerance[k], k == 3)) {
+                ++merge_try_;
+                arming_ = to;
+                pending_ = to;
+                pending_trans_ = t;
+                return;
+            }
+        }
+    }
+    merge_to_ = -1;
     arming_ = -1;
     from_ = -1;  // laufenden Übergang abschließen
     hold_ = false;
@@ -415,13 +438,9 @@ void Stage::start_transition(int to, Transition t) {
     from_ = active_;
     active_ = to;
     step_ = 0;
-    trans_ = t;
+    trans_ = fade ? Transition::Fade : t;
     sync_pins();
-    sync_entered();  // vor merge_palettes: ein Ort darf seine Palette beim Betreten setzen (Abblenden: erst geladen)
-    if (t != Transition::Fade) {
-        const bool both_fine = scenes_[from_]->scale() != kCoarseScale && scenes_[to]->scale() != kCoarseScale;
-        if (both_fine || !merge_palettes()) trans_ = Transition::Fade;
-    }
+    sync_entered();  // Abblenden: das Ziel wird betreten, sobald es geladen ist
 }
 
 void Stage::deliver_travels(const WorldClock& clock) {
@@ -481,51 +500,59 @@ void Stage::arrive_at(int from, int to, const Travel& t) {
     if (followed && follow_ && from == active_ && from_ < 0 && pending_ < 0) start_transition(to, t.transition);
 }
 
-bool Stage::merge_palettes() {
-    // Erst exakt; reichen die 240 Farben nicht (nachts, drinnen ↔ draußen mit Wetter), ähnliche Farben zusammenlegen:
-    // für die 0,6 s der Überblendung unsichtbar, am Ende gilt wieder die eigene Palette (seit 0.5.3, vorher Abblenden)
-    constexpr int kTolerance[] = {0, 12, 30};
-    for (int t : kTolerance)
-        if (merge_palettes(t, false)) return true;
-    return merge_palettes(60, true);
-}
-
 // Ein Durchgang mit Toleranz (Summe der Abstände je Kanal); last: ist alles belegt, die nächste Farbe nehmen
-bool Stage::merge_palettes(int tolerance, bool last) {
+bool Stage::merge_palettes(int from, int to, int tolerance, bool last) {
+    // Seit 0.5.8 über ein grobes Farbgitter (8 × 8 × 8 Zellen zu je 32 Stufen): gesucht wird nur in den Zellen, die
+    // die Toleranz erreichen kann, statt in allen Plätzen (Rechenspitze beim Start einer Überblendung)
     slots_ = 0;
     map_from_.fill(0);
     map_to_.fill(0);
+    cell_head_.fill(0xFF);
+    const int reach = (tolerance + 31) / 32;
+    auto dist = [](const Color& a, const Color& b) { return std::abs(a.r - b.r) + std::abs(a.g - b.g) + std::abs(a.b - b.b); };
     auto add = [&](int si, std::array<uint8_t, 256>& map) {
         const Scene& s = *scenes_[si];
         const Palette& p = s.palette();
         const int n = std::clamp(s.colors(), 1, kSceneColors);
         for (int i = 0; i < n; ++i) {
             const Color c = p[i];
+            const int cr = c.r >> 5, cg = c.g >> 5, cb = c.b >> 5;
             int slot = -1, best = 1 << 30;
-            for (int k = 0; k < slots_; ++k) {
-                const Color m = palette_[k];
-                const int d = std::abs(m.r - c.r) + std::abs(m.g - c.g) + std::abs(m.b - c.b);
-                if (d < best) {
-                    best = d;
-                    slot = k;
-                    if (d <= tolerance) break;  // erste passende reicht
-                }
-            }
+            for (int r = std::max(0, cr - reach); r <= std::min(7, cr + reach); ++r)
+                for (int g = std::max(0, cg - reach); g <= std::min(7, cg + reach); ++g)
+                    for (int b = std::max(0, cb - reach); b <= std::min(7, cb + reach); ++b)
+                        for (int k = cell_head_[(r * 8 + g) * 8 + b]; k != 0xFF; k = cell_next_[k]) {
+                            const int d = dist(palette_[k], c);
+                            if (d < best || (d == best && k < slot)) {
+                                best = d;
+                                slot = k;
+                            }
+                        }
             if (best > tolerance) {
                 if (slots_ < kSceneColors) {
                     slot = slots_++;
                     palette_[slot] = c;
                     slot_scene_[slot] = static_cast<uint8_t>(si);
                     slot_index_[slot] = static_cast<uint8_t>(i);
+                    const int cell = (cr * 8 + cg) * 8 + cb;
+                    cell_next_[slot] = cell_head_[cell];
+                    cell_head_[cell] = static_cast<uint8_t>(slot);
                 } else if (!last) {
                     return false;
+                } else if (slot < 0) {
+                    // alles belegt und nichts in Reichweite: die nächste aller Farben (selten)
+                    for (int k = 0; k < slots_; ++k)
+                        if (const int d = dist(palette_[k], c); d < best) {
+                            best = d;
+                            slot = k;
+                        }
                 }
             }
             map[i] = static_cast<uint8_t>(slot);
         }
         return true;
     };
-    return add(from_, map_from_) && add(active_, map_to_);
+    return add(from, map_from_) && add(to, map_to_);
 }
 
 int Stage::visible() const {

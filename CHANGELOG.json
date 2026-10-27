@@ -47,7 +47,7 @@
     ],
     "i": [
       "Engine: Mond in eigenen Farben des Ortes (vier feste Grundfarben) blendet beim Abblenden mit und erscheint während der Überblendung in der gemeinsamen Palette",
-      "Engine: Rechenspitzen verteilt: Überblendung und Raster betreten das Ziel einen Schritt vor dem Mischen der Paletten, Wetter-Vorlauf über 4 Schritte, unsichtbare Orte bauen Licht im eigenen Takt",
+      "Engine: Rechenspitzen verteilt: Ziel einen Schritt vor dem Mischen betreten, je Schritt ein Durchgang über ein Farbgitter, Wetter-Vorlauf mit Budget, Licht unsichtbarer Orte im eigenen Takt",
       "Engine: Kalender ohne eigene Warteschlange (Ereignis-Bus); Stage::poll_event liest die Kurzmeldungen als Leser am Bus",
       "Dorf: Rückwand des Testraums eine Reihe höher, Möbel eine Reihe tiefer; Testfiguren mit vier Farbreihen (Türkis wurde Mond, Grün die Glut)"
     ],
@@ -55,7 +55,8 @@
       "Dorf: Mond im Fenster des Testraums kaum zu sehen (Meldung des Users zu 0.5.7): Die alten Scheiben waren 5 × 5 grobe Punkte, der Mond 15 feine"
     ],
     "g": [
-      "Simulator: alle Selbsttests grün (Bühne 26, Asset-Pakete 5, Einblendungen 10, Weltzeit 9, Orte 7, Ortszustände 11)"
+      "Simulator: alle Selbsttests grün (Bühne 26, Asset-Pakete 5, Einblendungen 10, Weltzeit 9, Orte 7, Ortszustände 11)",
+      "Gerät: 64 Figuren, Regen, 9 Ortswechsel: 30,0 fps, Zeichnen 11,2 ms (max 11,7), Logik 2,2 ms (max 13,3, vorher bis 23); RAM 94 KB frei (Tiefstwert 86 KB), PSRAM 5,59 MB; Firmware 1,85 MB"
     ],
     "h": [
       "Doku: Nachprüfung Phase A als Tabelle in docs/ROADMAP.md; Nachweisbilder docs/nachweise/0.5.8-*.png (Fenster, Mond, Ortszustände)"

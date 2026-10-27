@@ -25,7 +25,8 @@
 // - Seit 0.5.8 Teil 2: Ereignis-Bus (events.h) mit Zustellung zu Beginn jedes Schritts; die Bühne meldet Ankunft und
 //   Aufbruch der Figuren, der Kalender seine Ereignisse. Ortszustände (place_state.h) schreibt die Bühne je Weltminute
 //   fort (nach einem Sprung der Uhr Minute für Minute). Rechenspitzen verteilt: Überblendung und Raster betreten das
-//   Ziel einen Schritt vor dem Mischen der Paletten (Vorbereitung), der Wetter-Vorlauf läuft über mehrere Schritte.
+//   Ziel einen Schritt vor dem Mischen der Paletten (Vorbereitung), gemischt wird ein Durchgang je Schritt, bis einer
+//   passt (so lange bleibt der alte Ort zu sehen), der Wetter-Vorlauf läuft über mehrere Schritte.
 
 #include <array>
 #include <cstdint>
@@ -157,8 +158,8 @@ private:
     void prefetch_neighbors();
     void deliver_travels(const WorldClock& clock);
     void arrive_at(int from, int to, const Travel& t);
-    bool merge_palettes();
-    bool merge_palettes(int tolerance, bool last);
+    // Ein Durchgang mit Toleranz; last: ist alles belegt, die nächste Farbe nehmen (gelingt immer)
+    bool merge_palettes(int from, int to, int tolerance, bool last);
     void update_palette();
     int visible() const;
     // transition: während eines Wechsels (Mond nur mit eigenen Mondfarben des Ortes, sie blenden mit dem Bild)
@@ -177,7 +178,8 @@ private:
     int active_ = 0;
     int from_ = -1;     // Szene, von der aus gewechselt wird (−1 = kein Übergang)
     int pending_ = -1;  // angeforderter Wechsel für den nächsten tick()
-    int arming_ = -1;   // Vorbereitung: Ziel schon betreten, Paletten werden im nächsten Schritt gemischt
+    int arming_ = -1;   // Vorbereitung: Ziel schon betreten, Paletten werden in den nächsten Schritten gemischt
+    int merge_to_ = -1, merge_try_ = 0;  // Mischen: ein Durchgang je Schritt (Toleranz 0, 12, 30, 60)
     Transition pending_trans_ = Transition::Dissolve;
     Transition trans_ = Transition::Cut;
     int step_ = 0;
@@ -214,6 +216,8 @@ private:
     std::array<uint8_t, 256> map_to_{};
     std::array<uint8_t, kSceneColors> slot_scene_{};
     std::array<uint8_t, kSceneColors> slot_index_{};
+    std::array<uint8_t, 512> cell_head_{};          // Farbgitter beim Mischen: erster Platz je Zelle
+    std::array<uint8_t, kSceneColors> cell_next_{};  // nächster Platz in derselben Zelle
     int slots_ = 0;
     Palette palette_{};
     uint8_t* main_ = nullptr;
