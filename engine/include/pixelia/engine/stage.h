@@ -27,6 +27,12 @@
 //   fort (nach einem Sprung der Uhr Minute für Minute). Rechenspitzen verteilt: Überblendung und Raster betreten das
 //   Ziel einen Schritt vor dem Mischen der Paletten (Vorbereitung), gemischt wird ein Durchgang je Schritt, bis einer
 //   passt (so lange bleibt der alte Ort zu sehen), der Wetter-Vorlauf läuft über mehrere Schritte.
+// - Seit 0.5.9 Weltzustand (environment.h): Die Figuren gehören der Welt (figure.h). Die Bühne legt die Startbesetzung
+//   an, setzt jede Figur in ihren Ort und ist die Einzige, die eine Figur weitergibt: Aufbruch, Verbindung und Ankunft
+//   ändern ihr Feld where in demselben Schritt, in dem der Ort sie abgibt bzw. aufnimmt (check_figures prüft das).
+//   Chronik und Besuche trägt sie aus dem Ereignis-Bus ein. Speicherstand als Ganzes: save_state/load_state
+//   (world_save.cpp, Format save.h); nach dem Laden holt sie die Ortszustände nach (bis 3 Tage, verteilt auf mehrere
+//   Schritte, Wetter der verpassten Zeit aus der Wetter-Simulation).
 
 #include <array>
 #include <cstdint>
@@ -140,7 +146,35 @@ public:
     EventBus& events() { return env_.events; }
 
     void tick(const WorldClock& clock);
-    void set_load(int load);  // Lastregler der sichtbaren Szene
+    void set_load(int load);  // Lastregler der sichtbaren Szene: so viele Figuren mit Statisten, 0 = keine Statisten
+
+    // --- Weltzustand und Speicherstand (seit 0.5.9) ---
+    struct LoadReport {
+        bool ok = false;
+        const char* why = "";      // Grund, wenn nicht geladen
+        uint32_t generation = 0;
+        int64_t saved_us = 0;      // Weltzeit beim Speichern
+        int figures = 0, transit = 0, states = 0, chronicle = 0;
+        int unknown_places = 0;    // Bezüge auf Orte, die es nicht mehr gibt (Figuren kommen in den ersten Ort)
+        int skipped_chunks = 0;    // unbekannte Abschnitte (neuere Firmware)
+    };
+    // Weltzustand in buf schreiben, an einer Takt-Grenze (zwischen zwei tick()); Länge, 0 = Puffer zu klein
+    size_t save_state(uint8_t* buf, size_t cap, uint32_t generation) const;
+    // Speicherstand laden (nach init(), an einer Takt-Grenze); false = ungültig, dann bleibt die Welt, wie sie war
+    bool load_state(const uint8_t* data, size_t n, LoadReport* report = nullptr);
+    // Prüfung: jede Figur genau einmal (an ihrem Ort bzw. auf ihrer Verbindung), keine fremde; nullptr = alles gut
+    const char* check_figures(char* buf, int n) const;
+    // Nachholen nach dem Laden: noch offene Weltminuten der Ortszustände, bisher nachgeholt, übersprungen (länger aus
+    // als kCatchUpMinutes)
+    static constexpr int kCatchUpMinutes = 3 * 1440;  // Wunsch des Users 2026-10-27: bis 3 Tage
+    static constexpr int kCatchUpPerTick = 240;       // Weltminuten je Schritt (Rechenzeit verteilen)
+    int64_t catching_up() const;
+    int64_t caught_up() const { return caught_up_; }
+    int64_t skipped() const { return skipped_; }
+    int64_t world_us() const { return world_us_; }  // Weltzeit des letzten Schritts
+    uint64_t seed() const { return seed_; }
+    int place_of(int scene) const { return scene >= 0 && scene < count_ ? place_of_[scene] : -1; }  // Nummer in der Welt
+    int scene_of(int place) const;  // −1 = nicht auf der Bühne
 
     // Arbeitspuffer für grobe Szenen, je kCoarsePixels Byte: main für die sichtbare Szene, aux für die zweite
     // Szene während einer Überblendung. Ohne Puffer bleiben grobe Szenen schwarz.
@@ -171,6 +205,15 @@ private:
     void step_states(int64_t world_minute);      // Ortszustände bis zu dieser Weltminute
     void publish_travel(EventKind kind, int from, int to, const Travel& t);
     void compose(Canvas& fine, const uint8_t* old_coarse, const uint8_t* new_coarse) const;
+    // Weltzustand (seit 0.5.9)
+    void populate_figures();  // Startbesetzung aus den Gebieten
+    void adopt_figures();     // Figuren des Weltzustands in ihre Orte setzen (Start, Laden)
+    void rebuild_transit();   // Figuren auf Verbindungen aus dem Weltzustand (Laden)
+    Travel travel_of(const FigureRecord& f, int to_scene) const;
+    void read_chronicle();
+    void note_arrival(uint16_t who, int scene);
+    void set_where_place(uint16_t who, int scene);
+    void note_wake();
 
     std::array<std::unique_ptr<Scene>, kMaxScenes> scenes_{};
     int count_ = 0;
@@ -189,7 +232,7 @@ private:
     struct Transit {
         Travel t;
         int64_t depart_us, arrive_us;  // Weltzeit
-        uint8_t from, to;
+        uint8_t from, to;              // Szenen
     };
     std::array<Transit, kMaxTransit> transit_{};
     int transit_n_ = 0;
@@ -211,6 +254,16 @@ private:
     bool sim_applied_ = false;
     int64_t state_minute_ = INT64_MIN;  // Ortszustände fortgeschrieben bis hier
     int toast_reader_ = -1;
+    // Weltzustand (seit 0.5.9)
+    uint64_t seed_ = 0;
+    int64_t world_us_ = 0;
+    int chron_reader_ = -1;
+    std::array<int16_t, kMaxScenes> place_of_{};
+    bool wake_pending_ = false;            // nach dem Laden: Pause in die Chronik, sobald die Weltzeit läuft
+    int64_t saved_minute_ = INT64_MIN;     // Weltminute im geladenen Speicherstand
+    int64_t caught_up_ = 0, skipped_ = 0;
+    int64_t past_key_ = INT64_MIN;         // Nachholen: Wetterzeit, für die past_rain_ gilt
+    int past_rain_ = 0;
     // Gemeinsame Palette während einer Überblendung: Index der Szene → Platz, Platz → Quelle (Szene, Index)
     std::array<uint8_t, 256> map_from_{};
     std::array<uint8_t, 256> map_to_{};

@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
+#include <filesystem>
 #include <functional>
 #include <string>
 #include <vector>
@@ -17,7 +19,9 @@
 #include "pixelia/engine/camera.h"
 #include "pixelia/engine/gesture.h"
 #include "pixelia/engine/overlay.h"
+#include "pixelia/engine/png.h"
 #include "pixelia/engine/redact.h"
+#include "pixelia/engine/save.h"
 #include "pixelia/engine/sprite.h"
 #include "pixelia/engine/stage.h"
 #include "pixelia/engine/place.h"
@@ -1361,15 +1365,22 @@ std::vector<Case> place_cases() {
              d.stage.set_world_time(true);
              d.clock.set_time_of_day(11, 0);
              d.stage.set_follow(false);
-             int seen = 0, longest = 0, run = 0;
+             // seit 0.5.9 je Figur aus dem Weltzustand (where = Verbindung), nicht mehr „irgendwer unterwegs“
+             int seen = 0, longest = 0;
+             std::vector<int> run(0x10000, 0);
              for (int t = 0; t < 30 * 600; ++t) {
                  d.run(1);
-                 run = d.stage.in_transit() > 0 ? run + 1 : 0;
-                 longest = std::max(longest, run);
-                 seen += run == 1;
+                 const pixelia::FigureBook& book = d.stage.environment().figures;
+                 for (int k = 0; k < book.count(); ++k) {
+                     const pixelia::FigureRecord& f = book.at(k);
+                     int& r = run[f.id];
+                     r = f.where.kind == pixelia::Whereabouts::Kind::Link ? r + 1 : 0;
+                     longest = std::max(longest, r);
+                     seen += r == 1;
+                 }
              }
              if (seen == 0) return std::string("in 10 min niemand auf dem Feldweg");
-             if (longest < 29 * 30 || longest > 31 * 30 * 4) return "unterwegs " + std::to_string(longest / 30) + " s";
+             if (longest < 29 * 30 || longest > 31 * 30) return "unterwegs " + std::to_string(longest / 30) + " s";
              // nachts: niemand nimmt ihn, die Karte sagt warum
              StageRun n(3, "testort-wiese");
              n.stage.set_world_time(true);
@@ -1640,6 +1651,8 @@ std::vector<Case> state_cases() {
              jump.run(1);
              jump.clock.set_world_us(step.clock.world_us());
              jump.run(1);
+             // seit 0.5.9 verteilt sich das Nachholen auf mehrere Schritte (kCatchUpPerTick): weiter bei derselben Weltzeit
+             for (int k = 0; k < 4 && jump.stage.catching_up() > 0; ++k) jump.stage.tick(jump.clock);
              step.run(1);
              const std::string a = states_text(step.stage.environment().states, true);
              const std::string b = states_text(jump.stage.environment().states, true);
@@ -1791,6 +1804,412 @@ std::vector<Case> state_cases() {
 }
 
 
+// --- Weltzustand, Figuren und Speicherstand (seit 0.5.9): Prüfgrößen aus dem Systemplan, Grundlage für 0.5.12 ---
+
+using pixelia::FigureBook;
+using pixelia::FigureRecord;
+using pixelia::Skill;
+using pixelia::SkillLevel;
+using Kind = pixelia::Whereabouts::Kind;
+
+std::vector<uint8_t> save_of(const pixelia::Stage& s, uint32_t generation = 1) {
+    std::vector<uint8_t> b(256 * 1024);
+    b.resize(s.save_state(b.data(), b.size(), generation));
+    return b;
+}
+
+std::string figures_ok(const pixelia::Stage& s) {
+    char buf[160];
+    const char* e = s.check_figures(buf, sizeof(buf));
+    return e ? std::string(e) : std::string();
+}
+
+// Weiter wie a: Weltzeit an, gleiche Uhr, Blick folgt nicht
+void resume_like(StageRun& b, const StageRun& a, int64_t plus_us = 0) {
+    b.stage.set_world_time(true);
+    b.stage.set_follow(false);
+    b.clock.set_world_us(a.clock.world_us() + plus_us);
+    b.clock.set_speed(1.0);
+}
+
+// bis eine Figur auf einer Verbindung ist (höchstens 20 Weltminuten); Kennung, 0 = keine
+uint16_t run_until_link(StageRun& r) {
+    for (int t = 0; t < 30 * 1200; ++t) {
+        r.run(1);
+        const FigureBook& book = r.stage.environment().figures;
+        for (int k = 0; k < book.count(); ++k)
+            if (book.at(k).where.kind == Kind::Link) return book.at(k).id;
+    }
+    return 0;
+}
+
+void fix_crc(std::vector<uint8_t>& d) {
+    const uint32_t c = pixelia::crc32(d.data() + 8, d.size() - 8);
+    for (int k = 0; k < 4; ++k) d[4 + k] = static_cast<uint8_t>(c >> (8 * k));
+}
+
+void write_file(const std::string& path, const uint8_t* p, size_t n) {
+    if (FILE* f = std::fopen(path.c_str(), "wb")) {
+        if (n) std::fwrite(p, 1, n, f);
+        std::fclose(f);
+    }
+}
+
+constexpr const char* kFixture = "sim/testdata/welt-0.5.9.pxw";
+
+std::vector<Case> save_cases() {
+    return {
+        {"Startbesetzung im Weltzustand: 14 Figuren, jede in 20 Weltminuten jederzeit genau einmal (Ort oder Verbindung)",
+         [] {
+             StageRun r(7, "testort-wiese");
+             world_run(r, 11, 0, 1.0);
+             const FigureBook& book = r.stage.environment().figures;
+             if (book.count() != 14) return "Figuren: " + std::to_string(book.count());
+             if (!book.lead() || r.stage.lead() != book.lead()) return std::string("Hauptfigur fehlt");
+             int links = 0;
+             for (int t = 0; t < 30 * 1200; ++t) {
+                 r.run(1);
+                 if (std::string e = figures_ok(r.stage); !e.empty()) return "nach " + std::to_string(t) + " Schritten: " + e;
+                 links = std::max(links, r.stage.in_transit());
+             }
+             if (book.count() != 14) return "danach " + std::to_string(book.count()) + " Figuren";
+             if (r.stage.travels() < 5 || links == 0)
+                 return "kaum Reisen: " + std::to_string(r.stage.travels()) + ", unterwegs höchstens " + std::to_string(links);
+             return std::string();
+         }},
+        {"Fähigkeiten: Unbekanntes misslingt meist, Meister fast nie; aus Fehlversuchen lernt man, erstes Mal bleibt in Erinnerung",
+         [] {
+             FigureBook book;
+             pixelia::FigureDef d{};
+             d.name = "Lehrling";
+             const uint16_t a = book.add(d, 0)->id;
+             d.name = "Meisterin";
+             d.skills[0] = {Skill::Baking, SkillLevel::Master};
+             const uint16_t m = book.add(d, 0)->id;
+             pixelia::Rng rng(5);
+             int fail_a = 0, fail_m = 0, early = 0, late = 0;
+             for (int i = 0; i < 20; ++i) {
+                 fail_a += book.try_skill(a, Skill::Baking, 1, rng, 1, 600).outcome != pixelia::Outcome::Success;
+                 fail_m += book.try_skill(m, Skill::Baking, 1, rng, 1, 600).outcome != pixelia::Outcome::Success;
+             }
+             if (fail_a < 12 || fail_m > 4)
+                 return "Fehlversuche von 20: Lehrling " + std::to_string(fail_a) + ", Meisterin " + std::to_string(fail_m);
+             for (int i = 0; i < 300; ++i) {
+                 const bool ok = book.try_skill(a, Skill::Baking, 1, rng, 2, 600).outcome == pixelia::Outcome::Success;
+                 if (i < 60)
+                     early += ok;
+                 else if (i >= 240)
+                     late += ok;
+             }
+             const FigureRecord& f = *book.find(a);
+             if (f.level(Skill::Baking) < SkillLevel::Practiced)
+                 return std::string("nach 320 Versuchen erst ") + pixelia::skill_level_title(f.level(Skill::Baking));
+             if (late <= early) return "kein Fortschritt: " + std::to_string(early) + " → " + std::to_string(late) + " von 60";
+             bool first = false, failure = false, up = false;
+             for (const pixelia::Memory& x : f.memories) {
+                 first = first || x.kind == pixelia::MemoryKind::First;
+                 failure = failure || x.kind == pixelia::MemoryKind::Failure;
+                 up = up || x.kind == pixelia::MemoryKind::SkillUp;
+             }
+             if (!first || !failure || !up) return std::string("Erinnerungen fehlen (erstes Mal, Fehlversuch, Stufe)");
+             return std::string();
+         }},
+        {"Gezeigt bekommen: nur wer es besser kann; Lernen und Beziehung wachsen zwischen beiden",
+         [] {
+             FigureBook book;
+             pixelia::FigureDef d{};
+             d.name = "Sykora";
+             const uint16_t s = book.add(d, 0)->id;
+             d.name = "Konrad";
+             d.skills[0] = {Skill::Smithing, SkillLevel::Master};
+             const uint16_t k = book.add(d, 0)->id;
+             if (book.teach(s, k, Skill::Smithing, 60, 1, 600)) return std::string("Lehrling zeigt der Meisterin");
+             if (!book.teach(k, s, Skill::Smithing, 120, 1, 600)) return std::string("Meister kann nicht zeigen");
+             const FigureRecord& f = *book.find(s);
+             if (f.level(Skill::Smithing) != SkillLevel::Beginner) return std::string("nach 2 Stunden nicht Anfänger");
+             const pixelia::Relation* r1 = f.relation(k);
+             const pixelia::Relation* r2 = book.find(k)->relation(s);
+             if (!r1 || !r2 || r1->bond != pixelia::Bond::Known || r2->bond != pixelia::Bond::Known)
+                 return std::string("Beziehung nicht beidseitig „bekannt“");
+             return std::string();
+         }},
+        {"Beziehungen: Stufen hoch und runter, beide Seiten, je Paar ein Ereignis, Erinnerung bei beiden",
+         [] {
+             FigureBook book;
+             pixelia::EventBus bus;
+             book.set_bus(&bus);
+             const int rd = bus.subscribe(pixelia::event_bit(pixelia::EventKind::BondChanged));
+             pixelia::FigureDef d{};
+             d.name = "Greta";
+             const uint16_t a = book.add(d, 0)->id;
+             d.name = "Jakob";
+             const uint16_t b = book.add(d, 0)->id;
+             book.bond(a, b, 75, 3, 700);  // fremd → bekannt (10) → vertraut (60), 5 übrig
+             book.bond(a, b, -30, 4, 700);  // zurück auf bekannt
+             bus.deliver();
+             int events = 0;
+             for (pixelia::WorldEvent e; bus.poll(rd, &e);) events += e.who == a && e.other == b;
+             const pixelia::Relation* r1 = book.find(a)->relation(b);
+             const pixelia::Relation* r2 = book.find(b)->relation(a);
+             if (!r1 || !r2 || r1->bond != pixelia::Bond::Known || r2->bond != pixelia::Bond::Known || r1->points != 35)
+                 return std::string("Stufe oder Punkte falsch");
+             if (events != 2) return "Ereignisse: " + std::to_string(events);
+             int mem = 0;
+             for (uint16_t id : {a, b})
+                 for (const pixelia::Memory& x : book.find(id)->memories)
+                     mem += x.kind == pixelia::MemoryKind::BondUp || x.kind == pixelia::MemoryKind::BondDown;
+             return mem == 4 ? std::string() : "Erinnerungen: " + std::to_string(mem);
+         }},
+        {"Erinnerungen: ist der Platz voll, weicht die unwichtigste, bei Gleichstand die älteste",
+         [] {
+             FigureBook book;
+             pixelia::FigureDef d{};
+             d.name = "Martha";
+             const uint16_t a = book.add(d, 0)->id;
+             for (int i = 0; i < FigureRecord::kMemories; ++i) {
+                 pixelia::Memory m;
+                 m.kind = pixelia::MemoryKind::Event;
+                 m.weight = 50;
+                 m.day = 10 + i;
+                 book.remember(a, m);
+             }
+             pixelia::Memory low, same, high;
+             low.kind = same.kind = high.kind = pixelia::MemoryKind::Visit;
+             low.weight = 10;
+             same.weight = 50;
+             same.day = 99;
+             high.weight = 200;
+             high.day = 100;
+             if (book.remember(a, low)) return std::string("unwichtige Erinnerung verdrängt eine wichtigere");
+             if (!book.remember(a, same) || !book.remember(a, high)) return std::string("nicht eingetragen");
+             int oldest = 1 << 30;
+             for (const pixelia::Memory& x : book.find(a)->memories) oldest = std::min<int>(oldest, x.day);
+             return oldest == 12 ? std::string() : "älteste übrige vom Tag " + std::to_string(oldest) + " statt 12";
+         }},
+        {"Speicherstand: Speichern, in eine andere Welt laden und wieder speichern ergibt dieselben Bytes",
+         [] {
+             StageRun a(11, "testort-wiese");
+             world_run(a, 11, 0, 1.0);
+             a.run(30 * 300);
+             FigureBook& book = a.stage.environment().figures;
+             book.learn(book.at(3).id, Skill::Baking, 400, 1, 660);
+             book.bond(book.at(1).id, book.at(2).id, 70, 1, 660);
+             a.stage.environment().flags.set("brunnen", true);
+             a.run(2);
+             const std::vector<uint8_t> s1 = save_of(a.stage, 4);
+             if (s1.empty()) return std::string("Speichern: Puffer zu klein");
+             StageRun b(99, "testort-raum");
+             pixelia::Stage::LoadReport rep;
+             if (!b.stage.load_state(s1.data(), s1.size(), &rep)) return std::string("Laden: ") + rep.why;
+             const std::vector<uint8_t> s2 = save_of(b.stage, 4);
+             if (s1 != s2) {
+                 size_t k = 0;
+                 while (k < s1.size() && k < s2.size() && s1[k] == s2[k]) ++k;
+                 return "Bytes weichen ab bei " + std::to_string(k) + " von " + std::to_string(s1.size());
+             }
+             if (rep.figures != 14 || rep.chronicle == 0) return "Bericht: " + std::to_string(rep.figures) + " Figuren";
+             if (!b.stage.environment().flags.has("brunnen")) return std::string("Merker fehlt");
+             std::string e = figures_ok(b.stage);
+             return e.empty() ? std::string() : "nach dem Laden: " + e;
+         }},
+        {"Neustart mitten auf dem Weg: die Figur auf der Verbindung kommt nach dem Laden genau einmal an",
+         [] {
+             StageRun a(5, "testort-wiese");
+             world_run(a, 11, 0, 1.0);
+             const uint16_t who = run_until_link(a);
+             if (!who) return std::string("niemand unterwegs");
+             const int64_t arrive = a.stage.environment().figures.find(who)->where.arrive_us;
+             const std::vector<uint8_t> s = save_of(a.stage);
+             StageRun b(5, "testort-wiese");
+             if (!b.stage.load_state(s.data(), s.size())) return std::string("Laden");
+             resume_like(b, a);
+             const int rd = b.stage.events().subscribe(pixelia::event_bit(pixelia::EventKind::Arrived));
+             int arrivals = 0;
+             for (int t = 0; t < 30 * 60 && b.clock.world_us() < arrive + 2000000; ++t) {
+                 b.run(1);
+                 if (std::string e = figures_ok(b.stage); !e.empty()) return e;
+                 for (pixelia::WorldEvent e; b.stage.events().poll(rd, &e);) arrivals += e.who == who;
+             }
+             b.run(1);
+             for (pixelia::WorldEvent e; b.stage.events().poll(rd, &e);) arrivals += e.who == who;
+             const FigureRecord* f = b.stage.environment().figures.find(who);
+             if (!f || f->where.kind != Kind::Place) return std::string("nicht angekommen");
+             if (arrivals != 1) return "Ankünfte: " + std::to_string(arrivals);
+             return b.stage.environment().figures.count() == 14 ? std::string() : std::string("Zahl der Figuren");
+         }},
+        {"Stromausfall beim Speichern: abgebrochene oder kaputte Datei, es gilt der vorige Stand; Laden stürzt nie ab",
+         [] {
+             const std::string dir = "build-sim-headless/test-speicher";
+             std::filesystem::create_directories(dir);
+             pixelia::SaveSlots slots(dir.c_str(), "welt");
+             std::remove(slots.path(0));
+             std::remove(slots.path(1));
+             StageRun a(9, "testort-wiese");
+             world_run(a, 11, 0, 1.0);
+             a.run(300);
+             const std::vector<uint8_t> s1 = save_of(a.stage, 1);
+             int slot = -1;
+             if (!slots.write(s1.data(), s1.size(), &slot) || slot != 0) return std::string("erster Platz");
+             a.run(300);
+             std::vector<uint8_t> s2 = save_of(a.stage, 2);
+             auto loads = [&](uint32_t want) {
+                 pixelia::SaveSlots fresh(dir.c_str(), "welt");
+                 std::vector<uint8_t> d;
+                 pixelia::SaveHeader h;
+                 return fresh.load(&d, &h) && h.generation == want;
+             };
+             // abgebrochen nach k Byte, an jeder Stelle: der vorige Stand gilt, und der Leser lehnt die Daten ab
+             for (size_t k = 0; k < s2.size(); k += k < 64 ? 1 : 37) {
+                 write_file(slots.path(1), s2.data(), k);
+                 if (!loads(1)) return "abgebrochen nach " + std::to_string(k) + " Byte: Stand 1 fehlt";
+                 StageRun b(9, "testort-wiese");
+                 if (b.stage.load_state(s2.data(), k)) return "abgebrochene Daten geladen (" + std::to_string(k) + ")";
+             }
+             std::vector<uint8_t> bad = s2;
+             bad[bad.size() / 2] ^= 0x40;
+             write_file(slots.path(1), bad.data(), bad.size());
+             if (!loads(1)) return std::string("gekipptes Bit: Stand 1 fehlt");
+             pixelia::SaveSlots w(dir.c_str(), "welt");
+             if (!w.write(s2.data(), s2.size(), &slot) || slot != 1 || !loads(2)) return std::string("zweiter Platz");
+             const std::vector<uint8_t> s3 = save_of(a.stage, 3);
+             write_file(slots.path(0), s3.data(), s3.size() / 3);
+             if (!loads(2)) return std::string("Stand 2 nach abgebrochenem Stand 3");
+             // kaputte Inhalte mit passender Prüfsumme (Fehler im Programm): laden, ohne abzustürzen, Figuren heil
+             pixelia::Rng rng(77);
+             for (int i = 0; i < 300; ++i) {
+                 std::vector<uint8_t> f = s2;
+                 const int flips = 1 + static_cast<int>(rng.below(6));
+                 for (int k = 0; k < flips; ++k)
+                     f[pixelia::kSaveHeader + rng.below(static_cast<uint32_t>(f.size() - pixelia::kSaveHeader))] =
+                         static_cast<uint8_t>(rng.next());
+                 fix_crc(f);
+                 StageRun b(9, "testort-wiese");
+                 b.stage.load_state(f.data(), f.size());
+                 resume_like(b, a);
+                 b.run(3);
+                 if (std::string e = figures_ok(b.stage); !e.empty()) return "Versuch " + std::to_string(i) + ": " + e;
+             }
+             return std::string();
+         }},
+        {"Alter Stand lädt weiter: Speicherstand 0.5.9 aus dem Repo, fehlende und unbekannte Abschnitte, Ort gibt es nicht mehr",
+         [] {
+             if (std::getenv("PIXELIA_FIXTURE")) {
+                 // Vorlage einmal erzeugen (0.5.9): mit Figur unterwegs, Erinnerungen, Chronik
+                 StageRun a(5, "testort-wiese");
+                 world_run(a, 11, 0, 1.0);
+                 FigureBook& book = a.stage.environment().figures;
+                 book.learn(book.at(4).id, Skill::Joinery, 340, 1, 660);
+                 book.bond(book.at(4).id, book.at(5).id, 80, 1, 660);
+                 if (!run_until_link(a)) return std::string("niemand unterwegs");
+                 const std::vector<uint8_t> s = save_of(a.stage, 1);
+                 write_file(kFixture, s.data(), s.size());
+             }
+             std::vector<uint8_t> old;
+             if (FILE* f = std::fopen(kFixture, "rb")) {
+                 uint8_t buf[4096];
+                 for (size_t k; (k = std::fread(buf, 1, sizeof(buf), f)) > 0;) old.insert(old.end(), buf, buf + k);
+                 std::fclose(f);
+             }
+             if (old.empty()) return std::string("Vorlage ") + kFixture + " fehlt";
+             StageRun b(1, "testort-wiese");
+             pixelia::Stage::LoadReport rep;
+             if (!b.stage.load_state(old.data(), old.size(), &rep)) return std::string("Vorlage: ") + rep.why;
+             if (rep.figures != 14 || rep.transit < 1) return "Vorlage: " + std::to_string(rep.figures) + " Figuren";
+             if (std::string e = figures_ok(b.stage); !e.empty()) return "Vorlage: " + e;
+             // nur Weltzeit und ein unbekannter Abschnitt: der Rest bleibt beim Anfangswert
+             std::vector<uint8_t> buf(1024);
+             pixelia::SaveWriter w(buf.data(), buf.size());
+             w.begin(1, b.clock.world_us());
+             w.chunk("WELT", 1);
+             w.u64(1);
+             w.i64(INT64_MIN);
+             w.u16(100);
+             w.chunk("ZZZZ", 7);
+             w.u32(12345);
+             buf.resize(w.finish());
+             StageRun c(1, "testort-wiese");
+             if (!c.stage.load_state(buf.data(), buf.size(), &rep) || rep.skipped_chunks != 1)
+                 return std::string("unbekannter Abschnitt nicht übersprungen");
+             if (c.stage.environment().figures.count() != 14) return std::string("Startbesetzung ohne Abschnitt FIGS weg");
+             // Ort umbenannt (gibt es nicht mehr): seine Figuren kommen in den ersten Ort, keine geht verloren
+             std::vector<uint8_t> moved = old;
+             const std::string from = "testort-kammer", to = "testort-xammer";
+             auto it = std::search(moved.begin(), moved.end(), from.begin(), from.end());
+             if (it == moved.end()) return std::string("Kammer nicht in der Vorlage");
+             std::copy(to.begin(), to.end(), it);
+             fix_crc(moved);
+             StageRun m(1, "testort-wiese");
+             if (!m.stage.load_state(moved.data(), moved.size(), &rep) || rep.unknown_places == 0)
+                 return std::string("unbekannter Ort nicht erkannt");
+             if (m.stage.environment().figures.count() != 14) return std::string("Figur verloren");
+             std::string e = figures_ok(m.stage);
+             return e.empty() ? std::string() : "umbenannter Ort: " + e;
+         }},
+        {"Nachholen: 10 Stunden aus ergibt dieselben Lichter und Feuer; mehr als 3 Tage: Rest übersprungen, Chronik nennt die Pause",
+         [] {
+             StageRun a(23, "scrolltest");
+             world_run(a, 16, 0, 600.0);
+             a.run(3);
+             const std::vector<uint8_t> s = save_of(a.stage);
+             a.run(1800);  // 10 Stunden Minute für Minute
+             StageRun b(23, "scrolltest");
+             if (!b.stage.load_state(s.data(), s.size())) return std::string("Laden");
+             resume_like(b, a);
+             b.run(1);
+             for (int k = 0; k < 8 && b.stage.catching_up() > 0; ++k) b.stage.tick(b.clock);
+             if (b.stage.catching_up() > 0) return std::string("Nachholen nicht fertig");
+             a.run(1);
+             const std::string x = states_text(a.stage.environment().states, true);
+             const std::string y = states_text(b.stage.environment().states, true);
+             if (x != y) return "Minute für Minute: " + x + "\n          nachgeholt: " + y;
+             const pixelia::Chronicle& ch = b.stage.environment().chronicle;
+             const std::string wake = ch.count() ? ch.at(ch.count() - 1).text : "";
+             if (wake.find("Pixelia war 10 Std.") == std::string::npos) return "Chronik: " + wake;
+             StageRun c(23, "scrolltest");
+             pixelia::Stage::LoadReport rep;
+             c.stage.load_state(s.data(), s.size(), &rep);
+             resume_like(c, a, 4LL * 24 * 3600 * 1000000);  // 4 Tage und 10 Stunden aus
+             for (int k = 0; k < 40 && (k < 2 || c.stage.catching_up() > 0); ++k) c.run(1);
+             const int64_t gap = (c.clock.world_us() - rep.saved_us) / 60000000;
+             const int64_t skipped = c.stage.skipped(), want = gap - pixelia::Stage::kCatchUpMinutes;
+             if (skipped < want - 2 || skipped > want + 2)
+                 return "übersprungen " + std::to_string(skipped) + " statt " + std::to_string(want) + " Minuten";
+             const pixelia::Chronicle& cc = c.stage.environment().chronicle;
+             const std::string w5 = cc.count() ? cc.at(cc.count() - 1).text : "";
+             return w5.find("nachgeholt: 3 Tage") != std::string::npos ? std::string() : "Chronik: " + w5;
+         }},
+        {"Chronik und Besuche: Einträge mit Zeitstempel, neue Stufen erscheinen, alles übersteht Speichern und Laden",
+         [] {
+             StageRun a(3, "testort-wiese");
+             world_run(a, 11, 0, 1.0);
+             a.run(30 * 600);
+             FigureBook& book = a.stage.environment().figures;
+             const uint16_t who = book.at(2).id;
+             book.learn(who, Skill::Music, 400, a.stage.environment().calendar.date().day, 671);
+             a.run(2);
+             const pixelia::Chronicle& ch = a.stage.environment().chronicle;
+             bool start = false, skill = false;
+             for (int i = 0; i < ch.count(); ++i) {
+                 start = start || ch.at(i).kind == pixelia::ChronicleKind::Start;
+                 skill = skill || std::string(ch.at(i).text).find("Musizieren jetzt") != std::string::npos;
+             }
+             if (!start || !skill) return std::string("Chronik ohne Start oder neue Stufe");
+             const pixelia::VisitLog& vs = a.stage.environment().visits;
+             if (vs.count() == 0) return std::string("keine Besuche in 10 Minuten");
+             const std::vector<uint8_t> s = save_of(a.stage);
+             StageRun b(4, "testort-raum");
+             b.stage.load_state(s.data(), s.size());
+             const pixelia::Chronicle& cb = b.stage.environment().chronicle;
+             if (cb.count() != ch.count() || std::strcmp(cb.at(cb.count() - 1).text, ch.at(ch.count() - 1).text) != 0)
+                 return std::string("Chronik nach dem Laden anders");
+             const pixelia::VisitLog& vb = b.stage.environment().visits;
+             if (vb.count() != vs.count() || vb.at(0).who != vs.at(0).who || vb.at(0).from != vs.at(0).from)
+                 return std::string("Besuche nach dem Laden anders");
+             return std::string();
+         }},
+    };
+}
+
 int run_group(const char* title, const std::vector<Case>& cases) {
     int failed = 0;
     for (const auto& c : cases) {
@@ -1811,8 +2230,8 @@ int run_group(const char* title, const std::vector<Case>& cases) {
 
 int run_tests(const std::string& which) {
     if (which != "gestures" && which != "redact" && which != "stage" && which != "assets" && which != "overlay" &&
-        which != "welt" && which != "orte" && which != "all") {
-        std::printf("FEHLER: Test \"%s\" gibt es nicht (gestures, redact, stage, assets, overlay, welt, orte, all)\n",
+        which != "welt" && which != "orte" && which != "speicher" && which != "all") {
+        std::printf("FEHLER: Test \"%s\" gibt es nicht (gestures, redact, stage, assets, overlay, welt, orte, speicher, all)\n",
                     which.c_str());
         return 2;
     }
@@ -1827,6 +2246,7 @@ int run_tests(const std::string& which) {
         failed += run_group("Orte und Gebiete", place_cases());
         failed += run_group("Ortszustände, Ereignis-Bus, Fahrzeuge", state_cases());
     }
+    if (which == "speicher" || which == "all") failed += run_group("Weltzustand, Figuren und Speicherstand", save_cases());
     return failed ? 1 : 0;
 }
 

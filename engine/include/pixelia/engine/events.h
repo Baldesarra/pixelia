@@ -23,6 +23,8 @@ enum class EventKind : uint8_t {
     Departed,       // Figur ist aufgebrochen (place = Ziel, from, who; mit Reisezeit: jetzt unterwegs)
     StateChanged,   // Ortszustand hat die Stufe gewechselt (place, a = Index in PlaceStates, b = neue Stufe)
     WeatherChanged, // Wetter-Simulation hat neues Wetter gewählt (a = Art, b = Stärke)
+    SkillUp,        // Fähigkeit eine Stufe weiter (seit 0.5.9; who, a = Fähigkeit, b = Stufe)
+    BondChanged,    // Beziehung hat die Stufe gewechselt (seit 0.5.9; who, other, a = Stufe, b = 1 näher, 0 entfernt)
     kCount,
 };
 const char* event_kind_name(EventKind k);  // Kennung für Protokoll und Befehle
@@ -36,6 +38,7 @@ struct WorldEvent {
     EventKind kind = EventKind::First;
     uint8_t a = 0, b = 0;         // je nach Art (Kalender: Jahreszeit, Erstling)
     uint16_t who = 0;             // Figur (Kennung), 0 = keine
+    uint16_t other = 0;           // zweite Figur (Beziehung), 0 = keine
     int32_t day = 0;              // Welttag
     const char* place = nullptr;  // Kennung des Ortes (feste Zeichenkette der Ortsdaten), nullptr = die Welt
     const char* from = nullptr;   // Ankunft und Aufbruch: Herkunft

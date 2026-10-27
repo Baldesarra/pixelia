@@ -429,9 +429,21 @@ bool TestPlace::random_free_tile(int* tx, int* ty) {
     return false;
 }
 
+bool TestPlace::any_free_tile(int* tx, int* ty) const {
+    for (int y = 0; y < kTilesY; ++y)
+        for (int x = 0; x < kTilesX; ++x)
+            if (room_.walkable(x, y) && room_.exit_at(x, y) < 0) {
+                *tx = x;
+                *ty = y;
+                return true;
+            }
+    return false;
+}
+
 void TestPlace::spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide, uint16_t id) {
     f = Figure{};
-    f.id = id ? id : next_id_++;
+    f.id = id;
+    f.statist = id >= kStatistIds;
     f.cx = f.gx = static_cast<uint8_t>(tx);
     f.cy = f.gy = static_cast<uint8_t>(ty);
     f.x = center_x(tx);
@@ -534,25 +546,18 @@ void TestPlace::init(uint64_t seed) {
     build_palette();
     pal_.apply(daylight_.at(12 * 3600 * 1000000LL), 0, palette_);
     build_room();
+    // Figuren setzt seit 0.5.9 die Bühne aus dem Weltzustand hierher (arrive), Statisten nur über den Lastregler
     count_ = 0;
     out_count_ = 0;
+    next_statist_ = 0;
+    wanted_ = 0;
     load_pending_ = false;
-    next_id_ = static_cast<uint16_t>(1000 * (index_ + 1));  // Wiese 1000 (Begleiterin), Raum 2000 …
-    set_load(0);
-    while (count_ < wanted_) {
-        int tx = 0, ty = 0;
-        if (!random_free_tile(&tx, &ty)) break;
-        // Begleiterin: die erste Figur der Wiese
-        spawn_at(figures_[count_], tx, ty, static_cast<Facing>(rng_.below(4)),
-                 static_cast<uint8_t>(1 + count_ % kFigureRows), def_.guide && count_ == 0);
-        ++count_;
-    }
-    load_pending_ = false;
+    restored_seen_ = env_ ? env_->states.restored() : 0;
     states_dirty_ = true;  // im ersten Schritt noch einmal: Orte, die später starten (Raum hinter den Fenstern)
 }
 
 void TestPlace::set_load(int figures) {
-    wanted_ = figures <= 0 ? def_.figures : std::min(figures, kMaxFigures);
+    wanted_ = figures <= 0 ? 0 : std::min(figures, kMaxFigures);
     load_pending_ = true;
 }
 
@@ -562,12 +567,13 @@ void TestPlace::apply_load() {
         int tx = 0, ty = 0;
         if (!random_free_tile(&tx, &ty)) return;
         spawn_at(figures_[count_], tx, ty, static_cast<Facing>(rng_.below(4)),
-                 static_cast<uint8_t>(1 + count_ % kFigureRows), false);
+                 static_cast<uint8_t>(1 + count_ % kFigureRows), false,
+                 static_cast<uint16_t>(kStatistIds + index_ * 0x100 + (next_statist_++ & 0xFF)));
         ++count_;
     }
-    // zu viele: von hinten entfernen, die Begleiterin bleibt
+    // zu viele: Statisten von hinten entfernen, die Figuren der Welt bleiben
     for (int i = count_ - 1; i >= 0 && count_ > wanted_; --i)
-        if (!figures_[i].guide) remove_figure(i);
+        if (figures_[i].statist) remove_figure(i);
 }
 
 bool TestPlace::has_guide() const {
@@ -594,7 +600,7 @@ void TestPlace::decide(Figure& f) {
     f.use_part = f.use_k = f.exit = -1;
     const uint32_t r = rng_.below(100);
     const int exits = room_.exit_count();
-    const bool leave = exits > 0 && (f.guide ? f.here > 600 && r < 50 : r < 5);
+    const bool leave = exits > 0 && !f.statist && (f.guide ? f.here > 600 && r < 50 : r < 5);
     int gx = f.cx, gy = f.cy;
     // Verbindungen mit Bedingung (nur bei Tag …) nur, wenn sie offen sind (seit 0.5.8, place.h)
     const int e = leave ? static_cast<int>(rng_.below(static_cast<uint32_t>(exits))) : -1;
@@ -673,6 +679,10 @@ void TestPlace::tick(const WorldClock& clock) {
     // Ortszustände (seit 0.5.8 Teil 2): Änderungen kommen über den Bus; sichtbar sofort, unsichtbar im eigenen
     // Takt-Schlitz (jeder vierte Schritt, versetzt nach Ort), damit nicht alle Orte im selben Schritt Licht rechnen
     if (env_ && reader_ >= 0) read_events();
+    if (env_ && env_->states.restored() != restored_seen_) {  // Speicherstand geladen (seit 0.5.9)
+        restored_seen_ = env_->states.restored();
+        states_dirty_ = true;
+    }
     if (states_dirty_ && (entered_ || (ticks_ + static_cast<uint64_t>(index_)) % 4 == 0)) apply_states();
     apply_wet();
     // Dämmerung nach der Weltjahreszeit und Mondlicht (seit 0.5.7); unter Tage immer wie nachts, ohne Himmel und Wetter
@@ -729,6 +739,12 @@ void TestPlace::tick(const WorldClock& clock) {
     }
 }
 
+void TestPlace::clear_figures() {
+    for (int i = count_ - 1; i >= 0; --i)
+        if (!figures_[i].statist) remove_figure(i);
+    out_count_ = 0;
+}
+
 bool TestPlace::take_travel(Travel* out) {
     if (out_count_ == 0) return false;
     *out = out_[0];
@@ -741,9 +757,9 @@ void TestPlace::arrive(const Travel& t) {
     const bool guide = t.follow;
     const uint8_t row = static_cast<uint8_t>(std::clamp<int>(t.look, 1, kFigureRows));
     if (count_ >= kMaxFigures) {
-        if (!guide) return;  // voll: wer ankommt, bleibt draußen (nur die Begleiterin verdrängt jemanden)
+        // voll: ein Statist weicht (seit 0.5.9 muss jede Figur der Welt aufgenommen werden, FigureBook::kMax < 64)
         for (int i = count_ - 1; i >= 0; --i)
-            if (!figures_[i].guide) {
+            if (figures_[i].statist) {
                 remove_figure(i);
                 break;
             }
@@ -756,8 +772,8 @@ void TestPlace::arrive(const Travel& t) {
         tx = e.ax;
         ty = e.ay;
         facing = e.facing;
-    } else if (!random_free_tile(&tx, &ty)) {
-        return;
+    } else if (!random_free_tile(&tx, &ty) && !any_free_tile(&tx, &ty)) {
+        tx = ty = 0;
     }
     Figure& f = figures_[count_++];
     spawn_at(f, tx, ty, facing, row, guide, t.who);
@@ -1128,11 +1144,15 @@ Hit TestPlace::hit(int fx, int fy) const {
     return best;
 }
 
-namespace {
-void figure_name(const TestPlace::FigureView& v, char* out, size_t n) {
-    if (v.guide) std::snprintf(out, n, "Begleiterin");
-    else std::snprintf(out, n, "Testfigur %u", static_cast<unsigned>(v.id / 1000 * 100 + v.id % 1000));
+void TestPlace::figure_name(const Figure& f, char* out, size_t n) const {
+    // Name aus dem Weltzustand (seit 0.5.9); Statisten zählen je Ort
+    const FigureRecord* r = env_ ? env_->figures.find(f.id) : nullptr;
+    if (r) std::snprintf(out, n, "%s", r->name.data());
+    else if (f.statist) std::snprintf(out, n, "Statist %u", static_cast<unsigned>(f.id & 0xFF) + 1);
+    else std::snprintf(out, n, f.guide ? "Begleiterin" : "Figur %u", static_cast<unsigned>(f.id));
 }
+
+namespace {
 
 // Testgedanken, bis die Simulation ab 0.6.x echte Gründe liefert
 constexpr const char* kThoughts[] = {
@@ -1155,7 +1175,7 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
         card->kind = Kind::Figure;
         card->figure = f->id;
         char name[24];
-        figure_name({f->id, f->guide}, name, sizeof(name));
+        figure_name(*f, name, sizeof(name));
         card->title = name;
         const bool walking = f->x != center_x(f->cx) || f->y != center_y(f->cy);
         card->subtitle = f->busy                  ? "sitzt und ruht"
@@ -1260,7 +1280,7 @@ int TestPlace::figures(FigureInfo* out, int max) const {
             if (f.guide != (pass == 0)) continue;
             out[n].id = f.id;
             out[n].lead = f.guide;
-            figure_name({f.id, f.guide}, out[n].name, sizeof(out[n].name));
+            figure_name(f, out[n].name, sizeof(out[n].name));
             ++n;
         }
     return n;

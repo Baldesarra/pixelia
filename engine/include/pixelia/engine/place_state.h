@@ -122,6 +122,16 @@ public:
     void set_day(int day) { day_ = day; }
     uint32_t version() const { return version_; }  // zählt jeden Stufenwechsel
 
+    // Speicherstand (seit 0.5.9, save.h): alles, was sich ändert, je Zustand; restore meldet nichts auf den Bus
+    struct Saved {
+        uint16_t value = 0, heat = 0, frac = 0;
+        uint8_t bits = 0;  // 1 an, 2 abgedeckt, 4 Hausregel gewollt, 8 Hausregel angewendet
+        uint8_t phase = 0;
+    };
+    Saved saved(int i) const;
+    void restore(int i, const Saved& s);
+    uint32_t restored() const { return restored_; }  // zählt eingespielte Zustände (Orte zeichnen dann neu)
+
 private:
     struct Place {
         const char* id = nullptr;
@@ -152,6 +162,7 @@ private:
     EventBus* bus_ = nullptr;
     int day_ = 0;
     uint32_t version_ = 0;
+    uint32_t restored_ = 0;
 };
 
 }  // namespace pixelia

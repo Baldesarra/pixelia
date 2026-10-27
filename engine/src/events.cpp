@@ -11,6 +11,8 @@ const char* event_kind_name(EventKind k) {
         case EventKind::Departed: return "aufbruch";
         case EventKind::StateChanged: return "zustand";
         case EventKind::WeatherChanged: return "wetter";
+        case EventKind::SkillUp: return "faehigkeit";
+        case EventKind::BondChanged: return "beziehung";
         default: return "?";
     }
 }

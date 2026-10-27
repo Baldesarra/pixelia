@@ -52,6 +52,12 @@ struct Hit {
     int16_t h = 0;         // Höhe des Bildes
 };
 
+// Figuren (seit 0.5.9): Wer existiert und wo, steht im Weltzustand (figure.h, Environment::figures); ein Ort zeigt die
+// Figuren, die dort sind, und rechnet ihre Wege mit 30 Hz. Kennungen ab kStatistIds sind Statisten des Lastreglers
+// (set_load, Messungen): Sie gehören nur dem Ort, gehen nie hinaus und stehen in keinem Speicherstand.
+inline constexpr uint16_t kStatistIds = 0xC000;
+inline constexpr uint8_t kAnyEntry = 0xFF;  // Travel::entry: irgendwo am Ort auftauchen (Start, Laden)
+
 // Figur in einer Liste (Weboberfläche: „Folge X“)
 struct FigureInfo {
     uint16_t id = 0;
@@ -111,8 +117,11 @@ public:
     virtual void leave() {}
     // Reisende abgeben: true, solange noch jemand durch einen Ausgang geht (die Bühne fragt nach jedem Schritt)
     virtual bool take_travel(Travel* /*out*/) { return false; }
-    // Jemand kommt an: t.entry ist der Ausgang dieses Ortes, an dem er auftaucht
+    // Jemand kommt an: t.entry ist der Ausgang dieses Ortes, an dem er auftaucht (kAnyEntry: irgendwo). Eine Figur des
+    // Weltzustands muss immer aufgenommen werden (notfalls weicht ein Statist)
     virtual void arrive(const Travel& /*t*/) {}
+    // Alle Figuren des Weltzustands abgeben (seit 0.5.9: vor dem Laden eines Speicherstands); Statisten bleiben
+    virtual void clear_figures() {}
     // Prüfansicht: Stellflächen, Benutzungspunkte, Ausgänge einblenden (Seite Experimentell)
     virtual void set_inspect(bool /*on*/) {}
     // Kurzer Befehl für Prüfungen (Konsole, Seite Experimentell), z. B. „ausbau“, „baustelle“; false = unbekannt

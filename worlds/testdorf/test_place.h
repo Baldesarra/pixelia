@@ -12,7 +12,10 @@
 // testdorf.cpp. Der Baukasten (Katalog, Palette, Figur) ist für alle Testorte gleich und steht hier.
 // Figuren laufen auf dem Kachelraster (Breitensuche um Möbel herum), benutzen freie Benutzungspunkte und wechseln
 // über Ausgänge den Ort. Eine Figur ist die Begleiterin: Ihr folgt der Blick der Bühne durch Türen und Bildränder.
-// Lastregler (set_load): Zahl der Figuren am Ort, 1–64; 0 = Standard des Ortes.
+// Lastregler (set_load): Zahl der Figuren am Ort, 1–64, aufgefüllt mit Statisten; 0 = keine Statisten.
+// Seit 0.5.9 gehören die Figuren der Welt (figure.h): Der Ort zeigt, wer laut Weltzustand hier ist, und rechnet die Wege
+// mit 30 Hz; Namen kommen aus dem Datensatz. Statisten (Kennungen ab kStatistIds) gibt es nur für Messungen: Sie
+// bleiben am Ort und stehen in keinem Speicherstand.
 // Seit 0.5.3 Wetter (weather.h): Wiese und Platz draußen mit Partikeln und Schleiern, der Raum zeigt es in den
 // Fenstern. Seit 0.5.8 Teil 2 Ortszustände (place_state.h) statt der Lichtquellen-Tafel: Lampe, Kerze und Ofen des
 // Raumes, Laterne, Nässe und Becken des Platzes, Nässe der Wiese. Die Fenster der Wiese gehören zum Raum und leuchten
@@ -67,6 +70,7 @@ public:
     int neighbors(const char** out, int max) const override;
     bool take_travel(Travel* out) override;
     void arrive(const Travel& t) override;
+    void clear_figures() override;
     // Touch und Karten (seit 0.5.6): Figuren mit Kennung (Ort × 1000 + laufende Nummer, bleibt beim Reisen),
     // Hauptfigur = die Begleiterin (Platzhalter für Sykora); Gedanken sind Testtexte (echte ab 0.6.x)
     Hit hit(int x, int y) const override;
@@ -114,6 +118,7 @@ private:
         int8_t use_part, use_k, exit;
         int8_t dz;       // Tiefenversatz (Benutzungspunkt)
         bool guide;
+        bool statist;    // Statist des Lastreglers (seit 0.5.9): geht nie hinaus
         bool busy;       // benutzt gerade etwas
         uint16_t id;     // Kennung (seit 0.5.6)
         uint16_t here;   // Schritte am Ort (die Begleiterin geht erst nach einer Weile weiter)
@@ -128,7 +133,9 @@ private:
     void apply_wet();     // nasser Boden: Weg und Pflaster dunkler
     void read_events();
     bool random_free_tile(int* tx, int* ty);
-    void spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide, uint16_t id = 0);
+    void spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide, uint16_t id);
+    bool any_free_tile(int* tx, int* ty) const;  // der Reihe nach (wenn der Zufall nichts findet)
+    void figure_name(const Figure& f, char* out, size_t n) const;
     const Figure* figure_by_id(uint16_t id) const;
     Sprite figure_frame(const Figure& f, bool* flip) const;
     void decide(Figure& f);
@@ -177,7 +184,8 @@ private:
     void tick_smoke();
     uint32_t enters_ = 0;
     uint64_t ticks_ = 0;
-    uint16_t next_id_ = 0;
+    uint16_t next_statist_ = 0;
+    uint32_t restored_seen_ = 0;
 };
 
 }  // namespace pixelia
