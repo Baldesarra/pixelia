@@ -18,26 +18,28 @@
 
 #include "pixelia/engine/environment.h"
 #include "pixelia/engine/light.h"
+#include "pixelia/engine/place_state.h"
 #include "pixelia/engine/room.h"
 #include "pixelia/engine/scene.h"
+#include "pixelia/engine/vehicle.h"
 
 namespace pixelia {
 
 enum PlaceFlag : uint8_t {
     kPlaceOutdoor = 1,      // draußen: Wetter mit Partikeln und Schleiern
     kPlaceUnderground = 2,  // unter Tage: kein Wetter, kein Himmel (Grube)
-    kPlaceVehicle = 4,      // Fahrzeug: beweglicher Ort, seine Verbindungen wechseln mit dem Halt (vehicle.h folgt)
+    kPlaceVehicle = 4,      // Fahrzeug: beweglicher Ort, seine Verbindungen öffnen am Halt (vehicle.h)
     kPlaceMeadow = 8,       // Gras zufällig streuen (Büschel, Blüten aus dem Startwert)
 };
 
 // Fensterglas des Ortes: zeigt den Himmel (innen) bzw. das Licht des Raums dahinter (außen)
 enum class GlassRole : uint8_t { None, Sky, Glow };
 
-// Lichtquelle eines Ortes: Lichtkreis und das Teil der Raumliste, das sie zeigt (Zustandsbild aus/an, −1 = keins).
-// Quelle i des Ortes = Eintrag i in der Umgebung (LightBoard)
-struct PlaceLight {
-    LightCircle circle;
-    int8_t part;
+// Schornstein (seit 0.5.8): Rauch steigt auf, solange im Ort place das Feuer state brennt (Glut: ein dünner Faden)
+struct Chimney {
+    int16_t x, y;       // Mündung in groben Bildpunkten
+    const char* place;  // Ort mit dem Feuer (Raum dahinter)
+    const char* state;  // Kennung des Ortszustands (Feuer)
 };
 
 struct PlaceDef {
@@ -53,10 +55,14 @@ struct PlaceDef {
     uint16_t exposure;  // Umgebungslicht (Innenräume < 256)
     Color shadow;       // Schatten der Figuren; schwarz = wie in der Zeichenpalette
     GlassRole glass;
-    const PlaceLight* lights;
-    uint8_t light_count;
+    // Ortszustände (seit 0.5.8, place_state.h): Licht und Feuer (mit Art und Stärke), Nässe, Füllstand, Arbeit
+    const StateDef* states;
+    uint8_t state_count;
     const WindowLight* windows;  // Fenster nach draußen, gehören zum Raum dahinter
     uint8_t window_count;
+    const char* house = nullptr;           // Haushalt (Räume eines Hauses), nullptr = keiner
+    const VehicleDef* vehicle = nullptr;   // Fahrzeug: Fahrplan (vehicle.h)
+    const Chimney* chimney = nullptr;      // Rauch über dem Haus (Außenort)
     bool outdoor() const { return flags & kPlaceOutdoor; }
     bool underground() const { return flags & kPlaceUnderground; }
 };
@@ -82,11 +88,12 @@ enum ExitWhen : uint8_t {
     kOpenDayOnly = 1,    // nur bei Tag (Dunkelheit nach den Sonnenzeiten)
     kOpenAfterBuild = 2,  // erst nach Bau (Exit::needs = Kennung des Projekts)
     kOpenWithTool = 4,    // Werkzeug nötig (Exit::needs = Kennung des Werkzeugs)
-    kOpenTimetable = 8,   // Fahrzeug nach Fahrplan (steht der Zug da?)
+    kOpenTimetable = 8,   // Fahrzeug nach Fahrplan (Exit::needs = Kennung des Fahrzeugs: steht es an diesem Halt?)
 };
 const char* exit_kind_title(ExitKind k);  // Tür, Weg, Feldweg, Treppe, Bahnhof, Stolleneingang
-// Ist die Verbindung für Figuren offen? why = Grund in einem Satz, wenn nicht (Karte, Info)
-bool exit_open(const Exit& e, const Environment& env, const char** why = nullptr);
+// Ist die Verbindung für Figuren offen? here = Kennung des Ortes mit dem Ausgang (Fahrplan: der Halt ist here bzw.
+// im Fahrzeug das Ziel); why = Grund in einem Satz, wenn nicht (Karte, Info)
+bool exit_open(const Exit& e, std::string_view here, const Environment& env, const char** why = nullptr);
 
 // Orts-Graph aus den Daten aller Orte
 class PlaceGraph {
@@ -101,6 +108,7 @@ public:
         uint8_t when;
     };
     void build();  // aus world_areas()
+    void build(const PlaceDef* const* places, int n);  // aus einer eigenen Liste (Bühnen-Tests)
     int places() const { return n_; }
     const PlaceDef& place(int i) const { return *defs_[i]; }
     int edges() const { return e_; }

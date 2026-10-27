@@ -7,6 +7,7 @@ set(PIXELIA_ENGINE_SRCS
     src/color.cpp
     src/depth.cpp
     src/environment.cpp
+    src/events.cpp
     src/font.cpp
     src/gesture.cpp
     src/light.cpp
@@ -18,6 +19,7 @@ set(PIXELIA_ENGINE_SRCS
     src/redact.cpp
     src/room.cpp
     src/place.cpp
+    src/place_state.cpp
     src/scenes.cpp
     src/scroll_test.cpp
     src/sky.cpp
@@ -26,6 +28,7 @@ set(PIXELIA_ENGINE_SRCS
     src/system_ui.cpp
     src/tiles.cpp
     src/tiny_font.cpp
+    src/vehicle.cpp
     src/weather.cpp
     src/weather_sim.cpp)
 

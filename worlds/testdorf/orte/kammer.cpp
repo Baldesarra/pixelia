@@ -32,6 +32,6 @@ constexpr RoomDef kRoom = {{kFloor, kWalls, nullptr}, kLegend, {0, kRowPaper, 0}
 }  // namespace
 
 const PlaceDef kKammer = {"testort-kammer", "Testort Kammer", 0, &kRoom, "raum", 1, false,
-                          {262, 248, 230}, 210, {100, 74, 56}, GlassRole::Sky, nullptr, 0, nullptr, 0};
+                          {262, 248, 230}, 210, {100, 74, 56}, GlassRole::Sky, nullptr, 0, nullptr, 0, "testhaus"};
 
 }  // namespace pixelia::testdorf

@@ -457,7 +457,7 @@ void update_world_state(int ticks) {
     }
     pixelia::WorldEvent e;
     while (s_stage.poll_event(&e)) {
-        ESP_LOGI(TAG, "Welt: %s (Tag %d)", e.text.c_str(), e.day);
+        ESP_LOGI(TAG, "Welt: %s (Tag %d)", e.text, static_cast<int>(e.day));
         app::ui::world_toast(e.text, pixelia::ui::Tone::Info, 6);
     }
     if (!cal.testing() && cal.started() && cal.revision() != s_cal_rev_saved) {
@@ -726,6 +726,16 @@ void apply_place_requests(int ticks) {
         }
         portEXIT_CRITICAL(&s_cmd_lock);
         if (!have) break;
+        if (std::strcmp(cmd, "zustaende") == 0) {
+            // Ortszustände ins Log (seit 0.5.8): Herd, Kerze, Lampe, Becken, Nässe …
+            const pixelia::PlaceStates& st = s_stage.environment().states;
+            for (int i = 0; i < st.count(); ++i) {
+                char buf[64];
+                st.describe(i, buf, sizeof(buf));
+                ESP_LOGI(TAG, "Zustand %s/%s: %s", st.place(i), st.def(i).id, buf);
+            }
+            continue;
+        }
         const bool ok = s_stage.command(cmd);
         ESP_LOGI(TAG, "Befehl \"%s\" an %s: %s", cmd, s_stage.scene(s_stage.active()).name(), ok ? "ok" : "unbekannt");
     }
@@ -914,7 +924,7 @@ void gfx_task(void* arg) {
         s_stats.world_day = s_clock.day();
         s_stats.weather = static_cast<int>(s_stage.weather().kind());
         s_stats.weather_pct = (s_stage.weather().strength() * 100 + 127) / 255;
-        s_stats.inner_light = s_stage.environment().lights.any_on("testort-raum");
+        s_stats.inner_light = s_stage.environment().states.any_light("testort-raum");
         s_stats.particles = particles;
         s_stats.holds = s_stage.holds();
         s_stats.overlay_us_sum += static_cast<uint64_t>(t_over);

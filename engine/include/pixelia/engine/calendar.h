@@ -11,11 +11,13 @@
 //   Länge, Anker nach einer Längenänderung, Erstlinge); bis zum Speicherstand (0.5.9) als kleiner Block im NVS.
 // - Zeitfenster (morgens … nachts) und Schlafenszeiten als Schnittstelle fürs Tagesgerüst (0.5.11).
 // - Sonnenauf- und -untergang nach der Weltjahreszeit (Dämmerung, light.h Daylight).
-// - Ereignisse (Jahreszeitenabend, Jahreszeitenwechsel, Erstlinge) als kleine Warteschlange, bis der Ereignis-Bus
-//   kommt (0.5.8); die Anzeige macht daraus Kurzmeldungen.
+// - Ereignisse (Jahreszeitenabend, Jahreszeitenwechsel, Erstlinge) gehen seit 0.5.8 auf den Ereignis-Bus
+//   (events.h, set_bus); die Anzeige macht daraus Kurzmeldungen. Ohne Bus zählen nur die Erstlinge.
 
 #include <cstdint>
 #include <string>
+
+#include "pixelia/engine/events.h"
 
 namespace pixelia {
 
@@ -109,15 +111,6 @@ struct CalendarDate {
     SunTimes sun;
 };
 
-struct WorldEvent {
-    enum class Kind : uint8_t { SeasonEvening, SeasonBegins, First };
-    Kind kind = Kind::First;
-    Season season = Season::Spring;
-    First first = First::Snow;
-    int day = 0;
-    std::string text;  // Kurzmeldung („Der Sommer beginnt · Tag 8“)
-};
-
 class WorldCalendar {
 public:
     static constexpr int kMinSeasonDays = 1, kMaxSeasonDays = 28;
@@ -147,9 +140,9 @@ public:
     bool first(First f);
     bool has_first(First f) const;
 
-    // Ereignisse abholen (höchstens kQueue warten, ältere fallen raus)
-    bool poll(WorldEvent* out);
-    int pending() const { return queue_n_; }
+    // Ereignisse (seit 0.5.8): Jahreszeitenabend, neue Jahreszeit, Erstlinge gehen auf diesen Bus (a = Jahreszeit,
+    // b = Erstling, text = Kurzmeldung „Der Sommer beginnt · Tag 8“)
+    void set_bus(EventBus* bus) { bus_ = bus; }
 
     // Testuhr und Zeitraffer: Zustand vorher merken, danach zurück (Erstlinge aus dem Test zählen nicht)
     void begin_test();
@@ -157,10 +150,9 @@ public:
     bool testing() const { return testing_; }
 
 private:
-    static constexpr int kQueue = 8;
     int64_t season_end(int64_t first, int64_t min_last) const;
     void compute(int64_t epoch_day, int minute);
-    void push(const WorldEvent& e);
+    void push(EventKind kind, First f, const std::string& text);
     uint16_t first_bit(First f) const;
 
     CalendarState st_{};
@@ -173,8 +165,7 @@ private:
     // Zwischenspeicher der zuletzt gefundenen Jahreszeit (die Rechnung läuft sonst ab dem Anker)
     mutable int cache_no_ = -1;
     mutable int64_t cache_first_ = 0, cache_last_ = 0;
-    WorldEvent queue_[kQueue];
-    int queue_first_ = 0, queue_n_ = 0;
+    EventBus* bus_ = nullptr;
     uint32_t revision_ = 0;
 };
 

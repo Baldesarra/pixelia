@@ -135,7 +135,7 @@ int world_report(const Options& opt) {
         WorldEvent e;
         while (stage.poll_event(&e)) {
             d.events += (d.events.empty() ? "" : "; ") + hm(minute) + " " + e.text;
-            if (e.kind == WorldEvent::Kind::First) firsts.push_back(date_text(day) + " " + hm(minute) + " " + e.text);
+            if (e.kind == EventKind::First) firsts.push_back(date_text(day) + " " + hm(minute) + " " + e.text);
         }
     }
 
@@ -245,12 +245,16 @@ int run_world_tests() {
          [] {
              const int64_t start = days_from_civil(2026, 10, 26);  // Montag: Frühling 7 Tage
              WorldCalendar c;
+             EventBus bus;  // seit 0.5.8 über den Ereignis-Bus
+             const int reader = bus.subscribe(kCalendarEvents);
+             c.set_bus(&bus);
              c.start(start);
              std::vector<std::string> texts;
              for (int64_t m = 0; m < 30LL * 1440; m += 10) {
                  c.update(start + m / 1440, static_cast<int>(m % 1440));
+                 bus.deliver();
                  WorldEvent e;
-                 while (c.poll(&e)) texts.push_back(e.text);
+                 while (bus.poll(reader, &e)) texts.push_back(e.text);
              }
              const char* want[] = {"Letzter Abend des Frühlings", "Der Sommer beginnt · Tag 8",
                                    "Letzter Abend des Sommers", "Der Herbst beginnt · Tag 15",

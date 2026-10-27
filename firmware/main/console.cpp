@@ -122,7 +122,8 @@ void print_help() {
     ESP_LOGI(TAG, "  wetter [<Art> [%%] [sofort]] | wetter blitz | wetter wind links|rechts   Wetter (Art: sonne bewoelkt regen schnee nebel gewitter wind; übersteuert bis zur nächsten Wetterzeit)");
     ESP_LOGI(TAG, "  update abriss                                   nächster Download von GitHub trennt einmal (Weitermachen prüfen)");
     ESP_LOGI(TAG, "  welt [laenge <Tage> | auto]                     Weltkalender, Mond, Wetter-Simulation (auto = Simulation wieder an)");
-    ESP_LOGI(TAG, "  ort cmd <Befehl>   Befehl an Bühne/Ort, z. B. innenlicht um, regen fein, dichte 200, blitze 12 30");
+    ESP_LOGI(TAG, "  ort cmd <Befehl>   Befehl an Bühne/Ort, z. B. innenlicht um, ofen glut, nass 80, becken 50, regen fein, blitze 12 30");
+    ESP_LOGI(TAG, "  ort cmd zustaende  Ortszustände ins Log (Herd, Kerze, Lampe, Becken, Nässe)");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
     ESP_LOGI(TAG, "  assets [quelle eingebettet|littlefs|sd | kopieren littlefs|sd | messen | leeren | budget <KB>]   Grafik-Pakete");
     ESP_LOGI(TAG, "  sd | sd neu                                    microSD-Karte: Zustand, neu einhängen");

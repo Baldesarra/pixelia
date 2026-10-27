@@ -46,22 +46,32 @@ const char* exit_kind_title(ExitKind k) {
     return "Weg";
 }
 
-bool exit_open(const Exit& e, const Environment& env, const char** why) {
+bool exit_open(const Exit& e, std::string_view here, const Environment& env, const char** why) {
     const char* reason = nullptr;
+    // Fahrplan: Halt ist der Ort mit dem Ausgang, im Fahrzeug selbst das Ziel des Ausgangs
+    const std::string_view stop = e.needs && here == e.needs ? std::string_view(e.to ? e.to : "") : here;
     if ((e.when & kOpenDayOnly) && env.sky.dark() >= 160) reason = "Nur bei Tag begehbar.";
     else if ((e.when & kOpenAfterBuild) && !(e.needs && env.flags.has(e.needs))) reason = "Erst nach dem Bau begehbar.";
     else if ((e.when & kOpenWithTool) && !(e.needs && env.flags.has(e.needs))) reason = "Nur mit Werkzeug.";
-    else if ((e.when & kOpenTimetable) && !(e.needs && env.flags.has(e.needs))) reason = "Fährt nur nach Fahrplan.";
+    else if ((e.when & kOpenTimetable) && !(e.needs && env.vehicles.stands_at(e.needs, stop, env.world_minute)))
+        reason = "Fährt nur nach Fahrplan.";
     if (why) *why = reason;
     return reason == nullptr;
 }
 
 void PlaceGraph::build() {
-    n_ = e_ = 0;
+    std::array<const PlaceDef*, kMaxPlaces> list{};
+    int n = 0;
     const AreaDef* const* areas = nullptr;
     const int na = world_areas(&areas);
     for (int a = 0; a < na; ++a)
-        for (int i = 0; i < areas[a]->count && n_ < kMaxPlaces; ++i) defs_[n_++] = areas[a]->places[i];
+        for (int i = 0; i < areas[a]->count && n < kMaxPlaces; ++i) list[n++] = areas[a]->places[i];
+    build(list.data(), n);
+}
+
+void PlaceGraph::build(const PlaceDef* const* places, int count) {
+    n_ = e_ = 0;
+    for (int i = 0; i < count && n_ < kMaxPlaces; ++i) defs_[n_++] = places[i];
     for (int p = 0; p < n_; ++p) {
         const RoomDef* r = defs_[p]->room;
         for (int x = 0; r && x < r->exit_count && e_ < kMaxEdges; ++x) {

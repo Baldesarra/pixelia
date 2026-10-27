@@ -104,6 +104,7 @@ void noise_grid(uint8_t* out, int32_t x0, int32_t y0, int32_t dx, int32_t dy, in
 constexpr int16_t kWobble[16] = {0, 38, 70, 92, 100, 92, 70, 38, 0, -38, -70, -92, -100, -92, -70, -38};
 
 constexpr int kWarmup = 120;  // Schritte Vorlauf beim Betreten (Schnee braucht am längsten)
+constexpr int kWarmupPerTick = 30;  // seit 0.5.8 verteilt auf vier Schritte (Rechenspitze beim Betreten)
 
 }  // namespace
 
@@ -318,7 +319,8 @@ void PlaceWeather::enter(const Weather& w, uint64_t seed) {
     rng_.reseed(seed);
     rain_acc_ = snow_acc_ = leaf_acc_ = 0;
     peak_ = 0;
-    for (int i = 0; i < kWarmup; ++i) tick(w);
+    wind_vx_ = w.state().wind * w.state().wind_dir;
+    warm_ = kWarmup;  // Vorlauf in den nächsten Schritten (tick)
 }
 
 void PlaceWeather::leave() { pool_.release(); }
@@ -329,6 +331,10 @@ void PlaceWeather::tick(const Weather& w) {
     wind_vx_ = s.wind * s.wind_dir;
     step();
     spawn(s);
+    for (int k = 0; warm_ > 0 && k < kWarmupPerTick; ++k, --warm_) {
+        step();
+        spawn(s);
+    }
     peak_ = std::max(peak_, pool_.size());
 }
 

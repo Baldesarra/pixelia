@@ -14,8 +14,12 @@
 // über Ausgänge den Ort. Eine Figur ist die Begleiterin: Ihr folgt der Blick der Bühne durch Türen und Bildränder.
 // Lastregler (set_load): Zahl der Figuren am Ort, 1–64; 0 = Standard des Ortes.
 // Seit 0.5.3 Wetter (weather.h): Wiese und Platz draußen mit Partikeln und Schleiern, der Raum zeigt es in den
-// Fenstern. Lichtquellen in der Umgebung (environment.h): die Lampe des Raumes, die Laterne des Platzes; die Fenster
-// der Wiese gehören zum Raum und leuchten nachts nur, wenn dort Licht brennt (Befehl „innenlicht an|aus|um“).
+// Fenstern. Seit 0.5.8 Teil 2 Ortszustände (place_state.h) statt der Lichtquellen-Tafel: Lampe, Kerze und Ofen des
+// Raumes, Laterne, Nässe und Becken des Platzes, Nässe der Wiese. Die Fenster der Wiese gehören zum Raum und leuchten
+// nachts nur, wenn dort Licht mit Schein nach außen brennt (Befehl „innenlicht an|aus|um“). Der Ort zeigt die Zustände
+// (Zustandsbilder, Lichtkreise nach der Stärke, nasser Boden dunkler, Pfützen) und erfährt Änderungen über den
+// Ereignis-Bus (events.h); unsichtbar baut er sein Licht nur in seinem Takt-Schlitz neu (verteilt die Rechenzeit).
+// Unter Tage (kPlaceUnderground): kein Wetter, kein Himmel, Licht immer wie nachts.
 
 #include <array>
 #include <cstddef>
@@ -75,14 +79,17 @@ public:
     // Seit 0.5.2 zum Vergleichen: „stimmung n“ (Grundstimmung 0–2), „tageslicht n“ (0–2), „nacht n“ (Mindest-
     // helligkeit 0–256), „licht weich|hart“ (Ränder der Lichtkreise). Seit 0.5.3: „innenlicht an|aus|um“ (Lampe
     // des Raumes, wirkt auf Raum und Fenster der Wiese), „regen striche|tropfen|fein“, „schnee gemischt|klein|gross“,
-    // „dichte <%>“ (Partikel), „nebelbaenke <%>“
+    // „dichte <%>“ (Partikel), „nebelbaenke <%>“. Seit 0.5.8 Teil 2: „ofen kalt|glut|feuer|abdecken“, „nass <%>“,
+    // „becken <%>“
     bool command(const char* cmd) override;
     const PlacePalette& place_palette() const { return pal_; }
     const PlaceWeather& weather() const { return weather_; }
     bool outdoor() const { return def_.outdoor(); }
     const PlaceDef& def() const { return def_; }
-    // Brennt das Licht dieses Ortes? Wiese: das Licht im Raum hinter den Fenstern
+    // Brennt das Licht dieses Ortes? Wiese: Licht mit Schein nach außen im Raum hinter den Fenstern
     bool lights_on() const;
+    // Ortszustand dieses Ortes nach Kennung (Index in PlaceStates), −1 = keiner
+    int state_index(const char* id) const;
 
     int figure_count() const { return count_; }
     struct FigureView {
@@ -116,8 +123,10 @@ private:
 
     void build_palette();
     void build_room();
-    void apply_lights();
+    void apply_states();  // Lichtkreise, Zustandsbilder, Glühen (seit 0.5.8 Teil 2, vorher apply_lights)
     void apply_glow();
+    void apply_wet();     // nasser Boden: Weg und Pflaster dunkler
+    void read_events();
     bool random_free_tile(int* tx, int* ty);
     void spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide, uint16_t id = 0);
     const Figure* figure_by_id(uint16_t id) const;
@@ -149,8 +158,23 @@ private:
     int out_count_ = 0;
     Environment* env_ = nullptr;
     PlaceWeather weather_;
-    uint32_t lights_version_ = 0;
+    int state_first_ = -1, state_n_ = 0;  // Ortszustände in der Umgebung
+    int wet_state_ = -1, wet_level_ = -1;
+    int reader_ = -1;                     // Leser am Ereignis-Bus
+    bool states_dirty_ = true;
+    bool entered_ = false;
     uint64_t seed_ = 0;
+    // Rauch aus dem Schornstein (seit 0.5.8): nur zu sehen, eigener Zufall (ändert die Figuren nicht)
+    struct Puff {
+        int16_t x, y;  // feine Bildpunkte × 16
+        int8_t vx;
+        uint8_t age, life;
+    };
+    std::array<Puff, 24> smoke_{};
+    int smoke_n_ = 0;
+    int smoke_state_ = -1;
+    uint32_t smoke_rng_ = 1;
+    void tick_smoke();
     uint32_t enters_ = 0;
     uint64_t ticks_ = 0;
     uint16_t next_id_ = 0;

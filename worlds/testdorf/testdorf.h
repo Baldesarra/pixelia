@@ -12,12 +12,13 @@ namespace pixelia::testdorf {
 // Teile des Katalogs (Bilder in assets/testorte, Paket „moebel“ bzw. „raum“)
 enum Part : uint8_t {
     kPDoor, kPWindow, kPPicture, kPWardrobe, kPBed, kPTable, kPChair, kPCrate, kPRug, kPLamp, kPPlant, kPToken,
-    kPBush, kPBench, kPWindowBig, kPCandle, kPPot, kPartCount,
+    kPBush, kPBench, kPWindowBig, kPCandle, kPPot, kPOven, kPBasin, kPPuddle, kPartCount,
 };
 
-// Farbreihen: 0 wie gezeichnet, 1–5 rot, blau, gelb, lavendel, grün, 6 Holz, 7 Tapete
-inline constexpr uint8_t kRowWood = 6, kRowPaper = 7;
-inline constexpr int kRowCount = 8;
+// Farbreihen: 0 wie gezeichnet, 1–4 rot, blau, gelb, lavendel, 5 Holz, 6 Tapete (seit 0.5.8 Teil 2 ohne Grün: dessen
+// vier Farben sind die Glut)
+inline constexpr uint8_t kRowWood = 5, kRowPaper = 6;
+inline constexpr int kRowCount = 7;
 
 // Kacheln: Zeichen in den Kachelzeilen (tiles.h); Leerzeichen = leer
 //  . , gras   " büschel   * blüte   = weg   _ - dielen   o c pflaster   W S T # wand   h H hecke   s kiesel

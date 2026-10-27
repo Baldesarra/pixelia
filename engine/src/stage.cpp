@@ -8,6 +8,7 @@
 
 #include "pixelia/engine/light.h"
 #include "pixelia/engine/overlay.h"
+#include "pixelia/engine/place.h"
 #include "pixelia/engine/system_ui.h"
 
 namespace pixelia {
@@ -177,7 +178,12 @@ void flatten_layers(uint8_t* coarse, const CoarseLayers& layers) {
     }
 }
 
-Stage::Stage() : assets_(&asset_store()) {}
+Stage::Stage() : assets_(&asset_store()) {
+    // Ereignis-Bus (seit 0.5.8): Kalender und Ortszustände melden dorthin, Kurzmeldungen liest die Anzeige
+    env_.calendar.set_bus(&env_.events);
+    env_.states.set_bus(&env_.events);
+    toast_reader_ = env_.events.subscribe(kCalendarEvents);
+}
 
 Stage::~Stage() {
     for (int i = 0; i < count_; ++i) pin_scene(i, false);
@@ -245,6 +251,10 @@ void Stage::init(uint64_t seed) {
     world_minute_ = INT64_MIN;
     override_key_ = kNoOverride;
     sim_applied_ = false;
+    state_minute_ = INT64_MIN;
+    env_.world_minute = INT64_MIN;
+    env_.events.clear();
+    arming_ = -1;
     for (int i = 0; i < count_; ++i) scenes_[i]->init(seed + static_cast<uint64_t>(i) * 0x9E3779B97F4A7C15ULL);
     if (active_ >= count_) active_ = 0;
     from_ = -1;
@@ -264,7 +274,7 @@ void Stage::sync_entered() {
     for (int i = 0; i < count_; ++i) {
         const bool have = entered_ & (1u << i);
         // betreten erst, wenn die Pakete geladen sind (bzw. fehlgeschlagen: dann fehlen nur Bilder)
-        const bool want = (i == active_ || i == from_) && (have || scene_ready(i));
+        const bool want = (i == active_ || i == from_ || i == arming_) && (have || scene_ready(i));
         if (want == have) continue;
         if (want) {
             scenes_[i]->enter();
@@ -287,6 +297,7 @@ void Stage::set_active(int index) {
     active_ = index;
     from_ = -1;
     pending_ = -1;
+    arming_ = -1;
     hold_ = false;
     sync_pins();
     sync_entered();
@@ -382,6 +393,16 @@ void Stage::start_transition(int to, Transition t) {
         sync_pins();
         return;
     }
+    if (!cut && t != Transition::Fade && !entered(to)) {
+        // Vorbereitung (seit 0.5.8): erst betreten (Hintergrundbild, Wetter-Vorlauf), im nächsten Schritt die Paletten
+        // mischen und beginnen. So fallen die beiden teuren Teile nicht in denselben Schritt
+        arming_ = to;
+        pending_ = to;
+        pending_trans_ = t;
+        sync_entered();
+        return;
+    }
+    arming_ = -1;
     from_ = -1;  // laufenden Übergang abschließen
     hold_ = false;
     ++transitions_;
@@ -432,6 +453,7 @@ void Stage::deliver_travels(const WorldClock& clock) {
                 // auf der Verbindung: gehört keinem Ort, bis die Reisezeit um ist (eine Figur ist nie doppelt)
                 transit_[transit_n_++] = Transit{t, now, now + static_cast<int64_t>(t.travel) * 1000000,
                                                  static_cast<uint8_t>(i), static_cast<uint8_t>(to)};
+                publish_travel(EventKind::Departed, i, to, t);
                 continue;
             }
             arrive_at(i, to, t);
@@ -439,9 +461,21 @@ void Stage::deliver_travels(const WorldClock& clock) {
     }
 }
 
+void Stage::publish_travel(EventKind kind, int from, int to, const Travel& t) {
+    WorldEvent e;
+    e.kind = kind;
+    e.place = scenes_[to]->name();
+    e.from = scenes_[from]->name();
+    e.who = t.who;
+    e.lead = t.follow;
+    e.day = env_.calendar.date().day;
+    env_.events.publish(e);
+}
+
 void Stage::arrive_at(int from, int to, const Travel& t) {
     ++travels_;
     scenes_[to]->arrive(t);
+    publish_travel(EventKind::Arrived, from, to, t);
     // der Blick folgt bei der Ankunft (bei Wegen mit Reisezeit bleibt er so lange am Ausgangsort)
     const bool followed = follow_who_ == 0 ? t.follow : follow_who_ != kNobody && t.who == follow_who_;
     if (followed && follow_ && from == active_ && from_ < 0 && pending_ < 0) start_transition(to, t.transition);
@@ -515,6 +549,7 @@ void Stage::update_palette() {
 }
 
 void Stage::tick(const WorldClock& clock) {
+    env_.events.deliver();  // Takt-Grenze: was im letzten Schritt gemeldet wurde, sehen jetzt alle
     if (pending_ >= 0) {
         const int to = pending_;
         pending_ = -1;
@@ -710,6 +745,43 @@ void Stage::update_world(const WorldClock& clock) {
     env_.sky.update(cal.date(), clock.unix_s(), env_.weather.state());
     const MoonInfo& m = env_.sky.moon();
     if (m.illum >= 985 && m.up > 0 && env_.sky.dark() >= 256) cal.first(First::FullMoon);
+    env_.world_minute = wm;
+    step_states(wm);
+}
+
+void Stage::step_states(int64_t wm) {
+    // Ortszustände (seit 0.5.8): Minute für Minute bis jetzt, nach einem Sprung höchstens einen Tag nach; beim Start
+    // und wenn die Uhr zurückspringt nur die jetzige Minute
+    if (state_minute_ == INT64_MIN || wm < state_minute_) state_minute_ = wm - 1;
+    if (wm - state_minute_ > 1440) state_minute_ = wm - 1440;
+    StateInput in;
+    in.sun = env_.sky.sun();
+    const WeatherState& w = env_.weather.state();
+    in.rain = std::max<int>(w.rain, w.storm);
+    // Trocknen: Sonne und Wind, bei Wolken und Nebel langsamer; im Sommer schneller, im Winter langsamer
+    int dry = 96 - w.cloud * 56 / 255 + w.wind * 32 / 255;
+    dry = dry * (255 - w.fog * 3 / 4) / 255;
+    const Season season = env_.calendar.date().season;
+    if (season == Season::Summer) dry = dry * 3 / 2;
+    if (season == Season::Winter) dry /= 2;
+    in.dry_day = std::max(4, dry);
+    in.dry_night = std::max(2, dry / 6);
+    // Hauptfigur: in welchem Haushalt (Kerze für Heimkehrer); unterwegs auf einer Verbindung = nicht daheim
+    const uint16_t who = lead();
+    const int at = find_figure(who);
+    if (at >= 0) {
+        in.lead_known = true;
+        const PlaceDef* d = find_place(scenes_[at]->name());
+        in.lead_house = d ? d->house : nullptr;
+    } else {
+        for (int k = 0; k < transit_n_; ++k) in.lead_known = in.lead_known || transit_[k].t.follow;
+    }
+    env_.states.set_day(env_.calendar.date().day);
+    for (int64_t m = state_minute_ + 1; m <= wm; ++m) {
+        const int64_t mod = ((m % 1440) + 1440) % 1440;
+        env_.states.step(static_cast<int>(mod), in);
+    }
+    state_minute_ = wm;
 }
 
 void Stage::render(Canvas& fine) const {

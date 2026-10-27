@@ -22,6 +22,7 @@
 #include "pixelia/engine/stage.h"
 #include "pixelia/engine/place.h"
 #include "testdorf/test_place.h"
+#include "testdorf/testdorf.h"
 #include "sim.h"
 
 namespace sim {
@@ -399,15 +400,15 @@ std::vector<Case> stage_cases() {
              b.run(1);
              return a.frame() == b.frame() ? std::string() : "Raum nach 901 Schritten verschieden";
          }},
-        {"Überblendung dauert 18 Schritte, die Mitte zeigt etwa zur Hälfte den neuen Ort",
+        {"Überblendung dauert 18 Schritte (nach einem Schritt Vorbereitung), die Mitte zeigt etwa zur Hälfte den neuen Ort",
          [] {
              StageRun a(9), cut(9);
              a.run(30);
              cut.run(30);
              a.stage.go(1, Transition::Dissolve);
              cut.stage.go(1, Transition::Cut);
-             a.run(9);
-             cut.run(9);
+             a.run(10);  // seit 0.5.8: erst betreten, im nächsten Schritt mischen (Rechenspitze verteilt)
+             cut.run(10);
              if (a.stage.transition() != Transition::Dissolve) return std::string("Paletten nicht zusammengelegt");
              const double mid = same_share(a.frame(), cut.frame());
              if (mid < 0.4 || mid > 0.75) return "Mitte: " + percent(mid) + " wie der neue Ort";
@@ -870,7 +871,7 @@ std::vector<Case> stage_cases() {
              };
              if (lit() == 0 || place(w).room().light_count() != 2) return std::string("Fenster leuchten nicht");
              r.stage.command("innenlicht aus");
-             r.run(1);
+             r.run(5);  // seit 0.5.8: unsichtbare Orte bauen ihr Licht im eigenen Takt-Schlitz neu (bis 4 Schritte)
              if (lit() != 0 || place(w).room().light_count() != 0) return std::string("Fensterschein trotz Licht aus");
              if (place(raum).room().light_count() != 0 || place(raum).lights_on())
                  return std::string("unsichtbarer Raum: Licht noch an");
@@ -1409,7 +1410,8 @@ std::vector<Case> place_cases() {
              }
              if (items != 3) return "Dinge auf Stellplätzen: " + std::to_string(items);
              for (int x = 0; x < pixelia::kTilesX; ++x)
-                 if (!room.walkable(x, 6) && x > 0 && x < pixelia::kTilesX - 1 && x != 21 && x != 22 && x != 2 && x != 3)
+                 if (!room.walkable(x, 6) && x > 0 && x < pixelia::kTilesX - 1 && x != 21 && x != 22 && x != 2 && x != 3 &&
+                     x != 12 && x != 13)  // Bett, Schrank, Ofen (seit 0.5.8 Teil 2)
                      return "Reihe vor den Fenstern versperrt bei " + std::to_string(x);
              return std::string();
          }},
@@ -1477,6 +1479,310 @@ std::vector<Case> place_cases() {
     };
 }
 
+// --- Ortszustände, Ereignis-Bus, Fahrzeuge, unter Tage, Rechenspitzen (seit 0.5.8 Teil 2) ---
+
+// Bühne mit laufender Weltzeit im Zeitraffer (speed: Weltsekunden je echter Sekunde)
+void world_run(StageRun& r, int hour, int minute, double speed) {
+    r.stage.set_world_time(true);
+    r.stage.set_follow(false);
+    r.clock.set_time_of_day(hour, minute);
+    r.clock.set_speed(speed);
+}
+
+// Zustände als Text zum Vergleichen (filter: nur diese Hausregeln, leer = alle)
+std::string states_text(const pixelia::PlaceStates& st, bool rules_only) {
+    std::string s;
+    for (int i = 0; i < st.count(); ++i) {
+        const pixelia::StateDef& d = st.def(i);
+        if (rules_only && d.rule != pixelia::StateRule::Evening && d.rule != pixelia::StateRule::Hearth) continue;
+        char buf[96];
+        std::snprintf(buf, sizeof(buf), "%s/%s:%d,%d,%d,%d ", st.place(i), d.id, st.phase(i), st.value(i), st.heat(i),
+                      st.on(i) ? 1 : 0);
+        s += buf;
+    }
+    return s;
+}
+
+// Ort unter Tage (nur für Bühnen-Tests, kein Keller im Testdorf): Kammer-Raum, Nässe ohne Himmel
+constexpr pixelia::StateDef kUnderStates[] = {{.kind = pixelia::StateKind::Wetness, .id = "boden"}};
+const pixelia::PlaceDef kUnderground = {"test-stollen", "Test-Stollen", pixelia::kPlaceUnderground,
+                                        pixelia::testdorf::kKammer.room, "raum", 1, false, {256, 256, 256}, 200,
+                                        {0, 0, 0}, pixelia::GlassRole::Sky, kUnderStates, 1, nullptr, 0};
+
+// Kleine Welt mit Fahrzeug: zwei Halte, ein Wagen, ein Weg zwischen den Halten
+constexpr pixelia::VehicleStop kStops[] = {{"halt-a", 5, 10}, {"halt-b", 5, 10}};
+constexpr pixelia::VehicleDef kWagon = {"test-wagen", kStops, 2, 0};
+constexpr pixelia::Exit kExitsA[] = {
+    {12, 0, 2, 1, 12, 1, pixelia::Facing::Down, pixelia::ExitKind::Station, "test-wagen", 0,
+     pixelia::Transition::Fade, 0, pixelia::kOpenTimetable, "test-wagen"},
+    {24, 9, 1, 2, 23, 9, pixelia::Facing::Left, pixelia::ExitKind::Path, "halt-b", 1, pixelia::Transition::Fade, 60}};
+constexpr pixelia::Exit kExitsB[] = {
+    {12, 0, 2, 1, 12, 1, pixelia::Facing::Down, pixelia::ExitKind::Station, "test-wagen", 1,
+     pixelia::Transition::Fade, 0, pixelia::kOpenTimetable, "test-wagen"},
+    {0, 9, 1, 2, 1, 9, pixelia::Facing::Right, pixelia::ExitKind::Path, "halt-a", 1, pixelia::Transition::Fade, 60}};
+constexpr pixelia::Exit kExitsW[] = {
+    {0, 9, 1, 2, 1, 9, pixelia::Facing::Right, pixelia::ExitKind::Station, "halt-a", 0, pixelia::Transition::Fade, 0,
+     pixelia::kOpenTimetable, "test-wagen"},
+    {24, 9, 1, 2, 23, 9, pixelia::Facing::Left, pixelia::ExitKind::Station, "halt-b", 0, pixelia::Transition::Fade, 0,
+     pixelia::kOpenTimetable, "test-wagen"}};
+constexpr pixelia::RoomDef kRoomA = {{nullptr, nullptr, nullptr}, "", {0, 0, 0}, nullptr, 0, kExitsA, 2};
+constexpr pixelia::RoomDef kRoomB = {{nullptr, nullptr, nullptr}, "", {0, 0, 0}, nullptr, 0, kExitsB, 2};
+constexpr pixelia::RoomDef kRoomW = {{nullptr, nullptr, nullptr}, "", {0, 0, 0}, nullptr, 0, kExitsW, 2};
+const pixelia::PlaceDef kHaltA = {"halt-a", "Halt A", pixelia::kPlaceOutdoor, &kRoomA, nullptr, 0, false,
+                                  {256, 256, 256}, 256, {0, 0, 0}, pixelia::GlassRole::None, nullptr, 0, nullptr, 0};
+const pixelia::PlaceDef kHaltB = {"halt-b", "Halt B", pixelia::kPlaceOutdoor, &kRoomB, nullptr, 0, false,
+                                  {256, 256, 256}, 256, {0, 0, 0}, pixelia::GlassRole::None, nullptr, 0, nullptr, 0};
+const pixelia::PlaceDef kWagonPlace = {"test-wagen", "Testwagen", pixelia::kPlaceVehicle, &kRoomW, nullptr, 0, false,
+                                       {256, 256, 256}, 256, {0, 0, 0}, pixelia::GlassRole::Sky, nullptr, 0,
+                                       nullptr, 0, nullptr, &kWagon};
+
+std::vector<Case> state_cases() {
+    using pixelia::PlaceStates;
+    using pixelia::StateDef;
+    using pixelia::StateKind;
+    using pixelia::StateRule;
+    using pixelia::LightKind;
+    return {
+        {"Lichtquellen-Arten: Stärke 1–4 ergibt Radius und Helligkeit, Glut ohne Schein nach außen",
+         [] {
+             using pixelia::light_kind;
+             if (light_kind(LightKind::Tallow).strength != 2 || light_kind(LightKind::OilLamp).strength != 4 ||
+                 light_kind(LightKind::Hearth).strength != 3 || light_kind(LightKind::Ember).strength != 1)
+                 return std::string("Stärken nicht wie im Setting");
+             if (light_kind(LightKind::Ember).outside) return std::string("Glut scheint nach außen");
+             int last = 0;
+             for (int s = 1; s <= pixelia::kMaxStrength; ++s) {
+                 const pixelia::LightCircle c = pixelia::light_circle(10, 10, s);
+                 if (c.rx <= last || c.ry == 0 || c.strength == 0) return "Stärke " + std::to_string(s) + " nicht größer";
+                 last = c.rx;
+             }
+             return pixelia::light_circle(0, 0, 4).rx == 60 ? std::string() : std::string("Stärke 4 nicht 60 breit");
+         }},
+        {"Hausregeln: Abendlicht, Kerze für Heimkehrer (brennt ab), Herdfeuer mit Glut über Nacht",
+         [] {
+             static constexpr StateDef defs[] = {
+                 {.kind = StateKind::Light, .id = "lampe", .light = LightKind::OilLamp, .rule = StateRule::Evening},
+                 {.kind = StateKind::Light, .id = "kerze", .light = LightKind::Tallow, .rule = StateRule::Homecomer},
+                 {.kind = StateKind::Fire, .id = "ofen", .light = LightKind::Hearth, .rule = StateRule::Hearth}};
+             PlaceStates st;
+             st.declare("haus", defs, 3, "h", false);
+             pixelia::StateInput in;  // Sonne 6:30–19:45, dunkel ab 20:05
+             in.lead_known = true;
+             std::string log;
+             for (int m = 12 * 60; m < 32 * 60; ++m) {
+                 const int mod = m % 1440;
+                 st.step(mod, in);
+                 auto at = [&](int h, int mi) { return mod == h * 60 + mi; };
+                 if (at(20, 4) && st.on(0)) return std::string("Lampe vor der Dunkelheit an");
+                 if (at(20, 5) && (!st.on(0) || !st.on(1))) return std::string("Lampe oder Kerze um 20:05 aus");
+                 if (at(21, 0) && st.outside_strength("haus") != pixelia::kMaxOutsideStrength)
+                     return std::string("Fenster nicht voll hell (Summe der Stärken)");
+                 if (at(22, 40) && st.on(1)) return std::string("Kerze nach 2½ Stunden nicht abgebrannt");
+                 if (at(21, 0) && st.phase(2) != 2) return std::string("Herd um 21 Uhr aus");
+                 if (at(22, 30) && (st.phase(2) != 1 || !st.covered(2))) return std::string("Herd um 22:30 nicht abgedeckt");
+                 if (at(23, 0) && st.on(0)) return std::string("Lampe nach 23 Uhr an");
+                 if (at(5, 59) && st.phase(2) != 1) return "Glut hält die Nacht nicht (" + std::to_string(st.heat(2)) + ")";
+                 if (at(5, 45) && !st.on(0)) return std::string("morgens vor Sonnenaufgang kein Licht");
+                 if (at(6, 0) && st.phase(2) != 2) return std::string("Herd um 6 Uhr nicht angezündet");
+                 if (at(7, 0) && st.on(0)) return std::string("Lampe bei Tag an");
+             }
+             in.lead_house = "h";  // die Begleiterin ist daheim: keine Kerze
+             for (int m = 20 * 60; m < 21 * 60; ++m) st.step(m, in);
+             return st.on(1) ? std::string("Kerze brennt, obwohl alle daheim sind") : std::string();
+         }},
+        {"Nässe und Becken: Regen macht nass und füllt, Trocknen dauert Stunden, Schöpfen leert, unter Tage kein Regen",
+         [] {
+             static constexpr StateDef out[] = {{.kind = StateKind::Wetness, .id = "boden"},
+                                                {.kind = StateKind::Fill, .id = "becken", .capacity = 400, .rain = 120}};
+             static constexpr StateDef under[] = {{.kind = StateKind::Wetness, .id = "boden"}};
+             PlaceStates st;
+             st.declare("platz", out, 2, nullptr, true);
+             st.declare("stollen", under, 1, nullptr, false);
+             pixelia::StateInput in;
+             in.rain = 255;
+             for (int m = 600; m < 630; ++m) st.step(m, in);
+             if (st.phase(0) != 3 || st.value(0) < 990) return "nach 30 Minuten Regen nicht nass: " + std::to_string(st.value(0));
+             if (st.value(1) < 255) return "Becken füllt sich nicht: " + std::to_string(st.value(1));
+             if (st.value(2) != 0) return std::string("unter Tage nass vom Regen");
+             in.rain = 0;
+             for (int m = 630; m < 690; ++m) st.step(m, in);
+             if (st.value(0) < 500 || st.value(0) > 700) return "eine Stunde Sonne: " + std::to_string(st.value(0));
+             for (int m = 690; m < 900; ++m) st.step(m, in);
+             if (st.value(0) != 0) return std::string("nach Stunden noch nass");
+             const int before = st.value(1);
+             if (st.draw(1, 10) != 10 || st.value(1) != before - 10) return std::string("Schöpfen leert nicht");
+             st.set_value(1, 3);
+             return st.draw(1, 10) == 3 && st.phase(1) == 0 ? std::string() : std::string("leeres Becken gibt Wasser");
+         }},
+        {"Ortszustände laufen unsichtbar gleich: Raum sichtbar oder nie gesehen, 8 Weltstunden",
+         [] {
+             StageRun vis(21, "testort-raum"), inv(21, "scrolltest");
+             for (StageRun* r : {&vis, &inv}) {
+                 world_run(*r, 15, 0, 600.0);  // 20 Weltsekunden je Schritt
+                 r->run(1500);
+             }
+             const std::string a = states_text(vis.stage.environment().states, false);
+             const std::string b = states_text(inv.stage.environment().states, false);
+             if (a != b) return "sichtbar: " + a + "\n          unsichtbar: " + b;
+             const auto& st = vis.stage.environment().states;
+             const int ofen = st.find("testort-raum", "ofen");
+             if (ofen < 0 || st.phase(ofen) != 1 || !st.covered(ofen)) return std::string("Ofen um 23:20 nicht abgedeckt");
+             return std::string();
+         }},
+        {"Sprung der Uhr: 6 Weltstunden auf einmal ergeben dieselben Lichter und Feuer wie Minute für Minute",
+         [] {
+             StageRun step(23, "scrolltest"), jump(23, "scrolltest");
+             world_run(step, 16, 0, 600.0);
+             world_run(jump, 16, 0, 600.0);
+             step.run(1080);  // 6 Stunden
+             jump.run(1);
+             jump.clock.set_world_us(step.clock.world_us());
+             jump.run(1);
+             step.run(1);
+             const std::string a = states_text(step.stage.environment().states, true);
+             const std::string b = states_text(jump.stage.environment().states, true);
+             return a == b ? std::string() : "Minute für Minute: " + a + "\n          Sprung: " + b;
+         }},
+        {"Ereignis-Bus: Zustellung an der Takt-Grenze, Leser mit Maske, Überlauf gezählt",
+         [] {
+             pixelia::EventBus bus;
+             const int all = bus.subscribe(pixelia::kAllEvents), cal = bus.subscribe(pixelia::kCalendarEvents);
+             pixelia::WorldEvent e;
+             e.kind = pixelia::EventKind::Arrived;
+             bus.publish(e);
+             if (bus.poll(all, &e)) return std::string("vor der Takt-Grenze zugestellt");
+             bus.deliver();
+             if (!bus.poll(all, &e) || e.kind != pixelia::EventKind::Arrived) return std::string("nicht zugestellt");
+             if (bus.poll(cal, &e)) return std::string("Maske greift nicht");
+             for (int i = 0; i < pixelia::EventBus::kQueue + 10; ++i) {
+                 e.kind = pixelia::EventKind::First;
+                 e.day = i;
+                 bus.publish(e);
+             }
+             bus.deliver();
+             int n = 0, first = -1;
+             while (bus.poll(cal, &e)) {
+                 if (first < 0) first = e.day;
+                 ++n;
+             }
+             if (n != pixelia::EventBus::kQueue || first != 10 || bus.lost() != 10)
+                 return "Überlauf: " + std::to_string(n) + " gelesen, verloren " + std::to_string(bus.lost());
+             return std::string();
+         }},
+        {"Kerze für Heimkehrer am Fenster: brennt nachts, solange die Begleiterin fort ist; kommt sie heim, ist sie aus",
+         [] {
+             StageRun r(25, "testort-raum");
+             world_run(r, 21, 0, 1.0);
+             r.run(3);
+             const auto& st = r.stage.environment().states;
+             const int kerze = st.find("testort-raum", "kerze");
+             if (kerze < 0 || !st.on(kerze)) return std::string("Kerze brennt nicht, obwohl die Begleiterin fort ist");
+             auto& raum = static_cast<pixelia::TestPlace&>(r.stage.scene(r.stage.active()));
+             if (raum.room().part(14).state != 1) return std::string("Kerze zeigt nicht das Bild „an“");
+             pixelia::WorldEvent e;  // wie bei der Ankunft (Bühne meldet sie auf dem Bus)
+             e.kind = pixelia::EventKind::Arrived;
+             e.place = "testort-kammer";
+             e.lead = true;
+             r.stage.events().publish(e);
+             r.run(3);
+             if (st.on(kerze)) return std::string("Kerze brennt weiter, obwohl sie heimgekommen ist");
+             return raum.room().part(14).state == 0 ? std::string() : std::string("Kerzenbild bleibt „an“");
+         }},
+        {"Fenster glimmen orange, wenn im Raum nur der Herd brennt",
+         [] {
+             StageRun r(29, "testort-wiese");
+             world_run(r, 21, 0, 1.0);
+             r.run(3);
+             auto& wiese = static_cast<pixelia::TestPlace&>(r.stage.scene(r.stage.active()));
+             constexpr int kSkyGlass = 72;  // Fensterglas der Wiese (Rolle leuchtend)
+             const pixelia::Color lamp = wiese.palette()[kSkyGlass];
+             r.stage.command("innenlicht aus");  // Lampe und Kerze aus, der Herd brennt (Hausregel 17–22 Uhr)
+             r.run(3);
+             const pixelia::Color fire = wiese.palette()[kSkyGlass];
+             if (!(fire.g + 30 < lamp.g && fire.r > fire.b + 120))
+                 return "Fenster nicht orange: Lampe " + std::to_string(lamp.r) + "/" + std::to_string(lamp.g) + ", Herd " +
+                        std::to_string(fire.r) + "/" + std::to_string(fire.g);
+             return std::string();
+         }},
+        {"Fahrzeug nach Fahrplan: steht, fährt, Verbindungen nur am stehenden Fahrzeug offen; Orts-Graph mit Fahrzeug",
+         [] {
+             using pixelia::vehicle_at;
+             if (pixelia::vehicle_cycle(kWagon) != 30) return std::string("Umlauf nicht 30 Minuten");
+             const pixelia::VehiclePos p0 = vehicle_at(kWagon, 2), p1 = vehicle_at(kWagon, 7), p2 = vehicle_at(kWagon, 17),
+                                       p3 = vehicle_at(kWagon, 30 * 1000 + 2);
+             if (!p0.standing || p0.stop != 0 || p1.standing || p1.next != 1 || !p2.standing || p2.stop != 1 ||
+                 !p3.standing || p3.stop != 0)
+                 return std::string("Fahrplan falsch");
+             pixelia::Environment env;
+             env.vehicles.add(&kWagon);
+             const char* why = nullptr;
+             env.world_minute = 2;  // steht an Halt A
+             if (!pixelia::exit_open(kExitsA[0], "halt-a", env) || pixelia::exit_open(kExitsB[0], "halt-b", env, &why))
+                 return std::string("Einstieg nicht nach Fahrplan");
+             if (!why || std::strcmp(why, "Fährt nur nach Fahrplan.") != 0) return std::string("Grund fehlt");
+             if (!pixelia::exit_open(kExitsW[0], "test-wagen", env) || pixelia::exit_open(kExitsW[1], "test-wagen", env))
+                 return std::string("Ausstieg nicht nach Fahrplan");
+             env.world_minute = 7;  // unterwegs
+             if (pixelia::exit_open(kExitsW[0], "test-wagen", env) || pixelia::exit_open(kExitsA[0], "halt-a", env))
+                 return std::string("offen während der Fahrt");
+             const pixelia::PlaceDef* list[] = {&kHaltA, &kHaltB, &kWagonPlace};
+             pixelia::PlaceGraph g;
+             g.build(list, 3);
+             char buf[160];
+             const char* err = g.check(buf, sizeof(buf));
+             if (err && *err) return std::string("Graph: ") + err;
+             return g.hops(0, 2) == 1 && g.hops(2, 1) == 1 ? std::string() : std::string("Wagen nicht im Graph");
+         }},
+        {"Unter Tage: kein Wetter, kein Himmel, gleiches Licht mittags und nachts, bei Sonne und Gewitter",
+         [] {
+             pixelia::Environment env;
+             pixelia::TestPlace p(kUnderground, 7);
+             p.set_environment(&env);
+             p.init(5);
+             p.enter();
+             pixelia::WorldClock clk;
+             auto at = [&](int h, pixelia::WeatherKind w) {
+                 env.weather.set_now(w);
+                 env.weather.tick();
+                 clk.set_time_of_day(h, 0);
+                 p.tick(clk);
+                 return p.palette();
+             };
+             const pixelia::Palette a = at(12, pixelia::WeatherKind::Clear), b = at(0, pixelia::WeatherKind::Storm);
+             for (int i = 0; i < pixelia::kSceneColors; ++i)
+                 if (a[i].r != b[i].r || a[i].g != b[i].g || a[i].b != b[i].b) return "Farbe " + std::to_string(i) + " folgt Tageszeit oder Wetter";
+             for (int i = 0; i < 40; ++i) p.tick(clk);
+             if (p.weather().peak() != 0) return std::string("Partikel unter Tage");
+             pixelia::SkyView v;
+             if (p.sky_view(&v)) return std::string("Himmel unter Tage");
+             const int wet = env.states.find("test-stollen", "boden");
+             pixelia::StateInput in;
+             in.rain = 255;
+             for (int m = 0; m < 60; ++m) env.states.step(m, in);
+             return wet >= 0 && env.states.value(wet) == 0 ? std::string() : std::string("unter Tage nass vom Regen");
+         }},
+        {"Rechenspitzen verteilt: Überblendung betritt das Ziel einen Schritt vor dem Mischen, Wetter-Vorlauf über Schritte",
+         [] {
+             StageRun r(27, "testort-wiese");
+             r.stage.command("wetter schnee 100 sofort");  // Schnee braucht den längsten Vorlauf
+             r.run(5);
+             const int platz = r.stage.find("testort-platz");
+             r.stage.go(platz, pixelia::Transition::Dissolve);
+             for (int i = 0; i < 30 && !r.stage.entered(platz); ++i) r.run(1);
+             if (!r.stage.entered(platz) || r.stage.transitioning())
+                 return std::string("Ziel nicht vorbereitet bzw. Übergang schon begonnen");
+             auto& tp = static_cast<pixelia::TestPlace&>(r.stage.scene(platz));
+             const int warm1 = tp.weather().peak();
+             r.run(1);
+             if (!r.stage.transitioning()) return std::string("Übergang beginnt nicht nach der Vorbereitung");
+             r.run(4);
+             const int warm5 = tp.weather().peak();
+             return warm5 > warm1 && warm1 > 0 ? std::string()
+                                               : "Vorlauf nicht verteilt: " + std::to_string(warm1) + " → " + std::to_string(warm5);
+         }},
+    };
+}
+
 int run_group(const char* title, const std::vector<Case>& cases) {
     int failed = 0;
     for (const auto& c : cases) {
@@ -1509,7 +1815,10 @@ int run_tests(const std::string& which) {
     if (which == "assets" || which == "all") failed += run_group("Asset-Pakete", asset_cases());
     if (which == "overlay" || which == "all") failed += run_group("Einblendungen, Touch und Kamera", overlay_cases());
     if (which == "welt" || which == "all") failed += run_world_tests();
-    if (which == "orte" || which == "all") failed += run_group("Orte und Gebiete", place_cases());
+    if (which == "orte" || which == "all") {
+        failed += run_group("Orte und Gebiete", place_cases());
+        failed += run_group("Ortszustände, Ereignis-Bus, Fahrzeuge", state_cases());
+    }
     return failed ? 1 : 0;
 }
 

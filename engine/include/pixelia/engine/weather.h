@@ -156,6 +156,7 @@ private:
     int density_ = 100, fog_scale_ = 100;
     int32_t rain_acc_ = 0, snow_acc_ = 0, leaf_acc_ = 0;  // Bruchteile beim Entstehen, 8.8
     int peak_ = 0;
+    int warm_ = 0;  // Schritte Vorlauf, die noch fehlen (seit 0.5.8 verteilt)
     int wind_vx_ = 0;  // Windversatz je Schritt (1/256 feine Bildpunkte)
     uint8_t fog_[256]{}, veil_[256]{}, shadow_[256]{};
     mutable uint8_t grid_[CoarseLayers::kVeilW * CoarseLayers::kVeilH]{};

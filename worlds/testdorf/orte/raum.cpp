@@ -1,6 +1,7 @@
 // Testort Raum: Tapete, zwei große Fenster mit Vorhang und Fensterbank (Kerze, Blumentöpfe auf Stellplätzen),
-// Schrank, Bett, Tisch, Stühle, Teppich, Lampe; Tür unten (→ Wiese), seit 0.5.8 Innentür rechts (→ Kammer).
-// Bett und Tisch haben zwei Ausbaustufen (Befehl „ausbau“), alle Möbel einen Zustand „im Bau“ („baustelle“).
+// Schrank, Bett, Tisch, Stühle, Teppich, Lampe, seit 0.5.8 Teil 2 ein Ofen; Tür unten (→ Wiese), Innentür rechts
+// (→ Kammer). Bett und Tisch haben zwei Ausbaustufen (Befehl „ausbau“), alle Möbel einen Zustand „im Bau“
+// („baustelle“). Ortszustände: Lampe (Abendlicht), Kerze für Heimkehrer, Ofen mit Glut (Herdfeuer), Bett im Bau.
 #include "testdorf/testdorf.h"
 
 namespace pixelia::testdorf {
@@ -24,26 +25,34 @@ constexpr const char* kWalls[kTilesY] = {
 // Fenster 0 und 1 tragen auf ihren Fensterbänken Kerze und Blumentöpfe (Stellplätze, seit 0.5.8)
 constexpr RoomPart kParts[] = {
     {kPWindowBig, 4, 2, 0, kRowWood, 0, 0}, {kPWindowBig, 16, 2, 0, kRowWood, 0, 0},
-    {kPPicture, 11, 3, 0, kRowWood, 0, 0},  {kPPicture, 13, 3, 0, kRowWood, 0, 0},
+    {kPPicture, 10, 3, 0, kRowWood, 0, 0},  {kPPicture, 15, 3, 0, kRowWood, 0, 0},
     {kPRug, 8, 8, 0, 4, 0, 0},              {kPWardrobe, 2, 6, 0, kRowWood, 0, 0},
     {kPBed, 21, 6, 0, 3, 0, 0},             {kPTable, 10, 8, 0, kRowWood, 0, 0},
     {kPChair, 9, 9, 0, kRowWood, 0, 0},     {kPChair, 12, 9, 0, kRowWood, 0, kPartFlipped},
     {kPLamp, 23, 12, 0, 3, 0, 0},           {kPPlant, 1, 12, 0, 1, 0, 0},
     {kPCrate, 3, 12, 0, kRowWood, 0, 0},    {kSignaturePart, 17, 12, 0, 2, 1, 0},
     {kPCandle, 0, 0, 0, 0, 0, kPartOnSlot}, {kPPot, 0, 2, 0, 0, 0, kPartOnSlot},
-    {kPPot, 1, 1, 0, 0, 0, kPartOnSlot},
+    {kPPot, 1, 1, 0, 0, 0, kPartOnSlot},    {kPOven, 12, 6, 0, 1, 0, 0},
 };
 constexpr Exit kExits[] = {
     {10, 14, 2, 1, 10, 13, Facing::Up, ExitKind::Door, "testort-wiese", 0, Transition::Fade},
     {24, 9, 1, 2, 23, 9, Facing::Left, ExitKind::Door, "testort-kammer", 0, Transition::Fade},
 };
-constexpr RoomDef kRoom = {{kFloor, kWalls, nullptr}, kLegend, {0, kRowPaper, 0}, kParts, 17, kExits, 2};
-// Lampe (Quelle 0, Teil 10) und Kerze auf der Fensterbank (Quelle 1, Teil 14)
-constexpr PlaceLight kLights[] = {{{188, 100, 58, 38, 255}, 10}, {{41, 46, 30, 22, 200}, 14}};
+constexpr RoomDef kRoom = {{kFloor, kWalls, nullptr}, kLegend, {0, kRowPaper, 0}, kParts, 18, kExits, 2};
+// Ortszustände: Rüböllampe (Teil 10), Talgkerze auf der Fensterbank (Teil 14), Ofen (Teil 17), Bett (Teil 6)
+constexpr StateDef kStates[] = {
+    {.kind = StateKind::Light, .id = "lampe", .part = 10, .light = LightKind::OilLamp, .x = 188, .y = 100,
+     .rule = StateRule::Evening},
+    {.kind = StateKind::Light, .id = "kerze", .part = 14, .light = LightKind::Tallow, .x = 41, .y = 46,
+     .rule = StateRule::Homecomer},
+    {.kind = StateKind::Fire, .id = "ofen", .part = 17, .light = LightKind::Hearth, .x = 104, .y = 60,
+     .rule = StateRule::Hearth},
+    {.kind = StateKind::Work, .id = "bett", .part = 6, .capacity = 1},
+};
 
 }  // namespace
 
 const PlaceDef kRaum = {"testort-raum", "Testort Raum", 0, &kRoom, "raum", 3, false,
-                        {268, 248, 222}, 220, {100, 74, 56}, GlassRole::Sky, kLights, 2, nullptr, 0};
+                        {268, 248, 222}, 220, {100, 74, 56}, GlassRole::Sky, kStates, 4, nullptr, 0, "testhaus"};
 
 }  // namespace pixelia::testdorf

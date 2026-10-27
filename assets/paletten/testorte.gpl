@@ -43,10 +43,10 @@ Columns: 4
 150 120 198	lavendel 2
 124  92 168	lavendel 3
  96  70 132	lavendel 4
-134 202 122	gruen 1
-102 172  98	gruen 2
- 78 140  82	gruen 3
- 58 106  66	gruen 4
+ 70  34  30	glut kohle
+150  52  36	glut
+196  92  52	glut hell
+120 116 112	asche
 236 232 212	mond hell
 190 188 176	mond meer
  66  74  98	mond schatten
