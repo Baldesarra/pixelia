@@ -5,11 +5,13 @@
 
 #include <cstring>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -357,6 +359,44 @@ double same_share(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) 
 }
 
 std::string percent(double v) { return std::to_string(static_cast<int>(v * 100 + 0.5)) + " %"; }
+
+// Lichtkarte wie bis 0.5.9 Teil 2 (Wurzel und Division je Bildpunkt, alles auf einmal): Vorlage für die Rechnung in
+// Zeilen aus Tabellen
+void reference_light_map(uint8_t* map, int w, int h, const pixelia::LightCircle* lights, int n, int levels,
+                         pixelia::LightStyle style) {
+    using pixelia::LightStyle;
+    static constexpr uint8_t kBayer[4][4] = {{0, 8, 2, 10}, {12, 4, 14, 6}, {3, 11, 1, 9}, {15, 7, 13, 5}};
+    constexpr int kUnit = 64;
+    std::memset(map, 0, static_cast<size_t>(w) * h);
+    const int top = std::clamp(levels - 1, 0, 3) * kUnit;
+    for (int l = 0; l < n; ++l) {
+        const pixelia::LightCircle& c = lights[l];
+        if (!c.rx || !c.ry) continue;
+        const float inner = c.inner / 255.0f;
+        const int y0 = std::max(0, c.y - c.ry), y1 = std::min(h, c.y + c.ry + 1);
+        const int x0 = std::max(0, c.x - c.rx), x1 = std::min(w, c.x + c.rx + 1);
+        for (int y = y0; y < y1; ++y)
+            for (int x = x0; x < x1; ++x) {
+                const float dx = static_cast<float>(x - c.x) / c.rx, dy = static_cast<float>(y - c.y) / c.ry;
+                const float d = std::sqrt(dx * dx + dy * dy);
+                if (d >= 1.0f) continue;
+                float f = d <= inner ? 1.0f : (1.0f - d) / (1.0f - inner);
+                f = f * f * (3.0f - 2.0f * f);
+                const int v = static_cast<int>(f * top * c.strength / 255.0f + 0.5f);
+                uint8_t packed = 0;
+                for (int k = 0; k < 4; ++k) {
+                    const int fx = 2 * x + (k & 1), fy = 2 * y + (k >> 1);
+                    int lv = style == LightStyle::Stepped  ? (v + kUnit / 2) / kUnit
+                             : style == LightStyle::Coarse ? (v + kBayer[y & 3][x & 3] * 4 + 2) / kUnit
+                                                           : (v + kBayer[fy & 3][fx & 3] * 4 + 2) / kUnit;
+                    lv = std::min(lv, top / kUnit);
+                    const int old = (map[y * w + x] >> (2 * k)) & 3;
+                    packed |= static_cast<uint8_t>(std::max(lv, old) << (2 * k));
+                }
+                map[y * w + x] = packed;
+            }
+    }
+}
 
 std::vector<Case> stage_cases() {
     using pixelia::Transition;
@@ -891,6 +931,103 @@ std::vector<Case> stage_cases() {
              r.stage.go(w, pixelia::Transition::Cut);
              r.run(2);
              return lit() > 0 && place(w).lights_on() ? std::string() : "Wiese: Fenster nach Wechsel dunkel";
+         }},
+        {"Lichtkarte in Zeilen wie mit Wurzel gerechnet (seit 0.5.9 Teil 3): Stufen höchstens eins und unter 1 % anders",
+         [] {
+             using namespace pixelia;
+             constexpr int W = kCoarseWidth, H = kCoarseHeight;
+             std::vector<uint8_t> ref(W * H), got(W * H);
+             auto plan = std::make_unique<LightPlan>();  // gut 5 KB: nicht auf den Stack
+             Rng rng(7);
+             int diff = 0, total = 0;
+             for (int round = 0; round < 24; ++round) {
+                 std::array<LightCircle, kMaxLightCircles> c{};
+                 const int n = 1 + static_cast<int>(rng.below(kMaxLightCircles));
+                 for (int i = 0; i < n; ++i) {
+                     c[i].x = static_cast<int16_t>(rng.range(-20, W + 20));
+                     c[i].y = static_cast<int16_t>(rng.range(-10, H + 10));
+                     c[i].rx = static_cast<uint8_t>(rng.range(4, round == 23 ? 255 : 90));
+                     c[i].ry = static_cast<uint8_t>(rng.range(3, round == 23 ? 255 : 60));
+                     c[i].strength = static_cast<uint8_t>(rng.range(100, 255));
+                     c[i].inner = static_cast<uint8_t>(rng.range(0, 230));
+                 }
+                 const auto style = static_cast<LightStyle>(round % 3);
+                 const int levels = 2 + round % 3;
+                 reference_light_map(ref.data(), W, H, c.data(), n, levels, style);
+                 plan_light_map(plan.get(), c.data(), n, levels, style);
+                 for (int y = 0; y < H; ++y) {
+                     uint8_t x0 = 0, x1 = 0;
+                     build_light_row(got.data() + y * W, W, y, *plan, &x0, &x1);
+                     for (int x = 0; x < W; ++x) {
+                         const uint8_t g = got[y * W + x], e = ref[y * W + x];
+                         if ((x < x0 || x >= x1) && g) return std::string("Licht außerhalb des Bereichs der Zeile");
+                         for (int k = 0; k < 8; k += 2) {
+                             const int a = g >> k & 3, b = e >> k & 3;
+                             if (std::abs(a - b) > 1) return std::string("Stufe um mehr als eins anders");
+                             diff += a != b;
+                             total += a || b;
+                         }
+                     }
+                     if (x1 > x0 && (!got[y * W + x0] || !got[y * W + x1 - 1])) return std::string("Bereich zu weit");
+                 }
+             }
+             if (total == 0) return std::string("kein Licht");
+             return diff * 100 < total ? std::string()
+                                       : "zu viele Punkte anders: " + std::to_string(diff) + " von " + std::to_string(total);
+         }},
+        {"Lichtkarte über mehrere Schritte (seit 0.5.9 Teil 3): Budget je Schritt, sichtbar erst fertig, alle bald fertig",
+         [] {
+             StageRun r(6, "testort-raum");
+             r.stage.set_follow(false);
+             r.clock.set_time_of_day(22, 0);
+             r.run(60);
+             r.stage.command("innenlicht aus");
+             r.run(10);
+             auto pending = [&] {
+                 int n = 0;
+                 for (int i = 0; i < r.stage.count(); ++i)
+                     if (auto* p = dynamic_cast<pixelia::TestPlace*>(&r.stage.scene(i))) n += p->room().lights_pending();
+                 return n;
+             };
+             auto builds = [&](std::vector<uint32_t>& out) {
+                 out.assign(r.stage.count(), 0);
+                 for (int i = 0; i < r.stage.count(); ++i)
+                     if (auto* p = dynamic_cast<pixelia::TestPlace*>(&r.stage.scene(i))) out[i] = p->room().light_builds();
+             };
+             std::vector<uint32_t> before, after;
+             builds(before);
+             if (pending()) return std::string("noch Lichtkarten im Bau");
+             const pixelia::Room& room = static_cast<pixelia::TestPlace&>(r.stage.scene(r.stage.find("testort-raum"))).room();
+             r.stage.command("innenlicht an");  // sichtbarer Raum und unsichtbar die Fenster der Wiese
+             const int row_max = 16 + pixelia::kMaxLightCircles * pixelia::kCoarseWidth;
+             int most = 0, built = 0, ticks = 0;
+             std::vector<uint8_t> shown;
+             for (; ticks < 300; ++ticks) {
+                 const uint8_t* front = room.light_map();
+                 shown.assign(front ? front : nullptr, front ? front + pixelia::kCoarsePixels : nullptr);
+                 r.run(1);
+                 most = std::max(most, r.stage.last_prepare());
+                 built += r.stage.last_prepare() > 0;
+                 // sichtbar: die Karte, die man sieht, ändert sich nie mitten im Neubau
+                 if (front && room.light_map() == front && !std::equal(shown.begin(), shown.end(), front))
+                     return std::string("sichtbare Lichtkarte halb neu");
+                 if (ticks > 30 && !pending()) break;
+             }
+             if (most > pixelia::Stage::kPrepareBudget + row_max) return "Budget überschritten: " + std::to_string(most);
+             builds(after);
+             int n = 0;
+             for (size_t i = 0; i < after.size(); ++i) n += after[i] > before[i];
+             if (n < 2) {
+                 std::string why = "Licht an baute nur in " + std::to_string(n) + " Ort(en):";
+                 for (size_t i = 0; i < after.size(); ++i)
+                     if (auto* p = dynamic_cast<pixelia::TestPlace*>(&r.stage.scene(static_cast<int>(i))))
+                         why += std::string(" ") + p->name() + " " + std::to_string(before[i]) + "→" +
+                                std::to_string(after[i]) + " (" + std::to_string(p->room().light_count()) + " Lichter)";
+                 return why;
+             }
+             if (built < 2) return std::string("nicht verteilt (") + std::to_string(built) + " Schritte)";
+             if (pending()) return std::string("nach 10 s noch Lichtkarten im Bau");
+             return room.light_map() && room.light_count() > 0 ? std::string() : "Raum ohne Lichtkarte";
          }},
     };
 }

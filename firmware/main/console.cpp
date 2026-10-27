@@ -10,9 +10,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <new>
 #include <string>
 
 #include "app.h"
+#include "pixelia/engine/light.h"
+#include "pixelia/engine/place_state.h"
 #include "pixelia/engine/stage.h"
 #include "board/backlight.h"
 #include "diag.h"
@@ -117,7 +120,7 @@ void print_help() {
     ESP_LOGI(TAG, "  ort [<Nr|Kennung> [Übergang]] | ort rundgang <s> | ort figuren <n>   Orte der Bühne");
     ESP_LOGI(TAG, "  kamera [standard|folge <Figur>|ort <Nr>] | karte [<Figur>|aus] | meldung [system] <Text> | uhr an|aus|ecke <n>|sekunden 0|1");
     ESP_LOGI(TAG, "  ort ausbau | ort baustelle | ort folgen 0/1 | ort pruefen 0/1   Testorte (Raum-Baukasten)");
-    ESP_LOGI(TAG, "  bench [mem]   Zeichnen messen: Verdoppeln, Kopie des Hintergrunds; mem: PSRAM-Durchsatz, DMA");
+    ESP_LOGI(TAG, "  bench [mem|licht]   Zeichnen messen: Verdoppeln, Kopie des Hintergrunds; mem: PSRAM-Durchsatz, DMA; licht: Lichtkarte");
     ESP_LOGI(TAG, "  time <HH:MM|real> | speed <Faktor>             Weltzeit stellen (real = echte Uhrzeit), Zeitraffer");
     ESP_LOGI(TAG, "  wetter [<Art> [%%] [sofort]] | wetter blitz | wetter wind links|rechts   Wetter (Art: sonne bewoelkt regen schnee nebel gewitter wind; übersteuert bis zur nächsten Wetterzeit)");
     ESP_LOGI(TAG, "  update abriss                                   nächster Download von GitHub trennt einmal (Weitermachen prüfen)");
@@ -218,6 +221,41 @@ void bench_memory() {
     if (done) vSemaphoreDelete(done);
     heap_caps_free(fine);
     heap_caps_free(rows);
+}
+
+// Lichtkarte (seit 0.5.9 Teil 3, „bench licht“): Tabellen und ganze Karte für Lampe, Kerze und Herd wie im Testraum,
+// dazu der Aufwand in Einheiten des Budgets je Schritt (Stage::kPrepareBudget). Auf Kern 0 wie „bench“
+void bench_light() {
+    auto* plan = static_cast<pixelia::LightPlan*>(heap_caps_malloc(sizeof(pixelia::LightPlan), MALLOC_CAP_SPIRAM));
+    auto* map = static_cast<uint8_t*>(heap_caps_malloc(pixelia::kCoarsePixels, MALLOC_CAP_SPIRAM));
+    if (plan && map) {
+        new (plan) pixelia::LightPlan;
+        const pixelia::LightCircle c[] = {pixelia::light_circle(70, 60, 4), pixelia::light_circle(120, 50, 3),
+                                          pixelia::light_circle(40, 80, 3)};
+        int64_t t0 = esp_timer_get_time();
+        pixelia::plan_light_map(plan, c, 3, 3, pixelia::LightStyle::Fine);
+        const int64_t tp = esp_timer_get_time() - t0;
+        t0 = esp_timer_get_time();
+        pixelia::plan_light_map(plan, c + 1, 2, 3, pixelia::LightStyle::Fine);  // Lampe aus: Tabellen nur kopiert
+        pixelia::plan_light_map(plan, c, 3, 3, pixelia::LightStyle::Fine);      // wieder an: eine neu
+        const int64_t tw = esp_timer_get_time() - t0;
+        int cost = 0;
+        uint8_t x0, x1;
+        t0 = esp_timer_get_time();
+        for (int y = 0; y < pixelia::kCoarseHeight; ++y) {
+            cost += pixelia::light_row_cost(*plan, y, pixelia::kCoarseWidth);
+            pixelia::build_light_row(map + y * pixelia::kCoarseWidth, pixelia::kCoarseWidth, y, *plan, &x0, &x1);
+        }
+        const int64_t tb = esp_timer_get_time() - t0;
+        ESP_LOGI(TAG, "Lichtkarte (Lampe, Kerze, Herd): Tabellen %" PRId64 " µs (aus und an %" PRId64 " µs), Karte %"
+                      PRId64 " µs, Aufwand %d (%d µs je 1000; Budget je Schritt %d ≈ %d µs)",
+                 tp, tw, tb, cost, static_cast<int>(tb * 1000 / std::max(1, cost)), pixelia::Stage::kPrepareBudget,
+                 static_cast<int>(tb * pixelia::Stage::kPrepareBudget / std::max(1, cost)));
+    } else {
+        ESP_LOGW(TAG, "bench licht: kein PSRAM frei");
+    }
+    heap_caps_free(plan);
+    heap_caps_free(map);
 }
 
 void log_bench(int n) {
@@ -603,6 +641,8 @@ bool handle(char* line) {
         ESP_LOGI(TAG, "Engine-Puffer: %s", psram ? "PSRAM" : "intern");
     } else if (is("assets") || is("sd")) {
         assets::console(argc, argv);
+    } else if (is("bench") && argc >= 2 && std::strcmp(argv[1], "licht") == 0) {
+        bench_light();
     } else if (is("bench")) {
         // Messung fürs Zeichnen (seit 0.5.1, Grundlage für 0.5.2): Verdoppeln 200×120 → 400×240 und Kopie des
         // Hintergrundbilds (24 KB), beides PSRAM → PSRAM wie auf der Grafik-Task. Läuft auf Kern 0, die Grafik läuft

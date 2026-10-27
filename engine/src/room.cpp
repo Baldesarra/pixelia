@@ -39,11 +39,19 @@ struct Room::Storage {
     int light_base = 0, light_levels = 1;
     LightStyle light_style = LightStyle::Fine;
     std::array<uint8_t, kCoarseHeight> lx0{}, lx1{};  // je Zeile der Bereich mit Licht
+    // Neubau in Zeilen (seit 0.5.9 Teil 3): Tabellen, nächste Zeile (−1 = fertig), Ziel, Bereiche des zweiten Puffers
+    LightPlan plan;
+    int build_row = -1;
+    bool build_back = false;   // in den zweiten Puffer (betreten)
+    bool build_again = false;  // während des Durchgangs geändert: danach noch einer
+    std::array<uint8_t, kCoarseHeight> bx0{}, bx1{};
+    uint32_t builds = 0;  // fertige Durchgänge (Prüfungen)
 };
 
 Room::~Room() {
     leave();
     if (lm_) asset_free(lm_);
+    if (lmb_) asset_free(lmb_);
     if (st_) {
         st_->~Storage();
         asset_free(st_);
@@ -425,27 +433,55 @@ void Room::bake() {
     draw_static(c, true);  // ohne Licht: das kommt beim Verdoppeln aus der Lichtkarte
 }
 
-void Room::build_lights() {
-    if (st_->light_count == 0) {
-        if (lm_) asset_free(lm_);
-        lm_ = nullptr;
-        return;
-    }
-    if (!lm_) lm_ = static_cast<uint8_t*>(asset_alloc(kCoarsePixels));
-    if (lm_) {
-        // einmal je Änderung der Lichter (Wurzel je Bildpunkt, einige ms), nicht bei jedem Betreten
-        build_light_map(lm_, kCoarseWidth, kCoarseHeight, st_->lights.data(), st_->light_count, st_->light_levels,
-                        st_->light_style);
-        for (int y = 0; y < kCoarseHeight; ++y) {
-            const uint8_t* m = lm_ + y * kCoarseWidth;
-            int x0 = 0, x1 = kCoarseWidth;
-            while (x0 < x1 && !m[x0]) ++x0;
-            while (x1 > x0 && !m[x1 - 1]) --x1;
-            st_->lx0[y] = static_cast<uint8_t>(x0);
-            st_->lx1[y] = static_cast<uint8_t>(x1);
+void Room::start_lights() {
+    // betreten: in den zweiten Puffer, sichtbar erst, wenn fertig; unsichtbar an Ort und Stelle (zeichnet niemand)
+    Storage& s = *st_;
+    s.build_again = false;
+    s.build_back = bg_ != nullptr;
+    uint8_t*& to = s.build_back ? lmb_ : lm_;
+    if (!to) {
+        to = static_cast<uint8_t*>(asset_alloc(kCoarsePixels));
+        if (!to) {
+            s.build_row = -1;
+            return;
+        }
+        std::memset(to, 0, kCoarsePixels);
+        if (!s.build_back) {
+            s.lx0.fill(0);
+            s.lx1.fill(0);
         }
     }
+    s.build_row = 0;
 }
+
+int Room::build_lights(int budget) {
+    if (!st_ || st_->build_row < 0) return 0;
+    Storage& s = *st_;
+    uint8_t* to = s.build_back ? lmb_ : lm_;
+    uint8_t* x0 = s.build_back ? s.bx0.data() : s.lx0.data();
+    uint8_t* x1 = s.build_back ? s.bx1.data() : s.lx1.data();
+    int used = 0;
+    while (s.build_row < kCoarseHeight) {
+        const int y = s.build_row;
+        const int cost = light_row_cost(s.plan, y, kCoarseWidth);
+        if (used > 0 && used + cost > budget) return used;
+        build_light_row(to + y * kCoarseWidth, kCoarseWidth, y, s.plan, &x0[y], &x1[y]);
+        used += cost;
+        ++s.build_row;
+    }
+    if (s.build_back) {
+        std::swap(lm_, lmb_);
+        std::swap(s.lx0, s.bx0);
+        std::swap(s.lx1, s.bx1);
+    }
+    s.build_row = -1;
+    ++s.builds;
+    if (s.build_again) start_lights();
+    return used;
+}
+
+bool Room::lights_pending() const { return st_ && st_->build_row >= 0; }
+uint32_t Room::light_builds() const { return st_ ? st_->builds : 0; }
 
 void Room::tick() { ++ticks_; }
 
@@ -458,16 +494,41 @@ void Room::enter() {
 void Room::leave() {
     if (bg_) asset_free(bg_);
     bg_ = nullptr;
+    // unsichtbar braucht es keinen zweiten Puffer: ein Neubau dorthinein beginnt an Ort und Stelle neu
+    if (st_ && st_->build_row >= 0 && st_->build_back) start_lights();
+    if (lmb_) asset_free(lmb_);
+    lmb_ = nullptr;
 }
 
 void Room::set_lights(const LightCircle* lights, int n, int base, int levels, LightStyle style) {
     if (!st_) return;
-    st_->light_count = std::clamp(n, 0, kMaxLights);
-    std::copy_n(lights, st_->light_count, st_->lights.begin());
-    st_->light_base = base;
-    st_->light_levels = levels;
-    st_->light_style = style;
-    build_lights();
+    Storage& s = *st_;
+    n = std::clamp(n, 0, kMaxLights);
+    s.light_base = base;  // nur fürs Zeichnen
+    auto same = [](const LightCircle& a, const LightCircle& b) {
+        return a.x == b.x && a.y == b.y && a.rx == b.rx && a.ry == b.ry && a.strength == b.strength && a.inner == b.inner;
+    };
+    if (n == s.light_count && levels == s.light_levels && style == s.light_style &&
+        std::equal(lights, lights + n, s.lights.begin(), same) && (n == 0 || lm_ || s.build_row >= 0))
+        return;  // gleiche Lichter: keine neue Karte
+    s.light_count = n;
+    std::copy_n(lights, n, s.lights.begin());
+    s.light_levels = levels;
+    s.light_style = style;
+    if (n == 0) {  // aus: sofort, ohne Neubau
+        if (lm_) asset_free(lm_);
+        if (lmb_) asset_free(lmb_);
+        lm_ = lmb_ = nullptr;
+        s.build_row = -1;
+        s.build_again = false;
+        return;
+    }
+    plan_light_map(&s.plan, lights, n, levels, style);
+    // läuft schon ein Durchgang, endet er mit den neuen Tabellen; danach noch einer (so wird jeder fertig)
+    if (s.build_row >= 0)
+        s.build_again = true;
+    else
+        start_lights();
 }
 
 int Room::light_count() const { return st_ ? st_->light_count : 0; }

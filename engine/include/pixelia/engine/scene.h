@@ -109,6 +109,9 @@ public:
     virtual void step(int64_t /*at_us*/) {}
     // Darstellung sofort an den Weltzustand angleichen (nach dem Laden eines Speicherstands; nur betretene Orte)
     virtual void refresh(int64_t /*now_us*/) {}
+    // Vorarbeit der Darstellung (seit 0.5.9 Teil 3), je Logik-Schritt für alle Orte mit gemeinsamem Budget der Bühne:
+    // teure Teile wie die Lichtkarte entstehen über mehrere Schritte. Gibt den verbrauchten Aufwand zurück (0 = nichts)
+    virtual int prepare(int /*budget*/) { return 0; }
     // Zeichnet in 400×240 (scale() == 1) oder ins grobe Raster 200×120 (scale() == 2)
     virtual void render(Canvas& canvas) const = 0;
     // Grobe Szenen mit Hintergrundbild (seit 0.5.2): zeichnen nur die bewegten Teile in den Arbeitspuffer und melden

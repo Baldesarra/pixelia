@@ -26,7 +26,7 @@
 // Raumes, Laterne, Nässe und Becken des Platzes, Nässe der Wiese. Die Fenster der Wiese gehören zum Raum und leuchten
 // nachts nur, wenn dort Licht mit Schein nach außen brennt (Befehl „innenlicht an|aus|um“). Der Ort zeigt die Zustände
 // (Zustandsbilder, Lichtkreise nach der Stärke, nasser Boden dunkler, Pfützen) und erfährt Änderungen über den
-// Ereignis-Bus (events.h); unsichtbar baut er sein Licht nur in seinem Takt-Schlitz neu (verteilt die Rechenzeit).
+// Ereignis-Bus (events.h); seine Lichtkarte entsteht seit 0.5.9 Teil 3 über mehrere Schritte (prepare, Budget der Bühne).
 // Unter Tage (kPlaceUnderground): kein Wetter, kein Himmel, Licht immer wie nachts.
 
 #include <array>
@@ -80,6 +80,7 @@ public:
     void entry_tile(uint8_t entry, Rng& rng, uint8_t* tx, uint8_t* ty) const override;
     void step(int64_t at_us) override;
     void refresh(int64_t now_us) override;
+    int prepare(int budget) override;
     static int64_t tile_us(uint16_t id);  // Gehzeit je Kachel (je Figur etwas anders, 325–455 ms)
     // Touch und Karten (seit 0.5.6): Figuren mit Kennung (Ort × 1000 + laufende Nummer, bleibt beim Reisen),
     // Hauptfigur = die Begleiterin (Platzhalter für Sykora); Gedanken sind Testtexte (echte ab 0.6.x)

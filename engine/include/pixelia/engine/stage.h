@@ -132,6 +132,11 @@ public:
     int64_t grid_us() const { return grid_; }  // zuletzt abgearbeitete Takt-Grenze, INT64_MIN = noch keine
     uint32_t decisions() const { return decisions_; }  // Entscheidungen der Planer seit init() (Messung)
     int last_grid_steps() const { return last_grid_steps_; }  // Takt-Grenzen im letzten Schritt
+    // Vorarbeit der Darstellung (seit 0.5.9 Teil 3, Scene::prepare): Budget je Schritt in Einheiten von light_row_cost,
+    // betretene Orte zuerst, dann die anderen der Reihe nach (einer nach dem anderen fertig). Am Gerät 0,26 µs je
+    // Einheit („bench licht“): 6000 ≈ 1,5 ms, die Lichtkarte des Testraums (23 000) steht nach 4 Schritten
+    static constexpr int kPrepareBudget = 6000;
+    int last_prepare() const { return last_prepare_; }  // Aufwand im letzten Schritt
     uint32_t reseats() const { return reseats_; }  // Neuansätze nach Sprüngen der Uhr
     // Unterwegs auf einer Verbindung mit Reisezeit (seit 0.5.8): Figuren, die keinem Ort gehören, bis sie ankommen
     static constexpr int kMaxTransit = 16;
@@ -209,6 +214,7 @@ private:
     void sync_pins();     // Pakete von active_, from_ und pending_ angeheftet, alle anderen gelöst
     void pin_scene(int i, bool on);
     void prefetch_neighbors();
+    void prepare_scenes();  // Vorarbeit mit kPrepareBudget
     // Stufen der Simulation (world_sim.cpp)
     void advance(int64_t now);                     // Takt-Grenzen bis now, dann die betretenen Orte bis now
     void reseat(int64_t now);                      // nach einem Sprung der Uhr: alle neu ansetzen
@@ -267,6 +273,8 @@ private:
     AssetStore* assets_ = nullptr;
     uint32_t pinned_ = 0;   // Bit je Ort: Pakete angeheftet
     int prefetched_ = -1;   // Ort, dessen Nachbarn zuletzt vorgeladen wurden
+    int prepare_next_ = 0;  // Vorarbeit: unsichtbarer Ort, der zuletzt dran war
+    int last_prepare_ = 0;
     bool hold_ = false;
     uint32_t holds_ = 0;
     bool follow_ = true;

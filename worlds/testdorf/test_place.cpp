@@ -679,20 +679,22 @@ void TestPlace::sync_building() {
     }
 }
 
-void TestPlace::step(int64_t at) {
+void TestPlace::step(int64_t /*at*/) {
     // Takt-Grenze (beide Stufen gleich): Regeln aus dem Bus (Kerze für Heimkehrer), Bau-Zustand der Teile
     if (env_ && reader_ >= 0) read_events();
     sync_building();
-    // nur Darstellung (ändert nichts an der Welt): unsichtbar Licht und Zustandsbilder nach einer Änderung im eigenen
-    // Takt-Schlitz nachbauen (jede vierte Takt-Grenze, versetzt nach Ort), damit das Betreten billig bleibt
+    // nur Darstellung (ändert nichts an der Welt): unsichtbar Licht und Zustandsbilder nach einer Änderung nachziehen,
+    // damit das Betreten billig bleibt. Seit 0.5.9 Teil 3 an jeder Takt-Grenze (plant nur, die Lichtkarte entsteht
+    // in prepare über mehrere Schritte; vorher je Ort jede vierte Takt-Grenze mit der ganzen Karte)
     if (entered_) return;
     if (const uint32_t v = states_version(); v != states_seen_) {
         states_seen_ = v;
         states_dirty_ = true;
     }
-    const int64_t sec = at / WorldClock::kUsPerSecond;
-    if (states_dirty_ && (sec + index_) % 4 == 0) apply_states();
+    if (states_dirty_) apply_states();
 }
+
+int TestPlace::prepare(int budget) { return room_.build_lights(budget); }
 
 void TestPlace::set_load(int figures) {
     wanted_ = figures <= 0 ? 0 : std::min(figures, kMaxFigures);
@@ -963,8 +965,8 @@ uint32_t TestPlace::states_version() const {
 
 void TestPlace::enter() {
     resolve(kit());  // Bilder der eben geladenen Pakete (assets.h)
-    // Zustandsbilder und Licht vor dem Vorzeichnen, aber nur nach einer Änderung (die Lichtkarte kostet am Gerät bis
-    // 40 ms; unsichtbar baut der Ort sie an den Takt-Grenzen nach, siehe step)
+    // Zustandsbilder und Licht vor dem Vorzeichnen, aber nur nach einer Änderung (die Lichtkarte entsteht seit 0.5.9
+    // Teil 3 in prepare über mehrere Schritte, unsichtbar schon vorher, siehe step)
     if (const uint32_t v = states_version(); v != states_seen_ || states_dirty_) {
         states_seen_ = v;
         apply_states();

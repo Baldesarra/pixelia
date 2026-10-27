@@ -584,8 +584,27 @@ void Stage::tick(const WorldClock& clock) {
     // eben erst betreten (Mitte des Abblendens, geladen): gleich einmal zeigen, damit Palette und Figuren stimmen
     for (int i = 0; i < count_; ++i)
         if (entered(i) && !(ticked & (1u << i))) scenes_[i]->tick(clock);
+    prepare_scenes();
     if (from_ >= 0) update_palette();
     if (from_ < 0 && pending_ < 0 && prefetched_ != active_) prefetch_neighbors();
+}
+
+void Stage::prepare_scenes() {
+    // Seit 0.5.9 Teil 3: teure Darstellung (Lichtkarten) mit festem Budget je Schritt statt in einem Stück (bis 31 ms
+    // nach dem Start, nach Uhrsprüngen, beim ersten Betreten). Sichtbares zuerst, dann ein unsichtbarer Ort nach dem
+    // anderen, damit jeder bald fertig ist
+    int budget = kPrepareBudget;
+    for (int i = 0; i < count_ && budget > 0; ++i)
+        if (entered(i)) budget -= scenes_[i]->prepare(budget);
+    for (int k = 0; k < count_ && budget > 0; ++k) {
+        const int i = (prepare_next_ + k) % count_;
+        if (entered(i)) continue;
+        if (const int used = scenes_[i]->prepare(budget)) {
+            budget -= used;
+            prepare_next_ = i;
+        }
+    }
+    last_prepare_ = kPrepareBudget - budget;
 }
 
 int Stage::find_figure(uint16_t id) const {

@@ -976,11 +976,12 @@ void gfx_task(void* arg) {
             s_stage.tick(s_clock);
             // Diagnose (0.5.9 Teil 2): lange Logik-Schritte mit Phase des Übergangs ins Log
             if (const int64_t d = esp_timer_get_time() - ts; d > 8000)
-                ESP_LOGW(TAG, "Logik %lld µs: %s → %s, Übergang %s (Schritt %d, vorher %s), Takt-Grenzen %d",
+                ESP_LOGW(TAG, "Logik %lld µs: %s → %s, Übergang %s (Schritt %d, vorher %s), Takt-Grenzen %d, Vorarbeit %d",
                          static_cast<long long>(d),
                          s_stage.transition_from() >= 0 ? s_stage.scene(s_stage.transition_from()).name() : "-",
                          s_stage.scene(s_stage.active()).name(), s_stage.transitioning() ? "läuft" : "aus",
-                         s_stage.transition_step(), was ? "lief" : "aus", s_stage.last_grid_steps());
+                         s_stage.transition_step(), was ? "lief" : "aus", s_stage.last_grid_steps(),
+                         s_stage.last_prepare());
             s_camera.tick(s_stage);
         }
         s_place.store(s_stage.active(), std::memory_order_relaxed);
