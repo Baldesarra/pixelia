@@ -926,7 +926,7 @@ std::vector<Case> stage_cases() {
              r.run(2);
              if (lit() != 0) return std::string("Raum hell trotz Licht aus");
              r.stage.command("innenlicht an");
-             r.run(1);
+             r.run(6);  // seit 0.5.9 Teil 3 entsteht die Lichtkarte über einige Schritte
              if (lit() == 0) return std::string("Raum dunkel trotz Licht an");
              r.stage.go(w, pixelia::Transition::Cut);
              r.run(2);

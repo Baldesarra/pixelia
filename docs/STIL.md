@@ -202,4 +202,4 @@ umrechnen, mit Vorschau). Ohne Fremdbibliotheken.
 - Zeichenanleitung für eigene Möbel (Maße im Raster, welche Rampen, Umriss); das Grafik-Format steht seit 0.5.5
   (Kapitel 9).
 - Feste Liste der Rampen je Ortsart nach dem Setting (Bahnhof, Hütte, Wald, See …).
-- Figuren-Aussehen: Ebenen des Figuren-Baukastens (0.5.9), Kleidung um 1850, Erkennungsmerkmale der 16 Startfiguren.
+- Figuren-Aussehen: Baukasten steht seit 0.5.9 Teil 3 (Stil wie Skizze v3, Version „Mehr Tiefe“: Kopf 14 breit mit runden Ecken, Augen 2 × 3 mit Glanzpunkt, rosa Wangen, Lichtkante links, farbige Kontur nur außen; Bild 24 × 36, Fußpunkt (11, 33); Ebenen mit der Platzhalter-Rampe 20–22, erzeugt mit `tools/figure_art.py`). Offen: Kleidung um 1850 je Beruf und Erkennungsmerkmale der 16 Startfiguren (0.6.0), Haut- und Haar-Rampen in den echten Paletten.

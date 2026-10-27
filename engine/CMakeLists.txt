@@ -10,6 +10,7 @@ set(PIXELIA_ENGINE_SRCS
     src/environment.cpp
     src/events.cpp
     src/figure.cpp
+    src/figure_art.cpp
     src/font.cpp
     src/gesture.cpp
     src/light.cpp

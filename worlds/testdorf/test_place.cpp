@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "pixelia/engine/assets.h"
+#include "pixelia/engine/figure_art.h"
 #include "pixelia/engine/font.h"
 #include "pixelia/engine/memory.h"
 #include "pixelia/engine/overlay.h"
@@ -163,9 +164,47 @@ constexpr PartSpec kParts[kPartCount] = {
 // Asset-Pakete (assets/testorte/pakete.json): Grundausstattung immer geladen, gemeinsame Möbel und Ortspakete beim
 // Betreten (TestPlace::packs)
 constexpr const char* kBasePack = "grund";
-constexpr const char* kRowNames[kRowCount] = {nullptr,          "farbreihe/rot",      "farbreihe/blau",
-                                              "farbreihe/gelb", "farbreihe/lavendel", "farbreihe/holz",
-                                              "farbreihe/tapete"};
+constexpr const char* kRowNames[kRowCount] = {
+    nullptr,          "farbreihe/rot",         "farbreihe/blau",        "farbreihe/gelb",
+    "farbreihe/lavendel", "farbreihe/holz",    "farbreihe/tapete",      "farbreihe/haut-hell",
+    "farbreihe/haut-mittel", "farbreihe/haut-dunkel", "farbreihe/haar-braun", "farbreihe/haar-blond",
+    "farbreihe/haar-rot", "farbreihe/haar-grau", "farbreihe/schwarz",   "farbreihe/leinen",
+    "farbreihe/gruen"};
+
+// Figuren-Baukasten (seit 0.5.9 Teil 3): Varianten je Ebene in der Reihenfolge von tools/figure_art.py (VARIANTS);
+// die Nummer (Platz + 1) steht im Speicherstand, also nur hinten anhängen
+constexpr const char* kLookParts[kLookLayers][FigureArt::kVariants] = {
+    {"figur/koerper/normal", "figur/koerper/brille"},
+    {"figur/beine/hose", "figur/beine/rock"},
+    {"figur/oberteil/hemd", "figur/oberteil/kleid", "figur/oberteil/kleid-schuerze", "figur/oberteil/weste",
+     "figur/oberteil/mantel", "figur/oberteil/lederschurz", "figur/oberteil/kleid-tuch"},
+    {"figur/haare/kurz", "figur/haare/dutt", "figur/haare/zoepfe", "figur/haare/lang", "figur/haare/glatze",
+     "figur/haare/kurz-bart", "figur/haare/kurz-schnurrbart"},
+    {"figur/kopf/haube", "figur/kopf/schlapphut", "figur/kopf/muetze"},
+    {"figur/werkzeug/schieber", "figur/werkzeug/hammer", "figur/werkzeug/hobel"},
+};
+
+// Aussehen der Testfiguren, solange das Gebiet keine Figurendaten hat (echte Startbesetzung mit 0.6.0): nach Kennung.
+// Je Ebene {Variante, Farbreihe}; Greta (Bäckerin) und Jakob (Tischler, Kluft der Walz) aus SETTING.md Kapitel 3
+constexpr FigureLook look_of(std::array<std::array<uint8_t, 2>, kLookLayers> p) {
+    FigureLook l{};
+    for (int i = 0; i < kLookLayers; ++i) {
+        l.part[i] = p[i][0];
+        l.row[i] = p[i][1];
+    }
+    return l;
+}
+constexpr FigureLook kTestLooks[] = {
+    look_of({{{1, kRowSkinLight}, {2, 0}, {3, kRowBlue}, {2, kRowHairBlond}, {1, kRowLinen}, {1, 0}}}),     // Greta
+    look_of({{{1, kRowSkinLight}, {1, kRowBlack}, {4, kRowBlack}, {6, kRowHairBrown}, {2, kRowBlack}, {3, 0}}}),  // Jakob
+    look_of({{{1, kRowSkinMid}, {2, 0}, {2, kRowGreen}, {3, kRowHairRed}, {0, 0}, {0, 0}}}),               // Ida
+    look_of({{{1, kRowSkinDark}, {1, kRowWood}, {6, kRowLinen}, {7, kRowBlack}, {0, 0}, {2, 0}}}),          // Konrad
+    look_of({{{2, kRowSkinLight}, {2, 0}, {7, kRowLavender}, {2, kRowHairGrey}, {0, 0}, {0, 0}}}),         // Großmutter
+    look_of({{{1, kRowSkinLight}, {1, kRowBlue}, {5, kRowBlue}, {7, kRowHairGrey}, {3, kRowBlue}, {0, 0}}}),   // Otto
+    look_of({{{1, kRowSkinMid}, {2, 0}, {2, kRowRed}, {4, kRowHairBrown}, {0, 0}, {0, 0}}}),               // Lene
+    look_of({{{1, kRowSkinLight}, {1, kRowWood}, {1, kRowYellow}, {1, kRowHairBlond}, {3, kRowRed}, {2, 0}}}),  // Emil
+};
+constexpr int kTestLookCount = sizeof(kTestLooks) / sizeof(kTestLooks[0]);
 
 // Gemeinsamer Katalog aller Testorte. Figur, Kacheln, Palette und Farbreihen kommen aus der Grundausstattung, die
 // Bilder der Teile aus den Paketen der Orte
@@ -178,6 +217,8 @@ struct Kit {
     PartDef parts[kPartCount];
     const PartStage* site;
     Recolor rows[kRowCount];
+    Recolor outline;  // Kontur der Figuren (farbreihe/kontur)
+    FigureArt art;    // Figuren-Baukasten (seit 0.5.9 Teil 3)
     PartCatalog catalog;
     uint32_t generation = ~0u;  // Stand des Grafik-Speichers beim letzten Auflösen
 };
@@ -231,6 +272,14 @@ Kit& kit() {
         k->parts[kPBed].building = stage_of(kPBedFrame, &n);
         k->site = stage_of(kPSite, &n);
         for (int r = 1; r < kRowCount; ++r) k->rows[r].load(store.recolor(asset_id(kRowNames[r])));
+        k->outline.load(store.recolor(asset_id("farbreihe/kontur")));
+        for (int l = 0; l < kLookLayers; ++l)
+            for (int v = 0; v < FigureArt::kVariants; ++v) {
+                ImageAsset img;
+                if (kLookParts[l][v] && store.image(asset_id(kLookParts[l][v]), &img))
+                    k->art.set_part(static_cast<LookLayer>(l), v + 1, img.sheet);
+            }
+        k->art.set_rows(k->rows, kRowCount, k->outline.table());
         k->catalog = PartCatalog{k->parts, kPartCount, k->rows, kRowCount, token_for, k->site};
         resolve(*k);
         s_kit = k;  // bleibt bis zum Ende (wird nie freigegeben)
@@ -457,6 +506,7 @@ void TestPlace::spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, 
     f.use_part = f.use_k = f.exit = -1;
     f.facing = facing;
     f.anim.play(&kIdle);
+    f.look = kTestLooks[id % kTestLookCount];  // Figuren der Welt: ihr eigenes Aussehen (show)
     f.seq = 0xFFFFFFFFu;  // Figur der Welt: Weg beim ersten Zeigen
     f.path_n = -1;
 }
@@ -694,7 +744,14 @@ void TestPlace::step(int64_t /*at*/) {
     if (states_dirty_) apply_states();
 }
 
-int TestPlace::prepare(int budget) { return room_.build_lights(budget); }
+int TestPlace::prepare(int budget) {
+    // betreten zuerst die eigene Lichtkarte, sonst zuerst der Figuren-Baukasten (gemeinsam für alle Testorte: was
+    // man beim Betreten sieht)
+    FigureArt& art = kit().art;
+    int used = entered_ ? room_.build_lights(budget) : art.prepare(budget);
+    if (budget - used > 0) used += entered_ ? art.prepare(budget - used) : room_.build_lights(budget - used);
+    return used;
+}
 
 void TestPlace::set_load(int figures) {
     wanted_ = figures <= 0 ? 0 : std::min(figures, kMaxFigures);
@@ -868,6 +925,9 @@ void TestPlace::tick(const WorldClock& clock) {
         f.anim.tick();
         f.frame = static_cast<uint8_t>(f.anim.frame());
     }
+    // Figuren-Baukasten: was hier zu sehen ist, setzt FigureArt zuerst zusammen (prepare)
+    FigureArt& art = kit().art;
+    for (int i = 0; i < count_; ++i) art.want(figures_[i].look);
 }
 
 void TestPlace::sync_figures(int64_t now) {
@@ -907,6 +967,7 @@ void TestPlace::show(Figure& v, const FigureRecord& r, int64_t now) {
     const Doing& d = r.doing;
     v.guide = r.lead();
     v.row = static_cast<uint8_t>(std::clamp<int>(r.look.row[0], 1, kFigureRows));
+    v.look = FigureArt::any_part(r.look) ? r.look : kTestLooks[r.id % kTestLookCount];
     if (v.seq != d.seq) {
         v.seq = d.seq;
         Facing dirs[kPathMax];
@@ -1161,9 +1222,7 @@ void TestPlace::draw(Canvas& c, bool with_background, CoarseLayers* layers) cons
         c.clear(0);
         return;
     }
-    const Kit& k = kit();
     DepthList& list = room_.begin(c, with_background, layers);
-    const SpriteSheet& sheet = k.figure;
     // nach Kennung (gleiche Tiefe: gleiche Reihenfolge, egal in welcher Folge die Figuren dazukamen)
     std::array<uint8_t, kMaxFigures> order{};
     for (int i = 0; i < count_; ++i) {
@@ -1171,11 +1230,10 @@ void TestPlace::draw(Canvas& c, bool with_background, CoarseLayers* layers) cons
         for (; j > 0 && figures_[order[j - 1]].id > figures_[i].id; --j) order[j] = order[j - 1];
         order[j] = static_cast<uint8_t>(i);
     }
-    for (int n = 0; sheet.pixels && n < count_; ++n) {
+    for (int n = 0; n < count_; ++n) {
         const Figure& f = figures_[order[n]];
-        bool flip = false;
-        const Sprite fr = figure_frame(f, &flip);
-        list.add(fr, f.x >> 8, f.y >> 8, sheet.pivot_x, sheet.pivot_y, flip, k.rows[f.row].table(), f.dz, 5);
+        const FigureImage im = figure_image(f);
+        if (im.sprite.pixels) list.add(im.sprite, f.x >> 8, f.y >> 8, im.pivot_x, im.pivot_y, im.flip, im.remap, f.dz, 5);
     }
     list.draw(c);
 }
@@ -1281,10 +1339,16 @@ void TestPlace::render_overlay(Canvas& fine) const {
     // Karte über ihrer Figur (overlay.h)
 }
 
-Sprite TestPlace::figure_frame(const Figure& f, bool* flip) const {
-    const View v = view_of(f.facing);
-    *flip = v.flip;
-    return kit().figure.frame(v.index * kPoses + f.frame);
+TestPlace::FigureImage TestPlace::figure_image(const Figure& f, Facing facing, int frame) const {
+    // Baukasten: Ansichten vorn, hinten, Seite wie die Testfigur (sprite.h, view_of); bis zum Zusammensetzen die
+    // alte Testfigur mit ihrer Farbreihe
+    const View v = view_of(facing);
+    const Kit& k = kit();
+    if (const SpriteSheet* s = k.art.sheet(f.look))
+        return {s->frame(v.index * kFigurePoses + frame), v.flip, nullptr, s->pivot_x, s->pivot_y};
+    if (!k.figure.pixels) return {Sprite{}, false, nullptr, 0, 0};
+    return {k.figure.frame(v.index * kPoses + frame), v.flip, k.rows[f.row].table(), k.figure.pivot_x,
+            k.figure.pivot_y};
 }
 
 const TestPlace::Figure* TestPlace::figure_by_id(uint16_t id) const {
@@ -1308,14 +1372,15 @@ Hit TestPlace::hit(int fx, int fy) const {
         best.y = static_cast<int16_t>((r.y + r.h) * kCoarseScale);
     }
     // Figuren nach den Teilen: bei gleicher Tiefe liegt die Figur vorn (wie beim Zeichnen)
-    const SpriteSheet& sheet = kit().figure;
-    for (int i = 0; sheet.pixels && i < count_; ++i) {
+    for (int i = 0; i < count_; ++i) {
         const Figure& f = figures_[i];
-        bool flip = false;
-        const Sprite s = figure_frame(f, &flip);
+        const FigureImage im = figure_image(f);
+        const Sprite& s = im.sprite;
+        if (!s.pixels) continue;
+        const bool flip = im.flip;
         const int footx = f.x >> 8, footy = f.y >> 8;
-        const int sx = x - (footx - (flip ? s.width - 1 - sheet.pivot_x : sheet.pivot_x));
-        const int sy = y - (footy - sheet.pivot_y);
+        const int sx = x - (footx - (flip ? s.width - 1 - im.pivot_x : im.pivot_x));
+        const int sy = y - (footy - im.pivot_y);
         if (sx < 0 || sy < 0 || sx >= s.width || sy >= s.height) continue;
         if (!s.pixels[sy * s.width + (flip ? s.width - 1 - sx : sx)]) continue;  // durchsichtig
         const int d = footy + f.dz;
@@ -1385,8 +1450,9 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
         card->quote = std::string("„") + kThoughts[f->id % (sizeof(kThoughts) / sizeof(kThoughts[0]))] + "“";
         card->hint = "Folgen";
         card->hint_symbol = ui::Symbol::Follow;
-        card->picture.sprite = kit().figure.frame(view_of(Facing::Down).index * kPoses);
-        card->picture.remap = kit().rows[f->row].table();
+        const FigureImage im = figure_image(*f, Facing::Down, 0);
+        card->picture.sprite = im.sprite;
+        card->picture.remap = im.remap;
         card->picture.scale = 2;
         card->picture.light_base = static_cast<uint8_t>(pal_.base());  // hellste Lichtstufe: auch nachts erkennbar
         card->picture.light_add = static_cast<uint8_t>(pal_.base() * (pal_.levels() - 1));
@@ -1505,7 +1571,8 @@ bool TestPlace::figure_mark(uint16_t id, int* x, int* y, int* h) const {
     if (!f) return false;
     *x = (f->x >> 8) * kCoarseScale;
     *y = (f->y >> 8) * kCoarseScale;
-    *h = (kit().figure.pixels ? kit().figure.pivot_y : 28) * kCoarseScale;
+    const FigureImage im = figure_image(*f);
+    *h = (im.sprite.pixels ? im.pivot_y : 28) * kCoarseScale;
     return true;
 }
 

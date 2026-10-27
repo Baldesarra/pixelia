@@ -14,17 +14,17 @@
         "Fähigkeiten: 27 Fähigkeiten in Stufen von unbekannt bis Meister; wer etwas noch nicht kann, misslingt öfter und lernt auch daraus",
         "Lernen voneinander: Wer etwas gezeigt bekommt, lernt schneller, und die beiden kommen sich dabei näher",
         "Beziehungen: von fremd über bekannt und vertraut bis hilft, dazu Familie, Zuneigung und Rivalität",
-        "Chronik: Die Welt schreibt mit, was passiert (Jahreszeitenabende, Erstlinge, neue Stufen, Pausen), mit Tag und Uhrzeit",
-        "Besuche: Die Welt merkt sich, wer wann bei wem zu Besuch war",
+        "Chronik und Besuche: Die Welt schreibt mit, was passiert (Jahreszeitenabende, Erstlinge, neue Stufen, Pausen), mit Tag und Uhrzeit, und wer wann bei wem zu Besuch war",
         "Konsole: welt speichern, welt figuren und welt chronik",
-        "Stufen der Simulation: Unsichtbare Orte rechnen einmal pro Sekunde und bewirken genau dasselbe wie der sichtbare Ort",
-        "Tätigkeiten: Figuren gehen umher, benutzen Dinge und gehen hinaus, jede Tätigkeit mit fester Dauer; betrittst du einen Ort, steht jede Figur genau dort, wo sie gerade ist"
+        "Stufen der Simulation: Unsichtbare Orte rechnen einmal pro Sekunde, nur der sichtbare 30-mal, und alle bewirken genau dasselbe",
+        "Tätigkeiten: Figuren gehen umher, benutzen Dinge und gehen hinaus, jede Tätigkeit mit fester Dauer; betrittst du einen Ort, steht jede Figur genau dort, wo sie gerade ist",
+        "Aussehen: Figuren im Stil der Skizze, zusammengesetzt aus Körper, Kleidung, Frisur, Hut und Werkzeug, jede mit eigenen Farben und in vier Richtungen"
       ],
       "i": [
         "Figuren: gehören jetzt der Welt statt einem Ort; jede ist immer an genau einem Ort oder auf genau einem Weg",
         "Türen: Wer hinausgeht, wartet kurz an der Tür und wechselt dann in einem Schritt den Ort",
         "Neustart: Auch angefangene Tätigkeiten gehen nach einem Neustart oder Update genau weiter",
-        "Weniger Rechenarbeit: Nur der sichtbare Ort rechnet noch 30-mal pro Sekunde"
+        "Flüssiger: Licht in Räumen, die man gerade nicht sieht, wird in kleinen Häppchen nachgerechnet; kein Ruckeln mehr beim Start, nach einem Uhrsprung oder beim Betreten"
       ]
     },
     "n": [
@@ -41,11 +41,12 @@
       "Simulator: --test speicher (11 Prüfungen): jede Figur genau einmal, Neustart mitten auf dem Weg, Stromausfall an jeder Stelle, 300 kaputte Stände, alter Stand 0.5.9 aus sim/testdata, Nachholen",
       "Engine: Stufen der Simulation (world_sim.cpp): Tätigkeiten als Zeitblöcke in Weltzeit (Doing), grob an jeder Takt-Grenze (1 s) für alle Orte, voll dazwischen für die betretenen; beide auf Kern 1 (Wahl des Users)",
       "Engine: Übergaben nur an Takt-Grenzen (Hinausgehen wartet an der Tür), Entscheidung zur Zeit des Blockendes mit Zufall je Figur; Scene::decide/finish/step; Abschnitt TAET im Speicherstand",
-      "Doku: CLAUDE.md „Zusammenarbeit“: mehr Mitgestaltung, Claude als Berater statt Kapitän, mehrere ansehbare Entwürfe bei Designfragen (PR #44)"
+      "Dorf: Figuren-Baukasten (figure_art.h; Wahl des Users: Chibi wie Skizze v3, „Mehr Tiefe“): 6 Ebenen, 24 Varianten, Farbreihen, 4 Richtungen, Kontur außen; mit Budget zusammengesetzt; Werkzeug tools/figure_art.py"
     ],
     "i": [
       "Engine: Lastregler set_load füllt mit Statisten auf (0 = keine) statt mit eigenen Testfiguren der Orte",
-      "Engine: unsichtbare Orte rechnen nicht mehr mit 30 Hz; die Darstellung zeigt jede Figur an ihrer Stelle im Zeitblock (Room::path, Animation aus der Weltzeit), Licht nur nach eigenen Änderungen"
+      "Engine: unsichtbare Orte rechnen nicht mehr mit 30 Hz; die Darstellung zeigt jede Figur an ihrer Stelle im Zeitblock (Room::path, Animation aus der Weltzeit), Licht nur nach eigenen Änderungen",
+      "Engine: Lichtkarte in Zeilen aus Tabellen statt Wurzel je Bildpunkt (Testraum 5,9 statt 20–31 ms), mit Budget je Schritt (Scene::prepare, 6000 ≈ 1,5 ms), betreten im zweiten Puffer; Befehl bench licht"
     ],
     "f": [
       "System: Laden im Haupt-Task lief über den Stack (3,5 KB, ein Datensatz 1,1 KB als lokale Variable); jetzt in der Grafik-Task, Datensätze an Ort und Stelle (3,3 KB frei). Der Rückfall nach dem Absturz im Probelauf griff"
@@ -53,11 +54,12 @@
     "g": [
       "Gerät: Speicherstand 1,9 KB, packen 0,9–1,1 ms (Kern 1), schreiben 54–70 ms (Kern 0), laden 2,0–2,6 ms; über Update-Neustarts und mit Figur unterwegs geladen",
       "Gerät: 30,3 fps, Zeichnen 5,6 ms, Logik max 1,3 ms; 64 Figuren, Regen, Ortswechsel, Speichern: 29,8 fps, Zeichnen 8,9 ms (max 9,4), Logik max 3,1 ms; RAM 93 KB (Tiefstwert 85), PSRAM 5,35 MB; Firmware 1,88 MB",
-      "Simulator: alle Selbsttests grün (Speicherstand 13): P10 gleiche Wirkung byte-gleich (kein Ort, Wiese, wechselnd; Echtzeit und Zeitraffer 60), Neustart an der Tür und auf dem Weg geht genau weiter",
-      "Gerät: Teil 2 mit 64 Figuren, 22 Uhr, Regen, 8 Ortswechseln: 29,8 fps, Zeichnen 10,6 ms (max 12,2), Logik 0,9 ms (max 1,8); Licht unsichtbarer Orte bei Änderungen 20–31 ms in einem Schritt; RAM 93 KB"
+      "Simulator: alle 107 Selbsttests grün: P10 gleiche Wirkung byte-gleich, Neustart an Tür und Weg geht genau weiter; Lichtkarte unter 1 % und höchstens eine Stufe anders als mit Wurzel, Budget je Schritt gehalten",
+      "Gerät: Teil 2 mit 64 Figuren, 22 Uhr, Regen, 8 Ortswechseln: 29,8 fps, Zeichnen 10,6 ms (max 12,2), Logik 0,9 ms (max 1,8); Licht unsichtbarer Orte bei Änderungen 20–31 ms in einem Schritt; RAM 93 KB",
+      "Gerät: Teil 3 (64 Figuren, 22 Uhr, Regen, Rundgang mit Abblenden und Überblendung): 29,8 fps, Logik max 5,0–5,4 ms, kein Schritt über 8 ms (vorher bis 44 ms); RAM 93 KB (Tiefstwert 85), PSRAM 5,3 MB"
     ],
     "h": [
-      "Doku: 0.5.9 Teil 1 (Weltzustand, Speicherstand) und Teil 2 (Stufen der Simulation); Teil 3 folgt: Figuren-Baukasten, Weboberfläche, Mischen der Paletten, Messung, Release"
+      "Doku: CLAUDE.md „Zusammenarbeit“ (mehr Mitgestaltung, Claude berät); 0.5.9 in drei Teilen: Weltzustand und Speicherstand, Stufen der Simulation, Licht und Figuren; Mischen der Paletten bleibt (Wahl des Users)"
     ],
     "pr": [
       44

@@ -16,9 +16,13 @@ enum Part : uint8_t {
 };
 
 // Farbreihen: 0 wie gezeichnet, 1–4 rot, blau, gelb, lavendel, 5 Holz, 6 Tapete (seit 0.5.8 Teil 2 ohne Grün: dessen
-// vier Farben sind die Glut)
-inline constexpr uint8_t kRowWood = 5, kRowPaper = 6;
-inline constexpr int kRowCount = 7;
+// vier Farben sind die Glut); seit 0.5.9 Teil 3 für den Figuren-Baukasten 7–9 Haut hell, mittel, dunkel, 10–13 Haar
+// braun, blond, rot, grau, 14 Schwarz, 15 Leinen, 16 Grün
+inline constexpr uint8_t kRowRed = 1, kRowBlue = 2, kRowYellow = 3, kRowLavender = 4, kRowWood = 5, kRowPaper = 6;
+inline constexpr uint8_t kRowSkinLight = 7, kRowSkinMid = 8, kRowSkinDark = 9, kRowHairBrown = 10,
+                         kRowHairBlond = 11, kRowHairRed = 12, kRowHairGrey = 13, kRowBlack = 14, kRowLinen = 15,
+                         kRowGreen = 16;
+inline constexpr int kRowCount = 17;
 
 // Kacheln: Zeichen in den Kachelzeilen (tiles.h); Leerzeichen = leer
 //  . , gras   " büschel   * blüte   = weg   _ - dielen   o c pflaster   W S T # wand   h H hecke   s kiesel

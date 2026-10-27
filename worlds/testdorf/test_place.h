@@ -133,6 +133,7 @@ private:
         Facing facing;
         Animator anim;   // Statisten; Figuren der Welt: Bild aus der Weltzeit (frame)
         uint8_t frame;   // gezeigtes Bild der Animation
+        FigureLook look;  // Aussehen (seit 0.5.9 Teil 3, Figuren-Baukasten); ohne Ebenen die alte Testfigur
         // Figuren der Welt (seit 0.5.9 Teil 2): gezeigte Tätigkeit und ihr Weg (2 Bit je Schritt)
         uint32_t seq;
         int16_t path_n;  // Schritte, −1 = kein Weg (am Ende einfach dort)
@@ -153,7 +154,15 @@ private:
     bool any_free_tile(int* tx, int* ty) const;  // der Reihe nach (wenn der Zufall nichts findet)
     void figure_name(const Figure& f, char* out, size_t n) const;
     const Figure* figure_by_id(uint16_t id) const;
-    Sprite figure_frame(const Figure& f, bool* flip) const;
+    // Bild einer Figur (seit 0.5.9 Teil 3): aus dem Baukasten, sonst die alte Testfigur mit Farbreihe
+    struct FigureImage {
+        Sprite sprite;
+        bool flip;
+        const uint8_t* remap;
+        int pivot_x, pivot_y;
+    };
+    FigureImage figure_image(const Figure& f, Facing facing, int frame) const;
+    FigureImage figure_image(const Figure& f) const { return figure_image(f, f.facing, f.frame); }
     void statist_decide(Figure& f);
     bool use_taken(int part, int k, const Figure* self) const;
     bool use_taken_world(int part, int k, uint16_t self, int64_t at) const;
