@@ -61,7 +61,9 @@
     "h": [
       "Doku: Nachprüfung Phase A als Tabelle in docs/ROADMAP.md; Nachweisbilder docs/nachweise/0.5.8-*.png (Fenster, Mond, Ortszustände)"
     ],
-    "pr": []
+    "pr": [
+      42
+    ]
   },
   {
     "v": "0.5.7",
