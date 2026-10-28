@@ -110,9 +110,17 @@ struct CardPicture {
     uint8_t light_add = 0;
 };
 
+// Anzeige einer Stufe auf der Karte (seit 0.5.9: Fähigkeiten einer Figur), Stufe 1–3 und Fortschritt zur nächsten
+struct CardMeter {
+    std::string label;
+    uint8_t level = 0;     // 0–3
+    uint8_t progress = 0;  // 0–255 zur nächsten Stufe (bei 3: voll)
+};
+
 struct Card {
     enum class Kind : uint8_t { None, Figure, Building, Exhibit };
     static constexpr int kMaxLines = 4;
+    static constexpr int kMaxMeters = 3;
     Kind kind = Kind::None;
     std::string title;
     std::string subtitle;  // was die Figur gerade tut (Teile: Zustand, z. B. „im Bau“)
@@ -124,6 +132,8 @@ struct Card {
     std::string hint;      // z. B. „Halten: Folgen“
     std::string lines[kMaxLines];  // Angaben, z. B. „Drin: …“
     int line_count = 0;
+    CardMeter meters[kMaxMeters];  // unter den Angaben, je eine Zeile (so viele, wie Platz haben)
+    int meter_count = 0;
     Symbol hint_symbol = Symbol::None;
     CardPicture picture;
     int mark_x = -1, mark_y = -1, mark_h = 0;  // Markierung in der Welt (fein): Fußpunkt und Höhe, −1 = keine

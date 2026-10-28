@@ -2347,6 +2347,41 @@ std::vector<Case> save_cases() {
              }
              return std::string();
          }},
+        {"Sicherung einspielen: ein alter Stand bekommt die nächste Generation und wird geladen; Fremdes wird abgelehnt",
+         [] {
+             const std::string dir = "build-sim-headless/test-speicher";
+             std::filesystem::create_directories(dir);
+             pixelia::SaveSlots slots(dir.c_str(), "welt");
+             std::remove(slots.path(0));
+             std::remove(slots.path(1));
+             StageRun a(9, "testort-wiese");
+             world_run(a, 11, 0, 1.0);
+             a.run(300);
+             std::vector<uint8_t> old = save_of(a.stage, 1);  // die Sicherung
+             a.run(300);
+             const std::vector<uint8_t> s5 = save_of(a.stage, 5), s6 = save_of(a.stage, 6);
+             if (!slots.write(s5.data(), s5.size()) || !slots.write(s6.data(), s6.size())) return std::string("schreiben");
+             const char* why = nullptr;
+             if (!pixelia::save_restamp(old.data(), old.size(), slots.generation() + 1, &why)) return std::string("restamp: ") + why;
+             pixelia::SaveHeader h;
+             if (!pixelia::save_check(old.data(), old.size(), &h) || h.generation != 7) return std::string("Kopf nach restamp");
+             if (!slots.write(old.data(), old.size())) return std::string("Sicherung schreiben");
+             pixelia::SaveSlots fresh(dir.c_str(), "welt");
+             std::vector<uint8_t> d;
+             if (!fresh.load(&d, &h) || h.generation != 7 || d != old) return std::string("Sicherung nicht der neueste Stand");
+             StageRun b(9, "testort-wiese");
+             if (!b.stage.load_state(d.data(), d.size())) return std::string("Sicherung laden");
+             b.stage.mark_restored();
+             world_run(b, 11, 30, 1.0);
+             b.run(90);
+             const pixelia::Chronicle& ch = b.stage.environment().chronicle;
+             const pixelia::ChronicleEntry& last = ch.at(ch.count() - 1);
+             if (last.kind != pixelia::ChronicleKind::Restored) return std::string("kein Eintrag in der Chronik");
+             if (last.day < 1 || last.minute != 11 * 60 + 30) return "Eintrag ohne Datum: Tag " + std::to_string(last.day) + ", Minute " + std::to_string(last.minute);
+             std::vector<uint8_t> junk(200, 0x50);
+             if (pixelia::save_restamp(junk.data(), junk.size(), 9)) return std::string("fremde Datei angenommen");
+             return std::string();
+         }},
         {"Alter Stand lädt weiter: Speicherstand 0.5.9 aus dem Repo, fehlende und unbekannte Abschnitte, Ort gibt es nicht mehr",
          [] {
              if (std::getenv("PIXELIA_FIXTURE")) {

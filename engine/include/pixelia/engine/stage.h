@@ -186,6 +186,9 @@ public:
     size_t save_state(uint8_t* buf, size_t cap, uint32_t generation) const;
     // Speicherstand laden (nach init(), an einer Takt-Grenze); false = ungültig, dann bleibt die Welt, wie sie war
     bool load_state(const uint8_t* data, size_t n, LoadReport* report = nullptr);
+    // Der geladene Stand kam aus einer Sicherung (seit 0.5.9): Eintrag in die Chronik nach der Pause, sobald die
+    // Weltzeit läuft
+    void mark_restored() { restored_pending_ = true; }
     // Prüfung: jede Figur genau einmal (an ihrem Ort bzw. auf ihrer Verbindung), keine fremde; nullptr = alles gut
     const char* check_figures(char* buf, int n) const;
     // Nachholen nach dem Laden: noch offene Weltminuten der Ortszustände, bisher nachgeholt, übersprungen (länger aus
@@ -294,6 +297,7 @@ private:
     int64_t world_us_ = 0;
     int chron_reader_ = -1;
     std::array<int16_t, kMaxScenes> place_of_{};
+    bool restored_pending_ = false;
     bool wake_pending_ = false;            // nach dem Laden: Pause in die Chronik, sobald die Weltzeit läuft
     int64_t saved_minute_ = INT64_MIN;     // Weltminute im geladenen Speicherstand
     int64_t caught_up_ = 0, skipped_ = 0;

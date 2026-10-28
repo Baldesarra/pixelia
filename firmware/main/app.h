@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 #include "board/display.h"
 #include "board/touch_gt911.h"
@@ -176,6 +177,11 @@ struct SaveInfo {
 SaveInfo save_info();
 bool request_save();  // im nächsten Bild packen, danach schreibt die Lade-Task; false = läuft schon
 void write_save();    // Lade-Task (Kern 0): gepackten Stand in den älteren Platz schreiben
+// Speicherstand einer Sicherung (seit 0.5.9, Weboberfläche): neuester gültiger Stand bzw. Datei einspielen. Einspielen
+// prüft die Datei, legt sie als neuesten Stand ab und sperrt das Speichern bis zum Neustart (danach startet der
+// Aufrufer neu, die Welt lädt sie wie nach dem Einschalten); why = Grund in einem Satz
+bool read_save(std::vector<uint8_t>* out, uint32_t* generation);
+bool import_save(uint8_t* data, size_t n, const char** why);
 
 // Figuren und Chronik für Weboberfläche und Konsole: die Grafik-Task füllt die Ansicht auf Anfrage im nächsten Bild
 struct FigureRow {
@@ -188,7 +194,7 @@ struct FigureRow {
     char home[16];
     uint8_t skill_n;
     struct {
-        uint8_t skill, level;
+        uint8_t skill, level, progress;  // progress 0–100 zur nächsten Stufe
     } skills[8];
     uint8_t relations, memories;
 };

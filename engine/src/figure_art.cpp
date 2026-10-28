@@ -11,8 +11,13 @@ namespace {
 
 constexpr int kFrames = kFigureViews * kFigurePoses;
 constexpr int kMaxFramePixels = 4096;
+int64_t (*s_clock)() = nullptr;
+FigureArtStats s_stats;
 
 }  // namespace
+
+void set_figure_art_clock(int64_t (*now_us)()) { s_clock = now_us; }
+const FigureArtStats& figure_art_stats() { return s_stats; }
 
 FigureArt::~FigureArt() {
     for (Slot& s : slots_)
@@ -143,8 +148,20 @@ int FigureArt::prepare(int budget) {
             if (s.frame >= 0 && s.frame < kFrames && (!next || s.used > next->used)) next = &s;
         if (!next) break;
         if (used > 0 && used + kFrameCost > budget) break;
+        const int64_t t = s_clock ? s_clock() : 0;
         compose_frame(*next, next->frame++);
         used += kFrameCost;
+        if (s_clock) {
+            const int64_t now = s_clock(), d = now - t;
+            ++s_stats.frames;
+            s_stats.us += d;
+            s_stats.max_us = std::max(s_stats.max_us, d);
+            if (!s_stats.first_us) s_stats.first_us = t;
+            bool pending = false;
+            for (const Slot& s : slots_) pending = pending || (s.frame >= 0 && s.frame < kFrames);
+            if (!pending) s_stats.done_us = now;
+            if (!pending && !s_stats.first_done_us) s_stats.first_done_us = now;
+        }
     }
     return used;
 }

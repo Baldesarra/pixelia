@@ -23,6 +23,9 @@ using namespace testdorf;
 
 namespace {
 
+bool g_no_art = false;  // Prüfbefehl „baukasten aus“: alle Testorte zeichnen die alte Testfigur (Vergleichsmessung)
+
+
 // Palette: alle Orte gleich aufgebaut, getönt wird am Ende (Wiese kühl, Raum warm, Platz neutral)
 constexpr uint8_t kOutline = 1;
 constexpr uint8_t kGrass = 2;   // 2..5
@@ -1068,6 +1071,21 @@ bool TestPlace::command(const char* cmd) {
     if (!cmd) return false;
     int n = 0;
     char word[12] = {};
+    if (std::sscanf(cmd, "baukasten %11s", word) == 1) {
+        // Prüfbefehl (seit 0.5.9 Teil 4): Figuren aus dem Baukasten (an) oder die alte Testfigur (aus) zum Vergleich
+        g_no_art = std::string_view(word) == "aus";
+        return true;
+    }
+    if (std::sscanf(cmd, "kann %11s %d", word, &n) == 2) {
+        // Prüfbefehl (seit 0.5.9): Fähigkeit der Hauptfigur setzen, Stufe 0 (unbekannt) bis 3 (Meister)
+        Skill sk;
+        FigureRecord* r = env_ ? env_->figures.find(env_->figures.lead()) : nullptr;
+        if (!r || !parse_skill(word, &sk)) return false;
+        int xp = 0;
+        std::sscanf(cmd, "kann %*s %*d %d", &xp);  // optional: Erfahrung in der Stufe
+        r->skills[static_cast<int>(sk)] = {static_cast<SkillLevel>(std::clamp(n, 0, 3)), static_cast<uint16_t>(std::max(0, xp))};
+        return true;
+    }
     if (std::sscanf(cmd, "innenlicht %11s", word) == 1) {
         // Lichter (Lampe, Kerze) des Raumes; das Feuer im Ofen bleibt, wie es ist
         const std::string_view w(word);
@@ -1344,7 +1362,7 @@ TestPlace::FigureImage TestPlace::figure_image(const Figure& f, Facing facing, i
     // alte Testfigur mit ihrer Farbreihe
     const View v = view_of(facing);
     const Kit& k = kit();
-    if (const SpriteSheet* s = k.art.sheet(f.look))
+    if (const SpriteSheet* s = g_no_art ? nullptr : k.art.sheet(f.look))
         return {s->frame(v.index * kFigurePoses + frame), v.flip, nullptr, s->pivot_x, s->pivot_y};
     if (!k.figure.pixels) return {Sprite{}, false, nullptr, 0, 0};
     return {k.figure.frame(v.index * kPoses + frame), v.flip, k.rows[f.row].table(), k.figure.pivot_x,
@@ -1427,6 +1445,25 @@ constexpr const char* kThoughts[] = {
     "Ich sollte mir die Bank am Platz genauer ansehen.",
     "Testgedanke: Hier steht später, was die Figur wirklich denkt und warum.",
 };
+// Fähigkeiten einer Figur auf ihrer Karte (seit 0.5.9, Wunsch des Users): die besten zuerst, mit Stufe und Fortschritt;
+// die Karte zeigt so viele, wie unter dem Gedanken Platz haben (meist zwei)
+void add_skills(const FigureRecord& r, ui::Card* card) {
+    int order[kSkills], n = 0;
+    for (int s = 0; s < kSkills; ++s)
+        if (r.skills[s].level != SkillLevel::Unknown) order[n++] = s;
+    std::stable_sort(order, order + n, [&](int a, int b) {
+        return r.skills[a].level != r.skills[b].level ? r.skills[a].level > r.skills[b].level : r.skills[a].xp > r.skills[b].xp;
+    });
+    for (int i = 0; i < n && card->meter_count < ui::Card::kMaxMeters; ++i) {
+        const SkillState& k = r.skills[order[i]];
+        const int lv = static_cast<int>(k.level);
+        ui::CardMeter& m = card->meters[card->meter_count++];
+        m.label = skill_title(static_cast<Skill>(order[i]));
+        m.level = static_cast<uint8_t>(lv);
+        m.progress = lv >= 3 ? 255 : static_cast<uint8_t>(std::min<int>(255, k.xp * 255 / kSkillNeed[lv]));
+    }
+}
+
 constexpr const char* kPartNames[] = {"Dekoration", "Sitzplatz", "Bett",  "Tisch",  "Schrank",
                                       "Werkbank",   "Lampe",     "Tür",   "Fenster"};
 }  // namespace
@@ -1457,6 +1494,7 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
         card->picture.light_base = static_cast<uint8_t>(pal_.base());  // hellste Lichtstufe: auch nachts erkennbar
         card->picture.light_add = static_cast<uint8_t>(pal_.base() * (pal_.levels() - 1));
         figure_mark(f->id, &card->mark_x, &card->mark_y, &card->mark_h);
+        if (const FigureRecord* r = env_ ? env_->figures.find(f->id) : nullptr) add_skills(*r, card);
         return true;
     }
     if (hit.kind == Hit::Kind::Exit) {

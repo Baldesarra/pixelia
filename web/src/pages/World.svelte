@@ -5,6 +5,7 @@
   import { Card, Icon, WavyProgress, type IconName } from '../lib/m3';
   import CameraCard from '../lib/CameraCard.svelte';
   import WorldCard from '../lib/WorldCard.svelte';
+  import WorldLog from '../lib/WorldLog.svelte';
   import { device } from '../lib/status.svelte';
 
   const chapters = [
@@ -50,6 +51,7 @@
 
   <WorldCard />
   <CameraCard />
+  <WorldLog />
 
   <h3>Die Kapitel</h3>
   <ol class="chapters">

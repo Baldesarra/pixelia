@@ -94,6 +94,37 @@ function mockDevice(): Plugin {
   const set = { rot: 0, bright: 80, lp: 3000, ui: '', clk: true, clkCorner: 0, clkSec: false, camHome: 0, camFig: 0, camPlace: 1, camRet: 600, night: true, nightBr: 25, nightNow: false, nightFrom: 22, nightTo: 6 };
   // Weltkalender (seit 0.5.7, /api/world)
   let seasonLen = 7;
+  // Speicherstand, Figuren und Chronik (seit 0.5.9, /api/world, ?mehr=1)
+  let saveAt = Date.now() - 194000;
+  let saveGen = 418;
+  const sk = (t: string, n: number, p = n === 3 ? 100 : 40) => ({ t, l: ['unbekannt', 'Anfänger', 'geübt', 'Meister'][n], n, p });
+  const fig = (id: number, name: string, place: string, doing: string, skills: ReturnType<typeof sk>[], extra = {}) =>
+    ({ id, name, age: 20 + (id % 40), place, home: 'Testort Raum', doing, lead: false, moving: false, relations: id % 4, memories: id % 7, skills, ...extra });
+  const mockFigures = [
+    fig(1000, 'Begleiterin', 'Testort Wiese', 'geht umher', [sk('Erzählen', 3), sk('Kräuterkunde', 2, 60), sk('Lesen und Schreiben', 1, 50)], { lead: true }),
+    fig(1001, 'Testfigur 1', 'Testort Wiese', 'steht', [sk('Kochen', 2, 20)]),
+    fig(1002, 'Testfigur 2', 'Testort Wiese', 'ist beschäftigt', [sk('Holzarbeit', 1, 80), sk('Gärtnern', 2, 35)]),
+    fig(1003, 'Testfigur 3', 'unterwegs nach Testort Raum', '', [sk('Backen', 3)], { moving: true }),
+    fig(2000, 'Testfigur 4', 'Testort Raum', 'ist beschäftigt', [sk('Nähen', 1)]),
+    fig(2001, 'Testfigur 5', 'Testort Raum', 'geht umher', [sk('Kochen', 1, 10), sk('Musizieren', 2, 70)]),
+    fig(2002, 'Testfigur 6', 'Testort Raum', 'steht', []),
+    fig(3000, 'Testfigur 7', 'Testort Platz', 'geht hinaus', [sk('Mauern', 2, 90)]),
+    fig(3001, 'Testfigur 8', 'Testort Platz', 'geht umher', [sk('Schmieden', 1)]),
+    fig(3002, 'Testfigur 9', 'Testort Platz', 'steht', [sk('Fischen', 3), sk('Flechten', 1, 25)]),
+    fig(4000, 'Testfigur 10', 'Testort Kammer', 'ist beschäftigt', [sk('Spinnen', 2)]),
+  ];
+  // neueste zuerst wie auf dem Gerät (kind: 0 Ereignis, 1 Start, 2 Pause, 3 eingespielt)
+  const mockChronicle = [
+    { day: 17, time: '15:42', kind: 0, text: 'Testfigur 9: Fischen jetzt Meister' },
+    { day: 17, time: '14:05', kind: 0, text: 'Testfigur 2 und Testfigur 5: jetzt befreundet' },
+    { day: 17, time: '07:12', kind: 2, text: 'Pixelia war 2 Std. 14 Min. aus' },
+    { day: 16, time: '18:00', kind: 0, text: 'Jahreszeitenabend: Der Herbst geht zu Ende' },
+    { day: 16, time: '11:30', kind: 0, text: 'Erstes Gewitter' },
+    { day: 15, time: '21:47', kind: 0, text: 'Testfigur 1: Kochen jetzt geübt' },
+    { day: 15, time: '06:00', kind: 0, text: 'Der Herbst beginnt' },
+    { day: 12, time: '09:15', kind: 0, text: 'Erster Herbstnebel' },
+    { day: 1, time: '10:03', kind: 1, text: 'Die Welt beginnt: Tag 1' },
+  ];
   // Kamera (seit 0.5.6): Orte und Figuren wie die Testorte
   const cam = { mode: 0, place: 1, target: 1000 };
   const camPlaces = [
@@ -343,8 +374,41 @@ function mockDevice(): Plugin {
         if (['camHome', 'camFig', 'camPlace'].some((k) => f.has(k))) cam.mode = 0;
         json(res, { ok: true, msg: 'Gespeichert' });
       });
-      server.middlewares.use('/api/world', (_req, res) => {
+      server.middlewares.use('/api/world', async (req, res) => {
+        const q = new URL(req.url ?? '/', 'http://x').searchParams;
+        if (req.method === 'POST') {
+          // Speicherstand einspielen (Datei als Rumpf) oder jetzt speichern (a=save)
+          if (q.get('a') === 'load') {
+            const chunks: Buffer[] = [];
+            for await (const c of req) chunks.push(c as Buffer);
+            const b = Buffer.concat(chunks);
+            if (!authorized(req, new URLSearchParams())) return deny(res);
+            if (b.length < 32 || b.readUInt32LE(0) !== 0x31575850) return json(res, { ok: false, msg: 'Das ist kein Pixelia-Speicherstand (.pxw)' });
+            return json(res, { ok: true, msg: 'Speicherstand eingespielt, Pixelia startet neu' });
+          }
+          const f = await form(req);
+          if (!authorized(req, f)) return deny(res);
+          saveAt = Date.now();
+          saveGen++;
+          return json(res, { ok: true, msg: 'Speicherstand wird geschrieben' });
+        }
+        if (q.get('datei') === '1') {
+          // kleine gültige Kopfzeile, damit Herunterladen im Mock etwas liefert
+          const b = Buffer.alloc(32);
+          b.writeUInt32LE(0x31575850, 0);
+          res.setHeader('Content-Type', 'application/octet-stream');
+          res.setHeader('Content-Disposition', 'attachment; filename="pixelia-welt-2026-10-28.pxw"');
+          return res.end(b);
+        }
+        const ago = Math.floor((Date.now() - saveAt) / 1000);
+        const save = {
+          gen: saveGen, bytes: 2214, ago, next: Math.max(0, 300 - ago), loaded: true, packUs: 820, writeMs: 14,
+          figures: mockFigures.length, transit: 1, chronicle: mockChronicle.length, caughtUp: 134, skipped: 0, catchingUp: 0,
+          test: false, waiting: false, error: '',
+        };
+        const more = q.get('mehr') === '1' ? { figures: mockFigures, chronicle: mockChronicle, visits: 9, visitsOpen: 2 } : {};
         json(res, {
+          save, ...more,
           valid: true, started: true, test: false, start: '2026-10-26', day: 17, year: 1, season: 'herbst', seasonTitle: 'Herbst',
           dayInSeason: 3, seasonDays: seasonLen, evening: false, seasonFrom: '2026-11-09', seasonTo: '2026-11-15', next: 'Winter',
           nextFrom: '2026-11-16', sunrise: '07:41', sunset: '17:49', dayPart: 'Nachmittag',

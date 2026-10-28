@@ -40,6 +40,7 @@
 #include "lwip/sockets.h"
 #include "net.h"
 #include "nvs.h"
+#include "ota.h"
 #include "settings.h"
 #include "web_internal.h"
 
@@ -572,7 +573,11 @@ std::string hhmm(int minute) {
     return buf;
 }
 
+esp_err_t world_file(httpd_req_t* req);
+
 esp_err_t world_get(httpd_req_t* req) {
+    std::string file;
+    if (query_value(req, "datei", &file) && file == "1") return world_file(req);
     const gfx::WorldInfo w = gfx::world_info();
     const auto season = static_cast<pixelia::Season>(w.season & 3);
     const auto next = static_cast<pixelia::Season>((w.season + 1) & 3);
@@ -636,7 +641,7 @@ esp_err_t world_get(httpd_req_t* req) {
                 for (int k = 0; k < f.skill_n; ++k) {
                     j.obj().str("t", pixelia::skill_title(static_cast<pixelia::Skill>(f.skills[k].skill)));
                     j.str("l", pixelia::skill_level_title(static_cast<pixelia::SkillLevel>(f.skills[k].level)));
-                    j.num("n", f.skills[k].level).end_obj();
+                    j.num("n", f.skills[k].level).num("p", f.skills[k].progress).end_obj();
                 }
                 j.end_arr().end_obj();
             }
@@ -653,8 +658,64 @@ esp_err_t world_get(httpd_req_t* req) {
     return send_json(req, j.text());
 }
 
+// Speicherstand einspielen (seit 0.5.9, Seite Sicherung): POST /api/world?a=load, Rumpf = .pxw-Datei. Prüfen, als
+// neuesten Stand ablegen, Neustart; die Welt lädt ihn wie nach dem Einschalten
+esp_err_t world_load(httpd_req_t* req) {
+    if (!authorized(req)) return deny(req);
+    constexpr size_t kMax = 96 * 1024;
+    if (req->content_len < 32 || req->content_len > kMax) return reply(req, false, "Das ist kein Pixelia-Speicherstand (.pxw)");
+    const size_t n = req->content_len;
+    auto* buf = static_cast<uint8_t*>(heap_caps_malloc(n, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+    if (!buf) return reply(req, false, "Kein Speicher", "503 Service Unavailable");
+    for (size_t got = 0; got < n;) {
+        const int r = httpd_req_recv(req, reinterpret_cast<char*>(buf) + got, n - got);
+        if (r == HTTPD_SOCK_ERR_TIMEOUT) continue;
+        if (r <= 0) {
+            heap_caps_free(buf);
+            return reply(req, false, "Übertragung abgebrochen");
+        }
+        got += static_cast<size_t>(r);
+    }
+    const char* why = "";
+    const bool ok = gfx::import_save(buf, n, &why);
+    heap_caps_free(buf);
+    if (!ok) {
+        char msg[96];
+        std::snprintf(msg, sizeof(msg), "Nicht eingespielt: %s", why);
+        return reply(req, false, msg);
+    }
+    reply(req, true, "Speicherstand eingespielt, Pixelia startet neu");
+    ota::restart_soon(800);
+    return ESP_OK;
+}
+
+// Speicherstand herunterladen (seit 0.5.9, Seite Sicherung): neuester gültiger Stand als Datei
+esp_err_t world_file(httpd_req_t* req) {
+    std::vector<uint8_t> d;
+    uint32_t gen = 0;
+    if (!gfx::read_save(&d, &gen)) {
+        httpd_resp_set_status(req, "404 Not Found");
+        return send_json(req, "{\"ok\":false,\"msg\":\"Noch kein Speicherstand\"}");
+    }
+    char date[16] = "";
+    if (timesync::valid()) {
+        time_t now = time(nullptr);
+        tm lt;
+        localtime_r(&now, &lt);
+        strftime(date, sizeof(date), "-%Y-%m-%d", &lt);
+    }
+    char disp[80];
+    std::snprintf(disp, sizeof(disp), "attachment; filename=\"pixelia-welt%s.pxw\"", date);
+    httpd_resp_set_type(req, "application/octet-stream");
+    httpd_resp_set_hdr(req, "Content-Disposition", disp);
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    return httpd_resp_send(req, reinterpret_cast<const char*>(d.data()), static_cast<ssize_t>(d.size()));
+}
+
 // Speicherstand jetzt schreiben (seit 0.5.9, Knopf auf der Seite Welt)
 esp_err_t world_post(httpd_req_t* req) {
+    std::string q;
+    if (query_value(req, "a", &q) && q == "load") return world_load(req);
     std::string body, a;
     if (!read_body(req, &body, 128)) return reply(req, false, "Ungültige Anfrage");
     if (!authorized(req, &body)) return deny(req);

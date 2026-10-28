@@ -1,5 +1,6 @@
 <script lang="ts">
-  // Seite „Sicherung“ (System → Wartung): Anzeige, Farbwahl und Gerätenamen als Datei herunterladen und einspielen
+  // Seite „Sicherung“ (System → Wartung): Anzeige, Farbwahl und Gerätenamen als Datei herunterladen und einspielen;
+  // seit 0.5.9 auch der Speicherstand der Welt (.pxw, Einspielen mit Neustart)
   import { Button, Card, confirmDialog, Icon, LoadingIndicator } from '../lib/m3';
   import { device } from '../lib/status.svelte';
   import { post, type Backup } from '../lib/api';
@@ -64,6 +65,36 @@
       ? { ok: true, text: `Übernommen: ${describe(b)}${b.names.length ? ` (${names} von ${b.names.length} Namen)` : ''}.` }
       : { ok: false, text: r?.msg ?? 'Keine Antwort vom Gerät' };
   }
+
+  // Speicherstand der Welt (seit 0.5.9): Kopf der Datei lesen (PXW1, Generation, Weltzeit), dann einspielen
+  let worldInput = $state<HTMLInputElement>();
+  let worldMsg = $state<{ ok: boolean; text: string } | null>(null);
+  let worldBusy = $state(false);
+  async function importWorld() {
+    const f = worldInput?.files?.[0];
+    if (worldInput) worldInput.value = '';
+    if (!f) return;
+    worldMsg = null;
+    const head = new DataView(await f.slice(0, 32).arrayBuffer());
+    if (head.byteLength < 32 || head.getUint32(0, true) !== 0x31575850 || f.size > 96 * 1024) {
+      worldMsg = { ok: false, text: 'Das ist kein Pixelia-Speicherstand (.pxw aus „Speicherstand herunterladen“).' };
+      return;
+    }
+    // Weltzeit = Ortszeit in µs seit 1970
+    const when = new Date(Number(head.getBigInt64(16, true) / 1000n));
+    const at = `${when.getUTCDate()}.${when.getUTCMonth() + 1}.${when.getUTCFullYear()}, ${String(when.getUTCHours()).padStart(2, '0')}:${String(when.getUTCMinutes()).padStart(2, '0')}`;
+    const ok = await confirmDialog({
+      title: 'Speicherstand einspielen?',
+      text: `Stand vom ${at} (Nr. ${head.getUint32(12, true)}, ${num(f.size / 1024, 1)} KB). Die Welt auf dem Gerät wird ersetzt, Pixelia startet neu und holt die Zeit seitdem nach (höchstens einen Tag).`,
+      ok: 'Einspielen',
+      icon: 'upload',
+    });
+    if (!ok) return;
+    worldBusy = true;
+    const r = await post('/api/world?a=load', f).catch(() => null);
+    worldBusy = false;
+    worldMsg = r?.ok ? { ok: true, text: 'Eingespielt. Pixelia startet neu, die Seite verbindet sich gleich wieder.' } : { ok: false, text: r?.msg ?? 'Keine Antwort vom Gerät' };
+  }
 </script>
 
 {#if !s}
@@ -81,6 +112,18 @@
         <Button variant="tonal" icon="upload" disabled={importing} onclick={() => importInput?.click()}>Einspielen</Button>
       </div>
       {#if backupMsg}<p class={backupMsg.ok ? 'ok-text' : 'err-text'}>{backupMsg.text}</p>{/if}
+    </Card>
+    <Card class="wide">
+      <h2 class="card-title"><Icon name="save" size={20} />Speicherstand der Welt</h2>
+      <p class="muted">
+        Alles, was in Pixelia passiert ist: Figuren, Chronik, Orte, Kalender. Einspielen ersetzt die Welt und startet neu.
+      </p>
+      <input class="hidden" type="file" accept=".pxw,application/octet-stream" bind:this={worldInput} onchange={importWorld} />
+      <div class="actions">
+        <Button icon="download" href="/api/world?datei=1" download>Speicherstand herunterladen</Button>
+        <Button variant="tonal" icon="upload" disabled={worldBusy} onclick={() => worldInput?.click()}>Einspielen</Button>
+      </div>
+      {#if worldMsg}<p class={worldMsg.ok ? 'ok-text' : 'err-text'}>{worldMsg.text}</p>{/if}
     </Card>
   </div>
 {/if}

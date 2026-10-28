@@ -16,6 +16,7 @@
 #include "app.h"
 #include "pixelia/engine/light.h"
 #include "pixelia/engine/place_state.h"
+#include "pixelia/engine/figure_art.h"
 #include "pixelia/engine/stage.h"
 #include "board/backlight.h"
 #include "diag.h"
@@ -120,7 +121,7 @@ void print_help() {
     ESP_LOGI(TAG, "  ort [<Nr|Kennung> [Übergang]] | ort rundgang <s> | ort figuren <n>   Orte der Bühne");
     ESP_LOGI(TAG, "  kamera [standard|folge <Figur>|ort <Nr>] | karte [<Figur>|aus] | meldung [system] <Text> | uhr an|aus|ecke <n>|sekunden 0|1");
     ESP_LOGI(TAG, "  ort ausbau | ort baustelle | ort folgen 0/1 | ort pruefen 0/1   Testorte (Raum-Baukasten)");
-    ESP_LOGI(TAG, "  bench [mem|licht]   Zeichnen messen: Verdoppeln, Kopie des Hintergrunds; mem: PSRAM-Durchsatz, DMA; licht: Lichtkarte");
+    ESP_LOGI(TAG, "  bench [mem|licht|figuren]   Zeichnen messen: Verdoppeln, Kopie des Hintergrunds; mem: PSRAM-Durchsatz, DMA; licht: Lichtkarte; figuren: Baukasten");
     ESP_LOGI(TAG, "  time <HH:MM|real> | speed <Faktor>             Weltzeit stellen (real = echte Uhrzeit), Zeitraffer");
     ESP_LOGI(TAG, "  wetter [<Art> [%%] [sofort]] | wetter blitz | wetter wind links|rechts   Wetter (Art: sonne bewoelkt regen schnee nebel gewitter wind; übersteuert bis zur nächsten Wetterzeit)");
     ESP_LOGI(TAG, "  update abriss                                   nächster Download von GitHub trennt einmal (Weitermachen prüfen)");
@@ -643,6 +644,15 @@ bool handle(char* line) {
         assets::console(argc, argv);
     } else if (is("bench") && argc >= 2 && std::strcmp(argv[1], "licht") == 0) {
         bench_light();
+    } else if (is("bench") && argc >= 2 && std::strcmp(argv[1], "figuren") == 0) {
+        // Figuren-Baukasten (seit 0.5.9 Teil 4): gemessene Bilder seit dem Start, Aufwand je Bild fürs Budget
+        const pixelia::FigureArtStats& st = pixelia::figure_art_stats();
+        const double per = st.frames ? static_cast<double>(st.us) / st.frames : 0;
+        ESP_LOGI(TAG, "Figuren-Baukasten: %lu Bilder, im Mittel %.0f µs (max %lld µs), erstes nach %.2f s, fertig nach %.2f s (zuletzt %.2f s)",
+                 static_cast<unsigned long>(st.frames), per, static_cast<long long>(st.max_us), st.first_us / 1e6,
+                 st.first_done_us / 1e6, st.done_us / 1e6);
+        ESP_LOGI(TAG, "Budget: kFrameCost %d ≈ %.0f µs geschätzt (Vorarbeit %d je Schritt ≈ 1,5 ms)", pixelia::FigureArt::kFrameCost,
+                 pixelia::FigureArt::kFrameCost * 1500.0 / pixelia::Stage::kPrepareBudget, pixelia::Stage::kPrepareBudget);
     } else if (is("bench")) {
         // Messung fürs Zeichnen (seit 0.5.1, Grundlage für 0.5.2): Verdoppeln 200×120 → 400×240 und Kopie des
         // Hintergrundbilds (24 KB), beides PSRAM → PSRAM wie auf der Grafik-Task. Läuft auf Kern 0, die Grafik läuft

@@ -188,6 +188,16 @@ bool save_check(const uint8_t* data, size_t n, SaveHeader* h, const char** why) 
     return true;
 }
 
+bool save_restamp(uint8_t* data, size_t n, uint32_t generation, const char** why) {
+    if (!save_check(data, n, nullptr, why)) return false;
+    auto put32 = [&](size_t at, uint32_t v) {
+        for (int k = 0; k < 4; ++k) data[at + k] = static_cast<uint8_t>(v >> (8 * k));
+    };
+    put32(12, generation);
+    put32(4, crc32(data + 8, n - 8));
+    return true;
+}
+
 bool SaveChunks::next(char tag[5], uint16_t* version, SaveReader* data) {
     if (r_.left() < 10) return false;
     for (int k = 0; k < 4; ++k) tag[k] = static_cast<char>(r_.u8());

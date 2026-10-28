@@ -92,6 +92,9 @@ private:
 // Kopf und CRC prüfen; why = Grund in einem Satz
 bool save_check(const uint8_t* data, size_t n, SaveHeader* h, const char** why = nullptr);
 
+// Generation neu setzen und CRC neu rechnen (seit 0.5.9: eingespielte Sicherung wird der neueste Stand); prüft vorher
+bool save_restamp(uint8_t* data, size_t n, uint32_t generation, const char** why = nullptr);
+
 // Abschnitte einer geprüften Datei der Reihe nach
 class SaveChunks {
 public:

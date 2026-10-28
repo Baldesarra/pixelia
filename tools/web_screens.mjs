@@ -121,7 +121,9 @@ try {
       await send('Emulation.setDeviceMetricsOverride', {
         width: v.width, height: v.height, deviceScaleFactor: v.dpr, mobile: v.mobile, screenWidth: v.width, screenHeight: v.height,
       });
-      const page = (p.replace(/^#\/?/, '') || 'uebersicht').replace(/\//g, '-');
+      // „?e=b#/welt“ (Entwurf über die Adresse) → „welt-e-b“
+      const [q, h = q] = p.includes('#') ? p.split('#') : ['', p];
+      const page = ((h.replace(/^#?\/?/, '') || 'uebersicht') + (q ? `-${q.replace(/^\?/, '')}` : '')).replace(/[\/?=&]/g, '-');
       const file = join(out, `${page}-${v.name}.png`);
       writeFileSync(file, Buffer.from(shot.data, 'base64'));
       console.log(file);

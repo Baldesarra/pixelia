@@ -15,13 +15,13 @@
         "Lernen voneinander: Wer etwas gezeigt bekommt, lernt schneller, und die beiden kommen sich dabei näher",
         "Beziehungen: von fremd über bekannt und vertraut bis hilft, dazu Familie, Zuneigung und Rivalität",
         "Chronik und Besuche: Die Welt schreibt mit, was passiert (Jahreszeitenabende, Erstlinge, neue Stufen, Pausen), mit Tag und Uhrzeit, und wer wann bei wem zu Besuch war",
-        "Konsole: welt speichern, welt figuren und welt chronik",
+        "Weboberfläche: Speicherstand mit „Jetzt speichern“, Chronik als Zeitleiste, Figurenliste, Welt sichern und einspielen, Chronik im Diagnosepaket; Konsole welt speichern",
         "Stufen der Simulation: Unsichtbare Orte rechnen einmal pro Sekunde, nur der sichtbare 30-mal, und alle bewirken genau dasselbe",
         "Tätigkeiten: Figuren gehen umher, benutzen Dinge und gehen hinaus, jede Tätigkeit mit fester Dauer; betrittst du einen Ort, steht jede Figur genau dort, wo sie gerade ist",
-        "Aussehen: Figuren im Stil der Skizze, zusammengesetzt aus Körper, Kleidung, Frisur, Hut und Werkzeug, jede mit eigenen Farben und in vier Richtungen"
+        "Aussehen: Figuren aus Körper, Kleidung, Frisur, Hut und Werkzeug, mit eigenen Farben und in vier Richtungen; ihre Karte zeigt die besten Fähigkeiten mit Lernfortschritt"
       ],
       "i": [
-        "Figuren: gehören jetzt der Welt statt einem Ort; jede ist immer an genau einem Ort oder auf genau einem Weg",
+        "Figuren: gehören jetzt der Welt statt einem Ort; jede ist immer an genau einem Ort oder auf genau einem Weg; die Übersicht zeigt, wann zuletzt gespeichert wurde",
         "Türen: Wer hinausgeht, wartet kurz an der Tür und wechselt dann in einem Schritt den Ort",
         "Neustart: Auch angefangene Tätigkeiten gehen nach einem Neustart oder Update genau weiter",
         "Flüssiger: Licht in Räumen, die man gerade nicht sieht, wird in kleinen Häppchen nachgerechnet; kein Ruckeln mehr beim Start, nach einem Uhrsprung oder beim Betreten"
@@ -31,20 +31,19 @@
       "Engine: Figuren-Datensatz (figure.h): Stammdaten, Charakterzüge, Interessen, 27 Fähigkeiten mit Stufe und Erfahrung, 24 Beziehungen, 32 Erinnerungen, Zuhause, Besitz, Aussehen-Ebenen; FigureBook im PSRAM (48 × 1,1 KB)",
       "Engine: Fähigkeiten mit Fehlversuchen (try_skill: misslungen, mit Makel, gelungen), Lernen aus Fehlern, Zeigen nur vom Besseren (teach), erstes Mal und erster Fehlversuch als Erinnerung",
       "Engine: Beziehungen in Stufen fremd → bekannt → vertraut → hilft, beidseitig, Flags Familie/Zuneigung/Rivalität; Ereignisse SkillUp und BondChanged auf dem Bus",
-      "Engine: Weltzustand als Ganzes in der Umgebung (Figuren, Chronik, Besuche); Aufenthalt je Figur in einem Feld (Ort oder Verbindung), Übergabe im selben Schritt; Stage::check_figures",
+      "Engine: Weltzustand als Ganzes in der Umgebung: Figuren, Chronik (64 Einträge mit Welttag und Minute), Besuche (64), im PSRAM; Aufenthalt je Figur in einem Feld (Ort oder Verbindung), Stage::check_figures",
       "Engine: Speicherstand PXW1 (save.h): Abschnitte mit eigener Version, Orte und Fähigkeiten als Kennungen, CRC-32, zwei Plätze mit Generation; Stage::save_state/load_state (world_save.cpp)",
       "Engine: Nachholen nach dem Laden bis 3 Tage (Wunsch des Users), 240 Weltminuten je Schritt, Regen der verpassten Zeit aus der Wetter-Simulation; Chronik-Eintrag „Pixelia war … aus“",
-      "Engine: Chronik (64 Einträge mit Welttag und Minute) und Besuchsverlauf (64 Besuche) im PSRAM, beide im Speicherstand",
-      "Dorf: Testorte zeigen die Figuren der Welt; Statisten des Lastreglers (Kennungen ab 0xC000) bleiben am Ort und stehen in keinem Speicherstand",
-      "System: Speicherstand in LittleFS /data/welt-a.pxw und -b.pxw: Kern 1 packt alle 5 min (Wunsch des Users) in 96 KB PSRAM, die Lade-Task schreibt; vor Neustart und Update, nicht unter der Testuhr",
-      "Web: /api/world mit Abschnitt save, ?mehr=1 mit Figuren und Chronik; POST /api/world a=save (mit PIN); Konsole welt speichern|figuren|chronik",
-      "Simulator: --test speicher (11 Prüfungen): jede Figur genau einmal, Neustart mitten auf dem Weg, Stromausfall an jeder Stelle, 300 kaputte Stände, alter Stand 0.5.9 aus sim/testdata, Nachholen",
+      "Dorf: Karte einer Figur zeigt die besten Fähigkeiten mit drei Segmenten und Lernfortschritt (Wahl des Users, CardMeter); Prüfbefehle kann <Fähigkeit> <Stufe>, baukasten an|aus",
+      "Dorf: Testorte zeigen die Figuren der Welt; der Lastregler set_load füllt mit Statisten auf (Kennungen ab 0xC000, in keinem Speicherstand) statt mit eigenen Testfiguren der Orte",
+      "System: Speicherstand in LittleFS /data/welt-a|b.pxw, alle 5 min (Wunsch des Users) und vor Neustart und Update; Sicherung: GET /api/world?datei=1, Einspielen POST ?a=load mit Neustart",
+      "Web: Seite Welt mit Karten Speicherstand („Jetzt speichern“) und Chronik als Zeitleiste, Figurenliste als Steckbriefe (Experimentell → Orte), Zeile in der Übersicht (Wahl des Users)",
+      "System: Diagnosepaket mit Weltzustand (Speicherstand-Angaben, Chronik, Figuren) und Speicherstand als Base64; /api/world ?mehr=1 mit Fortschritt je Fähigkeit; bench figuren",
       "Engine: Stufen der Simulation (world_sim.cpp): Tätigkeiten als Zeitblöcke in Weltzeit (Doing), grob an jeder Takt-Grenze (1 s) für alle Orte, voll dazwischen für die betretenen; beide auf Kern 1 (Wahl des Users)",
       "Engine: Übergaben nur an Takt-Grenzen (Hinausgehen wartet an der Tür), Entscheidung zur Zeit des Blockendes mit Zufall je Figur; Scene::decide/finish/step; Abschnitt TAET im Speicherstand",
       "Dorf: Figuren-Baukasten (figure_art.h; Wahl des Users: Chibi wie Skizze v3, „Mehr Tiefe“): 6 Ebenen, 24 Varianten, Farbreihen, 4 Richtungen, Kontur außen; mit Budget zusammengesetzt; Werkzeug tools/figure_art.py"
     ],
     "i": [
-      "Engine: Lastregler set_load füllt mit Statisten auf (0 = keine) statt mit eigenen Testfiguren der Orte",
       "Engine: unsichtbare Orte rechnen nicht mehr mit 30 Hz; die Darstellung zeigt jede Figur an ihrer Stelle im Zeitblock (Room::path, Animation aus der Weltzeit), Licht nur nach eigenen Änderungen",
       "Engine: Lichtkarte in Zeilen aus Tabellen statt Wurzel je Bildpunkt (Testraum 5,9 statt 20–31 ms), mit Budget je Schritt (Scene::prepare, 6000 ≈ 1,5 ms), betreten im zweiten Puffer; Befehl bench licht"
     ],
@@ -52,14 +51,15 @@
       "System: Laden im Haupt-Task lief über den Stack (3,5 KB, ein Datensatz 1,1 KB als lokale Variable); jetzt in der Grafik-Task, Datensätze an Ort und Stelle (3,3 KB frei). Der Rückfall nach dem Absturz im Probelauf griff"
     ],
     "g": [
-      "Gerät: Speicherstand 1,9 KB, packen 0,9–1,1 ms (Kern 1), schreiben 54–70 ms (Kern 0), laden 2,0–2,6 ms; über Update-Neustarts und mit Figur unterwegs geladen",
+      "Gerät: Speicherstand 3,5 KB, packen 0,9–1,3 ms (Kern 1), schreiben 54–101 ms (Kern 0), laden 4,0–5,6 ms; Strom gezogen und Einspielen: Stand mit 14 Figuren und Tätigkeiten zurück",
       "Gerät: 30,3 fps, Zeichnen 5,6 ms, Logik max 1,3 ms; 64 Figuren, Regen, Ortswechsel, Speichern: 29,8 fps, Zeichnen 8,9 ms (max 9,4), Logik max 3,1 ms; RAM 93 KB (Tiefstwert 85), PSRAM 5,35 MB; Firmware 1,88 MB",
-      "Simulator: alle 107 Selbsttests grün: P10 gleiche Wirkung byte-gleich, Neustart an Tür und Weg geht genau weiter; Lichtkarte unter 1 % und höchstens eine Stufe anders als mit Wurzel, Budget je Schritt gehalten",
-      "Gerät: Teil 2 mit 64 Figuren, 22 Uhr, Regen, 8 Ortswechseln: 29,8 fps, Zeichnen 10,6 ms (max 12,2), Logik 0,9 ms (max 1,8); Licht unsichtbarer Orte bei Änderungen 20–31 ms in einem Schritt; RAM 93 KB",
-      "Gerät: Teil 3 (64 Figuren, 22 Uhr, Regen, Rundgang mit Abblenden und Überblendung): 29,8 fps, Logik max 5,0–5,4 ms, kein Schritt über 8 ms (vorher bis 44 ms); RAM 93 KB (Tiefstwert 85), PSRAM 5,3 MB"
+      "Simulator: alle 108 Selbsttests grün, davon 14 Speicherstand (Stromausfall an jeder Stelle, 300 kaputte Stände, alter Stand 0.5.9, Sicherung einspielen); P10 byte-gleich; Lichtkarte < 1 % anders",
+      "Gerät: Teil 2/3 (64 Figuren, 22 Uhr, Regen, Rundgang): 29,8 fps, Logik max 5,0–5,4 ms, kein Schritt über 8 ms (vorher bis 44 ms); Licht unsichtbarer Orte vorher 20–31 ms in einem Schritt",
+      "Gerät: Teil 4, 48 Figuren je Ort, nachts, Regen: Abblenden 29,8 fps, Zeichnen max 16,5 ms, Logik max 6,7 ms; RAM 85 KB, PSRAM 4,67 MB; Baukasten 288 µs je Bild (geschätzt 375), fertig 1,0 s nach Start"
     ],
     "h": [
-      "Doku: CLAUDE.md „Zusammenarbeit“ (mehr Mitgestaltung, Claude berät); 0.5.9 in drei Teilen: Weltzustand und Speicherstand, Stufen der Simulation, Licht und Figuren; Mischen der Paletten bleibt (Wahl des Users)"
+      "Doku: CLAUDE.md „Zusammenarbeit“ (mehr Mitgestaltung, Claude berät); 0.5.9 in drei Teilen: Weltzustand und Speicherstand, Stufen der Simulation, Licht und Figuren; Mischen der Paletten bleibt (Wahl des Users)",
+      "Hinweis: Überblendung mit 48 Figuren je Ort zeichnet bis 28,4 ms (Baukasten +2,6 bis +6 ms, fps 29,8, Standard ist Abblenden); Messung und Abhilfe in 0.5.12 (Wahl des Users)"
     ],
     "pr": [
       44

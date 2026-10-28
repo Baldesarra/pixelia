@@ -21,6 +21,7 @@
 #include "pixelia/engine/camera.h"
 #include "pixelia/engine/overlay.h"
 #include "pixelia/engine/place.h"
+#include "pixelia/engine/figure_art.h"
 #include "pixelia/engine/save.h"
 #include "pixelia/engine/stage.h"
 #include "pixelia/engine/system_ui.h"
@@ -449,6 +450,8 @@ void load_world() {
 constexpr size_t kSaveCap = 96 * 1024;
 constexpr int64_t kSaveEveryUs = 5LL * 60 * 1000000;
 const pixelia::SaveSlots s_slots("/data", "welt");
+constexpr const char* kImportMark = "/data/welt-eingespielt";  // Sicherung eingespielt: Eintrag in die Chronik
+std::atomic<bool> s_save_locked{false};  // Sicherung eingespielt: bis zum Neustart nicht speichern
 uint8_t* s_save_buf = nullptr;  // PSRAM
 size_t s_save_len = 0;
 std::atomic<int> s_save_state{0};  // 0 frei, 1 angefordert, 2 gepackt (die Lade-Task schreibt)
@@ -475,6 +478,7 @@ void load_save() {
         ESP_LOGW(TAG, "Speicherstand ungültig (%s): die Welt beginnt neu", r.why);
         return;
     }
+    if (std::remove(kImportMark) == 0) s_stage.mark_restored();  // Sicherung eingespielt: Eintrag in die Chronik
     // seit 0.5.9 Teil 2: Die Weltuhr läuft bis zur echten Uhrzeit (NTP) ab dem gespeicherten Stand weiter. So gehen die
     // Tätigkeiten nahtlos weiter, und der Sprung auf die echte Zeit (Dauer des Neustarts) wird genau nachgeholt
     if (!s_real_synced) s_clock.set_world_us(r.saved_us);
@@ -507,8 +511,8 @@ void save_tick(int64_t now) {
         s_save.catching_up = s_stage.catching_up();
     }
     if (s_save_state.load() != 1) return;
-    if (test || waiting || !s_save_buf || app::settings::frozen()) {
-        s_save_state.store(0);  // nicht jetzt (Testuhr, Uhrzeit fehlt, Werksreset läuft)
+    if (test || waiting || !s_save_buf || app::settings::frozen() || s_save_locked.load()) {
+        s_save_state.store(0);  // nicht jetzt (Testuhr, Uhrzeit fehlt, Werksreset läuft, Sicherung eingespielt)
         return;
     }
     uint32_t gen;
@@ -559,7 +563,9 @@ void fill_view() {
         std::snprintf(r.doing, sizeof(r.doing), "%s", r.moving || dk >= 5 ? "" : kDoing[dk]);
         for (int s = 0; s < pixelia::kSkills && r.skill_n < 8; ++s)
             if (f.skills[s].level != pixelia::SkillLevel::Unknown)
-                r.skills[r.skill_n++] = {static_cast<uint8_t>(s), static_cast<uint8_t>(f.skills[s].level)};
+                r.skills[r.skill_n++] = {static_cast<uint8_t>(s), static_cast<uint8_t>(f.skills[s].level),
+                                         static_cast<uint8_t>(f.skills[s].level == pixelia::SkillLevel::Master ? 100
+                                             : std::min<int>(100, f.skills[s].xp * 100 / pixelia::kSkillNeed[static_cast<int>(f.skills[s].level)]))};
         for (const pixelia::Relation& x : f.relations) r.relations += x.other != 0;
         r.memories = static_cast<uint8_t>(f.memory_count());
     }
@@ -910,6 +916,7 @@ void gfx_task(void* arg) {
     ESP_ERROR_CHECK(board::display::init(*timing));
     delete timing;
     // Speicherstand (seit 0.5.9) hier statt im Haupt-Task: die Bühne gehört Kern 1, und der Haupt-Task hat nur 3,5 KB Stack
+    pixelia::set_figure_art_clock([] { return static_cast<int64_t>(esp_timer_get_time()); });
     load_save();
 
     pixelia::ui::apply_palette(s_ui_pal);
@@ -1242,6 +1249,7 @@ void save_world_now() {
 }
 
 bool request_save() {
+    if (s_save_locked.load()) return false;
     int idle = 0;
     return s_save_state.compare_exchange_strong(idle, 1);
 }
@@ -1273,6 +1281,42 @@ void write_save() {
     else
         ESP_LOGW(TAG, "Speicherstand nicht geschrieben (%s)", s_slots.path(slot));
     s_save_state.store(0);
+}
+
+bool read_save(std::vector<uint8_t>* out, uint32_t* generation) {
+    // eigene Plätze: s_slots gehört der Lade-Task (merkt sich den neuesten Platz)
+    const pixelia::SaveSlots slots("/data", "welt");
+    pixelia::SaveHeader h;
+    if (!slots.load(out, &h)) return false;
+    if (generation) *generation = h.generation;
+    return true;
+}
+
+bool import_save(uint8_t* data, size_t n, const char** why) {
+    if (n > kSaveCap) {
+        if (why) *why = "Datei zu groß";
+        return false;
+    }
+    if (!pixelia::save_check(data, n, nullptr, why)) return false;
+    // ab hier nichts mehr speichern; ein laufendes Schreiben abwarten (höchstens 3 s)
+    s_save_locked.store(true);
+    for (int i = 0; i < 150 && s_save_state.load() != 0; ++i) vTaskDelay(pdMS_TO_TICKS(20));
+    const pixelia::SaveSlots slots("/data", "welt");
+    uint32_t gen = slots.generation();
+    {
+        std::lock_guard<std::mutex> g(s_world_lock);
+        gen = std::max(gen, s_save.generation);
+    }
+    int slot = -1;
+    if (!pixelia::save_restamp(data, n, gen + 1, why) || !slots.write(data, n, &slot)) {
+        if (why && slot >= 0) *why = "Schreiben fehlgeschlagen";
+        s_save_locked.store(false);
+        return false;
+    }
+    if (FILE* f = std::fopen(kImportMark, "w")) std::fclose(f);
+    ESP_LOGW(TAG, "Sicherung eingespielt: Speicherstand %lu in Platz %c (%.1f KB), Neustart folgt",
+             static_cast<unsigned long>(gen + 1), slot ? 'b' : 'a', n / 1024.0);
+    return true;
 }
 
 SaveInfo save_info() {

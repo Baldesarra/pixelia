@@ -402,6 +402,32 @@ void base64(const uint8_t* d, size_t n, std::string& out) {
     }
 }
 
+// Weltzustand fürs Diagnosepaket (seit 0.5.9, Wunsch des Users): Speicherstand-Angaben, Chronik und Figuren
+std::string world_json() {
+    const gfx::SaveInfo s = gfx::save_info();
+    Json j;
+    j.obj().obj("save").num("gen", static_cast<int64_t>(s.generation)).num("bytes", static_cast<int64_t>(s.bytes));
+    j.boolean("loaded", s.loaded).num("packUs", static_cast<int64_t>(s.pack_us)).num("writeMs", static_cast<int64_t>(s.write_ms));
+    j.num("figures", s.figures).num("transit", s.transit).num("chronicle", s.chronicle);
+    j.num("caughtUp", s.caught_up).num("skipped", s.skipped).boolean("test", s.test).boolean("waiting", s.waiting);
+    j.str("error", s.error).end_obj();
+    auto* v = static_cast<gfx::WorldView*>(heap_caps_malloc(sizeof(gfx::WorldView), MALLOC_CAP_SPIRAM));
+    if (v && gfx::world_view(v)) {
+        j.arr("chronicle");
+        for (int i = 0; i < v->chronicle; ++i)
+            j.obj().num("day", v->ch[i].day).num("minute", v->ch[i].minute).num("kind", v->ch[i].kind).str("text", v->ch[i].text).end_obj();
+        j.end_arr().arr("figures");
+        for (int i = 0; i < v->figures; ++i) {
+            const gfx::FigureRow& f = v->fig[i];
+            j.obj().num("id", f.id).str("name", f.name).str("place", f.place).str("doing", f.doing).num("skills", f.skill_n).end_obj();
+        }
+        j.end_arr();
+    }
+    heap_caps_free(v);
+    j.end_obj();
+    return std::move(j.text());
+}
+
 esp_err_t diag_get(httpd_req_t* req) {
     const int64_t t0 = esp_timer_get_time();
     char stamp[32] = "", created[32] = "";
@@ -429,7 +455,7 @@ esp_err_t diag_get(httpd_req_t* req) {
         j.obj().num("pixeliaDiag", 1).str("created", created).num("epoch", now > 1735689600 ? now : 0);
         j.str("host", wifi::kMdnsHost);
         j.str("hinweis", "Diagnosepaket von Pixelia: Status, Versionen, Einstellungen, Reset-Historie, Leistung, "
-                         "Log-Puffer und Absturzbericht. Enthält keine Passwörter (siehe secretCheck am Ende).");
+                         "Log-Puffer, Absturzbericht, Weltzustand und Speicherstand. Enthält keine Passwörter (siehe secretCheck am Ende).");
         j.raw("status", status_json());
         j.raw("system", diag::system_json());
         const settings::Values set = settings::get();
@@ -463,8 +489,25 @@ esp_err_t diag_get(httpd_req_t* req) {
         ok = ok && f.write("null", 4);
     }
 
+    // Weltzustand und Speicherstand als Datei (Base64, seit 0.5.9)
+    s = "},\"world\":" + world_json() + ",\"worldSave\":";
+    ok = ok && f.write(s);
+    {
+        std::vector<uint8_t> d;
+        uint32_t gen = 0;
+        if (gfx::read_save(&d, &gen)) {
+            std::string b64 = "\"";
+            b64.reserve(d.size() * 4 / 3 + 8);
+            base64(d.data(), d.size(), b64);
+            b64 += '"';
+            ok = ok && f.write(b64);
+        } else {
+            ok = ok && f.write("null", 4);
+        }
+    }
+
     // Log-Puffer komplett
-    s = "},\"log\":{\"info\":" + diag::log_info_json() + ",\"lines\":[";
+    s = ",\"log\":{\"info\":" + diag::log_info_json() + ",\"lines\":[";
     ok = ok && f.write(s);
     ReadCtx ctx;
     ctx.filter = &f;

@@ -16,6 +16,17 @@ namespace pixelia {
 inline constexpr int kFigureViews = 3;  // vorn, hinten, Seite (nach links gespiegelt)
 inline constexpr int kFigurePoses = 5;  // stehen, Schritt, Mitte, Schritt, atmen
 
+// Messung am Gerät (seit 0.5.9 Teil 4, Konsole „bench figuren“): über alle Baukästen; ohne Uhr (set_figure_art_clock)
+// wird nicht gemessen. first_us/done_us: erstes Bild bzw. zuletzt alles fertig (Uhr der Firmware, µs seit dem Start)
+struct FigureArtStats {
+    uint32_t frames = 0;
+    int64_t us = 0, max_us = 0;
+    int64_t first_us = 0, done_us = 0;
+    int64_t first_done_us = 0;  // zum ersten Mal alles fertig (so lange war nach dem Start die Testfigur zu sehen)
+};
+void set_figure_art_clock(int64_t (*now_us)());
+const FigureArtStats& figure_art_stats();
+
 class FigureArt {
 public:
     static constexpr int kVariants = 8;  // je Ebene Varianten 1 … kVariants (0 = keine)
