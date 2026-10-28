@@ -62,7 +62,8 @@
       "Hinweis: Überblendung mit 48 Figuren je Ort zeichnet bis 28,4 ms (Baukasten +2,6 bis +6 ms, fps 29,8, Standard ist Abblenden); Messung und Abhilfe in 0.5.12 (Wahl des Users)"
     ],
     "pr": [
-      44
+      44,
+      45
     ]
   },
   {
