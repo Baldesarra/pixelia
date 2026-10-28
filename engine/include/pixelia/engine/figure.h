@@ -103,9 +103,25 @@ struct Memory {
 // --- Aussehen (Ebenen mit Farbreihen, Baukasten in 0.5.9 Teil 2) ---
 enum class LookLayer : uint8_t { Body, Legs, Torso, Hair, Hat, Tool, kCount };
 inline constexpr int kLookLayers = static_cast<int>(LookLayer::kCount);
+// Statur (seit 0.5.9 Teil 5, Ansatz A „Chibi mit Statur“): der Baukasten streckt oder staucht Rumpf und Beine beim
+// Zusammensetzen, der Kopf bleibt gleich. Alles 0 = Standard (alte Speicherstände ohne Statur)
+struct Stature {
+    int8_t height = 0;  // -1 klein, 0 mittel, 1 groß, 2 sehr groß (je Stufe Rumpf und Beine eine Zeile)
+    int8_t width = 0;   // -1 schmal, 0 mittel, 1 breit
+    uint8_t belly = 0;  // 0 … 2
+    uint8_t stoop = 0;  // 1 = gebeugt (Rumpf kürzer, von der Seite Kopf und Schultern vor)
+    bool operator==(const Stature&) const = default;
+};
+// in die gültigen Stufen (Speicherstand, Daten eines Gebiets)
+constexpr Stature clamp_stature(Stature s) {
+    auto lim = [](int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; };
+    return {static_cast<int8_t>(lim(s.height, -1, 2)), static_cast<int8_t>(lim(s.width, -1, 1)),
+            static_cast<uint8_t>(lim(s.belly, 0, 2)), static_cast<uint8_t>(lim(s.stoop, 0, 1))};
+}
 struct FigureLook {
     std::array<uint8_t, kLookLayers> part{};  // Variante je Ebene, 0 = keine
     std::array<uint8_t, kLookLayers> row{};   // Farbreihe je Ebene
+    Stature build{};                          // Speicherstand: hinten im Datensatz der Figur (seit Teil 5)
 };
 
 // --- Wo die Figur ist ---

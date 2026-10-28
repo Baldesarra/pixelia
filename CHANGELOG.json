@@ -11,14 +11,14 @@
         "Sicher bei Stromausfall: Es gibt immer zwei Stände; bricht das Schreiben ab, gilt der vorige",
         "Nachholen: War Pixelia aus, holt die Welt bis zu 3 Tage nach (Glut kühlt aus, Boden trocknet, Reisende kommen an), mit dem Wetter der verpassten Zeit",
         "Figuren: Jede Figur hat Namen, Alter, Charakterzüge, Interessen, Zuhause, Besitz und Erinnerungen",
-        "Fähigkeiten: 27 Fähigkeiten in Stufen von unbekannt bis Meister; wer etwas noch nicht kann, misslingt öfter und lernt auch daraus",
+        "Fähigkeiten: 27 in Stufen von unbekannt bis Meister; wer etwas noch nicht kann, misslingt öfter und lernt daraus; die Karte zeigt die besten mit Lernfortschritt",
         "Lernen voneinander: Wer etwas gezeigt bekommt, lernt schneller, und die beiden kommen sich dabei näher",
         "Beziehungen: von fremd über bekannt und vertraut bis hilft, dazu Familie, Zuneigung und Rivalität",
         "Chronik und Besuche: Die Welt schreibt mit, was passiert (Jahreszeitenabende, Erstlinge, neue Stufen, Pausen), mit Tag und Uhrzeit, und wer wann bei wem zu Besuch war",
         "Weboberfläche: Speicherstand mit „Jetzt speichern“, Chronik als Zeitleiste, Figurenliste, Welt sichern und einspielen, Chronik im Diagnosepaket; Konsole welt speichern",
         "Stufen der Simulation: Unsichtbare Orte rechnen einmal pro Sekunde, nur der sichtbare 30-mal, und alle bewirken genau dasselbe",
         "Tätigkeiten: Figuren gehen umher, benutzen Dinge und gehen hinaus, jede Tätigkeit mit fester Dauer; betrittst du einen Ort, steht jede Figur genau dort, wo sie gerade ist",
-        "Aussehen: Figuren aus Körper, Kleidung, Frisur, Hut und Werkzeug, mit eigenen Farben und in vier Richtungen; ihre Karte zeigt die besten Fähigkeiten mit Lernfortschritt"
+        "Aussehen: Kleidung, Frisur, Hut und Werkzeug in vier Richtungen, eigene Farben und Statur (Größe, Breite, Bauch, gebeugt); neu Kopftuch, Strohhut, Gehrock, Schürze, Stock"
       ],
       "i": [
         "Figuren: gehören jetzt der Welt statt einem Ort; jede ist immer an genau einem Ort oder auf genau einem Weg; die Übersicht zeigt, wann zuletzt gespeichert wurde",
@@ -41,7 +41,7 @@
       "System: Diagnosepaket mit Weltzustand (Speicherstand-Angaben, Chronik, Figuren) und Speicherstand als Base64; /api/world ?mehr=1 mit Fortschritt je Fähigkeit; bench figuren",
       "Engine: Stufen der Simulation (world_sim.cpp): Tätigkeiten als Zeitblöcke in Weltzeit (Doing), grob an jeder Takt-Grenze (1 s) für alle Orte, voll dazwischen für die betretenen; beide auf Kern 1 (Wahl des Users)",
       "Engine: Übergaben nur an Takt-Grenzen (Hinausgehen wartet an der Tür), Entscheidung zur Zeit des Blockendes mit Zufall je Figur; Scene::decide/finish/step; Abschnitt TAET im Speicherstand",
-      "Dorf: Figuren-Baukasten (figure_art.h; Wahl des Users: Chibi wie Skizze v3, „Mehr Tiefe“): 6 Ebenen, 24 Varianten, Farbreihen, 4 Richtungen, Kontur außen; mit Budget zusammengesetzt; Werkzeug tools/figure_art.py"
+      "Dorf: Figuren-Baukasten (figure_art.h; Wahl des Users: Chibi wie Skizze v3): 6 Ebenen, 31 Varianten, Farbreihen, Kontur außen; Statur je Figur (Größe, Breite, Bauch, gebeugt) streckt Rumpf und Beine, Bild 24 × 40"
     ],
     "i": [
       "Engine: unsichtbare Orte rechnen nicht mehr mit 30 Hz; die Darstellung zeigt jede Figur an ihrer Stelle im Zeitblock (Room::path, Animation aus der Weltzeit), Licht nur nach eigenen Änderungen",
@@ -55,7 +55,7 @@
       "Gerät: 30,3 fps, Zeichnen 5,6 ms, Logik max 1,3 ms; 64 Figuren, Regen, Ortswechsel, Speichern: 29,8 fps, Zeichnen 8,9 ms (max 9,4), Logik max 3,1 ms; RAM 93 KB (Tiefstwert 85), PSRAM 5,35 MB; Firmware 1,88 MB",
       "Simulator: alle 108 Selbsttests grün, davon 14 Speicherstand (Stromausfall an jeder Stelle, 300 kaputte Stände, alter Stand 0.5.9, Sicherung einspielen); P10 byte-gleich; Lichtkarte < 1 % anders",
       "Gerät: Teil 2/3 (64 Figuren, 22 Uhr, Regen, Rundgang): 29,8 fps, Logik max 5,0–5,4 ms, kein Schritt über 8 ms (vorher bis 44 ms); Licht unsichtbarer Orte vorher 20–31 ms in einem Schritt",
-      "Gerät: Teil 4, 48 Figuren je Ort, nachts, Regen: Abblenden 29,8 fps, Zeichnen max 16,5 ms, Logik max 6,7 ms; RAM 85 KB, PSRAM 4,67 MB; Baukasten 288 µs je Bild (geschätzt 375), fertig 1,0 s nach Start"
+      "Gerät: 48 Figuren je Ort, nachts, Regen, Abblenden: 29,8 fps, Zeichnen max 18,2 ms (Teil 4: 16,5), Logik max 6,9 ms, RAM-Tiefstwert 85–89 KB, PSRAM 4,25 MB; Baukasten mit Statur 716–736 µs je Bild (kFrameCost 3000)"
     ],
     "h": [
       "Doku: CLAUDE.md „Zusammenarbeit“ (mehr Mitgestaltung, Claude berät); 0.5.9 in drei Teilen: Weltzustand und Speicherstand, Stufen der Simulation, Licht und Figuren; Mischen der Paletten bleibt (Wahl des Users)",

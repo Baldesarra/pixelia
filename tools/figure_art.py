@@ -11,6 +11,12 @@ feste Farben (Augen, Wangen, Leinen, Holz, Eisen, Schuhe) direkt. Die Kontur zie
 
   python tools/figure_art.py bauen                       Ebenen nach assets/testorte/figuren/ schreiben
   python tools/figure_art.py gif <ziel.gif> --bg <png>   Vorschau: Figuren laufen durch einen Raum (wie am Gerät)
+  python tools/figure_art.py bogen <ziel.png>            Kontaktbogen: alle Figuren vorn, Seite, hinten
+  python tools/figure_art.py gehen <ziel.gif>            Gehbilder aller Figuren in alle Richtungen
+
+Statur (seit 0.5.9 Teil 5, Ansatz A „Chibi mit Statur“): jede Ebene wird einmal gezeichnet; beim Zusammensetzen
+streckt oder staucht die Statur Rumpf und Beine (stature_rows, stature_cols, gleiche Rechnung wie figure_art.cpp),
+der Kopf bleibt. Fertige Bilder sind 24 × 40, Fußpunkt (11, 37).
 
 Indizes wie assets/paletten/testorte.gpl.
 """
@@ -37,10 +43,12 @@ RIBBON = 25
 VARIANTS = {
     'koerper': ['normal', 'brille'],
     'beine': ['hose', 'rock'],
-    'oberteil': ['hemd', 'kleid', 'kleid-schuerze', 'weste', 'mantel', 'lederschurz', 'kleid-tuch'],
-    'haare': ['kurz', 'dutt', 'zoepfe', 'lang', 'glatze', 'kurz-bart', 'kurz-schnurrbart'],
-    'kopf': ['haube', 'schlapphut', 'muetze'],
-    'werkzeug': ['schieber', 'hammer', 'hobel'],
+    'oberteil': ['hemd', 'kleid', 'kleid-schuerze', 'weste', 'mantel', 'lederschurz', 'kleid-tuch', 'gehrock',
+                 'wirtsschuerze'],
+    'haare': ['kurz', 'dutt', 'zoepfe', 'lang', 'glatze', 'kurz-bart', 'kurz-schnurrbart', 'glatze-bart',
+              'glatze-schnurrbart'],
+    'kopf': ['haube', 'schlapphut', 'muetze', 'kopftuch', 'strohhut'],
+    'werkzeug': ['schieber', 'hammer', 'hobel', 'stock'],
 }
 LAYERS = list(VARIANTS)
 
@@ -146,6 +154,25 @@ def draw_layer(layer, kind, v, fr, breathe=0):
             s.r(tx - (0 if v == 's' else 1), by + th - 1, tw + (1 if v == 's' else 2), 4, PH[1])
             if v == 'f':
                 s.r(CX, by, 1, th + 3, PH[2]); s.p(CX, by + 2, GOLD); s.p(CX, by + 5, GOLD)
+        if kind == 'gehrock':  # bis über die Knie, vorn offen (die Beine sieht man im Schlitz), hinten mit Falte
+            s.r(tx - 1, by + th - 1, tw + 2, 6, PH[1])
+            if v == 'f':
+                s.r(tx - 1, by + th - 1, 1, 6, PH[0])
+                s.r(CX - 1, by + 3, 2, th + 3, PH[2]); s.r(CX - 1, by + th, 2, 5, 0)
+                s.r(CX - 2, by, 1, 3, LINEN[0]); s.r(CX + 1, by, 1, 3, LINEN[1])   # Kragen, Hemd darunter
+                s.p(CX - 2, by + 4, GOLD); s.p(CX - 2, by + 6, GOLD)
+            elif v == 's':
+                s.r(tx - 2, by + th, 2, 5, PH[2])                                   # Schoß hinten
+            else:
+                s.r(CX - 1, by + th - 1, 1, 6, PH[2]); s.p(CX - 3, by + 6, GOLD); s.p(CX + 2, by + 6, GOLD)
+        if kind == 'wirtsschuerze':  # Hemd (Farbreihe), lange Leinenschürze bis über die Knie
+            if v == 'f':
+                s.r(tx + 1, by + 4, tw - 2, th + 1, LINEN[0]); s.r(tx + tw - 2, by + 4, 1, th + 1, LINEN[1])
+                s.r(tx, by + 4, tw, 1, LINEN[1])
+            elif v == 's':
+                s.r(tx + tw - 2, by + 4, 3, th + 1, LINEN[0]); s.r(tx, by + 4, tw, 1, LINEN[1])
+            else:
+                s.r(tx, by + 4, tw, 1, LINEN[1]); s.r(CX - 2, by + 4, 4, 2, LINEN[0])  # Schleife
         sleeve = PH[2]
         if kind == 'weste':  # Hemd aus Leinen, darüber die Weste (Platzhalter)
             s.r(tx, by + breathe, tw, th - 1 - breathe, LINEN[1])
@@ -246,6 +273,23 @@ def draw_layer(layer, kind, v, fr, breathe=0):
             s.r(CX - 5, yb - 4, 10, 5, PH[1]); s.r(CX - 5, yb, 10, 1, PH[2])
             s.r(CX - 10, yb + 1, 20, 2, PH[1]); s.r(CX - 10, yb + 2, 20, 1, PH[2])
             s.p(CX - 3, yb - 4, PH[0])
+        elif kind == 'kopftuch':  # über die Haare, an den Seiten bis zum Kinn, hinten mit Zipfel
+            s.r(CX - 7, yb - 1, 14, 4, PH[1]); s.r(CX - 6, yb - 2, 12, 1, PH[1]); s.p(CX - 4, yb - 1, PH[0])
+            if v == 'f':
+                s.r(CX - 8, yb + 2, 2, 9, PH[1]); s.r(CX + 6, yb + 2, 2, 9, PH[2])
+                s.r(CX - 7, yb + 3, 14, 1, PH[2])
+            elif v == 's':
+                s.r(CX - 8, yb + 2, 8, 9, PH[1]); s.r(CX + 2, yb + 3, 3, 1, PH[2]); s.r(CX - 9, yb + 10, 3, 3, PH[2])
+            else:
+                s.r(CX - 8, yb + 2, 16, 10, PH[1]); s.r(CX - 2, yb + 12, 4, 2, PH[1]); s.p(CX - 1, yb + 14, PH[2])
+                for x in range(CX - 6, CX + 6, 3):
+                    s.p(x, yb + 5, PH[0])
+        elif kind == 'strohhut':  # flacher Kopf, breite Krempe (Stroh mit Band)
+            s.r(CX - 5, yb - 4, 10, 4, PH[0]); s.r(CX - 5, yb - 1, 10, 1, PH[2])
+            s.r(CX - 9, yb, 18, 2, PH[1]); s.r(CX - 9, yb + 1, 18, 1, PH[2])
+            for x in range(CX - 8, CX + 8, 3):
+                s.p(x, yb, PH[0])
+            s.p(CX - 3, yb - 4, PH[1]); s.p(CX + 1, yb - 3, PH[1])
         elif kind == 'muetze':
             s.r(CX - 7, yb - 2, 14, 5, PH[1]); s.r(CX - 7, yb + 2, 14, 1, PH[0])
             for x in range(CX - 6, CX + 6, 2):
@@ -262,9 +306,95 @@ def draw_layer(layer, kind, v, fr, breathe=0):
             s.r(hx, hy, 9, 1, WOOD[1]); s.r(hx + 8, hy - 2, 4, 5, WOOD[0]); s.r(hx + 8, hy + 2, 4, 1, WOOD[1])
         elif kind == 'hammer':
             s.r(hx + (0 if v == 'f' else 1), hy - 1, 1, 5, WOOD[2]); s.r(hx - 2, hy + 3, 5, 2, IRON[1]); s.p(hx - 2, hy + 3, IRON[0])
+        elif kind == 'stock':  # Gehstock: vorn neben dem Körper, von der Seite vor der Hand bis zum Boden
+            sx = CX - 8 if v == 'f' else hx + 2
+            s.r(sx, hy + 1, 1, FOOT + 1 - hy - 1, WOOD[1]); s.r(sx - 1, hy, 3, 1, WOOD[0])
         elif kind == 'hobel':
             s.r(hx - 3, hy + 1, 7, 3, WOOD[1]); s.r(hx - 3, hy + 1, 7, 1, WOOD[0]); s.r(hx, hy - 1, 2, 2, WOOD[2]); s.p(hx - 2, hy + 3, IRON[0])
     return s
+
+
+# --- Statur (seit 0.5.9 Teil 5, Ansatz A „Chibi mit Statur“): wie FigureArt beim Zusammensetzen ---
+# Jede Ebene wird einmal gezeichnet; die Statur streckt oder staucht sie zeilen- und spaltenweise (Zeilen und Spalten
+# im Inneren verdoppeln oder weglassen, so bleiben Lichtkante, Schatten und Kontur erhalten). Der Kopf bleibt gleich.
+# Statur: (Größe -1…2, Breite -1…1, Bauch 0…2, gebeugt 0/1), (0, 0, 0, 0) = Standard (alte Speicherstände)
+TOP = 4                  # Zeilen über dem Kopf für die größte Statur
+BY, LY = Y + 13, Y + 22  # Beginn Rumpf, Beginn Beine (Zeichenfläche)
+
+
+def stature_rows(st):
+    """Quellzeile je Zeile der Ausgabe (SH + TOP hoch, Fußpunkt bleibt unten): Rumpf und Beine länger oder kürzer."""
+    h, _, _, stoop = st
+    torso, legs = h - stoop, h
+    src = list(range(SH))
+
+    def fit(rows, at, n):  # n > 0: Zeilen ab „at“ verdoppeln, n < 0: weglassen
+        i = rows.index(at)
+        if n > 0:
+            return rows[:i] + [r for r in rows[i:i + n] for _ in (0, 1)] + rows[i + n:]
+        return rows[:i] + rows[i - n:]
+
+    src = fit(src, LY + 1, legs)       # Oberschenkel (nicht die Schuhe)
+    src = fit(src, BY + 4, torso)      # Mitte des Rumpfes (Ärmel werden mit länger)
+    off = src.index(FOOT) - (FOOT + TOP)
+    return [src[y + off] if 0 <= y + off < len(src) else None for y in range(SH + TOP)]
+
+
+def belly_at(sy, b):
+    """Bauch: zusätzliche Spalten je Seite in Zeile sy des Rumpfes (rund, unten am stärksten)."""
+    if not b or not BY + 2 <= sy < LY + 2:
+        return 0
+    k = sy - BY
+    return min(b, 1 if k in (2, 9, 10) else b)
+
+
+def stature_cols(v, sy, st, head):
+    """Quellspalte je Spalte der Ausgabe für Quellzeile sy (wie ColMap in figure_art.cpp): innen links und rechts je
+    eine Spalte verdoppeln (Breite, Bauch) oder weglassen; gebeugt von der Seite Kopf zwei und Schultern eine vor.
+    head: Zeile gehört zum Kopf (Haare und Kopfbedeckung ganz, beim Körper bis zum Kinn)."""
+    _, w, b, stoop = st
+    if st == (0, 0, 0, 0):
+        return list(range(SW))
+    if head:
+        la = ra = CX
+        nl = nr = 0
+        shift = 2 if stoop and v == 's' else 0
+    elif v == 's':
+        la, nl, ra, nr = CX - 2, w, CX + 2, belly_at(sy, b)   # Rücken, Bauch nach vorn
+        shift = 1 if stoop and sy < BY + 3 else 0
+    else:
+        e = belly_at(sy, b)
+        la, nl, ra, nr, shift = CX - 3, w + e, CX + 2, w + e, 0
+
+    def src(x):
+        x -= shift
+        if x < 0:
+            return None
+        if x < la - nl:
+            return x + nl
+        if x <= la:
+            return la
+        if x < ra:
+            return x
+        if x <= ra + nr:
+            return ra
+        return x - nr
+    return [src(x) for x in range(SW)]
+
+
+def warp(s, v, st, chin, tool=False):
+    """Spr (SW × SH) → Raster SW × (SH + TOP) mit Statur; Zeilen über chin gehören zum Kopf, ein Werkzeug folgt starr
+    der Hand (Spalten wie in der Zeile der Hände)."""
+    out = [[0] * SW for _ in range(SH + TOP)]
+    hand = stature_cols(v, BY + 7, st, False)
+    for y, sy in enumerate(stature_rows(st)):
+        if sy is None:
+            continue
+        cmap = hand if tool else stature_cols(v, sy, st, sy < chin)
+        for x, sx in enumerate(cmap):
+            if sx is not None and 0 <= sx < SW:
+                out[y][x] = s.d[sy][sx]
+    return out
 
 
 def strip(layer, kind):
@@ -307,17 +437,28 @@ ROWS = {  # Platzhalter 20–22 → Farben (wie die Farbreihen in assets/testort
     'gruen': (2, 3, 5), 'stein': (58, 59, 60),
 }
 
-PEOPLE = {  # (Variante, Farbreihe) je Ebene
+PEOPLE = {  # (Variante, Farbreihe) je Ebene, Statur (Größe, Breite, Bauch, gebeugt); wie kTestLooks im Testdorf
     'greta': dict(koerper=('normal', 'haut-hell'), beine=('rock', None), oberteil=('kleid-schuerze', 'blau'),
-                  haare=('dutt', 'haar-blond'), kopf=('haube', 'leinen'), werkzeug=('schieber', None)),
+                  haare=('dutt', 'haar-blond'), kopf=('haube', 'leinen'), werkzeug=('schieber', None), statur=(0, 1, 1, 0)),
     'jakob': dict(koerper=('normal', 'haut-hell'), beine=('hose', 'schwarz'), oberteil=('weste', 'schwarz'),
-                  haare=('kurz-bart', 'haar-braun'), kopf=('schlapphut', 'schwarz'), werkzeug=('hobel', None)),
+                  haare=('kurz-bart', 'haar-braun'), kopf=('schlapphut', 'schwarz'), werkzeug=('hobel', None),
+                  statur=(1, -1, 0, 0)),
     'ida': dict(koerper=('normal', 'haut-mittel'), beine=('rock', None), oberteil=('kleid', 'gruen'),
-                haare=('zoepfe', 'haar-rot')),
+                haare=('zoepfe', 'haar-rot'), statur=(-1, -1, 0, 0)),
     'konrad': dict(koerper=('normal', 'haut-dunkel'), beine=('hose', 'holz'), oberteil=('lederschurz', 'leinen'),
-                   haare=('kurz-schnurrbart', 'haar-schwarz'), werkzeug=('hammer', None)),
-    'oma': dict(koerper=('brille', 'haut-hell'), beine=('rock', None), oberteil=('kleid-tuch', 'lavendel'),
-                haare=('dutt', 'haar-grau')),
+                   haare=('kurz-schnurrbart', 'haar-schwarz'), werkzeug=('hammer', None), statur=(1, 1, 1, 0)),
+    'martha': dict(koerper=('brille', 'haut-hell'), beine=('rock', None), oberteil=('kleid-tuch', 'lavendel'),
+                   haare=('dutt', 'haar-grau'), kopf=('kopftuch', 'holz'), statur=(-1, 0, 0, 1)),
+    'otto': dict(koerper=('normal', 'haut-hell'), beine=('hose', 'holz'), oberteil=('hemd', 'gelb'),
+                 haare=('kurz', 'haar-blond'), kopf=('strohhut', 'gelb'), statur=(2, 0, 0, 0)),
+    'lene': dict(koerper=('normal', 'haut-mittel'), beine=('rock', None), oberteil=('kleid', 'rot'),
+                 haare=('dutt', 'haar-grau'), statur=(-1, 0, 1, 0)),
+    'emil': dict(koerper=('normal', 'haut-hell'), beine=('hose', 'blau'), oberteil=('gehrock', 'blau'),
+                 haare=('kurz-schnurrbart', 'haar-braun'), kopf=('muetze', 'blau')),
+    'gustav': dict(koerper=('normal', 'haut-hell'), beine=('hose', 'schwarz'), oberteil=('wirtsschuerze', 'rot'),
+                   haare=('glatze-schnurrbart', 'haar-grau'), statur=(0, 1, 2, 0)),
+    'wilhelm': dict(koerper=('normal', 'haut-hell'), beine=('hose', 'haar-grau'), oberteil=('mantel', 'holz'),
+                    haare=('glatze-bart', 'haar-grau'), werkzeug=('stock', None), statur=(0, -1, 0, 1)),
 }
 
 
@@ -342,25 +483,31 @@ OUTC = outline_table()
 
 
 def compose(who, v, fr, breathe=0):
-    out = [[0] * SW for _ in range(SH)]
+    """Fertiges Bild (SW × (SH + TOP)) wie FigureArt: Ebenen mit Statur und Farbreihe, dann Kontur außen."""
+    look = PEOPLE[who]
+    st = look.get('statur', (0, 0, 0, 0))
+    H2 = SH + TOP
+    out = [[0] * SW for _ in range(H2)]
     for layer in LAYERS:
-        if layer not in PEOPLE[who]:
+        if layer not in look:
             continue
-        kind, row = PEOPLE[who][layer]
-        s = draw_layer(layer, kind, v, fr, breathe)
-        for y in range(SH):
+        kind, row = look[layer]
+        g = geom(v, fr, breathe)
+        chin = SH if layer in ('haare', 'kopf') else BY + g['bob']
+        px = warp(draw_layer(layer, kind, v, fr, breathe), v, st, chin, layer == 'werkzeug')
+        for y in range(H2):
             for x in range(SW):
-                c = s.d[y][x]
+                c = px[y][x]
                 if c:
                     out[y][x] = ROWS[row][c - 20] if row and 20 <= c <= 22 else c
     o = [row[:] for row in out]
-    for y in range(SH):
+    for y in range(H2):
         for x in range(SW):
             if o[y][x]:
                 continue
             for dx, dy in ((0, 1), (-1, 0), (1, 0), (0, -1)):
                 xx, yy = x + dx, y + dy
-                if 0 <= xx < SW and 0 <= yy < SH and o[yy][xx]:
+                if 0 <= xx < SW and 0 <= yy < H2 and o[yy][xx]:
                     out[y][x] = OUTC[o[yy][xx]]
                     break
     return out
@@ -368,19 +515,47 @@ def compose(who, v, fr, breathe=0):
 
 def sprite(who, v, fr, flip=False):
     idx = compose(who, v, fr)
-    im = Image.new('RGBA', (SW, SH), (0, 0, 0, 0))
-    for y in range(SH):
+    im = Image.new('RGBA', (SW, SH + TOP), (0, 0, 0, 0))
+    for y in range(SH + TOP):
         for x in range(SW):
             if idx[y][x]:
                 im.putpixel((SW - 1 - x if flip else x, y), PAL[idx[y][x]] + (255,))
     return im
 
 
+def sheet(target, who_list, labels=None, bg=(214, 202, 178), z=4):
+    """Kontaktbogen: je Figur vorn, Seite, hinten in z-facher Größe, darunter alle in Display-Größe (2×)."""
+    from PIL import ImageDraw, ImageFont
+    try:
+        font = ImageFont.truetype('arial.ttf', 15)
+    except OSError:
+        font = ImageFont.load_default()
+    cw, chh = FW, SH + TOP - 2
+    n = len(who_list)
+    big = Image.new('RGB', (n * (68 * z + 8) + 20, chh * z + 30 + chh * 2 + 20), (238, 236, 240))
+    d = ImageDraw.Draw(big)
+    for i, who in enumerate(who_list):
+        x0 = 10 + i * (68 * z + 8)
+        tile = Image.new('RGBA', (68, chh), bg + (255,))
+        for j, v in enumerate('fsb'):
+            sp = sprite(who, v, 0).crop((OX, 2, OX + FW, SH + TOP))
+            tile.alpha_composite(sp, (j * 22, 0))
+        big.paste(tile.resize((tile.width * z, chh * z), Image.NEAREST), (x0, 10))
+        lab = (labels or {}).get(who, who)
+        d.text((x0 + 4, chh * z + 12), lab, fill=(60, 50, 60), font=font)
+    row = Image.new('RGBA', (n * (FW + 4) + 8, chh), bg + (255,))
+    for i, who in enumerate(who_list):
+        row.alpha_composite(sprite(who, 'f', 0).crop((OX, 2, OX + FW, SH + TOP)), (4 + i * (FW + 4), 0))
+    big.paste(row.resize((row.width * 2, chh * 2), Image.NEAREST), (10, chh * z + 34))
+    big.save(target)
+    print('Bogen:', target, big.size)
+
+
 def gif(target, bg_path):
     bg = Image.open(bg_path).convert('RGBA')
     bg.paste(bg.crop((230, 140, 290, 210)), (294, 140))  # alte Testfigur der Kammer überdecken
     paths = {'greta': [(60, 92)], 'jakob': [(150, 88)], 'ida': [(40, 70), (120, 70), (120, 100), (40, 100)],
-             'konrad': [(170, 64), (170, 104), (100, 104), (100, 64)], 'oma': [(80, 110), (160, 110)]}
+             'konrad': [(170, 64), (170, 104), (100, 104), (100, 64)], 'martha': [(80, 110), (160, 110)]}
     frames, n = [], 48
     for f in range(n):
         im, items = bg.copy(), []
@@ -402,9 +577,23 @@ def gif(target, bg_path):
         for y, who, x, v, fr, flip in sorted(items):
             sp = sprite(who, v, fr, flip).resize((SW * 2, SH * 2), Image.NEAREST)
             cx = (SW - 1 - CX) if flip else CX
-            im.alpha_composite(sp, (int(round(x * 2 - cx * 2)), int(round(y * 2 - (FOOT + 1) * 2))))
+            im.alpha_composite(sp, (int(round(x * 2 - cx * 2)), int(round(y * 2 - (FOOT + TOP + 1) * 2))))
         frames.append(im.resize((800, 480), Image.NEAREST).convert('RGB').quantize(colors=255))
     frames[0].save(target, save_all=True, append_images=frames[1:], duration=110, loop=0)
+    print('GIF:', target)
+
+
+def walk(target, bg=(214, 202, 178), z=3):
+    """Gehbilder aller Figuren auf der Stelle: vorn, Seite, hinten, Seite gespiegelt (je 8 Schritte)."""
+    who = list(PEOPLE)
+    frames = []
+    for f in range(32):
+        v, flip = (('f', False), ('s', False), ('b', False), ('s', True))[f // 8]
+        im = Image.new('RGBA', (len(who) * 26 + 4, SH + TOP - 2), bg + (255,))
+        for i, w in enumerate(who):
+            im.alpha_composite(sprite(w, v, (f // 2) % 4, flip).crop((OX - 2, 2, OX + FW + 2, SH + TOP)), (2 + i * 26, 0))
+        frames.append(im.resize((im.width * z, im.height * z), Image.NEAREST).convert('RGB').quantize(colors=255))
+    frames[0].save(target, save_all=True, append_images=frames[1:], duration=130, loop=0)
     print('GIF:', target)
 
 
@@ -412,12 +601,18 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd', required=True)
     sub.add_parser('bauen')
+    sub.add_parser('bogen').add_argument('ziel')
+    sub.add_parser('gehen').add_argument('ziel')
     p = sub.add_parser('gif')
     p.add_argument('ziel')
     p.add_argument('--bg', required=True)
     a = ap.parse_args()
     if a.cmd == 'bauen':
         build()
+    elif a.cmd == 'bogen':
+        sheet(a.ziel, list(PEOPLE))
+    elif a.cmd == 'gehen':
+        walk(a.ziel)
     else:
         gif(a.ziel, a.bg)
     return 0

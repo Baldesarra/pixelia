@@ -4,7 +4,8 @@
 // kFigurePoses Posen), gezeichnet mit der Platzhalter-Rampe (tools/figure_art.py). FigureArt legt für ein Aussehen
 // (FigureLook) die Ebenen in fester Reihenfolge mit ihrer Farbreihe übereinander und zieht danach außen eine farbige
 // Kontur (Tabelle: Farbe → dunkle Fassung). Die fertigen Bilder liegen im Grafik-Speicher, je Aussehen einmal, und
-// entstehen mit Budget über mehrere Schritte (Scene::prepare), zuletzt Gewünschtes zuerst.
+// entstehen mit Budget über mehrere Schritte (Scene::prepare), zuletzt Gewünschtes zuerst. Seit 0.5.9 Teil 5 mit
+// Statur (FigureLook::build): Rumpf und Beine werden beim Zusammensetzen gestreckt oder gestaucht, der Kopf bleibt.
 
 #include <cstdint>
 
@@ -26,12 +27,16 @@ struct FigureArtStats {
 };
 void set_figure_art_clock(int64_t (*now_us)());
 const FigureArtStats& figure_art_stats();
+void reset_figure_art_stats();  // Messung von vorn (Ortsbefehl „figuren neu“)
 
 class FigureArt {
 public:
-    static constexpr int kVariants = 8;  // je Ebene Varianten 1 … kVariants (0 = keine)
+    static constexpr int kVariants = 12;     // je Ebene Varianten 1 … kVariants (0 = keine)
     static constexpr int kSlots = 24;    // fertige Aussehen zugleich (älteste ungenutzte werden ersetzt)
-    static constexpr int kFrameCost = 1500;  // Aufwand je Bild im Budget (Einheiten wie light_row_cost)
+    // Aufwand je Bild im Budget (Einheiten wie light_row_cost, 4 je µs): am Gerät mit Statur 716–736 µs je Bild im
+    // Betrieb (0.5.9 Teil 5, Ortsbefehl „figuren neu“, „bench figuren“), also höchstens zwei Bilder je Schritt
+    static constexpr int kFrameCost = 3000;
+    static constexpr int kStatureTop = 4;    // fertige Bilder sind so viele Zeilen höher als die Ebenen (größte Statur)
 
     FigureArt() = default;
     FigureArt(const FigureArt&) = delete;
@@ -51,6 +56,7 @@ public:
     // Zusammensetzen mit Budget; gibt den Aufwand zurück
     int prepare(int budget);
     int ready() const;  // fertige Aussehen (Prüfungen)
+    void rebuild() { clear(); }  // alle Bilder neu zusammensetzen (Messung)
     static bool any_part(const FigureLook& look);  // hat überhaupt eine Ebene (sonst zeichnet der Ort die Testfigur)
 
 private:
@@ -73,7 +79,7 @@ private:
     int width_ = 0, height_ = 0, pivot_x_ = 0, pivot_y_ = 0;
     Slot slots_[kSlots]{};
     uint32_t tick_ = 0;
-    uint8_t* scratch_ = nullptr;  // Kopie eines Bildes für die Kontur
+    uint8_t* scratch_ = nullptr;  // Arbeitsfläche beim Zusammensetzen (Bild vor der Kontur, Spalten je Zeile)
 };
 
 }  // namespace pixelia

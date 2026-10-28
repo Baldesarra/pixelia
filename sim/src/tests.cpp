@@ -1206,8 +1206,9 @@ std::vector<Case> overlay_cases() {
                  const Hit a = r.stage.hit(x, y - 18);
                  if (a.kind != Hit::Kind::Figure) return "Figur " + std::to_string(f[i].id) + " nicht getroffen";
                  if (a.id != f[i].id && a.y < y) return std::string("weiter hinten stehende Figur getroffen");
-                 // linke obere Ecke der Zelle (16 × 32 grob) ist durchsichtig: dort darf diese Figur nicht treffen
-                 const Hit b = r.stage.hit(x - 15, y - 58);
+                 // linke obere Ecke des Bildes ist durchsichtig: dort darf diese Figur nicht treffen (seit 0.5.9 Teil 5
+                 // die oberste Zeile, 37 grob über dem Fußpunkt; tiefer reichen die Hüte großer Figuren hin)
+                 const Hit b = r.stage.hit(x - 15, y - 74);
                  if (b.kind == Hit::Kind::Figure && b.id == f[i].id) return std::string("durchsichtiger Punkt trifft");
                  ++checked;
              }
@@ -2159,6 +2160,7 @@ std::vector<Case> save_cases() {
              book.learn(book.at(3).id, Skill::Baking, 400, 1, 660);
              book.bond(book.at(1).id, book.at(2).id, 70, 1, 660);
              a.stage.environment().flags.set("brunnen", true);
+             book.at(5).look.build = pixelia::Stature{2, -1, 2, 1};  // Statur (seit 0.5.9 Teil 5) hinten im Datensatz
              a.run(2);
              const std::vector<uint8_t> s1 = save_of(a.stage, 4);
              if (s1.empty()) return std::string("Speichern: Puffer zu klein");
@@ -2173,6 +2175,8 @@ std::vector<Case> save_cases() {
              }
              if (rep.figures != 14 || rep.chronicle == 0) return "Bericht: " + std::to_string(rep.figures) + " Figuren";
              if (!b.stage.environment().flags.has("brunnen")) return std::string("Merker fehlt");
+             const pixelia::FigureRecord* g = b.stage.environment().figures.find(book.at(5).id);
+             if (!g || !(g->look.build == pixelia::Stature{2, -1, 2, 1})) return std::string("Statur fehlt");
              std::string e = figures_ok(b.stage);
              return e.empty() ? std::string() : "nach dem Laden: " + e;
          }},
@@ -2407,6 +2411,9 @@ std::vector<Case> save_cases() {
              if (!b.stage.load_state(old.data(), old.size(), &rep)) return std::string("Vorlage: ") + rep.why;
              if (rep.figures != 14 || rep.transit < 1) return "Vorlage: " + std::to_string(rep.figures) + " Figuren";
              if (std::string e = figures_ok(b.stage); !e.empty()) return "Vorlage: " + e;
+             const pixelia::FigureBook& fb = b.stage.environment().figures;  // Stand ohne Statur: Standard-Statur
+             for (int k = 0; k < fb.count(); ++k)
+                 if (!(fb.at(k).look.build == pixelia::Stature{})) return std::string("Vorlage: Statur nicht Standard");
              // nur Weltzeit und ein unbekannter Abschnitt: der Rest bleibt beim Anfangswert
              std::vector<uint8_t> buf(1024);
              pixelia::SaveWriter w(buf.data(), buf.size());

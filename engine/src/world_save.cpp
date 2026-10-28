@@ -376,6 +376,12 @@ size_t Stage::save_state(uint8_t* buf, size_t cap, uint32_t generation) const {
             w.u8(o.count);
             w.u8(o.state);
         }
+        // seit 0.5.9 Teil 5: Statur hinten im Datensatz (ältere Leser überspringen sie, ältere Stände haben keine)
+        w.u8(4);
+        w.u8(static_cast<uint8_t>(f.look.build.height));
+        w.u8(static_cast<uint8_t>(f.look.build.width));
+        w.u8(f.look.build.belly);
+        w.u8(f.look.build.stoop);
         w.record_end(r);
     }
 
@@ -625,6 +631,15 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
                     set_text(f.owns[x].key, tmp);
                     f.owns[x].count = count;
                     f.owns[x].state = state;
+                }
+                if (r.left()) {  // Statur (seit Teil 5); fehlt sie, bleibt die Standard-Statur
+                    const int n = r.u8();
+                    uint8_t b[4] = {};
+                    for (int x = 0; x < n; ++x) {
+                        const uint8_t v = r.u8();
+                        if (x < 4) b[x] = v;
+                    }
+                    f.look.build = clamp_stature(Stature{static_cast<int8_t>(b[0]), static_cast<int8_t>(b[1]), b[2], b[3]});
                 }
                 if (f.id == 0) continue;
                 // nie eine Figur verlieren: Ort unbekannt → in den ersten Ort der Welt

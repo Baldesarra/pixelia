@@ -651,7 +651,7 @@ bool handle(char* line) {
         ESP_LOGI(TAG, "Figuren-Baukasten: %lu Bilder, im Mittel %.0f µs (max %lld µs), erstes nach %.2f s, fertig nach %.2f s (zuletzt %.2f s)",
                  static_cast<unsigned long>(st.frames), per, static_cast<long long>(st.max_us), st.first_us / 1e6,
                  st.first_done_us / 1e6, st.done_us / 1e6);
-        ESP_LOGI(TAG, "Budget: kFrameCost %d ≈ %.0f µs geschätzt (Vorarbeit %d je Schritt ≈ 1,5 ms)", pixelia::FigureArt::kFrameCost,
+        ESP_LOGI(TAG, "Budget: kFrameCost %d ≈ %.0f µs geschätzt (Vorarbeit %d je Schritt ≈ 1,5 ms); neu: ort cmd figuren neu", pixelia::FigureArt::kFrameCost,
                  pixelia::FigureArt::kFrameCost * 1500.0 / pixelia::Stage::kPrepareBudget, pixelia::Stage::kPrepareBudget);
     } else if (is("bench")) {
         // Messung fürs Zeichnen (seit 0.5.1, Grundlage für 0.5.2): Verdoppeln 200×120 → 400×240 und Kopie des

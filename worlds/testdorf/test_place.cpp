@@ -180,32 +180,41 @@ constexpr const char* kLookParts[kLookLayers][FigureArt::kVariants] = {
     {"figur/koerper/normal", "figur/koerper/brille"},
     {"figur/beine/hose", "figur/beine/rock"},
     {"figur/oberteil/hemd", "figur/oberteil/kleid", "figur/oberteil/kleid-schuerze", "figur/oberteil/weste",
-     "figur/oberteil/mantel", "figur/oberteil/lederschurz", "figur/oberteil/kleid-tuch"},
+     "figur/oberteil/mantel", "figur/oberteil/lederschurz", "figur/oberteil/kleid-tuch", "figur/oberteil/gehrock",
+     "figur/oberteil/wirtsschuerze"},
     {"figur/haare/kurz", "figur/haare/dutt", "figur/haare/zoepfe", "figur/haare/lang", "figur/haare/glatze",
-     "figur/haare/kurz-bart", "figur/haare/kurz-schnurrbart"},
-    {"figur/kopf/haube", "figur/kopf/schlapphut", "figur/kopf/muetze"},
-    {"figur/werkzeug/schieber", "figur/werkzeug/hammer", "figur/werkzeug/hobel"},
+     "figur/haare/kurz-bart", "figur/haare/kurz-schnurrbart", "figur/haare/glatze-bart", "figur/haare/glatze-schnurrbart"},
+    {"figur/kopf/haube", "figur/kopf/schlapphut", "figur/kopf/muetze", "figur/kopf/kopftuch", "figur/kopf/strohhut"},
+    {"figur/werkzeug/schieber", "figur/werkzeug/hammer", "figur/werkzeug/hobel", "figur/werkzeug/stock"},
 };
 
 // Aussehen der Testfiguren, solange das Gebiet keine Figurendaten hat (echte Startbesetzung mit 0.6.0): nach Kennung.
-// Je Ebene {Variante, Farbreihe}; Greta (Bäckerin) und Jakob (Tischler, Kluft der Walz) aus SETTING.md Kapitel 3
-constexpr FigureLook look_of(std::array<std::array<uint8_t, 2>, kLookLayers> p) {
+// Je Ebene {Variante, Farbreihe}, dazu die Statur {Größe, Breite, Bauch, gebeugt}; zehn Figuren aus SETTING.md
+// Kapitel 3 (Wahl des Users 2026-10-28)
+constexpr FigureLook look_of(std::array<std::array<uint8_t, 2>, kLookLayers> p, Stature build = {}) {
     FigureLook l{};
     for (int i = 0; i < kLookLayers; ++i) {
         l.part[i] = p[i][0];
         l.row[i] = p[i][1];
     }
+    l.build = build;
     return l;
 }
 constexpr FigureLook kTestLooks[] = {
-    look_of({{{1, kRowSkinLight}, {2, 0}, {3, kRowBlue}, {2, kRowHairBlond}, {1, kRowLinen}, {1, 0}}}),     // Greta
-    look_of({{{1, kRowSkinLight}, {1, kRowBlack}, {4, kRowBlack}, {6, kRowHairBrown}, {2, kRowBlack}, {3, 0}}}),  // Jakob
-    look_of({{{1, kRowSkinMid}, {2, 0}, {2, kRowGreen}, {3, kRowHairRed}, {0, 0}, {0, 0}}}),               // Ida
-    look_of({{{1, kRowSkinDark}, {1, kRowWood}, {6, kRowLinen}, {7, kRowBlack}, {0, 0}, {2, 0}}}),          // Konrad
-    look_of({{{2, kRowSkinLight}, {2, 0}, {7, kRowLavender}, {2, kRowHairGrey}, {0, 0}, {0, 0}}}),         // Großmutter
-    look_of({{{1, kRowSkinLight}, {1, kRowBlue}, {5, kRowBlue}, {7, kRowHairGrey}, {3, kRowBlue}, {0, 0}}}),   // Otto
-    look_of({{{1, kRowSkinMid}, {2, 0}, {2, kRowRed}, {4, kRowHairBrown}, {0, 0}, {0, 0}}}),               // Lene
-    look_of({{{1, kRowSkinLight}, {1, kRowWood}, {1, kRowYellow}, {1, kRowHairBlond}, {3, kRowRed}, {2, 0}}}),  // Emil
+    look_of({{{1, kRowSkinLight}, {2, 0}, {3, kRowBlue}, {2, kRowHairBlond}, {1, kRowLinen}, {1, 0}}}, {0, 1, 1, 0}),  // Greta, 24
+    look_of({{{1, kRowSkinLight}, {1, kRowBlack}, {4, kRowBlack}, {6, kRowHairBrown}, {2, kRowBlack}, {3, 0}}},
+            {1, -1, 0, 0}),                                                                                      // Jakob, 27
+    look_of({{{1, kRowSkinMid}, {2, 0}, {2, kRowGreen}, {3, kRowHairRed}, {0, 0}, {0, 0}}}, {-1, -1, 0, 0}),        // Ida, 26
+    look_of({{{1, kRowSkinDark}, {1, kRowWood}, {6, kRowLinen}, {7, kRowBlack}, {0, 0}, {2, 0}}}, {1, 1, 1, 0}),     // Konrad, 44
+    look_of({{{2, kRowSkinLight}, {2, 0}, {7, kRowLavender}, {2, kRowHairGrey}, {4, kRowWood}, {0, 0}}},
+            {-1, 0, 0, 1}),                                                                                      // Martha, 72
+    look_of({{{1, kRowSkinLight}, {1, kRowWood}, {1, kRowYellow}, {1, kRowHairBlond}, {5, kRowYellow}, {0, 0}}},
+            {2, 0, 0, 0}),                                                                                       // Otto, 29
+    look_of({{{1, kRowSkinMid}, {2, 0}, {2, kRowRed}, {2, kRowHairGrey}, {0, 0}, {0, 0}}}, {-1, 0, 1, 0}),          // Lene, 66
+    look_of({{{1, kRowSkinLight}, {1, kRowBlue}, {8, kRowBlue}, {7, kRowHairBrown}, {3, kRowBlue}, {0, 0}}}),        // Emil, 36
+    look_of({{{1, kRowSkinLight}, {1, kRowBlack}, {9, kRowRed}, {9, kRowHairGrey}, {0, 0}, {0, 0}}}, {0, 1, 2, 0}),  // Gustav, 46
+    look_of({{{1, kRowSkinLight}, {1, kRowHairGrey}, {5, kRowWood}, {8, kRowHairGrey}, {0, 0}, {4, 0}}},
+            {0, -1, 0, 1}),                                                                                      // Wilhelm, 66
 };
 constexpr int kTestLookCount = sizeof(kTestLooks) / sizeof(kTestLooks[0]);
 
@@ -1175,6 +1184,11 @@ bool TestPlace::command(const char* cmd) {
         const int floor = daylight_.floor();
         daylight_ = daylight_preset(std::clamp(n, 0, kDaylightPresets - 1));
         daylight_.set_floor(floor);
+        return true;
+    }
+    if (std::strcmp(cmd, "figuren neu") == 0) {  // Messung (seit 0.5.9 Teil 5): alle Figurenbilder im Betrieb neu
+        reset_figure_art_stats();
+        kit().art.rebuild();
         return true;
     }
     if (std::sscanf(cmd, "nacht %d", &n) == 1) {
