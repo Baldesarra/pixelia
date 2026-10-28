@@ -213,7 +213,7 @@ constexpr FigureLook kTestLooks[] = {
     look_of({{{1, kRowSkinMid}, {2, 0}, {2, kRowRed}, {2, kRowHairGrey}, {0, 0}, {0, 0}}}, {-1, 0, 1, 0}),          // Lene, 66
     look_of({{{1, kRowSkinLight}, {1, kRowBlue}, {8, kRowBlue}, {7, kRowHairBrown}, {3, kRowBlue}, {0, 0}}}),        // Emil, 36
     look_of({{{1, kRowSkinLight}, {1, kRowBlack}, {9, kRowRed}, {9, kRowHairGrey}, {0, 0}, {0, 0}}}, {0, 1, 2, 0}),  // Gustav, 46
-    look_of({{{1, kRowSkinLight}, {1, kRowHairGrey}, {5, kRowWood}, {8, kRowHairGrey}, {0, 0}, {4, 0}}},
+    look_of({{{1, kRowSkinLight}, {1, kRowHairGrey}, {5, kRowGreen}, {8, kRowHairGrey}, {0, 0}, {4, 0}}},
             {0, -1, 0, 1}),                                                                                      // Wilhelm, 66
 };
 constexpr int kTestLookCount = sizeof(kTestLooks) / sizeof(kTestLooks[0]);

@@ -87,8 +87,8 @@ def geom(v, fr, breathe):
     return dict(by=by, ly=by + 9, a0=by + 1, bob=1 if fr in (1, 3) or breathe else 0)
 
 
-def draw_layer(layer, kind, v, fr, breathe=0):
-    """Eine Ebene in Ansicht v ('f', 'b', 's'), Gehbild fr (0–3)."""
+def draw_layer(layer, kind, v, fr, breathe=0, stand=False):
+    """Eine Ebene in Ansicht v ('f', 'b', 's'), Gehbild fr (0–3); stand: Standbild oder atmen (nicht Gehen)."""
     g = geom(v, fr, breathe)
     by, ly, a0, bob = g['by'], g['ly'], g['a0'], g['bob']
     yb, ey = Y + bob, Y + bob + 7
@@ -306,9 +306,16 @@ def draw_layer(layer, kind, v, fr, breathe=0):
             s.r(hx, hy, 9, 1, WOOD[1]); s.r(hx + 8, hy - 2, 4, 5, WOOD[0]); s.r(hx + 8, hy + 2, 4, 1, WOOD[1])
         elif kind == 'hammer':
             s.r(hx + (0 if v == 'f' else 1), hy - 1, 1, 5, WOOD[2]); s.r(hx - 2, hy + 3, 5, 2, IRON[1]); s.p(hx - 2, hy + 3, IRON[0])
-        elif kind == 'stock':  # Gehstock: vorn neben dem Körper, von der Seite vor der Hand bis zum Boden
-            sx = CX - 8 if v == 'f' else hx + 2
-            s.r(sx, hy + 1, 1, FOOT + 1 - hy - 1, WOOD[1]); s.r(sx - 1, hy, 3, 1, WOOD[0])
+        elif kind == 'stock':  # Gehstock: im Stand schräg vor sich aufgesetzt, die Hand oben auf dem Griff (Wunsch des
+            # Users 2026-10-28); beim Gehen pendelt er mit dem Schritt
+            if v == 'f':
+                top, tip = CX - 7, CX - 9 if stand else CX - 8
+            else:
+                top, tip = hx + 1, hx + 5 if stand else hx + 1 + [2, 4, 2, 0][fr]
+            n = FOOT - hy
+            for k in range(n):
+                s.p(top + round((tip - top) * (k + 1) / n), hy + 1 + k, WOOD[1])
+            s.r(top - 1, hy - (1 if stand else 0), 3, 1, WOOD[0])
         elif kind == 'hobel':
             s.r(hx - 3, hy + 1, 7, 3, WOOD[1]); s.r(hx - 3, hy + 1, 7, 1, WOOD[0]); s.r(hx, hy - 1, 2, 2, WOOD[2]); s.p(hx - 2, hy + 3, IRON[0])
     return s
@@ -402,7 +409,7 @@ def strip(layer, kind):
     out = [[0] * (FW * 15) for _ in range(FH)]
     for vi, v in enumerate('fbs'):
         for pi, (fr, br) in enumerate(POSES):
-            s = draw_layer(layer, kind, v, fr, br)
+            s = draw_layer(layer, kind, v, fr, br, pi in (0, 4))
             for y in range(FH):
                 for x in range(FW):
                     out[y][(vi * 5 + pi) * FW + x] = s.d[y][x + OX]
@@ -431,7 +438,7 @@ def build(target='assets/testorte/figuren'):
 
 ROWS = {  # Platzhalter 20–22 → Farben (wie die Farbreihen in assets/testorte/pakete.json)
     'haut-hell': (48, 49, 50), 'haut-mittel': (64, 65, 66), 'haut-dunkel': (13, 14, 15),
-    'haar-braun': (51, 52, 53), 'haar-blond': (32, 33, 34), 'haar-rot': (42, 41, 40), 'haar-grau': (58, 59, 60),
+    'haar-braun': (51, 52, 53), 'haar-blond': (32, 33, 34), 'haar-rot': (25, 26, 40), 'haar-grau': (58, 59, 60),
     'haar-schwarz': (52, 53, 1), 'rot': (24, 25, 26), 'blau': (28, 29, 30), 'gelb': (32, 33, 34),
     'lavendel': (36, 37, 38), 'holz': (64, 65, 66), 'leinen': (10, 16, 17), 'schwarz': (52, 53, 1),
     'gruen': (2, 3, 5), 'stein': (58, 59, 60),
@@ -457,7 +464,7 @@ PEOPLE = {  # (Variante, Farbreihe) je Ebene, Statur (Größe, Breite, Bauch, ge
                  haare=('kurz-schnurrbart', 'haar-braun'), kopf=('muetze', 'blau')),
     'gustav': dict(koerper=('normal', 'haut-hell'), beine=('hose', 'schwarz'), oberteil=('wirtsschuerze', 'rot'),
                    haare=('glatze-schnurrbart', 'haar-grau'), statur=(0, 1, 2, 0)),
-    'wilhelm': dict(koerper=('normal', 'haut-hell'), beine=('hose', 'haar-grau'), oberteil=('mantel', 'holz'),
+    'wilhelm': dict(koerper=('normal', 'haut-hell'), beine=('hose', 'haar-grau'), oberteil=('mantel', 'gruen'),
                     haare=('glatze-bart', 'haar-grau'), werkzeug=('stock', None), statur=(0, -1, 0, 1)),
 }
 
@@ -482,7 +489,7 @@ def outline_table():
 OUTC = outline_table()
 
 
-def compose(who, v, fr, breathe=0):
+def compose(who, v, fr, breathe=0, stand=False):
     """Fertiges Bild (SW × (SH + TOP)) wie FigureArt: Ebenen mit Statur und Farbreihe, dann Kontur außen."""
     look = PEOPLE[who]
     st = look.get('statur', (0, 0, 0, 0))
@@ -494,7 +501,7 @@ def compose(who, v, fr, breathe=0):
         kind, row = look[layer]
         g = geom(v, fr, breathe)
         chin = SH if layer in ('haare', 'kopf') else BY + g['bob']
-        px = warp(draw_layer(layer, kind, v, fr, breathe), v, st, chin, layer == 'werkzeug')
+        px = warp(draw_layer(layer, kind, v, fr, breathe, stand), v, st, chin, layer == 'werkzeug')
         for y in range(H2):
             for x in range(SW):
                 c = px[y][x]
@@ -513,8 +520,8 @@ def compose(who, v, fr, breathe=0):
     return out
 
 
-def sprite(who, v, fr, flip=False):
-    idx = compose(who, v, fr)
+def sprite(who, v, fr, flip=False, stand=None):
+    idx = compose(who, v, fr, stand=fr == 0 if stand is None else stand)
     im = Image.new('RGBA', (SW, SH + TOP), (0, 0, 0, 0))
     for y in range(SH + TOP):
         for x in range(SW):
@@ -575,7 +582,7 @@ def gif(target, bg_path):
                 fr = (f // 2) % 4
             items.append((y, who, x, v, fr, flip))
         for y, who, x, v, fr, flip in sorted(items):
-            sp = sprite(who, v, fr, flip).resize((SW * 2, SH * 2), Image.NEAREST)
+            sp = sprite(who, v, fr, flip, len(paths[who]) == 1).resize((SW * 2, (SH + TOP) * 2), Image.NEAREST)
             cx = (SW - 1 - CX) if flip else CX
             im.alpha_composite(sp, (int(round(x * 2 - cx * 2)), int(round(y * 2 - (FOOT + TOP + 1) * 2))))
         frames.append(im.resize((800, 480), Image.NEAREST).convert('RGB').quantize(colors=255))
@@ -591,7 +598,7 @@ def walk(target, bg=(214, 202, 178), z=3):
         v, flip = (('f', False), ('s', False), ('b', False), ('s', True))[f // 8]
         im = Image.new('RGBA', (len(who) * 26 + 4, SH + TOP - 2), bg + (255,))
         for i, w in enumerate(who):
-            im.alpha_composite(sprite(w, v, (f // 2) % 4, flip).crop((OX - 2, 2, OX + FW + 2, SH + TOP)), (2 + i * 26, 0))
+            im.alpha_composite(sprite(w, v, (f // 2) % 4, flip, False).crop((OX - 2, 2, OX + FW + 2, SH + TOP)), (2 + i * 26, 0))
         frames.append(im.resize((im.width * z, im.height * z), Image.NEAREST).convert('RGB').quantize(colors=255))
     frames[0].save(target, save_all=True, append_images=frames[1:], duration=130, loop=0)
     print('GIF:', target)

@@ -20,7 +20,7 @@
         "farbreihe/haut-dunkel": {"platzhalter": ["boden 2", "boden 3", "boden 4", "boden 4"]},
         "farbreihe/haar-braun": {"platzhalter": ["haar 1", "haar 2", "haar 3", "umriss"]},
         "farbreihe/haar-blond": {"platzhalter": "gelb"},
-        "farbreihe/haar-rot": {"platzhalter": ["glut hell", "glut", "glut kohle", "glut kohle"]},
+        "farbreihe/haar-rot": {"platzhalter": ["rot 2", "rot 3", "glut kohle", "glut kohle"]},
         "farbreihe/haar-grau": {"platzhalter": "stein"},
         "farbreihe/schwarz": {"platzhalter": ["haar 2", "haar 3", "umriss", "umriss"]},
         "farbreihe/leinen": {"platzhalter": ["bluete weiss", "wand 1", "wand 2", "wand 3"]},
