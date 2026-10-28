@@ -150,9 +150,29 @@ enum class LightStyle : uint8_t {
     Coarse,   // grobes Raster: 4 × 4 Displaypunkte (ein grober Bildpunkt), klassischer Pixel-Look
     Stepped,  // hart gestuft: Ringe ohne Raster
 };
-// Lichtkarte im groben Raster w × h: je Bildpunkt die Stufen (0 … 3) seiner vier feinen Bildpunkte, je 2 Bit:
+// Lichtkarte im groben Raster: je Bildpunkt die Stufen (0 … 3) seiner vier feinen Bildpunkte, je 2 Bit:
 // Bit 0–1 oben links, 2–3 oben rechts, 4–5 unten links, 6–7 unten rechts. Größter Wert aller Kreise, Raster nach style.
-void build_light_map(uint8_t* map, int w, int h, const LightCircle* lights, int n, int levels, LightStyle style);
+// Seit 0.5.9 Teil 3 Zeile für Zeile aus Tabellen (LightPlan: Abfall je Kreis nach d², Stufen nach Lichtwert und Lage im
+// Raster) statt Wurzel und Division je Bildpunkt; so verteilt Room::build_lights den Neubau über mehrere Schritte.
+constexpr int kMaxLightCircles = 8;
+constexpr int kLightValueMax = 192;  // Lichtwert der obersten Stufe (3 × 64)
+struct LightPlan {
+    std::array<LightCircle, kMaxLightCircles> lights{};
+    int n = 0;
+    std::array<uint8_t, kMaxLightCircles> shift{};                        // d² in 1/65536 = (q >> shift) · mul >> 16
+    std::array<uint32_t, kMaxLightCircles> mul{};                         // mit r = rx²·ry², q = dx²·ry² + dy²·rx²
+    std::array<uint32_t, kMaxLightCircles> inner_q{};                     // q darunter: volles Licht (ohne Rechnung)
+    std::array<std::array<uint16_t, 257>, kMaxLightCircles> falloff{};    // Lichtwert × 256 bei d² = t / 256
+    std::array<std::array<uint8_t, kLightValueMax + 1>, 16> pack{};       // gepackte Stufen nach Lage (y&3, x&3)
+    int top = -1;                                                          // Tabellen gelten für diese Stufen …
+    LightStyle style = LightStyle::Fine;                                   // … und dieses Raster
+};
+// Tabellen für die Kreise (je Kreis 256 Wurzeln, nur für geänderte Kreise); n wird auf kMaxLightCircles begrenzt
+void plan_light_map(LightPlan* plan, const LightCircle* lights, int n, int levels, LightStyle style);
+// Aufwand einer Zeile (für das Budget je Schritt): Grundaufwand plus Breite der Kreise, die sie schneiden
+int light_row_cost(const LightPlan& plan, int y, int w);
+// Zeile y neu (row = Anfang der Zeile, w Bildpunkte): leeren, alle Kreise eintragen; *x0/*x1 = Bereich mit Licht
+void build_light_row(uint8_t* row, int w, int y, const LightPlan& plan, uint8_t* x0, uint8_t* x1);
 // Stufe am Fußpunkt einer Figur: Mittel der Karte über das 4 × 4-Feld um (x, y), gerundet
 int light_level_at(const uint8_t* map, int w, int h, int x, int y);
 

@@ -182,7 +182,11 @@ Stage::Stage() : assets_(&asset_store()) {
     // Ereignis-Bus (seit 0.5.8): Kalender und Ortszustände melden dorthin, Kurzmeldungen liest die Anzeige
     env_.calendar.set_bus(&env_.events);
     env_.states.set_bus(&env_.events);
+    env_.figures.set_bus(&env_.events);
     toast_reader_ = env_.events.subscribe(kCalendarEvents);
+    // Chronik (seit 0.5.9): Kalender, neue Stufen von Fähigkeiten und Beziehungen
+    chron_reader_ = env_.events.subscribe(kCalendarEvents | event_bit(EventKind::SkillUp) | event_bit(EventKind::BondChanged));
+    place_of_.fill(-1);
 }
 
 Stage::~Stage() {
@@ -193,6 +197,7 @@ int Stage::add(std::unique_ptr<Scene> scene) {
     if (count_ >= kMaxScenes || !scene) return -1;
     scenes_[count_] = std::move(scene);
     scenes_[count_]->set_environment(&env_);
+    place_of_[count_] = static_cast<int16_t>(place_index(scenes_[count_]->name()));
     return count_++;
 }
 
@@ -246,6 +251,7 @@ void Stage::prefetch_neighbors() {
 }
 
 void Stage::init(uint64_t seed) {
+    seed_ = seed;
     env_.weather.init(seed);
     env_.weather_sim.init(seed ^ 0x57E77E5157ULL);
     world_minute_ = INT64_MIN;
@@ -254,8 +260,20 @@ void Stage::init(uint64_t seed) {
     state_minute_ = INT64_MIN;
     env_.world_minute = INT64_MIN;
     env_.events.clear();
+    env_.chronicle.clear();
+    env_.visits.clear();
     arming_ = -1;
+    transit_n_ = 0;
+    wake_pending_ = false;
+    saved_minute_ = INT64_MIN;
+    caught_up_ = skipped_ = 0;
+    past_key_ = INT64_MIN;
+    grid_ = INT64_MIN;  // Stufen der Simulation (seit 0.5.9 Teil 2): der erste Schritt setzt alle an
+    decisions_ = reseats_ = 0;
+    last_grid_steps_ = 0;
     for (int i = 0; i < count_; ++i) scenes_[i]->init(seed + static_cast<uint64_t>(i) * 0x9E3779B97F4A7C15ULL);
+    populate_figures();  // seit 0.5.9: die Figuren gehören der Welt, die Orte zeigen sie
+    adopt_figures();
     if (active_ >= count_) active_ = 0;
     from_ = -1;
     pending_ = -1;
@@ -443,43 +461,6 @@ void Stage::start_transition(int to, Transition t) {
     sync_entered();  // Abblenden: das Ziel wird betreten, sobald es geladen ist
 }
 
-void Stage::deliver_travels(const WorldClock& clock) {
-    // Ankünfte von Verbindungen mit Reisezeit (seit 0.5.8), in der Reihenfolge des Aufbruchs. Springt die Uhr zurück
-    // (Testuhr), kommt man gleich an
-    const int64_t now = clock.world_us();
-    for (int k = 0; k < transit_n_;) {
-        const Transit& tr = transit_[k];
-        if (now < tr.arrive_us && now >= tr.depart_us) {
-            ++k;
-            continue;
-        }
-        const Transit done = tr;
-        for (int j = k + 1; j < transit_n_; ++j) transit_[j - 1] = transit_[j];
-        --transit_n_;
-        arrive_at(done.from, done.to, done.t);
-    }
-    // Reihenfolge der Orte fest: gehört zum deterministischen Ablauf
-    for (int i = 0; i < count_; ++i) {
-        Travel t;
-        for (int n = 0; n < 16 && scenes_[i]->take_travel(&t); ++n) {
-            const int to = t.to ? find(t.to) : -1;
-            if (to < 0) {
-                t.entry = t.from_exit;
-                scenes_[i]->arrive(t);
-                continue;
-            }
-            if (t.travel > 0 && transit_n_ < kMaxTransit) {
-                // auf der Verbindung: gehört keinem Ort, bis die Reisezeit um ist (eine Figur ist nie doppelt)
-                transit_[transit_n_++] = Transit{t, now, now + static_cast<int64_t>(t.travel) * 1000000,
-                                                 static_cast<uint8_t>(i), static_cast<uint8_t>(to)};
-                publish_travel(EventKind::Departed, i, to, t);
-                continue;
-            }
-            arrive_at(i, to, t);
-        }
-    }
-}
-
 void Stage::publish_travel(EventKind kind, int from, int to, const Travel& t) {
     WorldEvent e;
     e.kind = kind;
@@ -489,15 +470,6 @@ void Stage::publish_travel(EventKind kind, int from, int to, const Travel& t) {
     e.lead = t.follow;
     e.day = env_.calendar.date().day;
     env_.events.publish(e);
-}
-
-void Stage::arrive_at(int from, int to, const Travel& t) {
-    ++travels_;
-    scenes_[to]->arrive(t);
-    publish_travel(EventKind::Arrived, from, to, t);
-    // der Blick folgt bei der Ankunft (bei Wegen mit Reisezeit bleibt er so lange am Ausgangsort)
-    const bool followed = follow_who_ == 0 ? t.follow : follow_who_ != kNobody && t.who == follow_who_;
-    if (followed && follow_ && from == active_ && from_ < 0 && pending_ < 0) start_transition(to, t.transition);
 }
 
 // Ein Durchgang mit Toleranz (Summe der Abstände je Kanal); last: ist alles belegt, die nächste Farbe nehmen
@@ -576,15 +548,23 @@ void Stage::update_palette() {
 }
 
 void Stage::tick(const WorldClock& clock) {
+    world_us_ = clock.world_us();
     env_.events.deliver();  // Takt-Grenze: was im letzten Schritt gemeldet wurde, sehen jetzt alle
+    read_chronicle();
     if (pending_ >= 0) {
         const int to = pending_;
         pending_ = -1;
         start_transition(to, pending_trans_);  // setzt pending_ wieder, solange das Ziel noch lädt
     }
+    // Seit 0.5.9 Teil 2: Tätigkeiten und Übergaben (world_sim.cpp) vor Kalender und Ortszuständen, damit beide Stufen
+    // bei jeder Entscheidung dieselbe Umgebung sehen
+    advance(world_us_);
     update_world(clock);
     env_.weather.tick();  // vor den Orten: alle sehen im selben Schritt dasselbe Wetter
-    for (int i = 0; i < count_; ++i) scenes_[i]->tick(clock);
+    // volle Stufe: nur die betretenen Orte zeigen (seit 0.5.9 Teil 2; vorher rechneten alle Orte mit 30 Hz)
+    const uint32_t ticked = entered_;
+    for (int i = 0; i < count_; ++i)
+        if (entered(i)) scenes_[i]->tick(clock);
     const bool was = from_ >= 0;
     if (from_ >= 0) {
         // Abblenden: vor der zweiten Hälfte muss das Ziel betreten sein; sonst in der dunklen Mitte warten
@@ -596,24 +576,49 @@ void Stage::tick(const WorldClock& clock) {
         else if (++step_ >= ticks_)
             from_ = -1;
     }
-    deliver_travels(clock);
     if (was && from_ < 0) {
         sync_pins();
         sync_entered();
     }
     if (from_ < 0 && !entered(active_)) sync_entered();  // z. B. nach set_active, sobald geladen
+    // eben erst betreten (Mitte des Abblendens, geladen): gleich einmal zeigen, damit Palette und Figuren stimmen
+    for (int i = 0; i < count_; ++i)
+        if (entered(i) && !(ticked & (1u << i))) scenes_[i]->tick(clock);
+    prepare_scenes();
     if (from_ >= 0) update_palette();
     if (from_ < 0 && pending_ < 0 && prefetched_ != active_) prefetch_neighbors();
 }
 
+void Stage::prepare_scenes() {
+    // Seit 0.5.9 Teil 3: teure Darstellung (Lichtkarten) mit festem Budget je Schritt statt in einem Stück (bis 31 ms
+    // nach dem Start, nach Uhrsprüngen, beim ersten Betreten). Sichtbares zuerst, dann ein unsichtbarer Ort nach dem
+    // anderen, damit jeder bald fertig ist
+    int budget = kPrepareBudget;
+    for (int i = 0; i < count_ && budget > 0; ++i)
+        if (entered(i)) budget -= scenes_[i]->prepare(budget);
+    for (int k = 0; k < count_ && budget > 0; ++k) {
+        const int i = (prepare_next_ + k) % count_;
+        if (entered(i)) continue;
+        if (const int used = scenes_[i]->prepare(budget)) {
+            budget -= used;
+            prepare_next_ = i;
+        }
+    }
+    last_prepare_ = kPrepareBudget - budget;
+}
+
 int Stage::find_figure(uint16_t id) const {
     if (id == 0) return -1;
+    // seit 0.5.9 aus dem Weltzustand; Statisten kennt nur ihr Ort
+    if (const FigureRecord* f = env_.figures.find(id))
+        return f->where.kind == Whereabouts::Kind::Place ? scene_of(f->where.place) : -1;
     for (int i = 0; i < count_; ++i)
         if (scenes_[i]->has_figure(id)) return i;
     return -1;
 }
 
 uint16_t Stage::lead() const {
+    if (env_.figures.count() > 0) return env_.figures.lead();
     // Orte nennen die Hauptfigur zuerst (Scene::figures)
     FigureInfo f[1];
     for (int i = 0; i < count_; ++i)
@@ -738,12 +743,33 @@ void Stage::update_world(const WorldClock& clock) {
     const int64_t day = us >= 0 ? us / WorldClock::kUsPerDay : (us - WorldClock::kUsPerDay + 1) / WorldClock::kUsPerDay;
     const int minute = clock.minute_of_day();
     const int64_t wm = day * 1440 + minute;
-    if (wm == world_minute_) return;
+    if (wm == world_minute_) {
+        if (state_minute_ != INT64_MIN && state_minute_ < wm) step_states(wm);  // Nachholen läuft weiter
+        return;
+    }
     const bool first = !sim_applied_ && world_minute_ == INT64_MIN && override_key_ == kNoOverride;
     world_minute_ = wm;
     WorldCalendar& cal = env_.calendar;
-    if (!cal.started()) cal.start(day);
+    if (!cal.started()) {
+        cal.start(day);
+        ChronicleEntry c;
+        c.kind = ChronicleKind::Start;
+        c.day = 1;
+        c.minute = static_cast<uint16_t>(minute);
+        std::snprintf(c.text, sizeof(c.text), "Die Welt beginnt: Tag 1");
+        env_.chronicle.add(c);
+    }
     cal.update(day, minute);
+    if (wake_pending_) note_wake();
+    if (restored_pending_) {
+        restored_pending_ = false;
+        ChronicleEntry c;
+        c.kind = ChronicleKind::Restored;
+        c.day = static_cast<int32_t>(cal.date().day);
+        c.minute = static_cast<uint16_t>(minute);
+        std::snprintf(c.text, sizeof(c.text), "Speicherstand aus einer Sicherung eingespielt");
+        env_.chronicle.add(c);
+    }
     const int64_t key = weather_slot_key(day, minute);
     if (override_key_ == kPendingOverride) override_key_ = key;  // vor dem ersten Schritt übersteuert
     if (override_key_ != kNoOverride && key != override_key_) {
@@ -777,10 +803,14 @@ void Stage::update_world(const WorldClock& clock) {
 }
 
 void Stage::step_states(int64_t wm) {
-    // Ortszustände (seit 0.5.8): Minute für Minute bis jetzt, nach einem Sprung höchstens einen Tag nach; beim Start
-    // und wenn die Uhr zurückspringt nur die jetzige Minute
+    // Ortszustände (seit 0.5.8): Minute für Minute bis jetzt; beim Start und wenn die Uhr zurückspringt nur die jetzige
+    // Minute. Seit 0.5.9 Nachholen nach dem Laden bzw. einem Sprung: bis kCatchUpMinutes (3 Tage), je Schritt höchstens
+    // kCatchUpPerTick Minuten (gleiche Wirkung, verteilte Rechenzeit), Regen der verpassten Zeit aus der Wetter-Simulation
     if (state_minute_ == INT64_MIN || wm < state_minute_) state_minute_ = wm - 1;
-    if (wm - state_minute_ > 1440) state_minute_ = wm - 1440;
+    if (wm - state_minute_ > kCatchUpMinutes) {
+        skipped_ += wm - state_minute_ - kCatchUpMinutes;
+        state_minute_ = wm - kCatchUpMinutes;
+    }
     StateInput in;
     in.sun = env_.sky.sun();
     const WeatherState& w = env_.weather.state();
@@ -796,7 +826,9 @@ void Stage::step_states(int64_t wm) {
     // Hauptfigur: in welchem Haushalt (Kerze für Heimkehrer); unterwegs auf einer Verbindung = nicht daheim
     const uint16_t who = lead();
     const int at = find_figure(who);
-    if (at >= 0) {
+    if (const FigureRecord* f = env_.figures.find(who); f && f->where.kind != Whereabouts::Kind::Place) {
+        in.lead_known = true;  // unterwegs auf einer Verbindung: nicht daheim
+    } else if (at >= 0) {
         in.lead_known = true;
         const PlaceDef* d = find_place(scenes_[at]->name());
         in.lead_house = d ? d->house : nullptr;
@@ -804,11 +836,27 @@ void Stage::step_states(int64_t wm) {
         for (int k = 0; k < transit_n_; ++k) in.lead_known = in.lead_known || transit_[k].t.follow;
     }
     env_.states.set_day(env_.calendar.date().day);
-    for (int64_t m = state_minute_ + 1; m <= wm; ++m) {
-        const int64_t mod = ((m % 1440) + 1440) % 1440;
-        env_.states.step(static_cast<int>(mod), in);
+    const int64_t until = std::min(wm, state_minute_ + kCatchUpPerTick);
+    for (int64_t m = state_minute_ + 1; m <= until; ++m) {
+        const int64_t d = m >= 0 ? m / 1440 : (m - 1439) / 1440;
+        const int mod = static_cast<int>(m - d * 1440);
+        if (wm - m > 30) {
+            // verpasste Zeit: Regen nach der Wetter-Simulation dieser Wetterzeit (einmal je Wetterzeit gerechnet)
+            const int64_t key = weather_slot_key(d, mod);
+            if (key != past_key_) {
+                past_key_ = key;
+                const WeatherPick p = env_.weather_sim.at(env_.calendar, d, mod);
+                past_rain_ = p.kind == WeatherKind::Rain || p.kind == WeatherKind::Storm ? p.strength : 0;
+            }
+            StateInput past = in;
+            past.rain = past_rain_;
+            env_.states.step(mod, past);
+            ++caught_up_;
+        } else {
+            env_.states.step(mod, in);
+        }
     }
-    state_minute_ = wm;
+    state_minute_ = until;
 }
 
 void Stage::render(Canvas& fine) const {

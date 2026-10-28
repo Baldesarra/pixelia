@@ -136,6 +136,7 @@ void PlaceStates::update_phase(int i) {
     if (p == e.phase) return;
     e.phase = static_cast<uint8_t>(p);
     ++version_;
+    ++rev_[i];
     if (!bus_) return;
     WorldEvent ev;
     ev.kind = EventKind::StateChanged;
@@ -370,6 +371,40 @@ void PlaceStates::apply_rule(int i, int minute, const StateInput& in) {
         }
         case StateRule::None: return;
     }
+}
+
+PlaceStates::Saved PlaceStates::saved(int i) const {
+    const Entry& e = e_[i];
+    Saved s;
+    s.value = e.value;
+    s.heat = e.heat;
+    s.frac = e.frac;
+    s.bits = static_cast<uint8_t>((e.on ? 1 : 0) | (e.covered ? 2 : 0) | (e.want ? 4 : 0) | (e.ruled ? 8 : 0));
+    s.phase = e.phase;
+    return s;
+}
+
+void PlaceStates::restore(int i, const Saved& s) {
+    if (i < 0 || i >= n_) return;
+    Entry& e = e_[i];
+    e.value = s.value;
+    e.heat = s.heat;
+    e.frac = s.frac;
+    e.on = s.bits & 1;
+    e.covered = s.bits & 2;
+    e.want = s.bits & 4;
+    e.ruled = s.bits & 8;
+    e.phase = static_cast<uint8_t>(compute_phase(e));  // aus den Werten (die gespeicherte Stufe ist nur ein Hinweis)
+    ++version_;
+    ++rev_[i];
+    ++restored_;
+}
+
+uint32_t PlaceStates::place_version(std::string_view place) const {
+    uint32_t v = 0;
+    for (int i = 0; i < n_; ++i)
+        if (place == places_[e_[i].place].id) v += rev_[i];
+    return v;
 }
 
 }  // namespace pixelia

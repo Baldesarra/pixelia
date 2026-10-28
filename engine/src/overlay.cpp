@@ -96,6 +96,21 @@ int info_lines(Canvas& c, int x, int y, int w, int max_y, const Card& card) {
     return y;
 }
 
+// Stufe in einer Zeile (Wahl des Users 2026-10-28): Name links, rechts drei Segmente; das nächste füllt sich mit der
+// Erfahrung (dunkler). Gibt die Höhe zurück
+int meter(Canvas& c, int x, int y, int w, const CardMeter& m) {
+    constexpr int kSeg = 10, kGap = 1, kW = 3 * kSeg + 2 * kGap;
+    font::draw(c, x, y, font::ellipsize(m.label, w - kW - 6), kTextDim);
+    const int my = y + font::kCapTop + (font::kCapHeight - 5) / 2;
+    for (int k = 0; k < 3; ++k) {
+        const int sx = x + w - kW + k * (kSeg + kGap);
+        c.fill_rect(sx, my, kSeg, 5, kSurfaceHigh);
+        const int fill = k < m.level ? kSeg : k == m.level ? m.progress * kSeg / 255 : 0;
+        if (fill) c.fill_rect(sx, my, fill, 5, k < m.level ? kPrimary : kPrimaryDim);
+    }
+    return font::kLineHeight;
+}
+
 // Gedanke bzw. Beschreibung und Angaben untereinander; gibt das untere Ende zurück
 int body(Canvas& c, int x, int y, int w, int max_y, const Card& card, const CardStyle& st) {
     const int lh = font::kLineHeight;
@@ -112,6 +127,7 @@ int body(Canvas& c, int x, int y, int w, int max_y, const Card& card, const Card
         const int n = wrapped(c, x, y, w, card.lines[i], kTextDim, std::max(1, (max_y - y) / lh), font::Style::Normal);
         y += n * lh;
     }
+    for (int i = 0; i < card.meter_count && y + lh <= max_y; ++i) y += meter(c, x, y, w, card.meters[i]);
     return y;
 }
 

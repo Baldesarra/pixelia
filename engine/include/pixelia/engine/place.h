@@ -17,6 +17,7 @@
 #include <string_view>
 
 #include "pixelia/engine/environment.h"
+#include "pixelia/engine/figure.h"
 #include "pixelia/engine/light.h"
 #include "pixelia/engine/place_state.h"
 #include "pixelia/engine/room.h"
@@ -48,7 +49,7 @@ struct PlaceDef {
     uint8_t flags;      // PlaceFlag
     const RoomDef* room;
     const char* pack;   // eigenes Grafik-Paket zusätzlich zu den gemeinsamen, nullptr = keins
-    uint8_t figures;    // Figuren beim Start
+    uint8_t figures;    // Testfiguren beim Start, wenn das Gebiet keine Figurendaten hat (AreaDef::figures)
     bool guide;         // die Begleiterin (Hauptfigur) beginnt hier
     // Farbe und Licht
     uint16_t tint[3];   // Licht des Ortes (r, g, b; 256 = unverändert)
@@ -73,12 +74,16 @@ struct AreaDef {
     const PlaceDef* const* places;
     uint8_t count;
     std::unique_ptr<Scene> (*make)(const PlaceDef& def, int index);  // index = Nummer des Ortes in der Welt
+    // Startbesetzung (seit 0.5.9, figure.h); ohne Daten legt die Welt je Ort PlaceDef::figures Testfiguren an
+    const FigureDef* figures = nullptr;
+    uint8_t figure_count = 0;
 };
 
 // Die Welt (worlds/gebiete.cpp): alle Gebiete in fester Reihenfolge
 int world_areas(const AreaDef* const** out);
 const PlaceDef* find_place(std::string_view id);
 int place_index(std::string_view id);  // Nummer über alle Gebiete, −1 = gibt es nicht
+const PlaceDef* place_at(int index);    // Ort zur Nummer, nullptr = gibt es nicht
 std::unique_ptr<Scene> make_place(std::string_view id);
 
 // --- Verbindungen ---

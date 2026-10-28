@@ -123,6 +123,14 @@ export const ICONS = [
   'psychology',
   'checklist',
   'emergency_home',
+  // Speicherstand, Chronik, Figuren (seit 0.5.9)
+  'save',
+  'celebration',
+  'power_off',
+  'history_edu',
+  'accessibility_new',
+  'directions_walk',
+  'hiking',
 ] as const;
 
 export type IconName = (typeof ICONS)[number];

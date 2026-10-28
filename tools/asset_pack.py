@@ -248,11 +248,37 @@ def tiles_entry(spec: dict, base: Path, pal: Palette, label: str):
     return struct.pack("<H", count) + bytes(flags) + bytes(pixels), notes
 
 
+def color_index(pal: Palette, name: str, label: str) -> int:
+    if name not in pal.names:
+        raise AssetError(f"{label}: Farbe „{name}“ fehlt in {pal.path.name}")
+    return pal.names.index(name)
+
+
 def recolor_entry(spec: dict, pal: Palette, label: str):
     table = bytearray(range(256))
+    if "kontur" in spec:
+        # Kontur der Figuren (seit 0.5.9 Teil 3, wie Skizze v3): je Farbe die nächste zu 0,4 · Farbe + 0,3 · Tinte,
+        # ohne die Farben unter „ohne“ (leuchtend, Himmel)
+        ink = pal.colors[color_index(pal, spec["kontur"], label)]
+        skip = {color_index(pal, n, label) for n in spec.get("ohne", [])}
+        cand = [j for j in range(1, len(pal.colors)) if pal.names[j] not in ("", "-") and j not in skip]
+        for i in range(1, len(pal.colors)):
+            c = pal.colors[i]
+            want = [c[k] * .4 + ink[k] * .3 for k in range(3)]
+            table[i] = min(cand, key=lambda j: sum((pal.colors[j][k] - want[k]) ** 2 for k in range(3)))
+        return bytes(table)
     for src, dst in spec.items():
-        if src not in pal.ramps or dst not in pal.ramps:
-            raise AssetError(f"{label}: Rampe „{src}“ oder „{dst}“ fehlt in {pal.path.name}")
+        if src not in pal.ramps:
+            raise AssetError(f"{label}: Rampe „{src}“ fehlt in {pal.path.name}")
+        if isinstance(dst, list):  # seit 0.5.9 Teil 3: Rampe auf eine Liste benannter Farben (Haut, Haare)
+            a, n = pal.ramps[src]
+            if len(dst) != n:
+                raise AssetError(f"{label}: „{src}“ hat {n} Farben, die Liste {len(dst)}")
+            for i, name in enumerate(dst):
+                table[a + i] = color_index(pal, name, label)
+            continue
+        if dst not in pal.ramps:
+            raise AssetError(f"{label}: Rampe „{dst}“ fehlt in {pal.path.name}")
         (a, n), (b, m) = pal.ramps[src], pal.ramps[dst]
         if n != m:
             raise AssetError(f"{label}: Rampen „{src}“ ({n}) und „{dst}“ ({m}) sind verschieden lang")

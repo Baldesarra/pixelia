@@ -24,6 +24,14 @@ int place_index(std::string_view id) {
     return -1;
 }
 
+const PlaceDef* place_at(int index) {
+    const AreaDef* const* areas = nullptr;
+    const int n = world_areas(&areas);
+    for (int a = 0; a < n && index >= 0; index -= areas[a]->count, ++a)
+        if (index < areas[a]->count) return areas[a]->places[index];
+    return nullptr;
+}
+
 std::unique_ptr<Scene> make_place(std::string_view id) {
     const AreaDef* const* areas = nullptr;
     const int n = world_areas(&areas);

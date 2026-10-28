@@ -14,6 +14,7 @@ so wie auf dem 5″-Display; ab v4 entsteht jede Szene in 200 × 120 groben Bild
 | [figuren-v3.html](figuren-v3.html) | 2026-10-20 | Chibi-Figuren mit 28 px, zehn Bewohner, Küche und Wohnzimmer je in Seiten- und 3/4-Ansicht, Hof, Zugabteil, Küche mit doppelt so nahem Bild |
 | [massstab-v4.html](massstab-v4.html) | 2026-10-20 | Der gewählte Maßstab: Szene in 200 × 120 groben Bildpunkten, Figur 28 hoch; Küche, Wohnzimmer, Zugabteil mit Gang |
 | [dorfansicht-v5.html](dorfansicht-v5.html) | 2026-10-21 | Große Orte: Dorfbereich „Dorfplatz“ in voller Größe und eine Dorfübersicht mit Mini-Figuren (verworfen: die Übersicht gibt es nur als Karte im Menü) |
+| [figuren-statur.png](figuren-statur.png) ([Skript](figuren-statur.py)) | 2026-10-28 | Figuren mit Statur, drei Ansätze (A Chibi mit Statur, B mittlere Köpfe, C schlank) mit denselben acht Bewohnern; der User wählte A. Grobe Skizze nur von vorn, erzeugt mit Python/PIL |
 
 **Ergebnis (2026-10-21):** 3/4-Draufsicht für alle Orte, feste Kamera, ein Bildschirm pro Bereich oder Raum, Wechsel
 per Sprung; Szenen in 200 × 120 groben Bildpunkten, Figur 28 im Chibi-Stil mit 4 Blickrichtungen; keine Isometrie.

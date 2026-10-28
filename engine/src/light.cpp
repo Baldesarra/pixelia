@@ -268,39 +268,142 @@ void PlacePalette::blend_table(uint8_t* out) const {
         }
 }
 
-void build_light_map(uint8_t* map, int w, int h, const LightCircle* lights, int n, int levels, LightStyle style) {
+void plan_light_map(LightPlan* plan, const LightCircle* lights, int n, int levels, LightStyle style) {
     static constexpr uint8_t kBayer[4][4] = {{0, 8, 2, 10}, {12, 4, 14, 6}, {3, 11, 1, 9}, {15, 7, 13, 5}};
     constexpr int kUnit = 64;  // Lichtwert einer Stufe
-    std::memset(map, 0, static_cast<size_t>(w) * h);
+    // Wurzeln der Stützstellen einmal für alle (am Gerät kostet jede Wurzel einige hundert Takte)
+    static const std::array<float, 257> kRoot = [] {
+        std::array<float, 257> r{};
+        for (int t = 0; t <= 256; ++t) r[t] = std::sqrt(t / 256.0f);
+        return r;
+    }();
+    LightPlan& p = *plan;
     const int top = std::clamp(levels - 1, 0, 3) * kUnit;
-    for (int l = 0; l < n; ++l) {
+    const bool same = top == p.top && style == p.style;
+    // Abfall-Tabellen nach (Stärke, innen): gleiche Kreisart = gleiche Tabelle, nur kopieren. had[k] = Art, deren
+    // Tabelle gerade auf Platz k liegt (~0 = keine)
+    std::array<uint32_t, kMaxLightCircles> had;
+    had.fill(~0u);
+    if (same)
+        for (int k = 0; k < p.n; ++k) had[k] = static_cast<uint32_t>(p.lights[k].strength << 8 | p.lights[k].inner);
+    p.n = 0;
+    for (int l = 0; l < std::min(n, kMaxLightCircles); ++l) {
         const LightCircle& c = lights[l];
         if (!c.rx || !c.ry) continue;
-        const float inner = c.inner / 255.0f;
-        const int y0 = std::max(0, c.y - c.ry), y1 = std::min(h, c.y + c.ry + 1);
-        const int x0 = std::max(0, c.x - c.rx), x1 = std::min(w, c.x + c.rx + 1);
-        for (int y = y0; y < y1; ++y)
-            for (int x = x0; x < x1; ++x) {
-                const float dx = static_cast<float>(x - c.x) / c.rx, dy = static_cast<float>(y - c.y) / c.ry;
-                const float d = std::sqrt(dx * dx + dy * dy);
-                if (d >= 1.0f) continue;
-                // innen voll, dann weich (smoothstep) bis zum Rand
-                float f = d <= inner ? 1.0f : (1.0f - d) / (1.0f - inner);
+        const int k = p.n++;
+        p.lights[k] = c;
+        // d² = q / r mit r = rx²·ry² (< 2^32): r auf 16 Bit kürzen, dann reicht 32-Bit-Rechnung (q >> shift) · mul >> 16
+        const uint32_t r = static_cast<uint32_t>(c.rx) * c.rx * c.ry * c.ry;
+        int sh = 0;
+        while ((r >> sh) >= 0x10000u) ++sh;
+        p.shift[k] = static_cast<uint8_t>(sh);
+        p.mul[k] = 0xFFFFFFFFu / (r >> sh);
+        const uint32_t key = static_cast<uint32_t>(c.strength << 8 | c.inner);
+        int from = had[k] == key ? k : -1;
+        for (int j = 0; j < kMaxLightCircles && from < 0; ++j)
+            if (had[j] == key) from = j;
+        if (from >= 0) {
+            if (from != k) p.falloff[k] = p.falloff[from];
+        } else {
+            // innen voll, dann weich (smoothstep) bis zum Rand; Stützstellen bei d² = t / 256, dazwischen linear
+            const float inner = c.inner / 255.0f, out = 1.0f / std::max(1.0f / 255.0f, 1.0f - inner);
+            const float scale = top * c.strength / 255.0f * 256.0f;
+            for (int t = 0; t <= 256; ++t) {
+                const float d = kRoot[t];
+                float f = d <= inner ? 1.0f : (1.0f - d) * out;
                 f = f * f * (3.0f - 2.0f * f);
-                const int v = static_cast<int>(f * top * c.strength / 255.0f + 0.5f);
-                uint8_t packed = 0;
-                for (int k = 0; k < 4; ++k) {
-                    const int fx = 2 * x + (k & 1), fy = 2 * y + (k >> 1);
-                    int lv = style == LightStyle::Stepped  ? (v + kUnit / 2) / kUnit
-                             : style == LightStyle::Coarse ? (v + kBayer[y & 3][x & 3] * 4 + 2) / kUnit
-                                                           : (v + kBayer[fy & 3][fx & 3] * 4 + 2) / kUnit;
-                    lv = std::min(lv, top / kUnit);
-                    const int old = (map[y * w + x] >> (2 * k)) & 3;
-                    packed |= static_cast<uint8_t>(std::max(lv, old) << (2 * k));
-                }
-                map[y * w + x] = packed;
+                p.falloff[k][t] = static_cast<uint16_t>(f * scale + 0.5f);
             }
+        }
+        had[k] = key;
+        // volles Licht, solange beide Stützstellen des Feldes voll sind: Felder 0 … full−1, also q < full · r / 256
+        int full = 0;
+        while (full < 256 && p.falloff[k][full + 1] == p.falloff[k][0]) ++full;
+        p.inner_q[k] = static_cast<uint32_t>(static_cast<uint64_t>(full) * r / 256);
     }
+    // Stufen der vier feinen Bildpunkte nach Lichtwert; das Raster hängt nur an (y & 3, x & 3) des groben Punktes
+    if (same) return;
+    p.top = top;
+    p.style = style;
+    const unsigned most = static_cast<unsigned>(top / kUnit);
+    for (int pos = 0; pos < 16; ++pos) {
+        const int py = pos >> 2, px = pos & 3;
+        unsigned add[4];  // Schwelle je feinem Bildpunkt: Lichtwert + add, dann / 64
+        for (int k = 0; k < 4; ++k) {
+            const int fx = 2 * px + (k & 1), fy = 2 * py + (k >> 1);
+            add[k] = style == LightStyle::Stepped  ? kUnit / 2
+                     : style == LightStyle::Coarse ? kBayer[py][px] * 4 + 2
+                                                   : kBayer[fy & 3][fx & 3] * 4 + 2;
+        }
+        for (unsigned v = 0; v <= kLightValueMax; ++v) {
+            unsigned packed = 0;
+            for (int k = 0; k < 4; ++k) packed |= std::min((v + add[k]) >> 6, most) << (2 * k);
+            p.pack[pos][v] = static_cast<uint8_t>(packed);
+        }
+    }
+}
+
+int light_row_cost(const LightPlan& plan, int y, int w) {
+    int cost = 16;  // leeren und Bereich
+    for (int l = 0; l < plan.n; ++l) {
+        const LightCircle& c = plan.lights[l];
+        if (y >= c.y - c.ry && y <= c.y + c.ry) cost += std::max(0, std::min(w, c.x + c.rx + 1) - std::max(0, c.x - c.rx));
+    }
+    return cost;
+}
+
+void build_light_row(uint8_t* row, int w, int y, const LightPlan& plan, uint8_t* x0, uint8_t* x1) {
+    // Zeile erst im internen RAM (Stack, höchstens 256 Byte), dann einmal in die Karte (PSRAM)
+    uint8_t buf[256];
+    w = std::min(w, 256);
+    std::memset(buf, 0, static_cast<size_t>(w));
+    int lo = w, hi = 0;
+    for (int l = 0; l < plan.n; ++l) {
+        const LightCircle& c = plan.lights[l];
+        const int dy = y - c.y;
+        if (dy < -c.ry || dy > c.ry) continue;
+        // d² = q / r ganzzahlig mit q = dx²·ry² + dy²·rx², r = rx²·ry² (< 2^32); dx² wächst je Schritt um 2·dx + 1
+        const uint32_t rx2 = static_cast<uint32_t>(c.rx) * c.rx, ry2 = static_cast<uint32_t>(c.ry) * c.ry;
+        const uint32_t r = rx2 * ry2, qy = static_cast<uint32_t>(dy * dy) * rx2;
+        if (qy >= r) continue;
+        const int sh = plan.shift[l];
+        const uint32_t mul = plan.mul[l], qin = plan.inner_q[l];
+        const uint16_t* fall = plan.falloff[l].data();
+        const uint32_t vin = (fall[0] + 128u) >> 8;  // innen voll
+        const auto* pack = &plan.pack[(y & 3) << 2];
+        auto put = [&](int x, uint32_t v) {
+            const uint8_t p = pack[x & 3][v];
+            if (!p) return;
+            uint8_t& m = buf[x];
+            if (m) {
+                uint8_t out = 0;
+                for (int k = 0; k < 8; k += 2) out |= static_cast<uint8_t>(std::max(m >> k & 3, p >> k & 3) << k);
+                m = out;
+            } else {
+                m = p;
+            }
+            lo = std::min(lo, x);
+            hi = std::max(hi, x + 1);
+        };
+        // spiegelgleich um c.x: Lichtwert je |dx| einmal, für links und rechts; dx² wächst je Schritt um 2·dx + 1
+        const int reach = std::min<int>(c.rx, std::max<int>(c.x, w - 1 - c.x));
+        uint32_t q = qy, step = ry2;  // q = dx²·ry² + dy²·rx² < r (sonst außerhalb)
+        for (int dx = 0; dx <= reach && q < r; ++dx, q += step, step += 2 * ry2) {
+            uint32_t v = vin;
+            if (q >= qin) {
+                const uint32_t u = ((q >> sh) * mul) >> 16;  // d² in 1/65536
+                const uint32_t t = u >> 8, fr = u & 255;
+                v = (fall[t] * (256 - fr) + fall[t + 1] * fr + 32768) >> 16;
+                if (!v) break;  // weiter außen nur noch dunkler
+            }
+            const int xr = c.x + dx, xl = c.x - dx;
+            if (xr >= 0 && xr < w) put(xr, v);
+            if (dx && xl >= 0 && xl < w) put(xl, v);
+        }
+    }
+    std::memcpy(row, buf, static_cast<size_t>(w));
+    *x0 = static_cast<uint8_t>(lo < hi ? lo : 0);
+    *x1 = static_cast<uint8_t>(lo < hi ? hi : 0);
 }
 
 int light_level_at(const uint8_t* map, int w, int h, int x, int y) {

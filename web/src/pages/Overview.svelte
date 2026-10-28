@@ -10,6 +10,7 @@
   import ChangeEntryView from '../lib/ChangeEntry.svelte';
   import { duration, kb, num, signal, WIFI_STATE } from '../lib/format';
   import { get } from '../lib/api';
+  import { agoText, type SaveInfo } from '../lib/world';
 
   const s = $derived(device.data);
   const sig = $derived(signal(s?.wifi.rssi ?? 0));
@@ -33,6 +34,7 @@
     seasonDays?: number;
     moon?: { title: string };
     weather: { title: string };
+    save?: SaveInfo;
   };
   let world = $state<WorldLine | null>(null);
   const loadWorld = () => get<WorldLine>('/api/world').then((w) => (world = w), () => null);
@@ -44,6 +46,12 @@
       ? `${world.seasonTitle}, Tag ${world.dayInSeason} von ${world.seasonDays} · ${world.weather.title} · ${world.moon?.title ?? ''}`
       : '',
   );
+  // Speicherstand in einer Zeile (seit 0.5.9, Wunsch des Users)
+  const saveText = $derived.by(() => {
+    const v = world?.save;
+    if (!v || v.waiting) return '';
+    return `${v.ago < 0 ? (v.loaded ? 'Beim Start geladen' : 'Noch nicht gespeichert') : `Gespeichert ${agoText(v.ago)}`} · ${v.figures} Figur${v.figures === 1 ? '' : 'en'}`;
+  });
 </script>
 
 {#if !s}
@@ -60,6 +68,7 @@
           <div class="name">Pixelia</div>
           <div class="meta tnum">Version {s.v} · {s.part} · {s.host}.local</div>
           {#if worldText}<a class="meta world" href="#/welt">{worldText}</a>{/if}
+          {#if saveText}<a class="meta world" href="#/welt">{saveText}</a>{/if}
         </div>
       </div>
       <div class="hero-foot">

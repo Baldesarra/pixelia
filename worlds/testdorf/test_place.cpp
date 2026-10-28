@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "pixelia/engine/assets.h"
+#include "pixelia/engine/figure_art.h"
 #include "pixelia/engine/font.h"
 #include "pixelia/engine/memory.h"
 #include "pixelia/engine/overlay.h"
@@ -21,6 +22,9 @@ namespace pixelia {
 using namespace testdorf;
 
 namespace {
+
+bool g_no_art = false;  // Prüfbefehl „baukasten aus“: alle Testorte zeichnen die alte Testfigur (Vergleichsmessung)
+
 
 // Palette: alle Orte gleich aufgebaut, getönt wird am Ende (Wiese kühl, Raum warm, Platz neutral)
 constexpr uint8_t kOutline = 1;
@@ -163,9 +167,56 @@ constexpr PartSpec kParts[kPartCount] = {
 // Asset-Pakete (assets/testorte/pakete.json): Grundausstattung immer geladen, gemeinsame Möbel und Ortspakete beim
 // Betreten (TestPlace::packs)
 constexpr const char* kBasePack = "grund";
-constexpr const char* kRowNames[kRowCount] = {nullptr,          "farbreihe/rot",      "farbreihe/blau",
-                                              "farbreihe/gelb", "farbreihe/lavendel", "farbreihe/holz",
-                                              "farbreihe/tapete"};
+constexpr const char* kRowNames[kRowCount] = {
+    nullptr,          "farbreihe/rot",         "farbreihe/blau",        "farbreihe/gelb",
+    "farbreihe/lavendel", "farbreihe/holz",    "farbreihe/tapete",      "farbreihe/haut-hell",
+    "farbreihe/haut-mittel", "farbreihe/haut-dunkel", "farbreihe/haar-braun", "farbreihe/haar-blond",
+    "farbreihe/haar-rot", "farbreihe/haar-grau", "farbreihe/schwarz",   "farbreihe/leinen",
+    "farbreihe/gruen"};
+
+// Figuren-Baukasten (seit 0.5.9 Teil 3): Varianten je Ebene in der Reihenfolge von tools/figure_art.py (VARIANTS);
+// die Nummer (Platz + 1) steht im Speicherstand, also nur hinten anhängen
+constexpr const char* kLookParts[kLookLayers][FigureArt::kVariants] = {
+    {"figur/koerper/normal", "figur/koerper/brille"},
+    {"figur/beine/hose", "figur/beine/rock"},
+    {"figur/oberteil/hemd", "figur/oberteil/kleid", "figur/oberteil/kleid-schuerze", "figur/oberteil/weste",
+     "figur/oberteil/mantel", "figur/oberteil/lederschurz", "figur/oberteil/kleid-tuch", "figur/oberteil/gehrock",
+     "figur/oberteil/wirtsschuerze"},
+    {"figur/haare/kurz", "figur/haare/dutt", "figur/haare/zoepfe", "figur/haare/lang", "figur/haare/glatze",
+     "figur/haare/kurz-bart", "figur/haare/kurz-schnurrbart", "figur/haare/glatze-bart", "figur/haare/glatze-schnurrbart"},
+    {"figur/kopf/haube", "figur/kopf/schlapphut", "figur/kopf/muetze", "figur/kopf/kopftuch", "figur/kopf/strohhut"},
+    {"figur/werkzeug/schieber", "figur/werkzeug/hammer", "figur/werkzeug/hobel", "figur/werkzeug/stock"},
+};
+
+// Aussehen der Testfiguren, solange das Gebiet keine Figurendaten hat (echte Startbesetzung mit 0.6.0): nach Kennung.
+// Je Ebene {Variante, Farbreihe}, dazu die Statur {Größe, Breite, Bauch, gebeugt}; zehn Figuren aus SETTING.md
+// Kapitel 3 (Wahl des Users 2026-10-28)
+constexpr FigureLook look_of(std::array<std::array<uint8_t, 2>, kLookLayers> p, Stature build = {}) {
+    FigureLook l{};
+    for (int i = 0; i < kLookLayers; ++i) {
+        l.part[i] = p[i][0];
+        l.row[i] = p[i][1];
+    }
+    l.build = build;
+    return l;
+}
+constexpr FigureLook kTestLooks[] = {
+    look_of({{{1, kRowSkinLight}, {2, 0}, {3, kRowBlue}, {2, kRowHairBlond}, {1, kRowLinen}, {1, 0}}}, {0, 1, 1, 0}),  // Greta, 24
+    look_of({{{1, kRowSkinLight}, {1, kRowBlack}, {4, kRowBlack}, {6, kRowHairBrown}, {2, kRowBlack}, {3, 0}}},
+            {1, -1, 0, 0}),                                                                                      // Jakob, 27
+    look_of({{{1, kRowSkinMid}, {2, 0}, {2, kRowGreen}, {3, kRowHairRed}, {0, 0}, {0, 0}}}, {-1, -1, 0, 0}),        // Ida, 26
+    look_of({{{1, kRowSkinDark}, {1, kRowWood}, {6, kRowLinen}, {7, kRowBlack}, {0, 0}, {2, 0}}}, {1, 1, 1, 0}),     // Konrad, 44
+    look_of({{{2, kRowSkinLight}, {2, 0}, {7, kRowLavender}, {2, kRowHairGrey}, {4, kRowWood}, {0, 0}}},
+            {-1, 0, 0, 1}),                                                                                      // Martha, 72
+    look_of({{{1, kRowSkinLight}, {1, kRowWood}, {1, kRowYellow}, {1, kRowHairBlond}, {5, kRowYellow}, {0, 0}}},
+            {2, 0, 0, 0}),                                                                                       // Otto, 29
+    look_of({{{1, kRowSkinMid}, {2, 0}, {2, kRowRed}, {2, kRowHairGrey}, {0, 0}, {0, 0}}}, {-1, 0, 1, 0}),          // Lene, 66
+    look_of({{{1, kRowSkinLight}, {1, kRowBlue}, {8, kRowBlue}, {7, kRowHairBrown}, {3, kRowBlue}, {0, 0}}}),        // Emil, 36
+    look_of({{{1, kRowSkinLight}, {1, kRowBlack}, {9, kRowRed}, {9, kRowHairGrey}, {0, 0}, {0, 0}}}, {0, 1, 2, 0}),  // Gustav, 46
+    look_of({{{1, kRowSkinLight}, {1, kRowHairGrey}, {5, kRowGreen}, {8, kRowHairGrey}, {0, 0}, {4, 0}}},
+            {0, -1, 0, 1}),                                                                                      // Wilhelm, 66
+};
+constexpr int kTestLookCount = sizeof(kTestLooks) / sizeof(kTestLooks[0]);
 
 // Gemeinsamer Katalog aller Testorte. Figur, Kacheln, Palette und Farbreihen kommen aus der Grundausstattung, die
 // Bilder der Teile aus den Paketen der Orte
@@ -178,6 +229,8 @@ struct Kit {
     PartDef parts[kPartCount];
     const PartStage* site;
     Recolor rows[kRowCount];
+    Recolor outline;  // Kontur der Figuren (farbreihe/kontur)
+    FigureArt art;    // Figuren-Baukasten (seit 0.5.9 Teil 3)
     PartCatalog catalog;
     uint32_t generation = ~0u;  // Stand des Grafik-Speichers beim letzten Auflösen
 };
@@ -231,6 +284,14 @@ Kit& kit() {
         k->parts[kPBed].building = stage_of(kPBedFrame, &n);
         k->site = stage_of(kPSite, &n);
         for (int r = 1; r < kRowCount; ++r) k->rows[r].load(store.recolor(asset_id(kRowNames[r])));
+        k->outline.load(store.recolor(asset_id("farbreihe/kontur")));
+        for (int l = 0; l < kLookLayers; ++l)
+            for (int v = 0; v < FigureArt::kVariants; ++v) {
+                ImageAsset img;
+                if (kLookParts[l][v] && store.image(asset_id(kLookParts[l][v]), &img))
+                    k->art.set_part(static_cast<LookLayer>(l), v + 1, img.sheet);
+            }
+        k->art.set_rows(k->rows, kRowCount, k->outline.table());
         k->catalog = PartCatalog{k->parts, kPartCount, k->rows, kRowCount, token_for, k->site};
         resolve(*k);
         s_kit = k;  // bleibt bis zum Ende (wird nie freigegeben)
@@ -268,6 +329,8 @@ Color grade(Color c, int mood) {
 
 int center_x(int tx) { return (tx * kTileSize + kTileSize / 2) << 8; }
 int center_y(int ty) { return (ty * kTileSize + kTileSize / 2) << 8; }
+constexpr int8_t kDX[4] = {0, 0, -1, 1};  // Schritt je Blickrichtung (Facing: unten, oben, links, rechts)
+constexpr int8_t kDY[4] = {1, -1, 0, 0};
 
 }  // namespace
 
@@ -417,9 +480,9 @@ void TestPlace::build_room() {
     room_.invalidate();
 }
 
-bool TestPlace::random_free_tile(int* tx, int* ty) {
+bool TestPlace::random_free_tile(Rng& rng, int* tx, int* ty) const {
     for (int n = 0; n < 64; ++n) {
-        const int x = static_cast<int>(rng_.below(kTilesX)), y = static_cast<int>(rng_.below(kTilesY));
+        const int x = static_cast<int>(rng.below(kTilesX)), y = static_cast<int>(rng.below(kTilesY));
         if (room_.walkable(x, y) && room_.exit_at(x, y) < 0) {
             *tx = x;
             *ty = y;
@@ -429,9 +492,21 @@ bool TestPlace::random_free_tile(int* tx, int* ty) {
     return false;
 }
 
+bool TestPlace::any_free_tile(int* tx, int* ty) const {
+    for (int y = 0; y < kTilesY; ++y)
+        for (int x = 0; x < kTilesX; ++x)
+            if (room_.walkable(x, y) && room_.exit_at(x, y) < 0) {
+                *tx = x;
+                *ty = y;
+                return true;
+            }
+    return false;
+}
+
 void TestPlace::spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide, uint16_t id) {
     f = Figure{};
-    f.id = id ? id : next_id_++;
+    f.id = id;
+    f.statist = id >= kStatistIds;
     f.cx = f.gx = static_cast<uint8_t>(tx);
     f.cy = f.gy = static_cast<uint8_t>(ty);
     f.x = center_x(tx);
@@ -443,6 +518,9 @@ void TestPlace::spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, 
     f.use_part = f.use_k = f.exit = -1;
     f.facing = facing;
     f.anim.play(&kIdle);
+    f.look = kTestLooks[id % kTestLookCount];  // Figuren der Welt: ihr eigenes Aussehen (show)
+    f.seq = 0xFFFFFFFFu;  // Figur der Welt: Weg beim ersten Zeigen
+    f.path_n = -1;
 }
 
 void TestPlace::apply_states() {
@@ -479,7 +557,8 @@ void TestPlace::apply_states() {
         }
         const bool part = d.part >= 0 && d.part < room_.part_count();
         if (d.kind == StateKind::Work) {
-            if (part && room_.building(d.part) != (phase < 2)) room_.set_building(d.part, phase < 2);
+            // im Bau stellt seit 0.5.9 Teil 2 der Planer an der Takt-Grenze ein (sync_building); ohne Umgebung hier
+            if (!st && part && room_.building(d.part) != (phase < 2)) room_.set_building(d.part, phase < 2);
         } else if (d.kind == StateKind::Wetness) {
             for (int p = 0; p < room_.part_count(); ++p)
                 if (room_.part(p).part == kPPuddle) room_.set_state(p, phase >= 2 ? 1 : 0);
@@ -534,25 +613,160 @@ void TestPlace::init(uint64_t seed) {
     build_palette();
     pal_.apply(daylight_.at(12 * 3600 * 1000000LL), 0, palette_);
     build_room();
+    // Figuren zeigt der Ort seit 0.5.9 aus dem Weltzustand (sync_figures), Statisten nur über den Lastregler
     count_ = 0;
-    out_count_ = 0;
+    next_statist_ = 0;
+    wanted_ = 0;
     load_pending_ = false;
-    next_id_ = static_cast<uint16_t>(1000 * (index_ + 1));  // Wiese 1000 (Begleiterin), Raum 2000 …
-    set_load(0);
-    while (count_ < wanted_) {
-        int tx = 0, ty = 0;
-        if (!random_free_tile(&tx, &ty)) break;
-        // Begleiterin: die erste Figur der Wiese
-        spawn_at(figures_[count_], tx, ty, static_cast<Facing>(rng_.below(4)),
-                 static_cast<uint8_t>(1 + count_ % kFigureRows), def_.guide && count_ == 0);
-        ++count_;
-    }
-    load_pending_ = false;
+    restored_seen_ = env_ ? env_->states.restored() : 0;
+    states_seen_ = states_version();
     states_dirty_ = true;  // im ersten Schritt noch einmal: Orte, die später starten (Raum hinter den Fenstern)
 }
 
+// --- Planer (seit 0.5.9 Teil 2): Tätigkeiten der Figuren der Welt als Zeitblöcke, sichtbar oder nicht gleich ---
+
+int64_t TestPlace::tile_us(uint16_t id) {
+    // wie bis 0.5.9 Teil 1 (150–210/256 Bildpunkte je Schritt): je Kachel 325–455 ms, fest je Figur
+    const int speed = 150 + static_cast<int>((id * 37u) % 61u);
+    return static_cast<int64_t>(kTileSize) * 256 * kTickUs / speed;
+}
+
+bool TestPlace::use_taken_world(int part, int k, uint16_t self, int64_t at) const {
+    if (!env_) return false;
+    const FigureBook& book = env_->figures;
+    for (int i = 0; i < book.count(); ++i) {
+        const FigureRecord& o = book.at(i);
+        if (o.id == self || o.where.kind != Whereabouts::Kind::Place || o.where.place != index_) continue;
+        const Doing& d = o.doing;
+        if (d.kind == DoingKind::Use && d.part == part && d.k == k && d.end_us > at) return true;
+    }
+    return false;
+}
+
+bool TestPlace::decide(const FigureRecord& f, int64_t at, Rng& rng, Doing* out) {
+    // wie bis Teil 1 je Figur: selten hinaus (die Begleiterin nach 20 s am Ort oft), sonst ein Teil benutzen oder
+    // umhergehen; Dauern wie vorher in Logik-Schritten, jetzt in Weltzeit
+    Doing d;
+    d.sx = d.gx = f.doing.gx;
+    d.sy = d.gy = f.doing.gy;
+    d.start_us = at;
+    const uint32_t r = rng.below(100);
+    const int exits = room_.exit_count();
+    const bool guide = f.lead();
+    const bool leave = exits > 0 && (guide ? at - f.doing.since_us > 20 * WorldClock::kUsPerSecond && r < 50 : r < 5);
+    int gx = d.sx, gy = d.sy;
+    const int e = leave ? static_cast<int>(rng.below(static_cast<uint32_t>(exits))) : -1;
+    if (leave && (!env_ || exit_open(room_.exit(e), name(), *env_))) {
+        const Exit& x = room_.exit(e);
+        gx = x.x + static_cast<int>(rng.below(x.w));
+        gy = x.y + static_cast<int>(rng.below(x.h));
+        d.kind = DoingKind::Leave;
+        d.exit = static_cast<uint8_t>(e);
+    } else if (r < 55 && room_.part_count() > 0) {
+        const int part = static_cast<int>(rng.below(static_cast<uint32_t>(room_.part_count())));
+        const PartStage* s = room_.look(part);  // im Bau: nur die Punkte des Bau-Bildes
+        if (s && s->use_count > 0) {
+            const int k = static_cast<int>(rng.below(s->use_count));
+            if (!use_taken_world(part, k, f.id, at) && room_.use_point(part, k, &gx, &gy, nullptr)) {
+                d.kind = DoingKind::Use;
+                d.part = static_cast<uint8_t>(part);
+                d.k = static_cast<uint8_t>(k);
+            }
+        }
+    }
+    if (d.kind == DoingKind::None && random_free_tile(rng, &gx, &gy)) d.kind = DoingKind::Wander;
+    const int steps = d.kind == DoingKind::None ? -1 : room_.path(d.sx, d.sy, gx, gy);
+    if (steps < 0) {
+        // nichts gefunden oder kein Weg: kurz stehen, dann neu überlegen
+        d.kind = DoingKind::Idle;
+        d.part = d.exit = 0xFF;
+        d.walk_us = at;
+        d.end_us = at + rng.range(700, 2000) * 1000LL;
+        *out = d;
+        return true;
+    }
+    d.gx = static_cast<uint8_t>(gx);
+    d.gy = static_cast<uint8_t>(gy);
+    d.steps = static_cast<uint16_t>(steps);
+    d.walk_us = at + steps * tile_us(f.id);
+    if (d.kind == DoingKind::Use)
+        d.end_us = d.walk_us + rng.range(3000, 10000) * 1000LL;
+    else if (d.kind == DoingKind::Wander)
+        d.end_us = d.walk_us + rng.range(1333, 6667) * 1000LL;
+    else
+        d.end_us = d.walk_us;  // hinaus: die Bühne rundet auf die nächste Takt-Grenze
+    *out = d;
+    return true;
+}
+
+void TestPlace::finish(const FigureRecord& /*f*/, const Doing& d) {
+    // Ortszustände (seit 0.5.8): am Becken schöpfen, am Bau weiterarbeiten (so lange, wie die Figur dort war)
+    if (d.kind != DoingKind::Use || !env_) return;
+    const int seconds = static_cast<int>((d.end_us - d.walk_us) / WorldClock::kUsPerSecond);
+    for (int s = 0; s < state_n_; ++s) {
+        const StateDef& sd = def_.states[s];
+        if (sd.part != d.part) continue;
+        if (sd.kind == StateKind::Fill) env_->states.draw(state_first_ + s, 1);
+        if (sd.kind == StateKind::Work && room_.building(sd.part)) env_->states.work(state_first_ + s, seconds);
+    }
+}
+
+bool TestPlace::exit_travel(int exit, Travel* out) const {
+    if (exit < 0 || exit >= room_.exit_count()) return false;
+    const Exit& e = room_.exit(exit);
+    *out = Travel{e.to, e.entry, static_cast<uint8_t>(exit), e.transition, false, 0, 0, e.travel};
+    return true;
+}
+
+void TestPlace::entry_tile(uint8_t entry, Rng& rng, uint8_t* tx, uint8_t* ty) const {
+    int x = 0, y = 0;
+    if (entry < room_.exit_count()) {
+        const Exit& e = room_.exit(entry);
+        x = e.ax;
+        y = e.ay;
+    } else if (!random_free_tile(rng, &x, &y) && !any_free_tile(&x, &y)) {
+        x = y = 0;
+    }
+    *tx = static_cast<uint8_t>(x);
+    *ty = static_cast<uint8_t>(y);
+}
+
+void TestPlace::sync_building() {
+    if (!env_ || state_first_ < 0) return;
+    for (int s = 0; s < state_n_; ++s) {
+        const StateDef& d = def_.states[s];
+        if (d.kind != StateKind::Work || d.part < 0 || d.part >= room_.part_count()) continue;
+        const bool building = env_->states.phase(state_first_ + s) < 2;
+        if (room_.building(d.part) != building) room_.set_building(d.part, building);
+    }
+}
+
+void TestPlace::step(int64_t /*at*/) {
+    // Takt-Grenze (beide Stufen gleich): Regeln aus dem Bus (Kerze für Heimkehrer), Bau-Zustand der Teile
+    if (env_ && reader_ >= 0) read_events();
+    sync_building();
+    // nur Darstellung (ändert nichts an der Welt): unsichtbar Licht und Zustandsbilder nach einer Änderung nachziehen,
+    // damit das Betreten billig bleibt. Seit 0.5.9 Teil 3 an jeder Takt-Grenze (plant nur, die Lichtkarte entsteht
+    // in prepare über mehrere Schritte; vorher je Ort jede vierte Takt-Grenze mit der ganzen Karte)
+    if (entered_) return;
+    if (const uint32_t v = states_version(); v != states_seen_) {
+        states_seen_ = v;
+        states_dirty_ = true;
+    }
+    if (states_dirty_) apply_states();
+}
+
+int TestPlace::prepare(int budget) {
+    // betreten zuerst die eigene Lichtkarte, sonst zuerst der Figuren-Baukasten (gemeinsam für alle Testorte: was
+    // man beim Betreten sieht)
+    FigureArt& art = kit().art;
+    int used = entered_ ? room_.build_lights(budget) : art.prepare(budget);
+    if (budget - used > 0) used += entered_ ? art.prepare(budget - used) : room_.build_lights(budget - used);
+    return used;
+}
+
 void TestPlace::set_load(int figures) {
-    wanted_ = figures <= 0 ? def_.figures : std::min(figures, kMaxFigures);
+    wanted_ = figures <= 0 ? 0 : std::min(figures, kMaxFigures);
     load_pending_ = true;
 }
 
@@ -560,20 +774,37 @@ void TestPlace::apply_load() {
     load_pending_ = false;
     while (count_ < wanted_) {
         int tx = 0, ty = 0;
-        if (!random_free_tile(&tx, &ty)) return;
+        if (!random_free_tile(rng_, &tx, &ty)) return;
         spawn_at(figures_[count_], tx, ty, static_cast<Facing>(rng_.below(4)),
-                 static_cast<uint8_t>(1 + count_ % kFigureRows), false);
+                 static_cast<uint8_t>(1 + count_ % kFigureRows), false,
+                 static_cast<uint16_t>(kStatistIds + index_ * 0x100 + (next_statist_++ & 0xFF)));
         ++count_;
     }
-    // zu viele: von hinten entfernen, die Begleiterin bleibt
+    // zu viele: Statisten von hinten entfernen, die Figuren der Welt bleiben
     for (int i = count_ - 1; i >= 0 && count_ > wanted_; --i)
-        if (!figures_[i].guide) remove_figure(i);
+        if (figures_[i].statist) remove_figure(i);
 }
 
 bool TestPlace::has_guide() const {
-    for (int i = 0; i < count_; ++i)
-        if (figures_[i].guide) return true;
+    if (!env_) return false;
+    const FigureBook& book = env_->figures;
+    for (int i = 0; i < book.count(); ++i) {
+        const FigureRecord& f = book.at(i);
+        if (f.lead() && f.where.kind == Whereabouts::Kind::Place && f.where.place == index_) return true;
+    }
     return false;
+}
+
+int TestPlace::figure_count() const {
+    int n = 0;
+    for (int i = 0; i < count_; ++i) n += figures_[i].statist;
+    if (!env_) return n;
+    const FigureBook& book = env_->figures;
+    for (int i = 0; i < book.count(); ++i) {
+        const FigureRecord& f = book.at(i);
+        n += f.where.kind == Whereabouts::Kind::Place && f.where.place == index_;
+    }
+    return n;
 }
 
 void TestPlace::remove_figure(int i) {
@@ -589,22 +820,13 @@ bool TestPlace::use_taken(int part, int k, const Figure* self) const {
     return false;
 }
 
-void TestPlace::decide(Figure& f) {
+void TestPlace::statist_decide(Figure& f) {
+    // Statisten (nur Darstellung, Lastregler): wie bis 0.5.9 Teil 1 je Logik-Schritt, ohne Ausgänge und ohne Wirkung
     f.goal = Goal::None;
     f.use_part = f.use_k = f.exit = -1;
     const uint32_t r = rng_.below(100);
-    const int exits = room_.exit_count();
-    const bool leave = exits > 0 && (f.guide ? f.here > 600 && r < 50 : r < 5);
     int gx = f.cx, gy = f.cy;
-    // Verbindungen mit Bedingung (nur bei Tag …) nur, wenn sie offen sind (seit 0.5.8, place.h)
-    const int e = leave ? static_cast<int>(rng_.below(static_cast<uint32_t>(exits))) : -1;
-    if (leave && (!env_ || exit_open(room_.exit(e), name(), *env_))) {
-        const Exit& x = room_.exit(e);
-        gx = x.x + static_cast<int>(rng_.below(x.w));
-        gy = x.y + static_cast<int>(rng_.below(x.h));
-        f.goal = Goal::Exit;
-        f.exit = static_cast<int8_t>(e);
-    } else if (r < 55 && room_.part_count() > 0) {
+    if (r < 55 && room_.part_count() > 0) {
         const int part = static_cast<int>(rng_.below(static_cast<uint32_t>(room_.part_count())));
         const PartStage* s = room_.look(part);  // im Bau: nur die Punkte des Bau-Bildes
         if (s && s->use_count > 0) {
@@ -616,7 +838,7 @@ void TestPlace::decide(Figure& f) {
             }
         }
     }
-    if (f.goal == Goal::None && random_free_tile(&gx, &gy)) f.goal = Goal::Wander;
+    if (f.goal == Goal::None && random_free_tile(rng_, &gx, &gy)) f.goal = Goal::Wander;
     if (f.goal == Goal::None) {
         f.wait = 30;
         return;
@@ -633,17 +855,6 @@ void TestPlace::decide(Figure& f) {
 void TestPlace::reached(int i) {
     Figure& f = figures_[i];
     switch (f.goal) {
-        case Goal::Exit: {
-            if (out_count_ >= static_cast<int>(out_.size())) {
-                f.wait = 10;  // Ausgang voll: kurz warten
-                return;
-            }
-            const Exit& e = room_.exit(f.exit);
-            Travel& t = out_[out_count_++];
-            t = Travel{e.to, e.entry, static_cast<uint8_t>(f.exit), e.transition, f.guide, f.id, f.row, e.travel};
-            remove_figure(i);
-            return;
-        }
         case Goal::Use: {
             UsePoint u{};
             room_.use_point(f.use_part, f.use_k, nullptr, nullptr, &u);
@@ -651,14 +862,7 @@ void TestPlace::reached(int i) {
             f.dz = u.dz;
             f.busy = true;
             f.wait = static_cast<uint16_t>(rng_.range(90, 300));
-            // Ortszustände (seit 0.5.8): am Becken schöpfen, am Bau weiterarbeiten
-            for (int s = 0; env_ && s < state_n_; ++s) {
-                const StateDef& d = def_.states[s];
-                if (d.part != f.use_part) continue;
-                if (d.kind == StateKind::Fill) env_->states.draw(state_first_ + s, 1);
-                if (d.kind == StateKind::Work && room_.building(d.part)) env_->states.work(state_first_ + s, f.wait / 30);
-            }
-            return;
+            return;  // Statisten buchen nichts (seit 0.5.9 Teil 2: Wirkung nur aus dem Planer)
         }
         default:
             f.goal = Goal::None;
@@ -668,12 +872,18 @@ void TestPlace::reached(int i) {
 }
 
 void TestPlace::tick(const WorldClock& clock) {
-    // Palette zur Tageszeit (Tageslicht, Lampen, Fenster, Himmel), Wetter und Farbrotation
+    // Darstellung (seit 0.5.9 Teil 2 nur betreten): Ortszustände, Palette zur Tageszeit (Tageslicht, Lampen, Fenster,
+    // Himmel), Wetter, Farbrotation, Figuren an ihrer Stelle im Zeitblock
     ticks_ = clock.ticks();
-    // Ortszustände (seit 0.5.8 Teil 2): Änderungen kommen über den Bus; sichtbar sofort, unsichtbar im eigenen
-    // Takt-Schlitz (jeder vierte Schritt, versetzt nach Ort), damit nicht alle Orte im selben Schritt Licht rechnen
-    if (env_ && reader_ >= 0) read_events();
-    if (states_dirty_ && (entered_ || (ticks_ + static_cast<uint64_t>(index_)) % 4 == 0)) apply_states();
+    if (env_ && env_->states.restored() != restored_seen_) {  // Speicherstand geladen (seit 0.5.9)
+        restored_seen_ = env_->states.restored();
+        states_dirty_ = true;
+    }
+    if (const uint32_t v = states_version(); v != states_seen_) {  // eine Stufe hat gewechselt, hier oder hinter dem Fenster
+        states_seen_ = v;
+        states_dirty_ = true;
+    }
+    if (states_dirty_) apply_states();
     apply_wet();
     // Dämmerung nach der Weltjahreszeit und Mondlicht (seit 0.5.7); unter Tage immer wie nachts, ohne Himmel und Wetter
     const bool under = def_.underground();
@@ -685,9 +895,12 @@ void TestPlace::tick(const WorldClock& clock) {
     if (env_ && !under) weather_.tick(env_->weather);  // Partikel nur, solange der Ort betreten ist
     tick_smoke();
     if (load_pending_) apply_load();
-    room_.tick();
-    for (int i = 0; i < count_;) {
+    room_.set_ticks(clock.ticks());  // Bilder bewegter Teile: gleiches Bild, egal seit wann zu sehen
+    sync_figures(clock.world_us());
+    // Statisten: wie bis 0.5.9 Teil 1 je Logik-Schritt (nur Darstellung)
+    for (int i = 0; i < count_; ++i) {
         Figure& f = figures_[i];
+        if (!f.statist) continue;
         if (f.here < 0xFFFF) ++f.here;
         const int32_t tx = center_x(f.cx), ty = center_y(f.cy);
         if (f.x != tx || f.y != ty) {
@@ -700,9 +913,8 @@ void TestPlace::tick(const WorldClock& clock) {
         } else if (f.goal != Goal::None && !f.busy && !(f.cx == f.gx && f.cy == f.gy)) {
             Facing d;
             if (room_.step_toward(f.cx, f.cy, f.gx, f.gy, &d)) {
-                constexpr int8_t sx[4] = {0, 0, -1, 1}, sy[4] = {1, -1, 0, 0};
-                f.cx = static_cast<uint8_t>(f.cx + sx[static_cast<int>(d)]);
-                f.cy = static_cast<uint8_t>(f.cy + sy[static_cast<int>(d)]);
+                f.cx = static_cast<uint8_t>(f.cx + kDX[static_cast<int>(d)]);
+                f.cy = static_cast<uint8_t>(f.cy + kDY[static_cast<int>(d)]);
                 f.facing = d;
                 f.anim.play(&kWalk);
             } else {
@@ -710,9 +922,7 @@ void TestPlace::tick(const WorldClock& clock) {
                 f.wait = 30;
             }
         } else if (f.goal != Goal::None && !f.busy) {
-            const int before = count_;
             reached(i);
-            if (count_ < before) continue;  // durch den Ausgang gegangen
             f.anim.play(&kIdle);
         } else {
             f.anim.play(&kIdle);
@@ -721,51 +931,119 @@ void TestPlace::tick(const WorldClock& clock) {
             if (f.wait == 0) {
                 f.busy = false;
                 f.dz = 0;
-                decide(f);
+                statist_decide(f);
             }
         }
         f.anim.tick();
-        ++i;
+        f.frame = static_cast<uint8_t>(f.anim.frame());
+    }
+    // Figuren-Baukasten: was hier zu sehen ist, setzt FigureArt zuerst zusammen (prepare)
+    FigureArt& art = kit().art;
+    for (int i = 0; i < count_; ++i) art.want(figures_[i].look);
+}
+
+void TestPlace::sync_figures(int64_t now) {
+    // Darstellung = wer laut Weltzustand hier ist (seit 0.5.9 Teil 2): Gegangene weg, Angekommene dazu (notfalls weicht
+    // ein Statist), alle an ihre Stelle im Zeitblock
+    if (!env_) return;
+    const FigureBook& book = env_->figures;
+    for (int i = count_ - 1; i >= 0; --i) {
+        if (figures_[i].statist) continue;
+        const FigureRecord* r = book.find(figures_[i].id);
+        if (!r || r->where.kind != Whereabouts::Kind::Place || r->where.place != index_) remove_figure(i);
+    }
+    for (int k = 0; k < book.count(); ++k) {
+        const FigureRecord& r = book.at(k);
+        if (r.where.kind != Whereabouts::Kind::Place || r.where.place != index_) continue;
+        Figure* v = nullptr;
+        for (int i = 0; i < count_ && !v; ++i)
+            if (figures_[i].id == r.id) v = &figures_[i];
+        if (!v) {
+            for (int i = count_ - 1; i >= 0 && count_ >= kMaxFigures; --i)
+                if (figures_[i].statist) remove_figure(i);
+            if (count_ >= kMaxFigures) continue;
+            v = &figures_[count_++];
+            spawn_at(*v, r.doing.gx, r.doing.gy, Facing::Down, 1, r.lead(), r.id);
+        }
+        show(*v, r, now);
     }
 }
 
-bool TestPlace::take_travel(Travel* out) {
-    if (out_count_ == 0) return false;
-    *out = out_[0];
-    for (int k = 1; k < out_count_; ++k) out_[k - 1] = out_[k];
-    --out_count_;
-    return true;
+void TestPlace::refresh(int64_t now) {
+    for (int i = 0; i < count_; ++i) figures_[i].seq = 0xFFFFFFFFu;  // Wege neu (andere Welt, gleiche Nummern)
+    sync_figures(now);
 }
 
-void TestPlace::arrive(const Travel& t) {
-    const bool guide = t.follow;
-    const uint8_t row = static_cast<uint8_t>(std::clamp<int>(t.look, 1, kFigureRows));
-    if (count_ >= kMaxFigures) {
-        if (!guide) return;  // voll: wer ankommt, bleibt draußen (nur die Begleiterin verdrängt jemanden)
-        for (int i = count_ - 1; i >= 0; --i)
-            if (!figures_[i].guide) {
-                remove_figure(i);
-                break;
-            }
-        if (count_ >= kMaxFigures) return;
+void TestPlace::show(Figure& v, const FigureRecord& r, int64_t now) {
+    // Stelle im Zeitblock: unterwegs auf dem Weg (Fortschritt nach der Zeit), danach am Ziel (am Teil, an der Tür)
+    const Doing& d = r.doing;
+    v.guide = r.lead();
+    v.row = static_cast<uint8_t>(std::clamp<int>(r.look.row[0], 1, kFigureRows));
+    v.look = FigureArt::any_part(r.look) ? r.look : kTestLooks[r.id % kTestLookCount];
+    if (v.seq != d.seq) {
+        v.seq = d.seq;
+        Facing dirs[kPathMax];
+        const int n = d.steps > 0 ? room_.path(d.sx, d.sy, d.gx, d.gy, dirs, kPathMax) : 0;
+        v.path_n = static_cast<int16_t>(n < 0 ? -1 : std::min(n, kPathMax));
+        v.path.fill(0);
+        for (int s = 0; s < v.path_n; ++s)
+            v.path[s >> 2] = static_cast<uint8_t>(v.path[s >> 2] | (static_cast<int>(dirs[s]) << ((s & 3) * 2)));
     }
-    int tx = 0, ty = 0;
-    Facing facing = Facing::Down;
-    if (t.entry < room_.exit_count()) {
-        const Exit& e = room_.exit(t.entry);
-        tx = e.ax;
-        ty = e.ay;
-        facing = e.facing;
-    } else if (!random_free_tile(&tx, &ty)) {
+    auto dir_at = [&](int s) { return (v.path[s >> 2] >> ((s & 3) * 2)) & 3; };
+    v.busy = false;
+    v.dz = 0;
+    const int64_t t = std::max(now, d.start_us);
+    if (v.path_n > 0 && t < d.walk_us) {
+        // gezeigter Weg = geplanter (gleicher Raum); weicht er ab (Umbau), wird die Zeit gestreckt
+        const int64_t p = (t - d.start_us) * v.path_n * 256 / std::max<int64_t>(1, d.walk_us - d.start_us);
+        const int step = static_cast<int>(std::min<int64_t>(p >> 8, v.path_n - 1)), frac = static_cast<int>(p & 255);
+        int x = d.sx, y = d.sy;
+        for (int s = 0; s < step; ++s) {
+            x += kDX[dir_at(s)];
+            y += kDY[dir_at(s)];
+        }
+        const int dir = dir_at(step);
+        v.cx = static_cast<uint8_t>(x);
+        v.cy = static_cast<uint8_t>(y);
+        v.x = center_x(x) + kDX[dir] * frac * kTileSize;
+        v.y = center_y(y) + kDY[dir] * frac * kTileSize;
+        v.facing = static_cast<Facing>(dir);
+        v.goal = d.kind == DoingKind::Leave ? Goal::Exit : Goal::Wander;
+        v.frame = static_cast<uint8_t>(anim_frame_at(kWalk, static_cast<uint32_t>((t - d.start_us) / kTickUs)));
         return;
     }
-    Figure& f = figures_[count_++];
-    spawn_at(f, tx, ty, facing, row, guide, t.who);
-    f.wait = static_cast<uint16_t>(rng_.range(10, 40));
+    v.cx = d.gx;
+    v.cy = d.gy;
+    v.x = center_x(d.gx);
+    v.y = center_y(d.gy);
+    if (v.path_n > 0) v.facing = static_cast<Facing>(dir_at(v.path_n - 1));  // wie angekommen
+    if (d.kind == DoingKind::Use) {
+        UsePoint u{};
+        if (room_.use_point(d.part, d.k, nullptr, nullptr, &u)) {
+            v.facing = u.facing;
+            v.dz = u.dz;
+        }
+        v.busy = true;
+    }
+    v.goal = d.kind == DoingKind::Leave ? Goal::Exit : d.kind == DoingKind::Use ? Goal::Use : Goal::None;
+    v.frame = static_cast<uint8_t>(anim_frame_at(kIdle, static_cast<uint32_t>((t - d.walk_us) / kTickUs)));
+}
+
+uint32_t TestPlace::states_version() const {
+    if (!env_) return 0;
+    uint32_t v = env_->states.place_version(def_.id);
+    for (int w = 0; w < def_.window_count; ++w) v += env_->states.place_version(def_.windows[w].room);
+    return v;
 }
 
 void TestPlace::enter() {
     resolve(kit());  // Bilder der eben geladenen Pakete (assets.h)
+    // Zustandsbilder und Licht vor dem Vorzeichnen, aber nur nach einer Änderung (die Lichtkarte entsteht seit 0.5.9
+    // Teil 3 in prepare über mehrere Schritte, unsichtbar schon vorher, siehe step)
+    if (const uint32_t v = states_version(); v != states_seen_ || states_dirty_) {
+        states_seen_ = v;
+        apply_states();
+    }
     room_.enter();
     entered_ = true;  // Licht und Zustände ab dem nächsten Schritt sofort
     // eigener Startwert je Betreten: deterministisch, ändert den Zufall der Figuren nicht
@@ -791,6 +1069,9 @@ int TestPlace::neighbors(const char** out, int max) const {
 void TestPlace::leave() {
     entered_ = false;
     smoke_n_ = 0;
+    // Figuren der Welt zeigt der Ort erst wieder beim Betreten (an ihrer Stelle im Zeitblock); Statisten bleiben
+    for (int i = count_ - 1; i >= 0; --i)
+        if (!figures_[i].statist) remove_figure(i);
     room_.leave();
     weather_.leave();
 }
@@ -799,6 +1080,21 @@ bool TestPlace::command(const char* cmd) {
     if (!cmd) return false;
     int n = 0;
     char word[12] = {};
+    if (std::sscanf(cmd, "baukasten %11s", word) == 1) {
+        // Prüfbefehl (seit 0.5.9 Teil 4): Figuren aus dem Baukasten (an) oder die alte Testfigur (aus) zum Vergleich
+        g_no_art = std::string_view(word) == "aus";
+        return true;
+    }
+    if (std::sscanf(cmd, "kann %11s %d", word, &n) == 2) {
+        // Prüfbefehl (seit 0.5.9): Fähigkeit der Hauptfigur setzen, Stufe 0 (unbekannt) bis 3 (Meister)
+        Skill sk;
+        FigureRecord* r = env_ ? env_->figures.find(env_->figures.lead()) : nullptr;
+        if (!r || !parse_skill(word, &sk)) return false;
+        int xp = 0;
+        std::sscanf(cmd, "kann %*s %*d %d", &xp);  // optional: Erfahrung in der Stufe
+        r->skills[static_cast<int>(sk)] = {static_cast<SkillLevel>(std::clamp(n, 0, 3)), static_cast<uint16_t>(std::max(0, xp))};
+        return true;
+    }
     if (std::sscanf(cmd, "innenlicht %11s", word) == 1) {
         // Lichter (Lampe, Kerze) des Raumes; das Feuer im Ofen bleibt, wie es ist
         const std::string_view w(word);
@@ -890,6 +1186,11 @@ bool TestPlace::command(const char* cmd) {
         daylight_.set_floor(floor);
         return true;
     }
+    if (std::strcmp(cmd, "figuren neu") == 0) {  // Messung (seit 0.5.9 Teil 5): alle Figurenbilder im Betrieb neu
+        reset_figure_art_stats();
+        kit().art.rebuild();
+        return true;
+    }
     if (std::sscanf(cmd, "nacht %d", &n) == 1) {
         daylight_.set_floor(std::clamp(n, 0, 256));
         return true;
@@ -953,14 +1254,18 @@ void TestPlace::draw(Canvas& c, bool with_background, CoarseLayers* layers) cons
         c.clear(0);
         return;
     }
-    const Kit& k = kit();
     DepthList& list = room_.begin(c, with_background, layers);
-    const SpriteSheet& sheet = k.figure;
-    for (int i = 0; sheet.pixels && i < count_; ++i) {
-        const Figure& f = figures_[i];
-        bool flip = false;
-        const Sprite fr = figure_frame(f, &flip);
-        list.add(fr, f.x >> 8, f.y >> 8, sheet.pivot_x, sheet.pivot_y, flip, k.rows[f.row].table(), f.dz, 5);
+    // nach Kennung (gleiche Tiefe: gleiche Reihenfolge, egal in welcher Folge die Figuren dazukamen)
+    std::array<uint8_t, kMaxFigures> order{};
+    for (int i = 0; i < count_; ++i) {
+        int j = i;
+        for (; j > 0 && figures_[order[j - 1]].id > figures_[i].id; --j) order[j] = order[j - 1];
+        order[j] = static_cast<uint8_t>(i);
+    }
+    for (int n = 0; n < count_; ++n) {
+        const Figure& f = figures_[order[n]];
+        const FigureImage im = figure_image(f);
+        if (im.sprite.pixels) list.add(im.sprite, f.x >> 8, f.y >> 8, im.pivot_x, im.pivot_y, im.flip, im.remap, f.dz, 5);
     }
     list.draw(c);
 }
@@ -1066,10 +1371,16 @@ void TestPlace::render_overlay(Canvas& fine) const {
     // Karte über ihrer Figur (overlay.h)
 }
 
-Sprite TestPlace::figure_frame(const Figure& f, bool* flip) const {
-    const View v = view_of(f.facing);
-    *flip = v.flip;
-    return kit().figure.frame(v.index * kPoses + f.anim.frame());
+TestPlace::FigureImage TestPlace::figure_image(const Figure& f, Facing facing, int frame) const {
+    // Baukasten: Ansichten vorn, hinten, Seite wie die Testfigur (sprite.h, view_of); bis zum Zusammensetzen die
+    // alte Testfigur mit ihrer Farbreihe
+    const View v = view_of(facing);
+    const Kit& k = kit();
+    if (const SpriteSheet* s = g_no_art ? nullptr : k.art.sheet(f.look))
+        return {s->frame(v.index * kFigurePoses + frame), v.flip, nullptr, s->pivot_x, s->pivot_y};
+    if (!k.figure.pixels) return {Sprite{}, false, nullptr, 0, 0};
+    return {k.figure.frame(v.index * kPoses + frame), v.flip, k.rows[f.row].table(), k.figure.pivot_x,
+            k.figure.pivot_y};
 }
 
 const TestPlace::Figure* TestPlace::figure_by_id(uint16_t id) const {
@@ -1093,14 +1404,15 @@ Hit TestPlace::hit(int fx, int fy) const {
         best.y = static_cast<int16_t>((r.y + r.h) * kCoarseScale);
     }
     // Figuren nach den Teilen: bei gleicher Tiefe liegt die Figur vorn (wie beim Zeichnen)
-    const SpriteSheet& sheet = kit().figure;
-    for (int i = 0; sheet.pixels && i < count_; ++i) {
+    for (int i = 0; i < count_; ++i) {
         const Figure& f = figures_[i];
-        bool flip = false;
-        const Sprite s = figure_frame(f, &flip);
+        const FigureImage im = figure_image(f);
+        const Sprite& s = im.sprite;
+        if (!s.pixels) continue;
+        const bool flip = im.flip;
         const int footx = f.x >> 8, footy = f.y >> 8;
-        const int sx = x - (footx - (flip ? s.width - 1 - sheet.pivot_x : sheet.pivot_x));
-        const int sy = y - (footy - sheet.pivot_y);
+        const int sx = x - (footx - (flip ? s.width - 1 - im.pivot_x : im.pivot_x));
+        const int sy = y - (footy - im.pivot_y);
         if (sx < 0 || sy < 0 || sx >= s.width || sy >= s.height) continue;
         if (!s.pixels[sy * s.width + (flip ? s.width - 1 - sx : sx)]) continue;  // durchsichtig
         const int d = footy + f.dz;
@@ -1128,11 +1440,15 @@ Hit TestPlace::hit(int fx, int fy) const {
     return best;
 }
 
-namespace {
-void figure_name(const TestPlace::FigureView& v, char* out, size_t n) {
-    if (v.guide) std::snprintf(out, n, "Begleiterin");
-    else std::snprintf(out, n, "Testfigur %u", static_cast<unsigned>(v.id / 1000 * 100 + v.id % 1000));
+void TestPlace::figure_name(const Figure& f, char* out, size_t n) const {
+    // Name aus dem Weltzustand (seit 0.5.9); Statisten zählen je Ort
+    const FigureRecord* r = env_ ? env_->figures.find(f.id) : nullptr;
+    if (r) std::snprintf(out, n, "%s", r->name.data());
+    else if (f.statist) std::snprintf(out, n, "Statist %u", static_cast<unsigned>(f.id & 0xFF) + 1);
+    else std::snprintf(out, n, f.guide ? "Begleiterin" : "Figur %u", static_cast<unsigned>(f.id));
 }
+
+namespace {
 
 // Testgedanken, bis die Simulation ab 0.6.x echte Gründe liefert
 constexpr const char* kThoughts[] = {
@@ -1143,6 +1459,25 @@ constexpr const char* kThoughts[] = {
     "Ich sollte mir die Bank am Platz genauer ansehen.",
     "Testgedanke: Hier steht später, was die Figur wirklich denkt und warum.",
 };
+// Fähigkeiten einer Figur auf ihrer Karte (seit 0.5.9, Wunsch des Users): die besten zuerst, mit Stufe und Fortschritt;
+// die Karte zeigt so viele, wie unter dem Gedanken Platz haben (meist zwei)
+void add_skills(const FigureRecord& r, ui::Card* card) {
+    int order[kSkills], n = 0;
+    for (int s = 0; s < kSkills; ++s)
+        if (r.skills[s].level != SkillLevel::Unknown) order[n++] = s;
+    std::stable_sort(order, order + n, [&](int a, int b) {
+        return r.skills[a].level != r.skills[b].level ? r.skills[a].level > r.skills[b].level : r.skills[a].xp > r.skills[b].xp;
+    });
+    for (int i = 0; i < n && card->meter_count < ui::Card::kMaxMeters; ++i) {
+        const SkillState& k = r.skills[order[i]];
+        const int lv = static_cast<int>(k.level);
+        ui::CardMeter& m = card->meters[card->meter_count++];
+        m.label = skill_title(static_cast<Skill>(order[i]));
+        m.level = static_cast<uint8_t>(lv);
+        m.progress = lv >= 3 ? 255 : static_cast<uint8_t>(std::min<int>(255, k.xp * 255 / kSkillNeed[lv]));
+    }
+}
+
 constexpr const char* kPartNames[] = {"Dekoration", "Sitzplatz", "Bett",  "Tisch",  "Schrank",
                                       "Werkbank",   "Lampe",     "Tür",   "Fenster"};
 }  // namespace
@@ -1155,7 +1490,7 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
         card->kind = Kind::Figure;
         card->figure = f->id;
         char name[24];
-        figure_name({f->id, f->guide}, name, sizeof(name));
+        figure_name(*f, name, sizeof(name));
         card->title = name;
         const bool walking = f->x != center_x(f->cx) || f->y != center_y(f->cy);
         card->subtitle = f->busy                  ? "sitzt und ruht"
@@ -1166,12 +1501,14 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
         card->quote = std::string("„") + kThoughts[f->id % (sizeof(kThoughts) / sizeof(kThoughts[0]))] + "“";
         card->hint = "Folgen";
         card->hint_symbol = ui::Symbol::Follow;
-        card->picture.sprite = kit().figure.frame(view_of(Facing::Down).index * kPoses);
-        card->picture.remap = kit().rows[f->row].table();
+        const FigureImage im = figure_image(*f, Facing::Down, 0);
+        card->picture.sprite = im.sprite;
+        card->picture.remap = im.remap;
         card->picture.scale = 2;
         card->picture.light_base = static_cast<uint8_t>(pal_.base());  // hellste Lichtstufe: auch nachts erkennbar
         card->picture.light_add = static_cast<uint8_t>(pal_.base() * (pal_.levels() - 1));
         figure_mark(f->id, &card->mark_x, &card->mark_y, &card->mark_h);
+        if (const FigureRecord* r = env_ ? env_->figures.find(f->id) : nullptr) add_skills(*r, card);
         return true;
     }
     if (hit.kind == Hit::Kind::Exit) {
@@ -1253,16 +1590,29 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
 }
 
 int TestPlace::figures(FigureInfo* out, int max) const {
+    // laut Weltzustand (seit 0.5.9 Teil 2 auch unsichtbar), Begleiterin zuerst; dazu die Statisten
     int n = 0;
-    for (int pass = 0; pass < 2; ++pass)  // Begleiterin zuerst
-        for (int i = 0; i < count_ && n < max; ++i) {
-            const Figure& f = figures_[i];
-            if (f.guide != (pass == 0)) continue;
-            out[n].id = f.id;
-            out[n].lead = f.guide;
-            figure_name({f.id, f.guide}, out[n].name, sizeof(out[n].name));
-            ++n;
-        }
+    if (env_) {
+        const FigureBook& book = env_->figures;
+        for (int pass = 0; pass < 2; ++pass)
+            for (int k = 0; k < book.count() && n < max; ++k) {
+                const FigureRecord& f = book.at(k);
+                if (f.where.kind != Whereabouts::Kind::Place || f.where.place != index_ || f.lead() != (pass == 0))
+                    continue;
+                out[n].id = f.id;
+                out[n].lead = f.lead();
+                std::snprintf(out[n].name, sizeof(out[n].name), "%s", f.name.data());
+                ++n;
+            }
+    }
+    for (int i = 0; i < count_ && n < max; ++i) {
+        const Figure& f = figures_[i];
+        if (!f.statist) continue;
+        out[n].id = f.id;
+        out[n].lead = false;
+        figure_name(f, out[n].name, sizeof(out[n].name));
+        ++n;
+    }
     return n;
 }
 
@@ -1273,7 +1623,8 @@ bool TestPlace::figure_mark(uint16_t id, int* x, int* y, int* h) const {
     if (!f) return false;
     *x = (f->x >> 8) * kCoarseScale;
     *y = (f->y >> 8) * kCoarseScale;
-    *h = (kit().figure.pixels ? kit().figure.pivot_y : 28) * kCoarseScale;
+    const FigureImage im = figure_image(*f);
+    *h = (im.sprite.pixels ? im.pivot_y : 28) * kCoarseScale;
     return true;
 }
 

@@ -2,6 +2,24 @@
 
 namespace pixelia {
 
+int anim_frame_at(const Animation& a, uint32_t t) {
+    if (a.count == 0) return 0;
+    // Folge der Bilder eines Durchgangs: hin (Schleife, einmal) bzw. hin und zurück ohne die Enden doppelt
+    const int n = a.count;
+    const int len = a.mode == AnimMode::PingPong && n > 1 ? 2 * n - 2 : n;
+    uint32_t total = 0;
+    auto at = [&](int i) { return a.mode == AnimMode::PingPong && i >= n ? 2 * n - 2 - i : i; };
+    for (int i = 0; i < len; ++i) total += a.frames[at(i)].ticks ? a.frames[at(i)].ticks : 1;
+    if (a.mode == AnimMode::Once && t >= total) return a.frames[n - 1].frame;
+    t %= total;
+    for (int i = 0; i < len; ++i) {
+        const uint32_t d = a.frames[at(i)].ticks ? a.frames[at(i)].ticks : 1;
+        if (t < d) return a.frames[at(i)].frame;
+        t -= d;
+    }
+    return a.frames[0].frame;
+}
+
 void Animator::play(const Animation* anim, bool restart) {
     if (anim == anim_ && !restart) return;
     anim_ = anim;

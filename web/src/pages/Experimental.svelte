@@ -10,6 +10,7 @@
   import { num } from '../lib/format';
   import { cmpVersion, dateDe, parseFw } from '../lib/changelog';
   import HubList, { type HubGroup } from '../lib/HubList.svelte';
+  import FigureList from '../lib/FigureList.svelte';
 
   let { part = 'start' }: { part?: 'start' | 'orte' | 'panel' | 'version' } = $props();
 
@@ -271,6 +272,8 @@
           {#if ex.figures}<Button variant="text" icon="restart_alt" onclick={() => act({ a: 'figures', n: 0 })}>Figuren: Standard</Button>{/if}
         </div>
       </Card>
+
+      <FigureList />
 
       <Card class="wide">
         <h2 class="card-title"><Icon name="schedule" size={20} />Tageszeit</h2>

@@ -12,13 +12,21 @@
 // testdorf.cpp. Der Baukasten (Katalog, Palette, Figur) ist für alle Testorte gleich und steht hier.
 // Figuren laufen auf dem Kachelraster (Breitensuche um Möbel herum), benutzen freie Benutzungspunkte und wechseln
 // über Ausgänge den Ort. Eine Figur ist die Begleiterin: Ihr folgt der Blick der Bühne durch Türen und Bildränder.
-// Lastregler (set_load): Zahl der Figuren am Ort, 1–64; 0 = Standard des Ortes.
+// Lastregler (set_load): Zahl der Figuren am Ort, 1–64, aufgefüllt mit Statisten; 0 = keine Statisten.
+// Seit 0.5.9 gehören die Figuren der Welt (figure.h): Der Ort zeigt, wer laut Weltzustand hier ist; Namen kommen aus dem
+// Datensatz. Statisten (Kennungen ab kStatistIds) gibt es nur für Messungen: Sie bleiben am Ort, buchen nichts und
+// stehen in keinem Speicherstand.
+// Seit 0.5.9 Teil 2 Stufen der Simulation (stage.h, world_sim.cpp): Der Planer (decide, finish) entscheidet für die
+// Figuren der Welt Tätigkeiten als Zeitblöcke (umhergehen, ein Teil benutzen, hinausgehen; Gehzeit aus der Weglänge)
+// und bucht ihre Wirkung (Becken schöpfen, am Bau arbeiten) an ihrem Ende, sichtbar oder nicht derselbe Code. Die
+// Darstellung (tick, nur betreten) rechnet daraus, wo jede Figur gerade ist: mitten auf dem Weg, am Teil, wartend an der
+// Tür; die Bilder der Animation kommen aus der Weltzeit. So zeigt ein Ort dasselbe, egal seit wann er zu sehen ist.
 // Seit 0.5.3 Wetter (weather.h): Wiese und Platz draußen mit Partikeln und Schleiern, der Raum zeigt es in den
 // Fenstern. Seit 0.5.8 Teil 2 Ortszustände (place_state.h) statt der Lichtquellen-Tafel: Lampe, Kerze und Ofen des
 // Raumes, Laterne, Nässe und Becken des Platzes, Nässe der Wiese. Die Fenster der Wiese gehören zum Raum und leuchten
 // nachts nur, wenn dort Licht mit Schein nach außen brennt (Befehl „innenlicht an|aus|um“). Der Ort zeigt die Zustände
 // (Zustandsbilder, Lichtkreise nach der Stärke, nasser Boden dunkler, Pfützen) und erfährt Änderungen über den
-// Ereignis-Bus (events.h); unsichtbar baut er sein Licht nur in seinem Takt-Schlitz neu (verteilt die Rechenzeit).
+// Ereignis-Bus (events.h); seine Lichtkarte entsteht seit 0.5.9 Teil 3 über mehrere Schritte (prepare, Budget der Bühne).
 // Unter Tage (kPlaceUnderground): kein Wetter, kein Himmel, Licht immer wie nachts.
 
 #include <array>
@@ -65,8 +73,15 @@ public:
     // Grafik-Pakete (seit 0.5.5): „moebel“ (gemeinsam), dazu „wiese“ bzw. „raum“; Nachbarn = Ziele der Ausgänge
     int packs(const char** out, int max) const override;
     int neighbors(const char** out, int max) const override;
-    bool take_travel(Travel* out) override;
-    void arrive(const Travel& t) override;
+    // Planer (seit 0.5.9 Teil 2): wie bisher die Figuren am Ort, jetzt als Zeitblöcke in Weltzeit
+    bool decide(const FigureRecord& f, int64_t at_us, Rng& rng, Doing* out) override;
+    void finish(const FigureRecord& f, const Doing& d) override;
+    bool exit_travel(int exit, Travel* out) const override;
+    void entry_tile(uint8_t entry, Rng& rng, uint8_t* tx, uint8_t* ty) const override;
+    void step(int64_t at_us) override;
+    void refresh(int64_t now_us) override;
+    int prepare(int budget) override;
+    static int64_t tile_us(uint16_t id);  // Gehzeit je Kachel (je Figur etwas anders, 325–455 ms)
     // Touch und Karten (seit 0.5.6): Figuren mit Kennung (Ort × 1000 + laufende Nummer, bleibt beim Reisen),
     // Hauptfigur = die Begleiterin (Platzhalter für Sykora); Gedanken sind Testtexte (echte ab 0.6.x)
     Hit hit(int x, int y) const override;
@@ -91,11 +106,8 @@ public:
     // Ortszustand dieses Ortes nach Kennung (Index in PlaceStates), −1 = keiner
     int state_index(const char* id) const;
 
-    int figure_count() const { return count_; }
-    struct FigureView {
-        uint16_t id;
-        bool guide;
-    };
+    // Figuren am Ort laut Weltzustand, dazu die Statisten (seit 0.5.9 Teil 2 auch unsichtbar)
+    int figure_count() const;
     bool has_guide() const;
     const Room& room() const { return room_; }
     // Prüfung: zeichnet ohne Hintergrundbild (muss pixelgleich mit render() sein)
@@ -114,12 +126,20 @@ private:
         int8_t use_part, use_k, exit;
         int8_t dz;       // Tiefenversatz (Benutzungspunkt)
         bool guide;
+        bool statist;    // Statist des Lastreglers (seit 0.5.9): geht nie hinaus
         bool busy;       // benutzt gerade etwas
         uint16_t id;     // Kennung (seit 0.5.6)
-        uint16_t here;   // Schritte am Ort (die Begleiterin geht erst nach einer Weile weiter)
+        uint16_t here;   // Schritte am Ort (Statisten)
         Facing facing;
-        Animator anim;
+        Animator anim;   // Statisten; Figuren der Welt: Bild aus der Weltzeit (frame)
+        uint8_t frame;   // gezeigtes Bild der Animation
+        FigureLook look;  // Aussehen (seit 0.5.9 Teil 3, Figuren-Baukasten); ohne Ebenen die alte Testfigur
+        // Figuren der Welt (seit 0.5.9 Teil 2): gezeigte Tätigkeit und ihr Weg (2 Bit je Schritt)
+        uint32_t seq;
+        int16_t path_n;  // Schritte, −1 = kein Weg (am Ende einfach dort)
+        std::array<uint8_t, 24> path;
     };
+    static constexpr int kPathMax = 96;
 
     void build_palette();
     void build_room();
@@ -127,15 +147,30 @@ private:
     void apply_glow();
     void apply_wet();     // nasser Boden: Weg und Pflaster dunkler
     void read_events();
-    bool random_free_tile(int* tx, int* ty);
-    void spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide, uint16_t id = 0);
+    uint32_t states_version() const;  // Stufenwechsel der eigenen Zustände und der Räume hinter den Fenstern
+    void sync_building();  // im Bau nach den Ortszuständen (Planer: Wege und Benutzungspunkte hängen daran)
+    bool random_free_tile(Rng& rng, int* tx, int* ty) const;
+    void spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide, uint16_t id);
+    bool any_free_tile(int* tx, int* ty) const;  // der Reihe nach (wenn der Zufall nichts findet)
+    void figure_name(const Figure& f, char* out, size_t n) const;
     const Figure* figure_by_id(uint16_t id) const;
-    Sprite figure_frame(const Figure& f, bool* flip) const;
-    void decide(Figure& f);
+    // Bild einer Figur (seit 0.5.9 Teil 3): aus dem Baukasten, sonst die alte Testfigur mit Farbreihe
+    struct FigureImage {
+        Sprite sprite;
+        bool flip;
+        const uint8_t* remap;
+        int pivot_x, pivot_y;
+    };
+    FigureImage figure_image(const Figure& f, Facing facing, int frame) const;
+    FigureImage figure_image(const Figure& f) const { return figure_image(f, f.facing, f.frame); }
+    void statist_decide(Figure& f);
     bool use_taken(int part, int k, const Figure* self) const;
-    void reached(int i);  // Figur i steht auf ihrem Ziel
+    bool use_taken_world(int part, int k, uint16_t self, int64_t at) const;
+    void reached(int i);  // Statist i steht auf seinem Ziel
     void remove_figure(int i);
     void apply_load();
+    void sync_figures(int64_t now);  // Darstellung = Figuren am Ort laut Weltzustand, an ihrer Stelle im Zeitblock
+    void show(Figure& v, const FigureRecord& r, int64_t now);
     void draw(Canvas& c, bool with_background, CoarseLayers* layers = nullptr) const;
 
     const PlaceDef& def_;
@@ -154,8 +189,6 @@ private:
     int wanted_ = 0;
     bool load_pending_ = false;
     bool inspect_ = false;
-    std::array<Travel, 8> out_{};
-    int out_count_ = 0;
     Environment* env_ = nullptr;
     PlaceWeather weather_;
     int state_first_ = -1, state_n_ = 0;  // Ortszustände in der Umgebung
@@ -177,7 +210,9 @@ private:
     void tick_smoke();
     uint32_t enters_ = 0;
     uint64_t ticks_ = 0;
-    uint16_t next_id_ = 0;
+    uint16_t next_statist_ = 0;
+    uint32_t restored_seen_ = 0;
+    uint32_t states_seen_ = 0;  // Stand der Ortszustände, den die Darstellung zeigt (PlaceStates::version)
 };
 
 }  // namespace pixelia

@@ -205,8 +205,12 @@ public:
     // Nächster Schritt von (fx, fy) nach (tx, ty) über freie Kacheln (Breitensuche, Ziel darf versperrt sein, z. B.
     // ein Bett); false = schon da oder kein Weg
     bool step_toward(int fx, int fy, int tx, int ty, Facing* dir) const;
+    // Ganzer Weg in einer Breitensuche (seit 0.5.9 Teil 2, Planer der Tätigkeiten): Zahl der Schritte (0 = schon da,
+    // −1 = kein Weg); dirs (optional) bekommt die ersten max Richtungen
+    int path(int fx, int fy, int tx, int ty, Facing* dirs = nullptr, int max = 0) const;
 
     void tick();   // Bilder bewegter Teile
+    void set_ticks(uint64_t ticks) { ticks_ = static_cast<uint32_t>(ticks); }  // seit 0.5.9 Teil 2: aus der Weltzeit (gleiches Bild, egal seit wann zu sehen)
     void enter();  // Hintergrundbild anlegen und vorzeichnen
     void leave();  // Hintergrundbild freigeben
     bool has_background() const { return bg_ != nullptr; }
@@ -215,11 +219,17 @@ public:
     // Schatten durchscheinend (seit 0.5.2): Index → Index, z. B. PlacePalette::tint_table Richtung Schwarz
     void set_shadow_table(const uint8_t* table);
 
-    // Licht (seit 0.5.2, light.h): Lichtkreise am Boden; base und levels wie die Palette des Ortes. Dabei
-    // entsteht eine Lichtkarte (24 KB Grafik-Speicher, einmal je Änderung der Lichter). Angewendet wird sie beim
-    // Verdoppeln (begin() meldet sie in layers), Figuren bekommen die Stufe an ihrem Fußpunkt. Zeichnet sofort neu.
-    static constexpr int kMaxLights = 8;
+    // Licht (seit 0.5.2, light.h): Lichtkreise am Boden; base und levels wie die Palette des Ortes. Dazu gehört eine
+    // Lichtkarte (24 KB Grafik-Speicher). Angewendet wird sie beim Verdoppeln (begin() meldet sie in layers), Figuren
+    // bekommen die Stufe an ihrem Fußpunkt. Seit 0.5.9 Teil 3 plant set_lights nur (gleiche Lichter: gar nichts, aus:
+    // sofort); die Karte entsteht über build_lights in mehreren Schritten. Betreten in einen zweiten Puffer, der erst
+    // fertig sichtbar wird; unsichtbar an Ort und Stelle.
+    static constexpr int kMaxLights = kMaxLightCircles;
     void set_lights(const LightCircle* lights, int n, int base, int levels, LightStyle style);
+    // Neubau fortsetzen: Zeilen bis zum Aufwand budget (light_row_cost, mindestens eine); gibt den Aufwand zurück
+    int build_lights(int budget);
+    bool lights_pending() const;
+    uint32_t light_builds() const;  // fertige Lichtkarten seit init (Prüfungen)
     int light_count() const;
     const uint8_t* light_map() const { return lm_; }
     // Licht wirkt (Lampen an, PlacePalette: Ambient::lamp > 0); aus = alle Stufen gleich, Zeichnen ohne Licht
@@ -249,13 +259,14 @@ private:
     void draw_static(Canvas& c, bool standing) const;
     void rebuild_walk();
     void bake();
-    void build_lights();
+    void start_lights();  // Neubau der Lichtkarte von vorn (Ziel nach betreten/unsichtbar)
 
     const TileSet* tiles_ = nullptr;
     const PartCatalog* catalog_ = nullptr;
     Storage* st_ = nullptr;
     uint8_t* bg_ = nullptr;
-    uint8_t* lm_ = nullptr;  // Lichtkarte (Stufen je grobem Bildpunkt, light.h)
+    uint8_t* lm_ = nullptr;   // Lichtkarte (Stufen je grobem Bildpunkt, light.h)
+    uint8_t* lmb_ = nullptr;  // zweiter Puffer für den Neubau, solange betreten
     bool light_on_ = true;
     uint32_t ticks_ = 0;
 };

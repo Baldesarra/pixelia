@@ -8,6 +8,8 @@
 #include <memory>
 
 #include "pixelia/engine/canvas.h"
+#include "pixelia/engine/figure.h"
+#include "pixelia/engine/rng.h"
 #include "pixelia/engine/world_clock.h"
 
 namespace pixelia {
@@ -52,6 +54,14 @@ struct Hit {
     int16_t h = 0;         // Höhe des Bildes
 };
 
+// Figuren (seit 0.5.9): Wer existiert und wo, steht im Weltzustand (figure.h, Environment::figures); ein Ort zeigt die
+// Figuren, die dort sind. Seit 0.5.9 Teil 2 entscheidet sein Planer (decide, finish) ihre Tätigkeiten als Zeitblöcke
+// (figure.h, Doing), die Bühne ruft ihn in Zeitreihenfolge auf und übergibt Figuren an Takt-Grenzen. Kennungen ab
+// kStatistIds sind Statisten des Lastreglers (set_load, Messungen): Sie gehören nur der Darstellung des Ortes, gehen nie
+// hinaus, buchen nichts und stehen in keinem Speicherstand.
+inline constexpr uint16_t kStatistIds = 0xC000;
+inline constexpr uint8_t kAnyEntry = 0xFF;  // Travel::entry: irgendwo am Ort auftauchen (Start, Laden)
+
 // Figur in einer Liste (Weboberfläche: „Folge X“)
 struct FigureInfo {
     uint16_t id = 0;
@@ -79,8 +89,29 @@ public:
     virtual const char* title() const { return name(); }  // sichtbarer Name (Weboberfläche)
     // Gleicher Startwert = gleicher Ablauf (deterministisch)
     virtual void init(uint64_t seed) = 0;
-    // Ein Logik-Schritt; die Uhr ist bereits weitergezählt
+    // Ein Logik-Schritt der Darstellung; die Uhr ist bereits weitergezählt. Seit 0.5.9 Teil 2 nur für betretene Orte
+    // (sichtbar, Übergang, Vorbereitung: volle Stufe mit 30 Hz); was in der Welt passiert, rechnen decide, finish und
+    // step in beiden Stufen gleich
     virtual void tick(const WorldClock& clock) = 0;
+
+    // --- Stufen der Simulation (seit 0.5.9 Teil 2, SETTING.md Kapitel 15) ---
+    // Planer: nächste Tätigkeit von Figur f ab at_us an diesem Ort (sie steht auf f.doing.gx/gy); Zufall nur aus rng
+    // (je Figur und Entscheidung). Leave muss an einer Takt-Grenze enden. false = der Ort plant nicht (Figur steht)
+    virtual bool decide(const FigureRecord& /*f*/, int64_t /*at_us*/, Rng& /*rng*/, Doing* /*out*/) { return false; }
+    // Tätigkeit zu Ende (um d.end_us): Wirkung buchen (Becken schöpfen, am Bau arbeiten); Leave übergibt die Bühne
+    virtual void finish(const FigureRecord& /*f*/, const Doing& /*d*/) {}
+    // Weg durch Ausgang exit: Ziel, Eingang dort, Übergang, Reisezeit; false = gibt es nicht
+    virtual bool exit_travel(int /*exit*/, Travel* /*out*/) const { return false; }
+    // Wo jemand ankommt, der durch Eingang entry kommt (kAnyEntry: irgendwo frei; Start, Laden)
+    virtual void entry_tile(uint8_t /*entry*/, Rng& /*rng*/, uint8_t* tx, uint8_t* ty) const { *tx = *ty = 0; }
+    // An jeder Takt-Grenze, für alle Orte gleich (nach dem Planer): Regeln aus dem Ereignis-Bus, Raum nach den
+    // Ortszuständen (im Bau, versperrte Kacheln)
+    virtual void step(int64_t /*at_us*/) {}
+    // Darstellung sofort an den Weltzustand angleichen (nach dem Laden eines Speicherstands; nur betretene Orte)
+    virtual void refresh(int64_t /*now_us*/) {}
+    // Vorarbeit der Darstellung (seit 0.5.9 Teil 3), je Logik-Schritt für alle Orte mit gemeinsamem Budget der Bühne:
+    // teure Teile wie die Lichtkarte entstehen über mehrere Schritte. Gibt den verbrauchten Aufwand zurück (0 = nichts)
+    virtual int prepare(int /*budget*/) { return 0; }
     // Zeichnet in 400×240 (scale() == 1) oder ins grobe Raster 200×120 (scale() == 2)
     virtual void render(Canvas& canvas) const = 0;
     // Grobe Szenen mit Hintergrundbild (seit 0.5.2): zeichnen nur die bewegten Teile in den Arbeitspuffer und melden
@@ -109,10 +140,7 @@ public:
     // Während eines Übergangs sind beide Orte „betreten“.
     virtual void enter() {}
     virtual void leave() {}
-    // Reisende abgeben: true, solange noch jemand durch einen Ausgang geht (die Bühne fragt nach jedem Schritt)
-    virtual bool take_travel(Travel* /*out*/) { return false; }
-    // Jemand kommt an: t.entry ist der Ausgang dieses Ortes, an dem er auftaucht
-    virtual void arrive(const Travel& /*t*/) {}
+    // (bis 0.5.9 Teil 1 take_travel, arrive, clear_figures: seit Teil 2 übergibt die Bühne über den Weltzustand)
     // Prüfansicht: Stellflächen, Benutzungspunkte, Ausgänge einblenden (Seite Experimentell)
     virtual void set_inspect(bool /*on*/) {}
     // Kurzer Befehl für Prüfungen (Konsole, Seite Experimentell), z. B. „ausbau“, „baustelle“; false = unbekannt
@@ -128,8 +156,10 @@ public:
     virtual Hit hit(int /*x*/, int /*y*/) const { return {}; }
     // Karte zu einem Treffer füllen (Figur: Name, Tätigkeit, Gedanke; Teil: Name, bei Türen card->place)
     virtual bool describe(const Hit& /*hit*/, ui::Card* /*card*/) const { return false; }
-    // Figuren am Ort (Kennung, Name); Hauptfigur (der der Blick im Standardmodus folgt) immer zuerst
+    // Figuren am Ort (Kennung, Name; laut Weltzustand, dazu Statisten); Hauptfigur (der der Blick im Standardmodus
+    // folgt) immer zuerst
     virtual int figures(FigureInfo* /*out*/, int /*max*/) const { return 0; }
+    // Wird die Figur gerade gezeigt? (seit 0.5.9 Teil 2 nur betretene Orte; Prüfung check_figures)
     virtual bool has_figure(uint16_t /*id*/) const { return false; }
     // Markierung einer Figur (Karte offen): Fußpunkt und Höhe fein; false = nicht hier
     virtual bool figure_mark(uint16_t /*id*/, int* /*x*/, int* /*y*/, int* /*h*/) const { return false; }

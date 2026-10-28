@@ -10,9 +10,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <new>
 #include <string>
 
 #include "app.h"
+#include "pixelia/engine/light.h"
+#include "pixelia/engine/place_state.h"
+#include "pixelia/engine/figure_art.h"
 #include "pixelia/engine/stage.h"
 #include "board/backlight.h"
 #include "diag.h"
@@ -117,11 +121,12 @@ void print_help() {
     ESP_LOGI(TAG, "  ort [<Nr|Kennung> [Übergang]] | ort rundgang <s> | ort figuren <n>   Orte der Bühne");
     ESP_LOGI(TAG, "  kamera [standard|folge <Figur>|ort <Nr>] | karte [<Figur>|aus] | meldung [system] <Text> | uhr an|aus|ecke <n>|sekunden 0|1");
     ESP_LOGI(TAG, "  ort ausbau | ort baustelle | ort folgen 0/1 | ort pruefen 0/1   Testorte (Raum-Baukasten)");
-    ESP_LOGI(TAG, "  bench [mem]   Zeichnen messen: Verdoppeln, Kopie des Hintergrunds; mem: PSRAM-Durchsatz, DMA");
+    ESP_LOGI(TAG, "  bench [mem|licht|figuren]   Zeichnen messen: Verdoppeln, Kopie des Hintergrunds; mem: PSRAM-Durchsatz, DMA; licht: Lichtkarte; figuren: Baukasten");
     ESP_LOGI(TAG, "  time <HH:MM|real> | speed <Faktor>             Weltzeit stellen (real = echte Uhrzeit), Zeitraffer");
     ESP_LOGI(TAG, "  wetter [<Art> [%%] [sofort]] | wetter blitz | wetter wind links|rechts   Wetter (Art: sonne bewoelkt regen schnee nebel gewitter wind; übersteuert bis zur nächsten Wetterzeit)");
     ESP_LOGI(TAG, "  update abriss                                   nächster Download von GitHub trennt einmal (Weitermachen prüfen)");
     ESP_LOGI(TAG, "  welt [laenge <Tage> | auto]                     Weltkalender, Mond, Wetter-Simulation (auto = Simulation wieder an)");
+    ESP_LOGI(TAG, "  welt speichern | figuren | chronik              Speicherstand jetzt schreiben, Figuren mit Ort, Chronik (seit 0.5.9)");
     ESP_LOGI(TAG, "  ort cmd <Befehl>   Befehl an Bühne/Ort, z. B. innenlicht um, ofen glut, nass 80, becken 50, regen fein, blitze 12 30");
     ESP_LOGI(TAG, "  ort cmd zustaende  Ortszustände ins Log (Herd, Kerze, Lampe, Becken, Nässe)");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
@@ -217,6 +222,41 @@ void bench_memory() {
     if (done) vSemaphoreDelete(done);
     heap_caps_free(fine);
     heap_caps_free(rows);
+}
+
+// Lichtkarte (seit 0.5.9 Teil 3, „bench licht“): Tabellen und ganze Karte für Lampe, Kerze und Herd wie im Testraum,
+// dazu der Aufwand in Einheiten des Budgets je Schritt (Stage::kPrepareBudget). Auf Kern 0 wie „bench“
+void bench_light() {
+    auto* plan = static_cast<pixelia::LightPlan*>(heap_caps_malloc(sizeof(pixelia::LightPlan), MALLOC_CAP_SPIRAM));
+    auto* map = static_cast<uint8_t*>(heap_caps_malloc(pixelia::kCoarsePixels, MALLOC_CAP_SPIRAM));
+    if (plan && map) {
+        new (plan) pixelia::LightPlan;
+        const pixelia::LightCircle c[] = {pixelia::light_circle(70, 60, 4), pixelia::light_circle(120, 50, 3),
+                                          pixelia::light_circle(40, 80, 3)};
+        int64_t t0 = esp_timer_get_time();
+        pixelia::plan_light_map(plan, c, 3, 3, pixelia::LightStyle::Fine);
+        const int64_t tp = esp_timer_get_time() - t0;
+        t0 = esp_timer_get_time();
+        pixelia::plan_light_map(plan, c + 1, 2, 3, pixelia::LightStyle::Fine);  // Lampe aus: Tabellen nur kopiert
+        pixelia::plan_light_map(plan, c, 3, 3, pixelia::LightStyle::Fine);      // wieder an: eine neu
+        const int64_t tw = esp_timer_get_time() - t0;
+        int cost = 0;
+        uint8_t x0, x1;
+        t0 = esp_timer_get_time();
+        for (int y = 0; y < pixelia::kCoarseHeight; ++y) {
+            cost += pixelia::light_row_cost(*plan, y, pixelia::kCoarseWidth);
+            pixelia::build_light_row(map + y * pixelia::kCoarseWidth, pixelia::kCoarseWidth, y, *plan, &x0, &x1);
+        }
+        const int64_t tb = esp_timer_get_time() - t0;
+        ESP_LOGI(TAG, "Lichtkarte (Lampe, Kerze, Herd): Tabellen %" PRId64 " µs (aus und an %" PRId64 " µs), Karte %"
+                      PRId64 " µs, Aufwand %d (%d µs je 1000; Budget je Schritt %d ≈ %d µs)",
+                 tp, tw, tb, cost, static_cast<int>(tb * 1000 / std::max(1, cost)), pixelia::Stage::kPrepareBudget,
+                 static_cast<int>(tb * pixelia::Stage::kPrepareBudget / std::max(1, cost)));
+    } else {
+        ESP_LOGW(TAG, "bench licht: kein PSRAM frei");
+    }
+    heap_caps_free(plan);
+    heap_caps_free(map);
 }
 
 void log_bench(int n) {
@@ -395,6 +435,7 @@ bool handle(char* line) {
             ota::restart_soon(1000);
         } else {
             ESP_LOGI(TAG, "Neustart");
+            gfx::save_world_now();  // seit 0.5.9: Speicherstand vorher schreiben
             vTaskDelay(pdMS_TO_TICKS(100));
             esp_restart();
         }
@@ -440,6 +481,32 @@ bool handle(char* line) {
             gfx::set_season_length(std::atoi(argv[2]));
         } else if (argc >= 2 && std::strcmp(argv[1], "auto") == 0) {
             gfx::place_command("wetter auto");
+        } else if (argc >= 2 && std::strcmp(argv[1], "speichern") == 0) {
+            ESP_LOGI(TAG, "%s", gfx::request_save() ? "Speicherstand wird geschrieben" : "Speichern läuft schon");
+        } else if (argc >= 2 && (std::strcmp(argv[1], "figuren") == 0 || std::strcmp(argv[1], "chronik") == 0)) {
+            // 6 KB: im PSRAM, nicht auf dem Stack der Konsole und nicht im internen RAM
+            static auto* view = static_cast<gfx::WorldView*>(heap_caps_malloc(sizeof(gfx::WorldView), MALLOC_CAP_SPIRAM));
+            gfx::WorldView& v = *view;
+            if (!view || !gfx::world_view(view)) {
+                ESP_LOGW(TAG, "Grafik-Task antwortet nicht");
+            } else if (argv[1][0] == 'f') {
+                for (int i = 0; i < v.figures; ++i) {
+                    const gfx::FigureRow& f = v.fig[i];
+                    char skills[96] = "";
+                    for (int k = 0, n = 0; k < f.skill_n; ++k)
+                        n += std::snprintf(skills + n, sizeof(skills) - n, "%s%s %s", k ? ", " : "",
+                                           pixelia::skill_title(static_cast<pixelia::Skill>(f.skills[k].skill)),
+                                           pixelia::skill_level_title(static_cast<pixelia::SkillLevel>(f.skills[k].level)));
+                    ESP_LOGI(TAG, "%4u %-14s %2u J. %s%s%s%s · %s · %u Bez., %u Erinn.", f.id, f.name, f.age, f.place,
+                             f.doing[0] ? ", " : "", f.doing, f.lead ? " (Hauptfigur)" : "", skills, f.relations,
+                             f.memories);
+                }
+                ESP_LOGI(TAG, "%d Figuren, Besuche %d (%d laufen)", v.figures, v.visits, v.visits_open);
+            } else {
+                for (int i = v.chronicle - 1; i >= 0; --i)
+                    ESP_LOGI(TAG, "Tag %d, %02d:%02d  %s", static_cast<int>(v.ch[i].day), v.ch[i].minute / 60,
+                             v.ch[i].minute % 60, v.ch[i].text);
+            }
         } else {
             const gfx::WorldInfo w = gfx::world_info();
             if (!w.started) {
@@ -455,6 +522,18 @@ bool handle(char* line) {
                          pixelia::weather_name(static_cast<pixelia::WeatherKind>(w.weather)), w.weather_pct,
                          w.weather_override ? " (übersteuert)" : "");
             }
+            const gfx::SaveInfo s = gfx::save_info();
+            const int64_t now = esp_timer_get_time();
+            ESP_LOGI(TAG, "Speicherstand %lu, %.1f KB, %s, packen %lu µs, schreiben %lu ms, %d Figuren (%d unterwegs)%s%s",
+                     static_cast<unsigned long>(s.generation), s.bytes / 1024.0,
+                     s.at_us ? (std::to_string((now - s.at_us) / 1000000) + " s her").c_str()
+                             : (s.loaded ? "geladen" : "noch keiner"),
+                     static_cast<unsigned long>(s.pack_us), static_cast<unsigned long>(s.write_ms), s.figures, s.transit,
+                     s.test ? ", Testuhr: speichert nicht" : s.waiting ? ", wartet auf die Uhrzeit" : "",
+                     s.error[0] ? (std::string(", Fehler: ") + s.error).c_str() : "");
+            if (s.loaded)
+                ESP_LOGI(TAG, "Nachgeholt %lld min, übersprungen %lld min, offen %lld min", static_cast<long long>(s.caught_up),
+                         static_cast<long long>(s.skipped), static_cast<long long>(s.catching_up));
         }
     } else if (is("blf") && argc >= 2) {
         esp_err_t err = board::backlight::set_frequency(static_cast<uint32_t>(std::atoi(argv[1])));
@@ -563,6 +642,17 @@ bool handle(char* line) {
         ESP_LOGI(TAG, "Engine-Puffer: %s", psram ? "PSRAM" : "intern");
     } else if (is("assets") || is("sd")) {
         assets::console(argc, argv);
+    } else if (is("bench") && argc >= 2 && std::strcmp(argv[1], "licht") == 0) {
+        bench_light();
+    } else if (is("bench") && argc >= 2 && std::strcmp(argv[1], "figuren") == 0) {
+        // Figuren-Baukasten (seit 0.5.9 Teil 4): gemessene Bilder seit dem Start, Aufwand je Bild fürs Budget
+        const pixelia::FigureArtStats& st = pixelia::figure_art_stats();
+        const double per = st.frames ? static_cast<double>(st.us) / st.frames : 0;
+        ESP_LOGI(TAG, "Figuren-Baukasten: %lu Bilder, im Mittel %.0f µs (max %lld µs), erstes nach %.2f s, fertig nach %.2f s (zuletzt %.2f s)",
+                 static_cast<unsigned long>(st.frames), per, static_cast<long long>(st.max_us), st.first_us / 1e6,
+                 st.first_done_us / 1e6, st.done_us / 1e6);
+        ESP_LOGI(TAG, "Budget: kFrameCost %d ≈ %.0f µs geschätzt (Vorarbeit %d je Schritt ≈ 1,5 ms); neu: ort cmd figuren neu", pixelia::FigureArt::kFrameCost,
+                 pixelia::FigureArt::kFrameCost * 1500.0 / pixelia::Stage::kPrepareBudget, pixelia::Stage::kPrepareBudget);
     } else if (is("bench")) {
         // Messung fürs Zeichnen (seit 0.5.1, Grundlage für 0.5.2): Verdoppeln 200×120 → 400×240 und Kopie des
         // Hintergrundbilds (24 KB), beides PSRAM → PSRAM wie auf der Grafik-Task. Läuft auf Kern 0, die Grafik läuft

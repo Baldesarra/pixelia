@@ -12,13 +12,19 @@
 //
 // Seit 0.5.7 auch Kalender, Himmel (Sonne, Mond) und Wetter-Simulation: Die Bühne schreibt sie einmal je Weltminute
 // fort (Stage::tick), die Orte lesen nur.
+//
+// Seit 0.5.9 ist die Umgebung der Weltzustand als Ganzes (SETTING.md Kapitel 15, Grundsatz 1): dazu die Figuren mit
+// ihren Datensätzen und ihrem Aufenthalt (figure.h), die Chronik und der Besuchsverlauf (chronicle.h). Die Bühne
+// speichert und lädt alles zusammen (Stage::save_state, save.h).
 
 #include <array>
 #include <cstdint>
 #include <string_view>
 
 #include "pixelia/engine/calendar.h"
+#include "pixelia/engine/chronicle.h"
 #include "pixelia/engine/events.h"
+#include "pixelia/engine/figure.h"
 #include "pixelia/engine/light.h"
 #include "pixelia/engine/place_state.h"
 #include "pixelia/engine/sky.h"
@@ -35,6 +41,9 @@ public:
     static constexpr int kMax = 16;
     void set(std::string_view key, bool on);
     bool has(std::string_view key) const;
+    int count() const { return n_; }
+    std::string_view key(int i) const { return k_[i].data(); }
+    void clear() { *this = WorldFlags{}; }
 
 private:
     std::array<std::array<char, 24>, kMax> k_{};
@@ -56,6 +65,9 @@ struct Environment {
     WorldFlags flags;
     EventBus events;     // seit 0.5.8
     Vehicles vehicles;   // seit 0.5.8
+    FigureBook figures;  // seit 0.5.9: alle Figuren mit Datensatz und Aufenthalt
+    Chronicle chronicle;
+    VisitLog visits;
     int64_t world_minute = INT64_MIN;  // Weltminute (Tag × 1440 + Minute), INT64_MIN = Weltzeit läuft noch nicht
 };
 
