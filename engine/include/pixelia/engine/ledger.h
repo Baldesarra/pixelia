@@ -58,7 +58,11 @@ struct GoodDef {
     uint8_t soll_days = 0;   // Sollbestand im ganzen Dorf in Tagen Reichweite (0 = keiner)
     uint8_t max_days = 0;    // Obergrenze in Tagen (0 = keine)
     bool unique = false;     // Einzelstücke
+    const char* one = nullptr;   // Zähleinheit (seit 0.5.10 Teil 2, Karten): „Scheit“, „Laib“; nullptr = title
+    const char* many = nullptr;  // Mehrzahl: „Scheite“, „Laibe“
 };
+// „1 Scheit“, „8 Scheite“ (ohne Zähleinheit: „8 Brennholz“); out mindestens 32 Zeichen
+const char* good_count_text(const GoodDef& g, int n, char* out, int len);
 
 enum class StoreKind : uint8_t {
     Producer,   // Erzeugerlager am Arbeitsplatz (Holzstapel, Auslage)
@@ -86,6 +90,7 @@ struct StoreDef {
     const StockRule* rules = nullptr;
     uint8_t rule_count = 0;
     const char* source = nullptr;  // Nachschub von hier (nullptr: Erzeuger- oder Gemeinschaftslager mit der Ware)
+    int8_t work_part = -1;         // Erzeugerlager: Arbeitsplatz in der Raumliste (Hackklotz), −1 = am Lager selbst
 };
 
 struct StartStock {
@@ -225,6 +230,7 @@ public:
     void release(uint16_t res);                // Rest freigeben
     void release_holder(uint16_t holder);      // alle Reservierungen eines Vorhabens
     int reservations() const;
+    int holders(uint16_t* out, int max) const;  // Halter aller Reservierungen, aufsteigend, je einmal; Zahl
 
     // --- Reichweite und Soll ---
     void roll(int64_t at_us);  // Stunden-Fächer bis zur Stunde dieser Weltzeit (an jeder Takt-Grenze)

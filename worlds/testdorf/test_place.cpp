@@ -613,6 +613,10 @@ void TestPlace::init(uint64_t seed) {
     build_palette();
     pal_.apply(daylight_.at(12 * 3600 * 1000000LL), 0, palette_);
     build_room();
+    // Ziele der Ausgänge als Nummern der Welt (seit 0.5.10 Teil 2: Wege der Aufgaben über mehrere Orte)
+    exit_place_.fill(-1);
+    for (int e = 0; e < room_.exit_count() && e < static_cast<int>(exit_place_.size()); ++e)
+        exit_place_[e] = static_cast<int8_t>(room_.exit(e).to ? place_index(room_.exit(e).to) : -1);
     // Figuren zeigt der Ort seit 0.5.9 aus dem Weltzustand (sync_figures), Statisten nur über den Lastregler
     count_ = 0;
     next_statist_ = 0;
@@ -643,9 +647,309 @@ bool TestPlace::use_taken_world(int part, int k, uint16_t self, int64_t at) cons
     return false;
 }
 
+// --- Aufgaben (seit 0.5.10 Teil 2): Holen und Bringen über mehrere Orte, Herstellen, Essen (Platzhalter) ---
+
+namespace {
+
+constexpr int kLookChance = 30;                                   // % der Entscheidungen ohne Aufgabe: schauen
+constexpr int kNearHops = 2;                                      // so weit übernimmt jeder sofort
+constexpr int64_t kFarWaitUs = 120 * WorldClock::kUsPerSecond;    // weiter weg erst, wenn die Aufgabe so lange wartet
+constexpr int kSplitPerSession = 2;                               // Stück je Arbeitsgang (Testwert)
+// Platzhalter bis 0.5.11 (Bedürfnisse, Hunger): zwei Mahlzeiten am Tag, je Figur zu festen Zeiten
+constexpr int64_t kMealUs = 12 * 60 * WorldClock::kUsPerMinute;
+
+int64_t floor_div(int64_t a, int64_t b) { return a >= 0 ? a / b : (a - b + 1) / b; }
+
+// Fällt in den eben beendeten Zeitblock (start, at] eine Mahlzeit der Figur?
+bool meal_due(const FigureRecord& f, int64_t at) {
+    const int64_t off = static_cast<int64_t>((f.id * 7919u) % 720u) * WorldClock::kUsPerMinute;
+    return f.doing.end_us == at && floor_div(at - off, kMealUs) > floor_div(f.doing.start_us - off, kMealUs);
+}
+
+bool on_grid(int64_t at) { return at % WorldClock::kUsPerSecond == 0; }  // Takt-Grenze: ganze Weltsekunde (stage.h)
+
+}  // namespace
+
+int TestPlace::exit_place(int exit) const {
+    return exit >= 0 && exit < static_cast<int>(exit_place_.size()) ? exit_place_[exit] : -1;
+}
+
+int TestPlace::producer_here(int part) const {
+    const Ledger& l = env_->ledger;
+    int first = -1;
+    for (int s = 0; s < l.stores(); ++s) {
+        const StoreDef* d = l.store_def(s);
+        if (!d || d->kind != StoreKind::Producer || l.store_place(s) != index_) continue;
+        if ((d->work_part >= 0 ? d->work_part : d->part) == part) return s;
+        if (first < 0) first = s;
+    }
+    return first;
+}
+
+int TestPlace::food_here() const {
+    const Ledger& l = env_->ledger;
+    const int brot = l.find_good("brot");
+    for (int s = 0; brot >= 0 && s < l.stores(); ++s) {
+        const StoreDef* d = l.store_def(s);
+        if (!d || d->kind != StoreKind::House || l.store_place(s) != index_) continue;
+        for (int r = 0; r < d->rule_count; ++r)
+            if (l.find_good(d->rules[r].good) == brot) return s;
+    }
+    return -1;
+}
+
+int TestPlace::stow_here(int good) const {
+    // Lager dieses Ortes mit einer Regel für die Ware, sonst ein Gemeinschaftslager; nur mit Platz
+    const Ledger& l = env_->ledger;
+    int community = -1;
+    for (int s = 0; s < l.stores(); ++s) {
+        const StoreDef* d = l.store_def(s);
+        if (!d || l.store_place(s) != index_ || l.room(s, good) <= 0) continue;
+        for (int r = 0; r < d->rule_count; ++r)
+            if (l.find_good(d->rules[r].good) == good) return s;
+        if (d->kind == StoreKind::Community && community < 0) community = s;
+    }
+    return community;
+}
+
+bool TestPlace::claim_task(const FigureRecord& f, int64_t at) {
+    // nur genau an einer Takt-Grenze (in der festen Reihenfolge der Orte): Gemeinschaftsaufgabe zuerst, dann die
+    // nächste, bei Gleichstand die ältere (kleinere Kennung)
+    TaskList& tl = env_->tasks;
+    const Ledger& l = env_->ledger;
+    const PlaceGraph& g = world_graph();
+    const int hand = l.hand(f.id);
+    const bool empty = hand < 0 || l.load(hand) == 0;
+    int best = 0, best_key = 1 << 30;
+    for (int i = 0; i < tl.count(); ++i) {
+        const Task& t = tl.at(i);
+        if (t.phase != TaskPhase::Open || (t.kind == TaskKind::Fetch && !empty)) continue;
+        const int hops = g.hops(index_, l.store_place(t.kind == TaskKind::Fetch ? t.from : t.to));
+        const bool community = t.flags & kTaskCommunity;
+        if (hops < 0 || (!community && hops > kNearHops && at - t.created_us < kFarWaitUs)) continue;
+        const int key = (community ? 0 : 1000) + hops;
+        if (key < best_key) {
+            best_key = key;
+            best = t.id;
+        }
+    }
+    return best && tl.claim(static_cast<uint16_t>(best), f.id, at);
+}
+
+bool TestPlace::go_place(const FigureRecord& f, int place, DoingAim aim, int64_t at, Rng& rng, Doing* out) {
+    // über einen Ausgang, der einen Ort näher ans Ziel führt (offen): meist den kürzesten (Weg samt Reisezeit; gleich:
+    // kleinere Nummer), jedes vierte Mal den zweitbesten, wenn er höchstens 40 Weltsekunden länger dauert (Abwechslung,
+    // z. B. der Feldweg bei Tag)
+    const PlaceGraph& g = world_graph();
+    const int left = g.hops(index_, place);
+    Doing d;
+    d.sx = d.gx = f.doing.gx;
+    d.sy = d.gy = f.doing.gy;
+    d.start_us = at;
+    d.aim = aim;
+    int best = -1, second = -1;
+    int64_t best_cost = INT64_MAX, second_cost = INT64_MAX;
+    for (int e = 0; left > 0 && e < room_.exit_count(); ++e) {
+        const Exit& x = room_.exit(e);
+        const int to = exit_place(e);
+        if (to < 0 || g.hops(to, place) != left - 1 || !exit_open(x, name(), *env_)) continue;
+        const int steps = room_.path(d.sx, d.sy, x.x, x.y);
+        if (steps < 0) continue;
+        const int64_t cost = steps * tile_us(f.id) + x.travel * WorldClock::kUsPerSecond;
+        if (cost < best_cost) {
+            second = best;
+            second_cost = best_cost;
+            best_cost = cost;
+            best = e;
+        } else if (cost < second_cost) {
+            second_cost = cost;
+            second = e;
+        }
+    }
+    if (second >= 0 && second_cost <= best_cost + 40 * WorldClock::kUsPerSecond && rng.below(100) < 25) best = second;
+    if (best < 0) {
+        // kein offener Weg (z. B. nachts): kurz warten, dann neu überlegen
+        d.kind = DoingKind::Idle;
+        d.walk_us = at;
+        d.end_us = at + rng.range(5000, 10000) * 1000LL;
+        *out = d;
+        return true;
+    }
+    const Exit& x = room_.exit(best);
+    int gx = x.x + static_cast<int>(rng.below(x.w)), gy = x.y + static_cast<int>(rng.below(x.h));
+    int steps = room_.path(d.sx, d.sy, gx, gy);
+    if (steps < 0) {
+        gx = x.x;
+        gy = x.y;
+        steps = room_.path(d.sx, d.sy, gx, gy);
+    }
+    d.kind = DoingKind::Leave;
+    d.exit = static_cast<uint8_t>(best);
+    d.gx = static_cast<uint8_t>(gx);
+    d.gy = static_cast<uint8_t>(gy);
+    d.steps = static_cast<uint16_t>(std::max(0, steps));
+    d.walk_us = d.end_us = at + d.steps * tile_us(f.id);  // die Bühne rundet auf die nächste Takt-Grenze
+    *out = d;
+    return true;
+}
+
+bool TestPlace::go_store(const FigureRecord& f, int store, DoingAim aim, int pieces, int64_t at, Rng& rng,
+                         Doing* out) {
+    const Ledger& l = env_->ledger;
+    const int place = l.store_place(store);
+    if (place < 0) return false;
+    if (place != index_) return go_place(f, place, aim, at, rng, out);
+    Doing d;
+    d.sx = d.gx = f.doing.gx;
+    d.sy = d.gy = f.doing.gy;
+    d.start_us = at;
+    d.aim = aim;
+    // Benutzungspunkt des Teils (Erzeuger: Arbeitsplatz), ein freier zuerst; ohne Teil irgendwo am Ort
+    const StoreDef* sd = l.store_def(store);
+    const int part = !sd ? -1 : aim == DoingAim::Produce && sd->work_part >= 0 ? sd->work_part : sd->part;
+    const PartStage* look = part >= 0 && part < room_.part_count() ? room_.look(part) : nullptr;
+    const int uses = look ? look->use_count : 0;
+    int gx = d.sx, gy = d.sy, steps = -1;
+    for (int pass = 0; pass < 2 && steps < 0; ++pass)
+        for (int k = 0; k < uses && steps < 0; ++k) {
+            if (pass == 0 && use_taken_world(part, k, f.id, at)) continue;
+            if (!room_.use_point(part, k, &gx, &gy, nullptr)) continue;
+            steps = room_.path(d.sx, d.sy, gx, gy);
+            if (steps < 0) continue;
+            d.kind = DoingKind::Use;
+            d.part = static_cast<uint8_t>(part);
+            d.k = static_cast<uint8_t>(k);
+        }
+    if (steps < 0) {
+        if (!random_free_tile(rng, &gx, &gy)) gx = d.sx, gy = d.sy;
+        steps = room_.path(d.sx, d.sy, gx, gy);
+        if (steps < 0) gx = d.sx, gy = d.sy, steps = 0;
+        d.kind = DoingKind::Wander;
+    }
+    d.gx = static_cast<uint8_t>(gx);
+    d.gy = static_cast<uint8_t>(gy);
+    d.steps = static_cast<uint16_t>(steps);
+    d.walk_us = at + steps * tile_us(f.id);
+    // Dauer am Lager (Testwerte): ein- und ausladen 1,5–2,5 s plus 0,25 s je Stück; Arbeitsgang 30–60 s; essen 4–8 s
+    int ms = rng.range(1500, 2500) + 250 * std::max(0, pieces);
+    if (aim == DoingAim::Produce) ms = rng.range(30000, 60000);
+    if (aim == DoingAim::Eat) ms = rng.range(4000, 8000);
+    d.end_us = d.walk_us + ms * 1000LL;
+    *out = d;
+    return true;
+}
+
+bool TestPlace::plan_work(const FigureRecord& f, int64_t at, Rng& rng, Doing* out) {
+    if (!env_ || !env_->ledger.ready() || f.id >= kStatistIds) return false;
+    TaskList& tl = env_->tasks;
+    Ledger& l = env_->ledger;
+    const Task* t = tl.of(f.id);
+    if (!t && on_grid(at) && claim_task(f, at)) t = tl.of(f.id);
+    if (t) {
+        switch (t->phase) {
+            case TaskPhase::Fetch: return go_store(f, t->from, DoingAim::Fetch, t->qty, at, rng, out);
+            case TaskPhase::Bring: return go_store(f, t->to, DoingAim::Bring, t->carried, at, rng, out);
+            case TaskPhase::Return: return go_store(f, t->from, DoingAim::Return, t->carried, at, rng, out);
+            case TaskPhase::Work: return go_store(f, t->to, DoingAim::Produce, 0, at, rng, out);
+            default: break;
+        }
+    }
+    // ohne Aufgabe noch etwas in der Trage (nur nach Störungen): an diesem Ort ablegen, wenn es dort hingehört
+    if (const int hand = l.hand(f.id); hand >= 0 && l.load(hand) > 0) {
+        uint8_t g[4];
+        uint16_t q[4];
+        if (l.contents(hand, g, q, 4) > 0)
+            if (const int s = stow_here(g[0]); s >= 0) return go_store(f, s, DoingAim::Stow, q[0], at, rng, out);
+    }
+    // Platzhalter bis 0.5.11 (Hunger): Mahlzeit zur festen Zeit, wenn hier Brot liegt
+    if (meal_due(f, at))
+        if (const int shelf = food_here(); shelf >= 0) return go_store(f, shelf, DoingAim::Eat, 1, at, rng, out);
+    // schauen, ob es etwas zu tun gibt: übernommen wird nur an einer Takt-Grenze, bis dahin stehen
+    if (!on_grid(at) && rng.below(100) < static_cast<uint32_t>(kLookChance)) {
+        Doing d;
+        d.kind = DoingKind::Idle;
+        d.aim = DoingAim::Board;
+        d.sx = d.gx = f.doing.gx;
+        d.sy = d.gy = f.doing.gy;
+        d.start_us = d.walk_us = at;
+        d.end_us = (floor_div(at, WorldClock::kUsPerSecond) + 1) * WorldClock::kUsPerSecond;
+        *out = d;
+        return true;
+    }
+    return false;
+}
+
+void TestPlace::finish_work(const FigureRecord& f, const Doing& d) {
+    if (d.kind != DoingKind::Use && d.kind != DoingKind::Wander) return;
+    Ledger& l = env_->ledger;
+    Task* t = env_->tasks.of(f.id);
+    BookingInfo info;
+    info.at_us = d.end_us;
+    info.who = f.id;
+    info.holder = t ? t->id : 0;
+    switch (d.aim) {
+        case DoingAim::Fetch: {
+            // in die Trage, mit der Reservierung; der Rest der Reservierung wird frei
+            if (!t || t->phase != TaskPhase::Fetch || l.store_place(t->from) != index_) return;
+            info.reason = "nachschub";
+            const int hand = l.make_hand(f.id);
+            const int got = hand >= 0 ? l.move(t->from, hand, t->good, t->qty, info, t->res) : 0;
+            l.release(t->res);
+            t->res = 0;
+            t->carried = static_cast<uint16_t>(t->carried + got);
+            t->phase = t->carried > 0 ? TaskPhase::Bring : TaskPhase::Done;
+            return;
+        }
+        case DoingAim::Bring:
+        case DoingAim::Return: {
+            const bool bring = d.aim == DoingAim::Bring;
+            if (!t || t->phase != (bring ? TaskPhase::Bring : TaskPhase::Return)) return;
+            const int dest = bring ? t->to : t->from;
+            if (l.store_place(dest) != index_) return;
+            info.reason = "nachschub";
+            const int got = l.move(l.hand(f.id), dest, t->good, t->carried, info);
+            t->carried = static_cast<uint16_t>(t->carried - got);
+            // passt nicht alles hinein: Rest zurück zur Quelle (bis dort Platz ist)
+            t->phase = t->carried == 0 ? TaskPhase::Done : TaskPhase::Return;
+            return;
+        }
+        case DoingAim::Produce: {
+            const int s = producer_here(d.kind == DoingKind::Use ? d.part : -1);
+            const StoreDef* sd = l.store_def(s);
+            const int g = t && t->kind == TaskKind::Produce ? t->good : sd && sd->rule_count ? l.find_good(sd->rules[0].good) : -1;
+            if (s < 0 || g < 0) return;
+            info.reason = "herstellen";
+            l.add(s, g, kSplitPerSession, Booking::Produce, info);
+            return;
+        }
+        case DoingAim::Eat: {
+            const int shelf = food_here(), brot = l.find_good("brot");
+            if (shelf < 0 || brot < 0) return;
+            info.reason = "essen";
+            info.holder = 0;
+            const int got = l.take(shelf, brot, 1, Booking::Consume, info);
+            l.demand(brot, shelf, 1, got, info);
+            return;
+        }
+        case DoingAim::Stow: {
+            const int hand = l.hand(f.id);
+            uint8_t g[4];
+            uint16_t q[4];
+            if (hand < 0 || l.contents(hand, g, q, 4) == 0) return;
+            const int s = stow_here(g[0]);
+            info.reason = "ablegen";
+            if (s >= 0) l.move(hand, s, g[0], q[0], info);
+            return;
+        }
+        default: return;
+    }
+}
+
 bool TestPlace::decide(const FigureRecord& f, int64_t at, Rng& rng, Doing* out) {
-    // wie bis Teil 1 je Figur: selten hinaus (die Begleiterin nach 20 s am Ort oft), sonst ein Teil benutzen oder
-    // umhergehen; Dauern wie vorher in Logik-Schritten, jetzt in Weltzeit
+    // seit 0.5.10 Teil 2 zuerst Aufgaben, Mahlzeit, Schauen (plan_work); sonst wie bis 0.5.9 Teil 1 je Figur: selten
+    // hinaus (die Begleiterin nach 20 s am Ort oft), sonst ein Teil benutzen oder umhergehen; Dauern wie vorher in
+    // Logik-Schritten, jetzt in Weltzeit
+    if (plan_work(f, at, rng, out)) return true;
     Doing d;
     d.sx = d.gx = f.doing.gx;
     d.sy = d.gy = f.doing.gy;
@@ -699,9 +1003,12 @@ bool TestPlace::decide(const FigureRecord& f, int64_t at, Rng& rng, Doing* out) 
     return true;
 }
 
-void TestPlace::finish(const FigureRecord& /*f*/, const Doing& d) {
+void TestPlace::finish(const FigureRecord& f, const Doing& d) {
+    if (!env_) return;
+    // Warenbuch (seit 0.5.10 Teil 2): holen, bringen, herstellen, essen
+    if (d.aim != DoingAim::None && env_->ledger.ready()) finish_work(f, d);
     // Ortszustände (seit 0.5.8): am Becken schöpfen, am Bau weiterarbeiten (so lange, wie die Figur dort war)
-    if (d.kind != DoingKind::Use || !env_) return;
+    if (d.kind != DoingKind::Use) return;
     const int seconds = static_cast<int>((d.end_us - d.walk_us) / WorldClock::kUsPerSecond);
     for (int s = 0; s < state_n_; ++s) {
         const StateDef& sd = def_.states[s];
@@ -1016,7 +1323,17 @@ void TestPlace::show(Figure& v, const FigureRecord& r, int64_t now) {
     v.cy = d.gy;
     v.x = center_x(d.gx);
     v.y = center_y(d.gy);
-    if (v.path_n > 0) v.facing = static_cast<Facing>(dir_at(v.path_n - 1));  // wie angekommen
+    if (v.path_n > 0) {
+        v.facing = static_cast<Facing>(dir_at(v.path_n - 1));  // wie angekommen
+    } else if (d.kind == DoingKind::Leave && d.exit < room_.exit_count()) {
+        // seit 0.5.10 Teil 2 ohne Weg nur aus der Tätigkeit (sonst hinge der Blick davon ab, seit wann der Ort zu sehen
+        // ist): zur Tür hin bzw. nach vorn
+        const Facing in = room_.exit(d.exit).facing;
+        v.facing = in == Facing::Down ? Facing::Up : in == Facing::Up ? Facing::Down : in == Facing::Left ? Facing::Right
+                                                                                                        : Facing::Left;
+    } else {
+        v.facing = Facing::Down;
+    }
     if (d.kind == DoingKind::Use) {
         UsePoint u{};
         if (room_.use_point(d.part, d.k, nullptr, nullptr, &u)) {
@@ -1497,6 +1814,41 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
                          : f->goal == Goal::Exit  ? "geht hinaus"
                          : walking                ? "spaziert herum"
                                                   : "steht und schaut";
+        // Aufgabe und Trage (seit 0.5.10 Teil 2)
+        if (env_ && env_->ledger.ready() && f->id < kStatistIds) {
+            const Ledger& l = env_->ledger;
+            const FigureRecord* r = env_->figures.find(f->id);
+            const DoingAim aim = r ? r->doing.aim : DoingAim::None;
+            if (const Task* t = env_->tasks.of(f->id)) {
+                const std::string good = l.good(t->good).title;
+                switch (t->phase) {
+                    case TaskPhase::Fetch: card->subtitle = "holt " + good; break;
+                    case TaskPhase::Bring: card->subtitle = "bringt " + good; break;
+                    case TaskPhase::Return: card->subtitle = "bringt " + good + " zurück"; break;
+                    case TaskPhase::Work:
+                        card->subtitle = (t->flags & kTaskCommunity ? "hilft: " : "macht ") + good;
+                        break;
+                    default: break;
+                }
+                if (t->kind == TaskKind::Fetch)
+                    card->add_line(std::string(l.store_title(t->from)) + " → " + l.store_title(t->to));
+                else if (t->flags & kTaskCommunity)
+                    card->add_line("Gemeinschaftsaufgabe");
+            } else if (aim == DoingAim::Eat) {
+                card->subtitle = f->busy ? "isst Brot" : "holt sich Brot";
+            } else if (aim == DoingAim::Board) {
+                card->subtitle = "schaut, was zu tun ist";
+            }
+            if (const int hand = l.hand(f->id); hand >= 0) {
+                uint8_t g[4];
+                uint16_t q[4];
+                const int n = l.contents(hand, g, q, 4);
+                for (int k = 0; k < n; ++k) {
+                    char buf[32];
+                    card->add_line(std::string("Trägt ") + good_count_text(l.good(g[k]), q[k], buf, sizeof(buf)));
+                }
+            }
+        }
         card->where = title();
         card->quote = std::string("„") + kThoughts[f->id % (sizeof(kThoughts) / sizeof(kThoughts[0]))] + "“";
         card->hint = "Folgen";

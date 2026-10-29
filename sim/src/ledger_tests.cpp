@@ -4,6 +4,7 @@
 // geht am selben Stand weiter.
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <functional>
@@ -11,6 +12,7 @@
 #include <vector>
 
 #include "pixelia/engine/ledger.h"
+#include "pixelia/engine/place.h"
 #include "pixelia/engine/png.h"
 #include "pixelia/engine/save.h"
 #include "pixelia/engine/stage.h"
@@ -133,6 +135,67 @@ int64_t consumed(const Ledger& l, const char* good) {
     const int g = l.find_good(good);
     return g < 0 ? -1 : l.totals(g).moved[static_cast<int>(Booking::Consume)];
 }
+
+int64_t booked(const Ledger& l, const char* good, Booking b) {
+    const int g = l.find_good(good);
+    return g < 0 ? -1 : l.totals(g).moved[static_cast<int>(b)];
+}
+
+// --- Aufgabenliste (seit 0.5.10 Teil 2) ---
+
+using pixelia::Task;
+using pixelia::TaskKind;
+using pixelia::TaskList;
+using pixelia::TaskPhase;
+
+std::string tasks_text(const TaskList& t, const Ledger& l) {
+    std::string s;
+    char line[160], a[12], b[12];
+    for (int i = 0; i < t.count(); ++i) {
+        const Task& x = t.at(i);
+        std::snprintf(line, sizeof(line), "#%u %s %s %s→%s %u/%u @%u; ", static_cast<unsigned>(x.id),
+                      l.good(x.good).id, pixelia::task_phase_id(x.phase), x.from >= 0 ? l.store_key(x.from, a, 12) : "-",
+                      l.store_key(x.to, b, 12), static_cast<unsigned>(x.carried), static_cast<unsigned>(x.qty),
+                      static_cast<unsigned>(x.who));
+        s += line;
+    }
+    return s;
+}
+
+// Warenbuch und Aufgabenliste prüfen
+std::string checked(const Ledger& l, const TaskList& t) {
+    std::string e = checked(l);
+    char buf[200];
+    if (const char* x = t.check(l, buf, sizeof(buf)); e.empty() && x) e = x;
+    return e;
+}
+
+std::string checked(Run& r) { return checked(r.ledger(), r.stage.environment().tasks); }
+
+// Vorrat auf keep verringern (verderben), damit Aufgaben entstehen
+void drain(Run& r, const char* store, const char* good, int keep) {
+    Ledger& l = r.ledger();
+    const int s = l.find_store(store), g = l.find_good(good);
+    if (s >= 0 && g >= 0 && l.qty(s, g) > keep)
+        l.take(s, g, l.qty(s, g) - keep, Booking::Spoil, at(r.clock.world_us()));
+}
+
+// kleine Wirtschaft für die Aufgabenliste: Holzstapel (Erzeuger) → Holzlege, Kiste → Brotregal
+constexpr pixelia::StockRule kPile2[] = {{"holz", 20, 40}};
+constexpr pixelia::StockRule kShed2[] = {{"holz", 4, 12}};
+constexpr pixelia::StockRule kShelf2[] = {{"brot", 2, 8}};
+constexpr pixelia::StoreDef kStores2[] = {
+    {.id = "stapel", .title = "Stapel", .place = "x", .kind = pixelia::StoreKind::Producer, .capacity = 40,
+     .rules = kPile2, .rule_count = 1},
+    {.id = "lege", .title = "Lege", .place = "y", .kind = pixelia::StoreKind::House, .capacity = 12, .rules = kShed2,
+     .rule_count = 1, .source = "stapel"},
+    {.id = "regal", .title = "Regal", .place = "y", .kind = pixelia::StoreKind::House, .capacity = 8, .rules = kShelf2,
+     .rule_count = 1, .source = "kiste"},
+    {.id = "kiste", .title = "Kiste", .place = "z", .kind = pixelia::StoreKind::Community, .capacity = 100},
+};
+constexpr pixelia::StartStock kStart2[] = {{"stapel", "holz", 24}, {"lege", "holz", 3}, {"regal", "brot", 1},
+                                           {"kiste", "brot", 3}};
+constexpr pixelia::EconomyDef kEco2 = {kGoods, 4, kStores2, 4, kStart2, 4};
 
 std::vector<Case> cases() {
     return {
@@ -297,38 +360,146 @@ std::vector<Case> cases() {
              if (!m.stage.load_state(s.data(), s.size(), &rep)) return std::string("umbenannt: ") + rep.why;
              const Ledger& lm = m.ledger();
              const int brot = lm.find_good("brot");
-             if (rep.moved != 6 || lm.qty(lm.find_store("platz_vorrat"), brot) != 30 || lm.total(brot) != 30)
+             if (rep.moved != 6 || lm.qty(lm.find_store("platz_vorrat"), brot) != 30 || lm.total(brot) != 30 + 12)
                  return "umgelegt " + std::to_string(rep.moved) + ": " + ledger_text(lm);
              return checked(lm);
          }},
-        {"Herd: Jede Füllung kommt aus der Holzlege; ohne Holz bleibt er aus, der Bedarf steht im Buch; Bilanz über einen Tag",
+        // --- Aufgaben, Holen und Bringen (seit 0.5.10 Teil 2) ---
+        {"Aufgaben: Vorrat unter low → Holen mit Reservierung (volle Ladung, leer: was da ist), je Ziel eine; Erzeuger → Herstellen; Notbestand → Gemeinschaft",
          [] {
-             Run a(5, "testort-raum", 5, 0, 60.0);
-             a.run(30 * 24 * 60);  // ein Weltag in 24 Minuten Zeitraffer
+             Ledger l;
+             const pixelia::EconomyDef* defs[] = {&kEco2};
+             l.build(defs, 1);
+             l.start_stock(1);
+             pixelia::FigureBook book;
+             pixelia::FigureDef def{};
+             book.add(def, 0, 7);
+             book.add(def, 0, 8);
+             TaskList t;
+             t.clear();
+             const int stapel = l.find_store("stapel"), lege = l.find_store("lege"), regal = l.find_store("regal");
+             const int kiste = l.find_store("kiste"), holz = l.find_good("holz"), brot = l.find_good("brot");
+             const int64_t s = 1000000;
+             t.step(1 * s, 1, l, book);
+             // Lege 3 < 4: 9 Scheite holen (bis 12), reserviert; Regal 1 < 2, aber Kiste hat nur 3 von 7: warten
+             if (t.count() != 1 || t.at(0).kind != TaskKind::Fetch || t.at(0).from != stapel || t.at(0).to != lege ||
+                 t.at(0).qty != 9 || l.reserved(stapel, holz) != 9)
+                 return "Holen: " + tasks_text(t, l);
+             t.step(2 * s, 1, l, book);
+             if (t.count() != 1) return "doppelt: " + tasks_text(t, l);
+             l.take(regal, brot, 1, Booking::Consume, at(3 * s));
+             t.step(3 * s, 1, l, book);  // Regal leer: holt die 3, die da sind
+             const Task* b = t.count() == 2 ? &t.at(1) : nullptr;
+             if (!b || b->from != kiste || b->qty != 3 || l.available(kiste, brot) != 0) return "leer: " + tasks_text(t, l);
+             // übernehmen: eine je Figur, nur offene
+             const uint16_t first = t.at(0).id;
+             if (!t.claim(first, 7, 4 * s) || t.claim(b->id, 7, 4 * s) || t.claim(first, 8, 4 * s))
+                 return "übernehmen: " + tasks_text(t, l);
+             if (t.of(7) == nullptr || t.of(7)->phase != TaskPhase::Fetch) return std::string("Phase nach dem Übernehmen");
+             // Herstellen: Stapel unter 20
+             l.take(stapel, holz, 10, Booking::Consume, at(5 * s));
+             t.step(5 * s, 1, l, book);
+             int produce = 0;
+             for (int i = 0; i < t.count(); ++i) produce += t.at(i).kind == TaskKind::Produce;
+             if (produce != 1) return "Herstellen: " + tasks_text(t, l);
+             // fertig (ohne zu liefern): weg, Reservierung frei; die Lege braucht noch Holz, also gleich eine neue
+             const uint16_t res = t.of(7)->res;
+             t.of(7)->phase = TaskPhase::Done;
+             t.step(6 * s, 1, l, book);
+             if (t.find(first) || l.reservation_left(res) != 0 || t.of(7) || l.reserved(stapel, holz) != 9)
+                 return "aufräumen: " + tasks_text(t, l);
+             // Notbestand: viel Verbrauch in der letzten Stunde, wenig Holz → drei helfen am Stapel
+             l.add(stapel, holz, 20, Booking::Produce, at(7 * s));
+             l.take(stapel, holz, 30, Booking::Consume, at(7 * s));
+             l.roll(8 * s);
+             if (l.level(holz) != pixelia::StockLevel::Emergency) return "kein Notbestand: " + ledger_text(l);
+             pixelia::EventBus bus;
+             const int rd = bus.subscribe(pixelia::event_bit(pixelia::EventKind::Stock));
+             t.step(8 * s, 1, l, book, &bus);
+             t.step(9 * s, 1, l, book, &bus);  // nur einmal in die Chronik
+             bus.deliver();
+             int helpers = 0, told = 0;
+             for (int i = 0; i < t.count(); ++i)
+                 helpers += t.at(i).kind == TaskKind::Produce && t.at(i).active() && t.at(i).to == stapel;
+             for (pixelia::WorldEvent e; bus.poll(rd, &e);) told += e.a == 3 && std::strstr(e.text, "Gemeinschaftsaufgabe");
+             if (helpers != TaskList::kHelpers || told != 1)
+                 return "Gemeinschaftsaufgabe (" + std::to_string(told) + " Meldungen): " + tasks_text(t, l);
+             // Speicherstand der Liste
+             std::vector<uint8_t> b1(4096), b2(4096);
+             pixelia::SaveWriter w1(b1.data(), b1.size());
+             w1.begin(1, 0);
+             w1.chunk("AUFG", 1);
+             t.save(w1, l);
+             b1.resize(w1.finish());
+             TaskList u;
+             u.clear();
+             pixelia::SaveChunks c(b1.data(), b1.size());
+             char tag[5];
+             uint16_t v = 0;
+             pixelia::SaveReader sr;
+             if (!c.next(tag, &v, &sr) || u.load(sr, v, l) != t.count()) return std::string("Laden der Liste");
+             pixelia::SaveWriter w2(b2.data(), b2.size());
+             w2.begin(1, 0);
+             w2.chunk("AUFG", 1);
+             u.save(w2, l);
+             b2.resize(w2.finish());
+             if (b1 != b2) return first_byte_diff(b1, b2);
+             return checked(l, t);
+         }},
+        {"Holzkette: ohne Holz bleibt der Herd aus, bis Nachschub kommt; Hackklotz spaltet, Holzlege holt vom Holzstapel; Bilanz über einen Tag",
+         [] {
+             Run a(5, "testort-raum", 5, 59, 60.0);
+             drain(a, "raum_holzlege", "brennholz", 0);
+             drain(a, "wiese_holzstapel", "brennholz", 0);
+             a.run(32);  // bis 6:00:04: die Herdzeit beginnt ohne Holz
              const Ledger& l = a.ledger();
-             const int lege = l.find_store("raum_holzlege"), holz = l.find_good("brennholz");
-             const Ledger::GoodTotals& t = l.totals(holz);
-             const int64_t burnt = t.moved[static_cast<int>(Booking::Consume)];
-             if (burnt != 8 || l.qty(lege, holz) != 0) return "verbrannt " + std::to_string(burnt) + ": " + ledger_text(l);
-             if (t.want <= t.got || t.got != 8) return "Bedarf " + std::to_string(t.got) + "/" + std::to_string(t.want);
+             const int holz = l.find_good("brennholz");
              const pixelia::PlaceStates& st = a.stage.environment().states;
              const int ofen = st.find("testort-raum", "ofen");
              if (ofen < 0 || st.on(ofen)) return std::string("Herd brennt ohne Holz");
+             if (l.totals(holz).want <= l.totals(holz).got) return std::string("Bedarf ohne Holz nicht im Buch");
+             a.run(30 * 24 * 60);  // ein Weltag in 24 Minuten Zeitraffer
+             const int64_t made = booked(l, "brennholz", Booking::Produce), burnt = consumed(l, "brennholz");
+             const int64_t moved = booked(l, "brennholz", Booking::Move);
+             if (made < 10 || burnt < 6 || moved < 2 * burnt)
+                 return "gespalten " + std::to_string(made) + ", getragen " + std::to_string(moved) + ", verbrannt " +
+                        std::to_string(burnt) + ": " + ledger_text(l);
              bool empty = false;
              const pixelia::Chronicle& ch = a.stage.environment().chronicle;
              for (int i = 0; i < ch.count(); ++i) empty = empty || std::strstr(ch.at(i).text, "Holzlege leer");
              if (!empty) return std::string("Chronik ohne „Holzlege leer“");
-             return checked(l);
+             return checked(a);
          }},
-        {"Nachholen bis 3 Tage: dasselbe Holz verbrannt wie Minute für Minute, Tätigkeiten warten bis dahin",
+        {"Brot: Mahlzeiten aus dem Brotregal (Platzhalter), Nachschub aus der Vorratskiste über zwei Orte, die vom Backofen holt; Bedarf gedeckt",
          [] {
-             // a läuft Minute für Minute weiter, b lädt den Stand 30 Stunden später und holt nach
+             Run a(8, "testort-raum", 7, 0, 60.0);
+             drain(a, "raum_brotregal", "brot", 1);
+             a.run(30 * 24 * 60 * 2);  // zwei Welttage
+             const Ledger& l = a.ledger();
+             const int brot = l.find_good("brot");
+             const int64_t eaten = consumed(l, "brot"), moved = booked(l, "brot", Booking::Move);
+             const int64_t baked = booked(l, "brot", Booking::Produce);
+             if (eaten < 6 || moved < 2 * 6 || baked < 2)
+                 return "gegessen " + std::to_string(eaten) + ", getragen " + std::to_string(moved) + ", gebacken " +
+                        std::to_string(baked) + ": " + ledger_text(l);
+             const Ledger::GoodTotals& t = l.totals(brot);
+             if (t.got != eaten || t.want - t.got > 2)
+                 return "Bedarf " + std::to_string(t.got) + "/" + std::to_string(t.want) + ", gegessen " + std::to_string(eaten);
+             return checked(a);
+         }},
+        {"Nachholen bis 3 Tage: Bilanz exakt, Herd verbrennt nur, was in der Holzlege lag; Tätigkeiten warten, danach Nachschub",
+         [] {
+             // a läuft Minute für Minute weiter, b lädt den Stand 30 Stunden später und holt die Ortszustände nach; die
+             // Figuren holen dabei nichts (Tätigkeiten setzen erst danach neu an, Entscheidung 0.5.10 Teil 1)
              Run a(17, "testort-raum", 6, 30, 600.0);
              a.run(3);
              const std::vector<uint8_t> s = a.save();
              a.run(30 * 180);  // 30 Stunden
              Run b(17);
              if (!b.stage.load_state(s.data(), s.size())) return std::string("Laden");
+             const int64_t burnt0 = consumed(b.ledger(), "brennholz");
+             const int lege = b.ledger().find_store("raum_holzlege"), holz = b.ledger().find_good("brennholz");
+             const int in_lege = b.ledger().qty(lege, holz);
              b.clock.set_world_us(a.clock.world_us());
              b.clock.set_speed(1.0);
              const uint32_t before = b.stage.decisions();
@@ -340,16 +511,17 @@ std::vector<Case> cases() {
                  ++held;
              }
              if (b.stage.catching_up() > 0 || held < 3) return "Nachholen: " + std::to_string(held) + " Schritte";
-             b.run(31);
-             a.clock.set_speed(1.0);
-             a.run(31);
+             const int64_t burnt = consumed(b.ledger(), "brennholz") - burnt0;
+             if (burnt != in_lege || b.ledger().qty(lege, holz) != 0)
+                 return "nachgeholt verbrannt " + std::to_string(burnt) + " von " + std::to_string(in_lege);
+             if (consumed(a.ledger(), "brennholz") <= consumed(b.ledger(), "brennholz"))
+                 return std::string("Minute für Minute (mit Nachschub) nicht mehr verbrannt");
+             const int64_t moved = booked(b.ledger(), "brennholz", Booking::Move);
+             b.clock.set_speed(60.0);
+             b.run(30 * 20);  // 40 Weltminuten
              if (b.stage.decisions() == before) return std::string("Tätigkeiten danach nicht wieder angelaufen");
-             if (consumed(a.ledger(), "brennholz") != consumed(b.ledger(), "brennholz"))
-                 return "verbrannt: Minute für Minute " + std::to_string(consumed(a.ledger(), "brennholz")) +
-                        ", nachgeholt " + std::to_string(consumed(b.ledger(), "brennholz"));
-             const std::string x = ledger_text(a.ledger()), y = ledger_text(b.ledger());
-             if (x != y) return "Minute für Minute: " + x + "\n          nachgeholt: " + y;
-             return checked(b.ledger());
+             if (booked(b.ledger(), "brennholz", Booking::Move) <= moved) return std::string("danach kein Nachschub");
+             return checked(b);
          }},
         {"Neustart mitten am Tag: nach dem Laden läuft alles genau so weiter (Speicherstand nach 2 Weltstunden gleich)",
          [] {
@@ -375,6 +547,133 @@ std::vector<Case> cases() {
              if (x != y) return "ohne Neustart: " + x + "\n          mit Neustart: " + y;
              if (consumed(a.ledger(), "brennholz") < 2) return std::string("Herd hat nichts verbrannt");
              return checked(b.ledger());
+         }},
+        {"Neustart mitten im Transport: Brot in der Trage, Figur auf dem Feldweg; kommt genau einmal an, alles wie ohne Neustart",
+         [] {
+             Run a(23, "testort-raum", 8, 0, 60.0);
+             uint16_t who = 0;
+             int tries = 0;
+             const pixelia::FigureBook& book = a.stage.environment().figures;
+             for (int t = 0; t < 30 * 60 * 72 && !who; ++t) {
+                 // Regal immer wieder leeren, bis jemand mit Brot über den Feldweg (30 Weltsekunden) geht
+                 const TaskList& tl = a.stage.environment().tasks;
+                 bool busy = false;
+                 for (int i = 0; i < tl.count(); ++i) busy = busy || tl.at(i).good == a.ledger().find_good("brot");
+                 if (!busy && a.ledger().qty(a.ledger().find_store("raum_brotregal"), a.ledger().find_good("brot")) > 1) {
+                     drain(a, "raum_brotregal", "brot", 1);
+                     ++tries;
+                 }
+                 a.run(1);
+                 for (int k = 0; k < book.count() && !who; ++k) {
+                     const pixelia::FigureRecord& f = book.at(k);
+                     const Task* x = tl.of(f.id);
+                     if (f.where.kind == pixelia::Whereabouts::Kind::Link && x && x->phase == TaskPhase::Bring &&
+                         x->carried > 0 && a.clock.world_us() + 4000000 < f.where.arrive_us)
+                         who = f.id;
+                 }
+             }
+             if (!who) return "niemand mit Brot auf dem Feldweg (" + std::to_string(tries) + " Versuche)";
+             const int brot = a.ledger().find_good("brot"), regal = a.ledger().find_store("raum_brotregal");
+             const int carried = a.ledger().qty(a.ledger().hand(who), brot);
+             const int before = a.ledger().qty(regal, brot);
+             const std::vector<uint8_t> s = a.save();
+             Run b(23, "testort-raum");
+             pixelia::Stage::LoadReport rep;
+             if (!b.stage.load_state(s.data(), s.size(), &rep)) return std::string("Laden: ") + rep.why;
+             if (rep.tasks == 0 || rep.transit == 0) return std::string("Aufgabe oder Weg nicht im Stand");
+             b.clock.set_world_us(a.clock.world_us());
+             b.clock.set_speed(60.0);
+             a.run(30 * 60);  // eine Weltstunde
+             b.run(30 * 60);
+             const int64_t g = pixelia::Stage::kGridUs;
+             for (Run* r : {&a, &b}) {
+                 r->clock.set_world_us((r->clock.world_us() / g + 1) * g);
+                 r->stage.tick(r->clock);
+             }
+             const Ledger& lb = b.ledger();
+             if (lb.qty(lb.hand(who), brot) != 0 || lb.in_today(regal, brot) < carried)
+                 return "nicht angekommen: Trage " + std::to_string(lb.qty(lb.hand(who), brot)) + ", Regal vorher " +
+                        std::to_string(before) + ", jetzt " + std::to_string(lb.qty(regal, brot));
+             const std::string x = ledger_text(a.ledger()) + tasks_text(a.stage.environment().tasks, a.ledger());
+             const std::string y = ledger_text(lb) + tasks_text(b.stage.environment().tasks, lb);
+             if (x != y) return "ohne Neustart: " + x + "\n          mit Neustart: " + y;
+             return checked(b);
+         }},
+        {"P10 mit Transporten: kein Ort sichtbar, Wiese sichtbar, Orte wechselnd ergibt denselben Speicherstand (Zeitraffer 60)",
+         [] {
+             std::vector<uint8_t> save[3];
+             int64_t moved = 0, made = 0;
+             uint32_t tasks = 0;
+             for (int run = 0; run < 3; ++run) {
+                 Run r(31, run == 0 ? "scrolltest" : "testort-wiese", 6, 0, 60.0);
+                 drain(r, "raum_holzlege", "brennholz", 1);
+                 drain(r, "raum_brotregal", "brot", 1);
+                 drain(r, "wiese_holzstapel", "brennholz", 12);
+                 const pixelia::Transition kinds[] = {pixelia::Transition::Cut, pixelia::Transition::Dissolve,
+                                                      pixelia::Transition::Fade};
+                 const int ticks = 30 * 240;  // 8 Weltstunden
+                 for (int t = 0, k = 0; t < ticks; t += 7 * 30, ++k) {
+                     r.run(std::min(7 * 30, ticks - t));
+                     if (run == 2) r.stage.go(1 + (k * 3) % (r.stage.count() - 1), kinds[k % 3]);
+                 }
+                 const int64_t g = pixelia::Stage::kGridUs;
+                 r.clock.set_world_us((r.clock.world_us() / g + 1) * g);
+                 r.stage.tick(r.clock);
+                 save[run] = r.save();
+                 if (std::string e = checked(r); !e.empty()) return "Lauf " + std::to_string(run) + ": " + e;
+                 if (run == 0) {
+                     moved = booked(r.ledger(), "brennholz", Booking::Move) + booked(r.ledger(), "brot", Booking::Move);
+                     made = booked(r.ledger(), "brennholz", Booking::Produce);
+                     tasks = r.stage.environment().tasks.created();
+                 }
+             }
+             if (moved < 20 || made < 4 || tasks < 4)
+                 return "zu wenig getragen (" + std::to_string(moved) + " Stück, " + std::to_string(made) + " gespalten, " +
+                        std::to_string(tasks) + " Aufgaben)";
+             for (int run = 1; run < 3; ++run)
+                 if (save[run] != save[0])
+                     return std::string(run == 1 ? "Wiese sichtbar: " : "Orte wechselnd: ") + first_byte_diff(save[0], save[run]);
+             return std::string();
+         }},
+        {"Messung: Planer an der Takt-Grenze mit 48 Figuren an einem Ort (PC; Gerät etwa zehnmal langsamer)",
+         [] {
+             Run a(41, "scrolltest", 6, 0, 1.0);
+             pixelia::FigureBook& book = a.stage.environment().figures;
+             const int raum = pixelia::place_index("testort-raum");
+             pixelia::FigureDef def{};
+             def.name = "Messfigur";
+             while (book.count() < pixelia::FigureBook::kMax && book.add(def, static_cast<uint8_t>(raum))) {
+             }
+             for (int k = 0; k < book.count(); ++k) {
+                 book.at(k).where = pixelia::Whereabouts{};
+                 book.at(k).where.kind = pixelia::Whereabouts::Kind::Place;
+                 book.at(k).where.place = static_cast<uint8_t>(raum);
+                 const uint32_t seq = book.at(k).doing.seq;
+                 book.at(k).doing = pixelia::Doing{};  // ohne Tätigkeit: beim Laden irgendwo im Raum, neu entscheiden
+                 book.at(k).doing.seq = seq;
+             }
+             // über den Speicherstand: alle stehen danach auf freien Kacheln im Raum und entscheiden neu
+             const std::vector<uint8_t> s = a.save();
+             if (!a.stage.load_state(s.data(), s.size())) return std::string("Laden");
+             drain(a, "raum_holzlege", "brennholz", 1);
+             drain(a, "raum_brotregal", "brot", 1);
+             double sum = 0, worst = 0;
+             int grids = 0;
+             for (int t = 0; t < 30 * 600; ++t) {  // 10 Weltminuten
+                 const auto t0 = std::chrono::steady_clock::now();
+                 a.run(1);
+                 const double us = std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - t0).count();
+                 if (a.stage.last_grid_steps() == 0) continue;
+                 sum += us;
+                 worst = std::max(worst, us);
+                 ++grids;
+             }
+             char line[160];
+             std::snprintf(line, sizeof(line), "  info  %d Figuren im Raum: Schritt mit Takt-Grenze im Mittel %.1f µs, höchstens %.1f µs, %u Aufgaben",
+                           book.count(), grids ? sum / grids : 0.0, worst, a.stage.environment().tasks.created());
+             std::printf("%s\n", line);
+             if (book.count() != pixelia::FigureBook::kMax || grids < 500) return std::string("Messung unvollständig");
+             return checked(a);
          }},
     };
 }

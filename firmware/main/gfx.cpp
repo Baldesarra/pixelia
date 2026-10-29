@@ -881,6 +881,17 @@ void apply_place_requests(int ticks) {
             }
             continue;
         }
+        if (std::strcmp(cmd, "aufgaben") == 0) {
+            // Aufgabenliste ins Log (seit 0.5.10 Teil 2, Wunsch des Users): wer holt was von wo nach wo
+            const pixelia::TaskList& tl = s_stage.environment().tasks;
+            const pixelia::Ledger& led = s_stage.environment().ledger;
+            ESP_LOGI(TAG, "Aufgaben: %d", tl.count());
+            for (int i = 0; i < tl.count(); ++i) {
+                char buf[128];
+                ESP_LOGI(TAG, "  %s", tl.describe(i, led, buf, sizeof(buf)));
+            }
+            continue;
+        }
         const bool ok = s_stage.command(cmd);
         ESP_LOGI(TAG, "Befehl \"%s\" an %s: %s", cmd, s_stage.scene(s_stage.active()).name(), ok ? "ok" : "unbekannt");
     }

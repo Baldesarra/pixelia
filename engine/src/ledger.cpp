@@ -51,6 +51,12 @@ const char* store_kind_title(StoreKind k) {
     return "?";
 }
 
+const char* good_count_text(const GoodDef& g, int n, char* out, int len) {
+    const char* unit = n == 1 ? g.one : g.many;
+    std::snprintf(out, len, "%d %s", n, unit ? unit : g.title);
+    return out;
+}
+
 const char* stock_level_title(StockLevel l) {
     switch (l) {
         case StockLevel::Unknown: return "ohne Verbrauch";
@@ -693,6 +699,21 @@ void Ledger::release_holder(uint16_t holder) {
 }
 
 int Ledger::reservations() const { return s_ ? s_->res_n : 0; }
+
+int Ledger::holders(uint16_t* out, int max) const {
+    if (!s_) return 0;
+    int n = 0;
+    for (int i = 0; i < s_->res_n; ++i) {
+        const uint16_t h = s_->res[i].holder;
+        int at = 0;
+        while (at < n && out[at] < h) ++at;
+        if ((at < n && out[at] == h) || n >= max) continue;
+        for (int k = n; k > at; --k) out[k] = out[k - 1];
+        out[at] = h;
+        ++n;
+    }
+    return n;
+}
 
 // --- Reichweite ---
 

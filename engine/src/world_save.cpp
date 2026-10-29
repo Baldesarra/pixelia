@@ -44,7 +44,8 @@ constexpr char kWorld[] = "WELT", kCal[] = "KAL ", kPlaces[] = "ORTE", kStates[]
                kFigs[] = "FIGS", kChron[] = "CHRO", kVisits[] = "BESU",
                kDoings[] = "TAET",  // seit 0.5.9 Teil 2: Takt-Grenze und Tätigkeiten
                // seit 0.5.10: Warenbuch (Waren mit Zählern, Bestände, Einzelstücke, Reservierungen)
-               kGoods[] = "WARE", kStock[] = "LAGR", kItems[] = "STCK", kReserve[] = "RESV";
+               kGoods[] = "WARE", kStock[] = "LAGR", kItems[] = "STCK", kReserve[] = "RESV",
+               kTasks[] = "AUFG";  // seit 0.5.10 Teil 2: Aufgabenliste der Gemeinschaft
 
 bool ledger_chunk(const char* tag) {
     return std::strcmp(tag, kGoods) == 0 || std::strcmp(tag, kStock) == 0 || std::strcmp(tag, kItems) == 0 ||
@@ -448,6 +449,7 @@ size_t Stage::save_state(uint8_t* buf, size_t cap, uint32_t generation) const {
         w.i64(d.walk_us);
         w.i64(d.end_us);
         w.i64(d.since_us);
+        w.u8(static_cast<uint8_t>(d.aim));  // seit 0.5.10 Teil 2 hinten im Datensatz (ältere Stände: kein Zweck)
         w.record_end(r);
     }
 
@@ -461,6 +463,8 @@ size_t Stage::save_state(uint8_t* buf, size_t cap, uint32_t generation) const {
     led.save_items(w);
     w.chunk(kReserve, 1);
     led.save_reservations(w);
+    w.chunk(kTasks, 1);
+    env_.tasks.save(w, led);
     return w.finish();
 }
 
@@ -513,6 +517,9 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
     }
     Ledger::LoadStats ls;
     if (ledger) env_.ledger.clear();
+    // Aufgabenliste (seit 0.5.10 Teil 2) immer neu: ohne Abschnitt leer, Reservierungen ohne Aufgabe gibt der nächste
+    // Schritt frei
+    env_.tasks.clear();
     SaveChunks c(data, n);
     char tag[5];
     uint16_t version = 0;
@@ -720,6 +727,8 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
             env_.ledger.load_items(d, version, &ls);
         } else if (std::strcmp(tag, kReserve) == 0) {
             env_.ledger.load_reservations(d, version, &ls);
+        } else if (std::strcmp(tag, kTasks) == 0) {
+            rep.tasks = env_.tasks.load(d, version, env_.ledger);
         } else if (std::strcmp(tag, kPlaces) != 0 && std::strcmp(tag, kDoings) != 0) {
             ++rep.skipped_chunks;  // neuere Firmware: unbekannt, übersprungen
         }
@@ -763,6 +772,10 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
                 x.walk_us = r.i64();
                 x.end_us = r.i64();
                 x.since_us = r.i64();
+                if (r.left()) {
+                    const uint8_t aim = r.u8();
+                    x.aim = aim < static_cast<uint8_t>(DoingAim::kCount) ? static_cast<DoingAim>(aim) : DoingAim::None;
+                }
                 FigureRecord* f = env_.figures.find(id);
                 const bool sane = r.ok() && x.kind < DoingKind::kCount && x.sx < kTilesX && x.gx < kTilesX &&
                                   x.sy < kTilesY && x.gy < kTilesY && x.start_us <= x.walk_us && x.walk_us <= x.end_us;

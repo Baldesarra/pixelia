@@ -239,11 +239,17 @@ Jede Kette ist im Bild zu sehen: Menschen gehen, tragen, arbeiten, und die Lager
 
 **Holen und Bringen [Vorschlag]:** Erzeuger bringen in ihr eigenes Lager. Fällt ein Hausvorrat unter etwa einen Tag,
 holt der Bewohner selbst Nachschub (Korb: 10 Einheiten; Schubkarre von Jakob: 30; später Handkarren: 60). Die Wege
-sind sichtbar und kosten auch in der groben Simulation echte Zeit.
+sind sichtbar und kosten auch in der groben Simulation echte Zeit. [Technik seit 0.5.10, Testwerte] Die Aufgabenliste
+der Gemeinschaft (`tasks.h`) macht daraus Aufgaben: Vorrat unter seinem Soll → Holen von der Quelle bis zum Ziel, die
+Menge liegt dort reserviert, bis sie im Korb ist; Erzeugerlager unter Soll → Herstellen; Notbestand →
+Gemeinschaftsaufgabe mit bis zu drei Helfern (Kapitel 13, Regel 3).
 
 **Weboberfläche „Lager“ [entschieden, vom User ausdrücklich gelobt]:** jeder Lagerplatz mit Inhalt und Füllstand, Zu-
 und Abgänge des Tages und **Reichweite** („Brennholz reicht noch 3 Tage“); dazu eine Übersicht pro Ware über das ganze
-Dorf. **Jede Bewegung steht in der Chronik** („08:40 Greta holt einen Sack Weizen an der Scheune“).
+Dorf. **Die Chronik zeigt nur Besonderes** (Lager leer oder voll, Notbestand, Gemeinschaftsaufgabe, Teilaufgabe oder
+Projekt fertig); **jede Bewegung** („08:40 Greta holt einen Sack Weizen an der Scheune“) steht im Wirtschafts-Protokoll
+(Kapitel 15) und als Zu- und Abgang des Tages auf der Lager-Karte [entschieden 2026-10-29, Wahl des Users: Die Chronik
+hat 64 Einträge, Wichtiges wäre sonst nach Minuten verdrängt].
 
 **Sichtbare Bestände [entschieden, Wunsch des Users 2026-10-21]:** Was im Lager liegt, sieht man im Bild, Stück für
 Stück. **Jeder Brotlaib liegt einzeln in der Auslage der Bäckerei:** Greta legt die frischen Laibe nacheinander

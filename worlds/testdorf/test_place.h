@@ -28,6 +28,12 @@
 // (Zustandsbilder, Lichtkreise nach der Stärke, nasser Boden dunkler, Pfützen) und erfährt Änderungen über den
 // Ereignis-Bus (events.h); seine Lichtkarte entsteht seit 0.5.9 Teil 3 über mehrere Schritte (prepare, Budget der Bühne).
 // Unter Tage (kPlaceUnderground): kein Wetter, kein Himmel, Licht immer wie nachts.
+// Seit 0.5.10 Teil 2 Aufgaben (tasks.h, Testinhalt in waren.cpp): Wer keine Aufgabe hat, schaut ab und zu bis zur nächsten
+// Takt-Grenze, ob es etwas zu tun gibt, und übernimmt dort eine (Gemeinschaftsaufgabe zuerst, dann die nächste; weiter
+// als zwei Orte erst, wenn sie zwei Minuten wartet). Holen: über die Ausgänge Richtung Quell-Lager (Orts-Graph), dort
+// in die Trage (mit Reservierung), dann ins Ziel. Herstellen: am Arbeitsplatz des Erzeugerlagers, je Arbeitsgang zwei
+// Stück. Platzhalter bis 0.5.11 (Hunger): Jede Figur isst zweimal am Tag zu festen Zeiten einen Laib, wenn sie dann an
+// einem Ort mit Brotvorrat ist.
 
 #include <array>
 #include <cstddef>
@@ -163,6 +169,18 @@ private:
     };
     FigureImage figure_image(const Figure& f, Facing facing, int frame) const;
     FigureImage figure_image(const Figure& f) const { return figure_image(f, f.facing, f.frame); }
+    // Aufgaben (seit 0.5.10 Teil 2, tasks.h): eigene Aufgabe weiterführen, an einer Takt-Grenze eine übernehmen, ablegen,
+    // Mahlzeit (Platzhalter bis 0.5.11), auf die nächste Takt-Grenze warten; false = gewohnter Planer
+    bool plan_work(const FigureRecord& f, int64_t at, Rng& rng, Doing* out);
+    bool claim_task(const FigureRecord& f, int64_t at);
+    // zum Lagerplatz (an diesem Ort: an seinen Benutzungspunkt; sonst über den nächsten Ausgang Richtung seines Ortes)
+    bool go_store(const FigureRecord& f, int store, DoingAim aim, int pieces, int64_t at, Rng& rng, Doing* out);
+    bool go_place(const FigureRecord& f, int place, DoingAim aim, int64_t at, Rng& rng, Doing* out);
+    void finish_work(const FigureRecord& f, const Doing& d);  // Buchung am Ende (Holen, Bringen, Herstellen, Essen)
+    int producer_here(int part) const;     // Erzeugerlager dieses Ortes mit Arbeitsplatz part (sonst das erste)
+    int food_here() const;                 // Hausvorrat mit Brot an diesem Ort, −1 = keiner
+    int stow_here(int good) const;         // wohin eine Ware ohne Aufgabe an diesem Ort kommt, −1 = nirgends
+    int exit_place(int exit) const;        // Ziel des Ausgangs als Nummer in der Welt, −1 = keins
     void statist_decide(Figure& f);
     bool use_taken(int part, int k, const Figure* self) const;
     bool use_taken_world(int part, int k, uint16_t self, int64_t at) const;
@@ -213,6 +231,7 @@ private:
     uint16_t next_statist_ = 0;
     uint32_t restored_seen_ = 0;
     uint32_t states_seen_ = 0;  // Stand der Ortszustände, den die Darstellung zeigt (PlaceStates::version)
+    std::array<int8_t, 16> exit_place_{};  // Ziele der Ausgänge (Nummer in der Welt), beim init() bestimmt
 };
 
 }  // namespace pixelia

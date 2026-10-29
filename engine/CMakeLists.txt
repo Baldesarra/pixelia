@@ -31,6 +31,7 @@ set(PIXELIA_ENGINE_SRCS
     src/sprite.cpp
     src/stage.cpp
     src/system_ui.cpp
+    src/tasks.cpp
     src/tiles.cpp
     src/tiny_font.cpp
     src/vehicle.cpp

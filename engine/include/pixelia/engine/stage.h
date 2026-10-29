@@ -168,8 +168,9 @@ public:
     // Wetter-Simulation an (Standard) oder Übersteuerung durch die Prüfbefehle aktiv (bis Wetterzeit override_key)
     bool weather_overridden() const { return override_key_ != kNoOverride; }
     void release_weather();  // Simulation wieder an
-    // Kurzmeldungen der Welt (Jahreszeitenabend, Wechsel, Erstlinge) abholen; seit 0.5.8 ein Leser am Ereignis-Bus
-    bool poll_event(WorldEvent* out) { return env_.events.poll(toast_reader_, out); }
+    // Kurzmeldungen der Welt (Jahreszeitenabend, Wechsel, Erstlinge; seit 0.5.10 Teil 2 Notbestand im Warenbuch, Wunsch
+    // des Users) abholen; seit 0.5.8 ein Leser am Ereignis-Bus
+    bool poll_event(WorldEvent* out);
     EventBus& events() { return env_.events; }
 
     void tick(const WorldClock& clock);
@@ -188,6 +189,7 @@ public:
         // Warenbuch (seit 0.5.10): im Stand enthalten (sonst Startvorrat), Einträge, verlorene bzw. umgelegte Stück
         bool ledger = false;
         int stock = 0, items = 0, reservations = 0, lost = 0, moved = 0;
+        int tasks = 0;  // Aufgaben übernommen (seit 0.5.10 Teil 2)
     };
     // Weltzustand in buf schreiben, an einer Takt-Grenze (zwischen zwei tick()); Länge, 0 = Puffer zu klein
     size_t save_state(uint8_t* buf, size_t cap, uint32_t generation) const;

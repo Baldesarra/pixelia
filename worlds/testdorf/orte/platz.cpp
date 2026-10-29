@@ -24,12 +24,14 @@ constexpr RoomPart kParts[] = {
     {kPPlant, 7, 7, 0, 1, 0, 0},          {kPPlant, 17, 7, 0, 3, 0, 0},
     {kPBasin, 9, 8, 0, 0, 0, 0},          {kPPuddle, 5, 6, 0, 0, 0, 0},
     {kPPuddle, 14, 10, 0, 0, 0, 0},
+    {kPCrate, 20, 7, 0, kRowWood, 0, 0},  // seit 0.5.10: Vorratskiste
+    {kPCrate, 3, 7, 0, kRowWood, 0, 0},   // seit 0.5.10 Teil 2: Platzhalter für den Backofen (Bild in Teil 2b)
 };
 constexpr Exit kExits[] = {
     {0, 9, 1, 2, 1, 9, Facing::Right, ExitKind::Edge, "testort-wiese", 1, Transition::Fade},
     {24, 9, 1, 2, 23, 9, Facing::Left, ExitKind::Path, "testort-wiese", 2, Transition::Fade, 30, kOpenDayOnly},
 };
-constexpr RoomDef kRoom = {{kFloor, nullptr, kDeco}, kLegend, {0, 0, 0}, kParts, 13, kExits, 2};
+constexpr RoomDef kRoom = {{kFloor, nullptr, kDeco}, kLegend, {0, 0, 0}, kParts, 15, kExits, 2};
 constexpr StateDef kStates[] = {
     {.kind = StateKind::Light, .id = "laterne", .part = 7, .light = LightKind::Lantern, .x = 100, .y = 56,
      .rule = StateRule::Evening},

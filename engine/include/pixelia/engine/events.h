@@ -25,8 +25,8 @@ enum class EventKind : uint8_t {
     WeatherChanged, // Wetter-Simulation hat neues Wetter gewählt (a = Art, b = Stärke)
     SkillUp,        // Fähigkeit eine Stufe weiter (seit 0.5.9; who, a = Fähigkeit, b = Stufe)
     BondChanged,    // Beziehung hat die Stufe gewechselt (seit 0.5.9; who, other, a = Stufe, b = 1 näher, 0 entfernt)
-    Stock,          // Warenbuch (seit 0.5.10, nur an Takt-Grenzen): a = 0 Lagerplatz leer, 1 voll, 2 Notbestand; place,
-                    // text für die Chronik
+    Stock,          // Warenbuch (seit 0.5.10, nur an Takt-Grenzen): a = 0 Lagerplatz leer, 1 voll, 2 Notbestand (auch
+                    // Kurzmeldung), 3 Gemeinschaftsaufgabe beginnt (Aufgabenliste); place, text für die Chronik
     kCount,
 };
 const char* event_kind_name(EventKind k);  // Kennung für Protokoll und Befehle

@@ -54,6 +54,9 @@ void Stage::advance_grid(int64_t now) {
         // Warenbuch (seit 0.5.10): Fächer der Reichweite, Besonderes für die Chronik; was mehrere Orte betrifft, ändert
         // sich nur hier
         env_.ledger.step(t, env_.calendar.date().day, &env_.events);
+        // Aufgabenliste (seit 0.5.10 Teil 2): nach allen Planern, so sieht sie jeden Ort gleich weit; übernommen wird an
+        // der nächsten Takt-Grenze
+        env_.tasks.step(t, env_.calendar.date().day, env_.ledger, env_.figures, &env_.events);
         env_.events.deliver();  // Regeln sehen alles bis hierher, egal welcher Ort sichtbar ist
         for (int i = 0; i < count_; ++i) scenes_[i]->step(t);
         grid_ = t;

@@ -183,13 +183,20 @@ Stage::Stage() : assets_(&asset_store()) {
     env_.calendar.set_bus(&env_.events);
     env_.states.set_bus(&env_.events);
     env_.figures.set_bus(&env_.events);
-    toast_reader_ = env_.events.subscribe(kCalendarEvents);
+    toast_reader_ = env_.events.subscribe(kCalendarEvents | event_bit(EventKind::Stock));
     // Chronik (seit 0.5.9): Kalender, neue Stufen von Fähigkeiten und Beziehungen; seit 0.5.10 Besonderes im Warenbuch
     chron_reader_ = env_.events.subscribe(kCalendarEvents | event_bit(EventKind::SkillUp) |
                                           event_bit(EventKind::BondChanged) | event_bit(EventKind::Stock));
     // Warenbuch (seit 0.5.10): Ortszustände holen ihren Brennstoff dort
     env_.states.set_ledger(&env_.ledger);
     place_of_.fill(-1);
+}
+
+bool Stage::poll_event(WorldEvent* out) {
+    // aus dem Warenbuch nur der Notbestand (leer, voll, Gemeinschaftsaufgabe nur in der Chronik)
+    while (env_.events.poll(toast_reader_, out))
+        if (out->kind != EventKind::Stock || out->a == 2) return true;
+    return false;
 }
 
 Stage::~Stage() {
@@ -278,6 +285,7 @@ void Stage::init(uint64_t seed) {
     // Warenbuch (seit 0.5.10): Waren und Lagerplätze aus den Gebieten, Startvorrat; ein Speicherstand ersetzt beides
     env_.ledger.build();
     env_.ledger.start_stock(1);
+    env_.tasks.clear();  // seit 0.5.10 Teil 2
     for (int i = 0; i < count_; ++i) scenes_[i]->init(seed + static_cast<uint64_t>(i) * 0x9E3779B97F4A7C15ULL);
     populate_figures();  // seit 0.5.9: die Figuren gehören der Welt, die Orte zeigen sie
     adopt_figures();

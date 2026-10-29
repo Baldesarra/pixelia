@@ -15,7 +15,8 @@
 //
 // Seit 0.5.9 ist die Umgebung der Weltzustand als Ganzes (SETTING.md Kapitel 15, Grundsatz 1): dazu die Figuren mit
 // ihren Datensätzen und ihrem Aufenthalt (figure.h), die Chronik und der Besuchsverlauf (chronicle.h). Die Bühne
-// speichert und lädt alles zusammen (Stage::save_state, save.h). Seit 0.5.10 das Warenbuch (ledger.h).
+// speichert und lädt alles zusammen (Stage::save_state, save.h). Seit 0.5.10 das Warenbuch (ledger.h), seit Teil 2
+// die Aufgabenliste (tasks.h).
 
 #include <array>
 #include <cstdint>
@@ -29,6 +30,7 @@
 #include "pixelia/engine/light.h"
 #include "pixelia/engine/place_state.h"
 #include "pixelia/engine/sky.h"
+#include "pixelia/engine/tasks.h"
 #include "pixelia/engine/vehicle.h"
 #include "pixelia/engine/weather.h"
 #include "pixelia/engine/weather_sim.h"
@@ -70,6 +72,7 @@ struct Environment {
     Chronicle chronicle;
     VisitLog visits;
     Ledger ledger;       // seit 0.5.10: Warenbuch für die ganze Welt
+    TaskList tasks;      // seit 0.5.10 Teil 2: Aufgabenliste der Gemeinschaft (Holen und Bringen, Herstellen)
     int64_t world_minute = INT64_MIN;  // Weltminute (Tag × 1440 + Minute), INT64_MIN = Weltzeit läuft noch nicht
 };
 
