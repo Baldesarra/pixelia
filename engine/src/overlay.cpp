@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "pixelia/engine/assets.h"
+#include "pixelia/engine/ledger.h"
 
 namespace pixelia::ui {
 
@@ -442,6 +443,67 @@ void render_card(Canvas& c, const Card& card, const CardStyle& st) {
     c.fill_rect(tx, y + 2, tw, 1, kOutline);
     body(c, tx, y + 7, tw, r.y + r.h - 20, card, st);
     hint(c, 0, r.y + r.h - 15, card, st, true, r.x + r.w - pad);
+}
+
+void store_card(const Ledger& l, int store, int slots, Card* card) {
+    card->kind = Card::Kind::Building;
+    card->title = l.store_title(store);
+    const StoreKind kind = l.store_kind(store);
+    uint8_t g[Card::kMaxLines];
+    uint16_t q[Card::kMaxLines];
+    const int n = l.contents(store, g, q, Card::kMaxLines);
+    char buf[64];
+    if (n >= 2) {
+        // mehrere Waren: kurze Liste, je Ware Stand im Dorf in einem Wort oder was davon reserviert ist
+        std::snprintf(buf, sizeof(buf), "%s · %d/%d", store_kind_title(kind), l.load(store), l.capacity(store));
+        card->subtitle = buf;
+        static constexpr const char* kLevel[] = {"", " · Notbestand", " · knapp", " · gut", " · reichlich"};
+        for (int k = 0; k < n; ++k) {
+            const int res = l.reserved(store, g[k]);
+            if (res > 0)
+                std::snprintf(buf, sizeof(buf), "%s %u · davon %d reserviert", l.good(g[k]).title, q[k], res);
+            else
+                std::snprintf(buf, sizeof(buf), "%s %u%s", l.good(g[k]).title, q[k],
+                              kLevel[static_cast<int>(l.level(g[k]))]);
+            card->add_line(buf);
+        }
+        return;
+    }
+    // eine Ware in Zeilen; leer: die Ware aus der ersten Regel
+    card->subtitle = store_kind_title(kind);
+    int good = n == 1 ? g[0] : -1;
+    if (const StoreDef* d = l.store_def(store); good < 0 && d && d->rule_count > 0) good = l.find_good(d->rules[0].good);
+    if (good < 0) {
+        card->add_line("Leer");
+        return;
+    }
+    const int qty = l.qty(store, good);
+    std::snprintf(buf, sizeof(buf), "%s: %d von %d", l.good(good).title, qty, l.capacity(store));
+    card->add_line(buf);
+    const int h = l.reach_hours(store, good);
+    if (qty == 0)
+        card->add_line("Leer");
+    else if (h < 0)
+        card->add_line("Gerade kein Verbrauch");
+    else if (h < 1)
+        card->add_line("Reicht keine Stunde mehr");
+    else if (h < 24)
+        card->add_line((std::snprintf(buf, sizeof(buf), "Reicht noch etwa %d Std.", h), buf));
+    else if (h < 48)
+        card->add_line("Reicht noch 1 Tag");
+    else
+        card->add_line((std::snprintf(buf, sizeof(buf), "Reicht noch %d Tage", h / 24), buf));
+    // heute dazu und weg, je eine Zeile (eine passt nicht in die Breite der Karte)
+    std::snprintf(buf, sizeof(buf), "Heute %s: %d", kind == StoreKind::Producer ? "gemacht" : "gebracht",
+                  l.in_today(store, good));
+    card->add_line(buf);
+    std::snprintf(buf, sizeof(buf), "Heute %s: %d", kind == StoreKind::House ? "verbraucht" : "geholt",
+                  l.out_today(store, good));
+    card->add_line(buf);
+    if (const int res = l.reserved(store, good); res > 0)
+        card->add_line((std::snprintf(buf, sizeof(buf), "%d davon reserviert", res), buf));
+    if (const int back = qty - slots; slots > 0 && back > 0)
+        card->add_line((std::snprintf(buf, sizeof(buf), back == 1 ? "1 liegt hinten" : "%d liegen hinten", back), buf));
 }
 
 }  // namespace pixelia::ui

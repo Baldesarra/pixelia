@@ -188,6 +188,15 @@ public:
     // Fußpunkt eines Stellplatzes von Teil i (grobe Bildpunkte, beim Spiegeln mitgespiegelt); false = gibt es nicht
     bool slot_point(int i, int k, int* x, int* y) const;
     int slot_item(int host, int k) const;  // Teil auf Stellplatz k von host, −1 = frei
+    // Füllung (seit 0.5.10 Teil 2b, Lagerplätze Stück für Stück): Teil i zeigt n Stücke auf seinen Stellplätzen, je
+    // Stellplatz eins in der Reihenfolge der Stellplätze (spätere liegen vorn); was keinen Platz hat, ist nicht zu
+    // sehen. Die Stücke stehen im Hintergrundbild wie das Teil; eine Änderung zeichnet nur ihr Rechteck neu. Mehrere
+    // Zustandsbilder des Stücks sind Spielarten (Stück k zeigt Bild k mod Zustände). piece = nullptr oder n = 0: leer
+    static constexpr int kMaxFills = 8;
+    void set_fill(int i, const PartStage* piece, int n);
+    int fill_shown(int i) const;  // gezeigte Stücke (höchstens so viele wie Stellplätze)
+    int slot_count(int i) const;  // Stellplätze des sichtbaren Bildes von Teil i
+    uint32_t bakes() const;       // Vorzeichnungen seit init, ganz und in Teilen (Prüfungen, Messung)
     // Benutzungspunkt k von Teil i (beim Spiegeln mitgespiegelt); false = gibt es nicht
     bool use_point(int i, int k, int* tx, int* ty, UsePoint* out) const;
 
@@ -256,9 +265,14 @@ private:
     Sprite frame_of(const RoomPart& p, const PartStage& s) const;
     // bewegtes Teil (mehr als ein Bild je Zustand): wird nicht vorgezeichnet
     static bool moving(const PartStage& s) { return s.sheet.frames_per_state() > 1; }
-    void draw_static(Canvas& c, bool standing) const;
+    // Stücke der Füllung von Teil i, Stellplätze [from, to): fn(Bild, x, y, Tiefe, gespiegelt); Tiefe = Träger + 1
+    template <class F>
+    void for_pieces(int i, int from, int to, F&& fn) const;
+    // clip (seit 0.5.10 Teil 2b): nur dieses Rechteck neu, auf Kacheln erweitert; pixelgleich mit dem ganzen Bild
+    void draw_static(Canvas& c, bool standing, const Rect* clip = nullptr) const;
     void rebuild_walk();
     void bake();
+    void bake_rect(Rect r);
     void start_lights();  // Neubau der Lichtkarte von vorn (Ziel nach betreten/unsichtbar)
 
     const TileSet* tiles_ = nullptr;

@@ -71,8 +71,9 @@ enum Tile : uint8_t {
 };
 static_assert(kTileCount == 19, "Legende passt zu den Kacheln");
 
-// Bilder „im Bau“: halbfertiges Bett, Materialstapel (keine eigenen Teile des Katalogs, testdorf.h)
-constexpr uint8_t kPBedFrame = kPartCount, kPSite = kPartCount + 1;
+// Bilder „im Bau“: halbfertiges Bett, Materialstapel; seit 0.5.10 Teil 2b Stücke der Lagerplätze (keine eigenen
+// Teile des Katalogs, testdorf.h)
+constexpr uint8_t kPBedFrame = kPartCount, kPSite = kPartCount + 1, kPLog = kPartCount + 2, kPLoaf = kPartCount + 3;
 
 // Benutzungspunkte (Kachel relativ zur Lage des Teils)
 constexpr UsePoint kUseWardrobe[] = {{0, 1, Facing::Up, UsePose::Stand, 0}, {1, 1, Facing::Up, UsePose::Stand, 0}};
@@ -87,6 +88,30 @@ constexpr UsePoint kUseBuild[] = {{-1, 1, Facing::Right, UsePose::Stand, 0}};  /
 constexpr UsePoint kUseWindowBig[] = {{1, 4, Facing::Up, UsePose::Stand, 0}, {3, 4, Facing::Up, UsePose::Stand, 0}};
 constexpr UsePoint kUseOven[] = {{0, 1, Facing::Up, UsePose::Stand, 0}, {1, 1, Facing::Up, UsePose::Stand, 0}};
 constexpr UsePoint kUseBasin[] = {{1, 2, Facing::Up, UsePose::Stand, 0}, {3, 2, Facing::Up, UsePose::Stand, 0}};
+constexpr UsePoint kUseWoodpile[] = {{2, 1, Facing::Up, UsePose::Stand, 0}};
+constexpr UsePoint kUseWoodshed[] = {{1, 1, Facing::Up, UsePose::Stand, 0}};
+constexpr UsePoint kUseShelf[] = {{1, 3, Facing::Up, UsePose::Stand, 0}};  // Wandregal: davor am Boden
+constexpr UsePoint kUseChop[] = {{-1, 0, Facing::Right, UsePose::Stand, 0}};
+constexpr UsePoint kUseBakeOven[] = {{-1, 0, Facing::Right, UsePose::Stand, 0}};  // links daneben: Glut bleibt sichtbar
+
+// Stellplätze der Lagerplätze (seit 0.5.10 Teil 2b, Wahl des Users: jedes Stück einzeln): Fußpunkt je Stück, von unten
+// nach oben gefüllt; ungerade Reihen um ein halbes Scheit versetzt
+constexpr std::array<SlotPoint, 40> kPileSlots = [] {
+    std::array<SlotPoint, 40> a{};
+    for (int r = 0; r < 5; ++r)
+        for (int c = 0; c < 8; ++c)
+            a[r * 8 + c] = {static_cast<int8_t>(5 + c * 4 + (r % 2) * 2), static_cast<int8_t>(16 - 3 * r)};
+    return a;
+}();
+constexpr std::array<SlotPoint, 12> kShedSlots = [] {
+    std::array<SlotPoint, 12> a{};
+    for (int r = 0; r < 3; ++r)
+        for (int c = 0; c < 4; ++c) a[r * 4 + c] = {static_cast<int8_t>(5 + c * 4 + (r % 2)), static_cast<int8_t>(12 - 3 * r)};
+    return a;
+}();
+constexpr SlotPoint kShelfSlots[] = {{4, 12}, {10, 12}, {16, 12}, {22, 12}, {4, 4}, {10, 4}, {16, 4}, {22, 4}};
+// Brett neben dem Lehmbackofen (Wunsch des Users): frisches Brot als Pyramide, der Rest liegt „hinten“
+constexpr SlotPoint kBoardSlots[] = {{28, 12}, {33, 12}, {38, 12}, {31, 9}, {36, 9}, {33, 6}};
 
 // Großes Fenster mit Vorhang und Fensterbank (seit 0.5.8, STIL.md Kapitel 8, Wahl des Users): Scheiben (Mond im
 // Fenster) und drei Stellplätze auf der Bank
@@ -130,8 +155,16 @@ constexpr StageSpec kStages[] = {
     {kPOven, "teil/ofen", 2, 1, kUseOven, 2},      // Herd mit Rohr (Wahl des Users): kalt, Glut, Feuer (Ortszustand)
     {kPBasin, "teil/becken", 5, 2, kUseBasin, 2},  // rundes Becken (Wahl des Users): leer, wenig, halb, voll
     {kPPuddle, "teil/pfuetze", 2, 1, nullptr, 0},        // Zustände trocken, Pfütze (Ortszustand Nässe)
+    // seit 0.5.10 Teil 2b: Lagerplätze mit Stellplätzen, Hackklotz und Lehmbackofen (Wahl des Users)
+    {kPWoodpile, "teil/holzstapel", 5, 1, kUseWoodpile, 1, 0, kPileSlots.data(), 40},
+    {kPWoodshed, "teil/holzlege", 3, 1, kUseWoodshed, 1, 0, kShedSlots.data(), 12},
+    {kPBreadShelf, "teil/brotregal", 3, 1, kUseShelf, 1, 0, kShelfSlots, 8},
+    {kPChopBlock, "teil/hackklotz", 1, 1, kUseChop, 1},
+    {kPBakeOven, "teil/backofen", 5, 1, kUseBakeOven, 1, 0, kBoardSlots, 6},  // Zustände kalt, Glut (es wird gebacken)
     {kPBedFrame, "teil/bett/bau", 2, 3, kUseBuild, 1},  // im Bau: Rahmen ohne Matratze
     {kPSite, "teil/stapel", 1, 1, nullptr, 0},          // Materialstapel: Bretter
+    {kPLog, "stueck/scheit", 1, 1, nullptr, 0},         // Stücke: drei Spielarten
+    {kPLoaf, "stueck/laib", 1, 1, nullptr, 0},          // zwei Spielarten
 };
 constexpr int kStageCount = sizeof(kStages) / sizeof(kStages[0]);
 
@@ -162,6 +195,11 @@ constexpr PartSpec kParts[kPartCount] = {
     {"ofen", PartKind::Work, PartLayer::Standing, true},
     {"becken", PartKind::Storage, PartLayer::Standing, true},
     {"pfuetze", PartKind::Deco, PartLayer::Floor, false},
+    {"holzstapel", PartKind::Storage, PartLayer::Standing, true},
+    {"holzlege", PartKind::Storage, PartLayer::Standing, true},
+    {"brotregal", PartKind::Storage, PartLayer::Wall, false},
+    {"hackklotz", PartKind::Work, PartLayer::Standing, true},
+    {"backofen", PartKind::Work, PartLayer::Standing, true},
 };
 
 // Asset-Pakete (assets/testorte/pakete.json): Grundausstattung immer geladen, gemeinsame Möbel und Ortspakete beim
@@ -698,6 +736,55 @@ int TestPlace::food_here() const {
     return -1;
 }
 
+int TestPlace::store_of_part(int part) const {
+    if (!env_ || !env_->ledger.ready() || part < 0) return -1;
+    const Ledger& l = env_->ledger;
+    for (int s = 0; s < l.stores(); ++s)
+        if (const StoreDef* d = l.store_def(s); d && d->part == part && l.store_place(s) == index_) return s;
+    return -1;
+}
+
+void TestPlace::sync_stock(int64_t now) {
+    // Bild des Stücks je Ware (Testinhalt); gezeigt wird die erste Ware aus den Regeln des Lagerplatzes. Ändert sich
+    // nichts, tut set_fill nichts; sonst zeichnet der Raum nur das Rechteck der Stücke neu
+    static constexpr struct {
+        const char* good;
+        uint8_t stage;
+    } kPieces[] = {{"brennholz", kPLog}, {"brot", kPLoaf}};
+    if (!env_ || !env_->ledger.ready()) return;
+    const Ledger& l = env_->ledger;
+    Kit& k = kit();
+    for (int s = 0; s < l.stores(); ++s) {
+        const StoreDef* d = l.store_def(s);
+        if (!d || d->part < 0 || d->rule_count == 0 || l.store_place(s) != index_ || room_.slot_count(d->part) == 0)
+            continue;
+        const int g = l.find_good(d->rules[0].good);
+        const PartStage* piece = nullptr;
+        for (const auto& p : kPieces)
+            if (g >= 0 && std::strcmp(l.good(g).id, p.good) == 0)
+                for (int st = 0; st < kStageCount; ++st)
+                    if (kStages[st].part == p.stage) piece = &k.stages[st];
+        room_.set_fill(d->part, piece, g >= 0 ? l.qty(s, g) : 0);
+    }
+    // Lehmbackofen glüht, solange jemand an ihm backt (Wunsch des Users; Zustandsbild 1 = Glut)
+    for (int s = 0; s < l.stores(); ++s) {
+        const StoreDef* d = l.store_def(s);
+        if (!d || d->kind != StoreKind::Producer || l.store_place(s) != index_) continue;
+        const int part = d->work_part >= 0 ? d->work_part : d->part;
+        const PartDef* pd = room_.def(part);
+        if (!pd || pd->stages[0].sheet.states < 2) continue;
+        bool baking = false;
+        const FigureBook& book = env_->figures;
+        for (int k = 0; k < book.count() && !baking; ++k) {
+            const FigureRecord& f = book.at(k);
+            const Doing& dg = f.doing;
+            baking = f.where.kind == Whereabouts::Kind::Place && f.where.place == index_ && dg.aim == DoingAim::Produce &&
+                     dg.kind == DoingKind::Use && dg.part == part && now >= dg.walk_us && now < dg.end_us;
+        }
+        room_.set_state(part, baking ? 1 : 0);
+    }
+}
+
 int TestPlace::stow_here(int good) const {
     // Lager dieses Ortes mit einer Regel für die Ware, sonst ein Gemeinschaftslager; nur mit Platz
     const Ledger& l = env_->ledger;
@@ -1202,6 +1289,7 @@ void TestPlace::tick(const WorldClock& clock) {
     if (env_ && !under) weather_.tick(env_->weather);  // Partikel nur, solange der Ort betreten ist
     tick_smoke();
     if (load_pending_) apply_load();
+    sync_stock(clock.world_us());
     room_.set_ticks(clock.ticks());  // Bilder bewegter Teile: gleiches Bild, egal seit wann zu sehen
     sync_figures(clock.world_us());
     // Statisten: wie bis 0.5.9 Teil 1 je Logik-Schritt (nur Darstellung)
@@ -1452,6 +1540,30 @@ bool TestPlace::command(const char* cmd) {
         if (wet_state_ < 0) return false;
         env_->states.set_value(wet_state_, std::clamp(n, 0, 100) * PlaceStates::kWetMax / 100);
         return true;
+    }
+    // Vorrat eines Lagerplatzes dieses Ortes setzen (seit 0.5.10 Teil 2b, Prüfen der Stellplätze): „vorrat holzlege 5“,
+    // „vorrat 50%“ = alle Lager hier mit der Ware ihrer ersten Regel auf die Hälfte (gefunden, verdorben)
+    if (std::strncmp(cmd, "vorrat ", 7) == 0 && env_ && env_->ledger.ready()) {
+        Ledger& l = env_->ledger;
+        int pct = -1, want = -1;
+        word[0] = 0;
+        if (std::sscanf(cmd, "vorrat %d%%", &pct) != 1 && std::sscanf(cmd, "vorrat %11s %d", word, &want) != 2) return false;
+        BookingInfo info;
+        info.at_us = env_->world_minute == INT64_MIN ? 0 : env_->world_minute * 60'000'000;
+        info.reason = "befehl";
+        bool any = false;
+        for (int s = 0; s < l.stores(); ++s) {
+            const StoreDef* d = l.store_def(s);
+            if (!d || d->rule_count == 0 || l.store_place(s) != index_) continue;
+            if (pct < 0 && !std::strstr(d->id, word)) continue;
+            const int g = l.find_good(d->rules[0].good);
+            if (g < 0) continue;
+            const int n2 = std::clamp(pct >= 0 ? (l.capacity(s) * pct + 50) / 100 : want, 0, l.capacity(s));
+            if (l.qty(s, g) > n2) l.take(s, g, l.qty(s, g) - n2, Booking::Spoil, info);
+            if (l.qty(s, g) < n2) l.add(s, g, n2 - l.qty(s, g), Booking::Find, info);
+            any = true;
+        }
+        return any;
     }
     if (std::sscanf(cmd, "becken %d", &n) == 1) {
         for (int s = 0; env_ && s < state_n_; ++s)
@@ -1917,6 +2029,21 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
             if (sd.kind == StateKind::Light && sd.rule == StateRule::Homecomer)
                 card->quote = "Brennt nachts, solange jemand aus dem Haus unterwegs ist.";
             break;
+        }
+        // Lagerplatz (seit 0.5.10 Teil 2b): Daten aus dem Warenbuch; Arbeitsplatz eines Erzeugerlagers (Hackklotz)
+        if (const int s = store_of_part(hit.id); s >= 0) {
+            ui::store_card(env_->ledger, s, room_.slot_count(hit.id), card);
+            card->picture = {};  // ohne Bild: die Zahlen bekommen die ganze Breite (Entwurf A)
+            stateful = true;
+        } else if (env_ && env_->ledger.ready()) {
+            const Ledger& lg = env_->ledger;
+            for (int s2 = 0; s2 < lg.stores(); ++s2)
+                if (const StoreDef* sd = lg.store_def(s2);
+                    sd && sd->work_part == hit.id && lg.store_place(s2) == index_) {
+                    card->title = std::strcmp(d->id, "hackklotz") == 0 ? "Hackklotz" : "Arbeitsplatz";
+                    card->subtitle = std::string("Arbeitsplatz · ") + sd->title;
+                    stateful = true;
+                }
         }
         if (d->kind == PartKind::Door) {
             // Ort hinter der Tür: nächster Ausgang (die Bühne ergänzt, wer drin ist)

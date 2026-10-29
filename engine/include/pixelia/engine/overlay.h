@@ -14,6 +14,7 @@
 
 namespace pixelia {
 class AssetStore;
+class Ledger;
 }
 
 namespace pixelia::ui {
@@ -130,7 +131,7 @@ struct CardStep {
 
 struct Card {
     enum class Kind : uint8_t { None, Figure, Building, Exhibit };
-    static constexpr int kMaxLines = 4;
+    static constexpr int kMaxLines = 6;  // seit 0.5.10 Teil 2b: Lager mit mehreren Waren
     static constexpr int kMaxMeters = 3;
     static constexpr int kMaxSteps = 8;
     Kind kind = Kind::None;
@@ -162,5 +163,11 @@ void render_card(Canvas& canvas, const Card& card, const CardStyle& style);
 Rect card_rect(const Card& card, const CardStyle& style);
 // Knopf unten auf der Seitenkarte (seit 0.5.6): „Folgen“ bei einer Figur, „Betreten“ bei einer Tür; w = 0: keiner
 Rect card_button(const Card& card, const CardStyle& style);
+
+// Karte eines Lagerplatzes (seit 0.5.10 Teil 2b, Wahl des Users nach Kontaktbogen) mit den Daten des Warenbuchs: eine
+// Ware in Zeilen („Brennholz: 9 von 12“, Reichweite in Worten, heute gebracht und verbraucht, Reserviertes, was hinten
+// liegt), mehrere als kurze Liste („Brot 24 · gut“). slots = Stellplätze des Teils (0 = zeigt keine Stücke, nichts
+// liegt „hinten“). Setzt Art, Titel, Unterzeile und Angaben; Ort, Bild und Hinweis setzt der Ort
+void store_card(const Ledger& ledger, int store, int slots, Card* card);
 
 }  // namespace pixelia::ui

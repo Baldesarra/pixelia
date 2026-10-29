@@ -1563,7 +1563,7 @@ std::vector<Case> place_cases() {
              if (items != 3) return "Dinge auf Stellplätzen: " + std::to_string(items);
              for (int x = 0; x < pixelia::kTilesX; ++x)
                  if (!room.walkable(x, 6) && x > 0 && x < pixelia::kTilesX - 1 && x != 21 && x != 22 && x != 2 && x != 3 &&
-                     x != 12 && x != 13)  // Bett, Schrank, Ofen (seit 0.5.8 Teil 2)
+                     x != 12 && x != 13 && !(x >= 14 && x <= 16))  // Bett, Schrank, Ofen, Holzlege (seit 0.5.10 Teil 2b)
                      return "Reihe vor den Fenstern versperrt bei " + std::to_string(x);
              return std::string();
          }},

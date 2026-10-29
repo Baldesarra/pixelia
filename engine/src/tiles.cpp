@@ -1,5 +1,6 @@
 #include "pixelia/engine/tiles.h"
 
+#include <algorithm>
 #include <cstring>
 
 namespace pixelia {
@@ -42,10 +43,11 @@ bool TileMap::blocks(const TileSet& set, int tx, int ty) const {
     return false;
 }
 
-void TileMap::draw(Canvas& c, const TileSet& set, int layer, bool opaque, const uint8_t* remap) const {
+void TileMap::draw(Canvas& c, const TileSet& set, int layer, bool opaque, const uint8_t* remap, int tx0, int ty0,
+                   int tx1, int ty1) const {
     if (layer < 0 || layer >= kTileLayers || !set.pixels) return;
-    for (int ty = 0; ty < kTilesY; ++ty) {
-        for (int tx = 0; tx < kTilesX; ++tx) {
+    for (int ty = std::max(ty0, 0); ty < std::min(ty1, kTilesY); ++ty) {
+        for (int tx = std::max(tx0, 0); tx < std::min(tx1, kTilesX); ++tx) {
             const uint8_t id = t_[layer][ty][tx];
             if (id == 0 || id >= set.count) continue;
             const uint8_t* src = set.tile(id);

@@ -73,12 +73,17 @@
         "teil/lampe": {"datei": "teile/lampe.png", "bilder": 4, "zustaende": 2},
         "teil/pflanze": {"datei": "teile/pflanze.png"},
         "teil/becken": {"datei": "teile/becken.png", "bilder": 4, "zustaende": 4},
-        "teil/pfuetze": {"datei": "teile/pfuetze.png", "bilder": 2, "zustaende": 2}
+        "teil/pfuetze": {"datei": "teile/pfuetze.png", "bilder": 2, "zustaende": 2},
+        "teil/hackklotz": {"datei": "teile/hackklotz.png"},
+        "teil/backofen": {"datei": "teile/backofen.png", "bilder": 2, "zustaende": 2},
+        "stueck/scheit": {"datei": "teile/scheit.png", "bilder": 3, "zustaende": 3},
+        "stueck/laib": {"datei": "teile/laib.png", "bilder": 2, "zustaende": 2}
       }
     },
     "wiese": {
       "bilder": {
-        "teil/tuer": {"datei": "teile/tuer.png"}
+        "teil/tuer": {"datei": "teile/tuer.png"},
+        "teil/holzstapel": {"datei": "teile/holzstapel.png"}
       }
     },
     "raum": {
@@ -95,7 +100,9 @@
         "teil/bett/bau": {"datei": "teile/bett-bau.png"},
         "teil/tisch/0": {"datei": "teile/tisch-0.png"},
         "teil/tisch/1": {"datei": "teile/tisch-1.png"},
-        "teil/stuhl": {"datei": "teile/stuhl.png"}
+        "teil/stuhl": {"datei": "teile/stuhl.png"},
+        "teil/holzlege": {"datei": "teile/holzlege.png"},
+        "teil/brotregal": {"datei": "teile/brotregal.png"}
       }
     }
   }

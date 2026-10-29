@@ -25,20 +25,21 @@ constexpr const char* kWalls[kTilesY] = {
 // Fenster 0 und 1 tragen auf ihren Fensterbänken Kerze und Blumentöpfe (Stellplätze, seit 0.5.8)
 constexpr RoomPart kParts[] = {
     {kPWindowBig, 4, 2, 0, kRowWood, 0, 0}, {kPWindowBig, 16, 2, 0, kRowWood, 0, 0},
-    {kPPicture, 10, 3, 0, kRowWood, 0, 0},  {kPPicture, 15, 3, 0, kRowWood, 0, 0},
+    {kPPicture, 22, 3, 0, kRowWood, 0, 0},  {kPPicture, 15, 3, 0, kRowWood, 0, 0},
     {kPRug, 8, 8, 0, 4, 0, 0},              {kPWardrobe, 2, 6, 0, kRowWood, 0, 0},
     {kPBed, 21, 6, 0, 3, 0, 0},             {kPTable, 10, 8, 0, kRowWood, 0, 0},
     {kPChair, 9, 9, 0, kRowWood, 0, 0},     {kPChair, 12, 9, 0, kRowWood, 0, kPartFlipped},
     {kPLamp, 23, 12, 0, 3, 0, 0},           {kPPlant, 1, 12, 0, 1, 0, 0},
-    {kPCrate, 3, 12, 0, kRowWood, 0, 0},    {kSignaturePart, 17, 12, 0, 2, 1, 0},
+    {kPBreadShelf, 9, 3, 0, kRowWood, 0, 0}, {kSignaturePart, 17, 12, 0, 2, 1, 0},
     {kPCandle, 0, 0, 0, 0, 0, kPartOnSlot}, {kPPot, 0, 2, 0, 0, 0, kPartOnSlot},
     {kPPot, 1, 1, 0, 0, 0, kPartOnSlot},    {kPOven, 12, 6, 0, 1, 0, 0},
+    {kPWoodshed, 14, 6, 0, kRowWood, 0, 0},  // seit 0.5.10 Teil 2b: Holzlege neben dem Herd
 };
 constexpr Exit kExits[] = {
     {10, 14, 2, 1, 10, 13, Facing::Up, ExitKind::Door, "testort-wiese", 0, Transition::Fade},
     {24, 9, 1, 2, 23, 9, Facing::Left, ExitKind::Door, "testort-kammer", 0, Transition::Fade},
 };
-constexpr RoomDef kRoom = {{kFloor, kWalls, nullptr}, kLegend, {0, kRowPaper, 0}, kParts, 18, kExits, 2};
+constexpr RoomDef kRoom = {{kFloor, kWalls, nullptr}, kLegend, {0, kRowPaper, 0}, kParts, 19, kExits, 2};
 // Ortszustände: Rüböllampe (Teil 10), Talgkerze auf der Fensterbank (Teil 14), Ofen (Teil 17), Bett (Teil 6)
 constexpr StateDef kStates[] = {
     {.kind = StateKind::Light, .id = "lampe", .part = 10, .light = LightKind::OilLamp, .x = 188, .y = 100,

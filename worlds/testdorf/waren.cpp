@@ -28,13 +28,14 @@ constexpr StockRule kBread[] = {{"brot", 2, 8}};
 constexpr StockRule kOven[] = {{"brot", 8, 16}};   // Erzeuger (Platzhalter, Wahl des Users 2026-10-29): backt bis 16
 constexpr StockRule kStore[] = {{"brot", 12, 24}};  // Vorratskiste: Brot vom Backofen
 
-// part: Teil der Raumliste, an dessen Benutzungspunkt geholt und gebracht wird. Bis 0.5.10 Teil 2b stehen Kisten und
-// der Herd dafür (Wiese Teil 6, Raum Teil 17 und 12, Platz Teil 13); danach eigene Teile mit Stellplätzen
+// part: Teil der Raumliste, an dessen Benutzungspunkt geholt und gebracht wird; seit 0.5.10 Teil 2b eigene Teile mit
+// einem Stellplatz je Stück (Holzstapel Wiese Teil 6 mit Hackklotz Teil 10, Holzlege Raum Teil 18, Brotregal Raum
+// Teil 12, Lehmbackofen Platz Teil 14); die Vorratskiste (Platz Teil 13) bleibt eine Kiste
 constexpr StoreDef kStores[] = {
     {.id = "wiese_holzstapel", .title = "Holzstapel", .place = "testort-wiese", .kind = StoreKind::Producer,
-     .capacity = 40, .part = 6, .rules = kWoodpile, .rule_count = 1},
+     .capacity = 40, .part = 6, .rules = kWoodpile, .rule_count = 1, .work_part = 10},
     {.id = "raum_holzlege", .title = "Holzlege", .place = "testort-raum", .kind = StoreKind::House, .capacity = 12,
-     .part = 17, .rules = kWoodshed, .rule_count = 1, .source = "wiese_holzstapel"},
+     .part = 18, .rules = kWoodshed, .rule_count = 1, .source = "wiese_holzstapel"},
     {.id = "raum_brotregal", .title = "Brotregal", .place = "testort-raum", .kind = StoreKind::House, .capacity = 8,
      .part = 12, .rules = kBread, .rule_count = 1, .source = "platz_vorrat"},
     {.id = "platz_vorrat", .title = "Vorratskiste", .place = "testort-platz", .kind = StoreKind::Community,

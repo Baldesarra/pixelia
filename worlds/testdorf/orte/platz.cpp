@@ -25,7 +25,7 @@ constexpr RoomPart kParts[] = {
     {kPBasin, 9, 8, 0, 0, 0, 0},          {kPPuddle, 5, 6, 0, 0, 0, 0},
     {kPPuddle, 14, 10, 0, 0, 0, 0},
     {kPCrate, 20, 7, 0, kRowWood, 0, 0},  // seit 0.5.10: Vorratskiste
-    {kPCrate, 3, 7, 0, kRowWood, 0, 0},   // seit 0.5.10 Teil 2: Platzhalter für den Backofen (Bild in Teil 2b)
+    {kPBakeOven, 2, 7, 0, 0, 0, 0},       // seit 0.5.10 Teil 2b: Lehmbackofen mit Brett
 };
 constexpr Exit kExits[] = {
     {0, 9, 1, 2, 1, 9, Facing::Right, ExitKind::Edge, "testort-wiese", 1, Transition::Fade},

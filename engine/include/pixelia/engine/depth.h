@@ -49,6 +49,8 @@ public:
                 bool baked = false);
     // Zeichnet nach Tiefe. all = eingebackene Teile vollständig zeichnen (Vorzeichnen, Zeichnen ohne Hintergrund)
     void draw(Canvas& c, bool all = false);
+    // Alles beschnitten auf clip zeichnen (seit 0.5.10 Teil 2b: Teil des Hintergrundbilds neu vorzeichnen)
+    void draw_clipped(Canvas& c, const Rect& clip);
     // Seit 0.5.2: Hintergrund steht in layers->base, nicht im Bild. draw() kopiert ihn nur unter die bewegten Teile
     // (je Zeile ein Bereich, gerade Grenzen) und trägt die Bereiche in layers ein. Gilt bis zum nächsten clear().
     void use_layers(CoarseLayers* layers) { layers_ = layers; }

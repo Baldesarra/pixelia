@@ -188,6 +188,9 @@ private:
     void remove_figure(int i);
     void apply_load();
     void sync_figures(int64_t now);  // Darstellung = Figuren am Ort laut Weltzustand, an ihrer Stelle im Zeitblock
+    // Lagerplätze Stück für Stück (seit 0.5.10 Teil 2b): Bestand laut Warenbuch auf die Stellplätze ihrer Teile
+    void sync_stock(int64_t now);
+    int store_of_part(int part) const;  // Lagerplatz dieses Ortes mit Teil part (−1 = keiner)
     void show(Figure& v, const FigureRecord& r, int64_t now);
     void draw(Canvas& c, bool with_background, CoarseLayers* layers = nullptr) const;
 

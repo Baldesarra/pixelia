@@ -17,7 +17,9 @@
         "Korb: Wer etwas holt, trägt es im Korb; die Karte einer Figur zeigt, was sie gerade tut und was sie trägt",
         "Gemeinsam helfen: Wird etwas im ganzen Dorf knapp, helfen mehrere zusammen; das steht in der Chronik, und eine Kurzmeldung sagt Bescheid",
         "Wege: Wer etwas holt, nimmt meist den kürzesten Weg, ab und zu bei Tag den Feldweg",
-        "Platz: Zwei Kisten stehen jetzt auf dem Platz, die Vorratskiste und vorerst eine Kiste als Backofen"
+        "Vorräte im Bild: Jeder Scheit und jeder Laib liegt einzeln im Lager (Holzstapel mit Hackklotz, Holzlege, Brotregal); was keinen Platz hat, liegt hinten",
+        "Backofen: Am Platz steht ein Lehmbackofen, der glüht, solange jemand backt; frisches Brot liegt auf einem Brett daneben",
+        "Lager-Karte: Tippt man ein Lager an, zeigt die Karte, wie viel drin ist, wie lange es noch reicht und was heute gebracht und verbraucht wurde"
       ],
       "i": [
         "Nachholen: War Pixelia länger aus, holt die Welt erst das Verpasste nach und lässt die Figuren danach weitermachen"
@@ -32,14 +34,16 @@
       "Engine: Reichweite aus den Abgängen der letzten 24 Weltstunden, Soll und Obergrenze in Tagen, Notbestand unter einem Tag; Lager leer, voll und Notbestand als Ereignis „lager“ in der Chronik",
       "Engine: Speicherstand mit Abschnitten WARE, LAGR, STCK, RESV (Kennungen, sortiert); Stand 0.5.9 lädt mit Test-Startvorrat, Bestand unbekannter Lagerplätze kommt ins Gemeinschaftslager",
       "Dorf: Testinhalt Holzkette, Brot und Vorratskiste (waren.cpp, Testwerte); der Herd im Testraum holt jede Füllung Brennholz aus der Holzlege (StateDef::fuel) und bleibt ohne Holz aus",
-      "Display: Karte mit senkrechter Schritt-Leiste für Projekte (CardStep: Punkt offen, läuft, fertig; nur der laufende Schritt zeigt sein Material), Beispielkarten --screen karte-schritte, karte-lager, karte-vorrat",
+      "Display: Karte mit senkrechter Schritt-Leiste für Projekte (CardStep: nur der laufende Schritt zeigt sein Material), --screen karte-schritte; karte-lager und karte-vorrat seit Teil 2b mit echten Daten",
       "Engine: Aufgabenliste der Gemeinschaft (tasks.h, Abschnitt AUFG): Holen und Bringen mit Reservierung aus den StockRule-Regeln, Herstellen am Erzeugerlager, Notbestand als Gemeinschaftsaufgabe mit 3 Helfern",
       "Engine: Aufgaben entstehen, reservieren und enden nur an der Takt-Grenze nach allen Planern, übernommen nur genau dort; danach ändert nur ihre Figur Phase und Trage (P10 mit Transporten)",
       "Engine: Zweck einer Tätigkeit (DoingAim, hinten im Datensatz TAET), Orts-Graph der Welt mit Entfernungstabelle (world_graph, hops in O(1)), Ledger::holders, Zähleinheiten (Scheit, Laib)",
       "Dorf: Planer der Testorte übernimmt Aufgaben, geht über die Ausgänge Richtung Lager (jedes vierte Mal der zweitbeste Weg, z. B. der Feldweg), lädt in den Korb und bringt ins Ziel; 2 Stück je Arbeitsgang",
-      "Dorf: Backofen-Platzhalter am Platz (Wahl des Users), Vorratskiste holt dort, Brotregal aus der Vorratskiste; Platzhalter bis 0.5.11: zwei feste Mahlzeiten je Figur und Tag, nur wo Brot liegt",
+      "Dorf: Backofen am Platz (Wahl des Users), Vorratskiste holt dort, Brotregal aus der Vorratskiste; Platzhalter bis 0.5.11: zwei feste Mahlzeiten je Figur und Tag, nur wo Brot liegt",
       "Dorf: Karte einer Figur nennt Aufgabe, Weg und Trage („Trägt 8 Scheite“); Chronik bei Gemeinschaftsaufgaben, Kurzmeldung bei Notbestand, Konsole „ort cmd aufgaben“ (Wünsche des Users)",
-      "Simulator: --test warenbuch 15 Prüfungen (neu: Aufgaben, Holzkette, Brot über zwei Orte, Neustart mitten im Transport auf dem Feldweg, P10 mit Transporten, Messung mit 48 Figuren)"
+      "Engine: Füllung im Raum-Baukasten (Room::set_fill): ein Teil zeigt n Stücke auf seinen Stellplätzen, in Spielarten, im Hintergrundbild; eine Änderung zeichnet nur ihr Rechteck neu (pixelgleich)",
+      "Dorf: Holzstapel (40) mit Hackklotz, Holzlege (12), Brotregal (8), Lehmbackofen mit Brett (6) und Glut beim Backen statt Platzhalter-Kisten; Karte eines Lagers (ui::store_card), Befehl ort cmd vorrat",
+      "Simulator: --test warenbuch 18 Prüfungen (u. a. Aufgaben, Holzkette, Brot über zwei Orte, Neustart im Transport, P10 mit Transporten, Stellplätze pixelgleich, Backofen-Glut, Messungen)"
     ],
     "i": [
       "Engine: je Schritt erst die Takt-Grenzen (grob, mit Warenbuch), dann Kalender und Ortszustände, dann die betretenen Orte (voll); Ortszustände gehen nie über die letzte Takt-Grenze hinaus (P10 mit Warenbuch)",
@@ -49,12 +53,13 @@
       "Dorf: Ohne Weg schaut eine Figur nach vorn bzw. zur Tür; vorher hing der Blick davon ab, seit wann der Ort zu sehen ist (Bild nach einem Schnitt anders)"
     ],
     "g": [
-      "Simulator: alle 123 Prüfungen grün; 48 Figuren in einem Ort: Schritt mit Takt-Grenze im Mittel 8 µs, höchstens 70–110 µs (PC); Firmware 2,04 MB (32 %)"
+      "Simulator: alle 126 Prüfungen grün; 48 Figuren in einem Ort: Takt-Grenze im Mittel 9 µs; 40 Scheite +3 µs je Bild, Neuzeichnen eines Lagers 1,0–1,4 µs statt 9–12 µs (PC); Firmware 2,05 MB (33 %)"
     ],
     "h": [
       "Dorf: Werte im Testdorf (Korb 10, Holzlege 12, Holzstapel 40 …) sind Testwerte; das Balancing mit Zeitraffer-Bericht kommt ab 0.5.12 bzw. 0.6.x",
       "Chronik: nur Besonderes aus dem Warenbuch, nicht jede Bewegung (Wahl des Users 2026-10-29); jede Bewegung steht im Wirtschafts-Protokoll und in der Lager-Karte",
-      "Nachholen: Nach mehr als 10 Weltminuten Pause rechnen nur die Ortszustände nach (der Herd leert die Holzlege), Figuren holen danach Nachschub (Wahl des Users; grob nachschätzen vorgemerkt für 0.5.12)"
+      "Nachholen: Nach mehr als 10 Weltminuten Pause rechnen nur die Ortszustände nach (der Herd leert die Holzlege), Figuren holen danach Nachschub (Wahl des Users; grob nachschätzen vorgemerkt für 0.5.12)",
+      "Dorf: Das Brotregal an der Wand ist nur Testinhalt (um 1850 lag Brot im Brotkorb, Brotschrank oder auf der Brotleiter); sichtbares Tragen kommt mit 0.6.x (Wahl des Users)"
     ],
     "pr": []
   },

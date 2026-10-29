@@ -17,6 +17,7 @@
 #include "pixelia/engine/save.h"
 #include "pixelia/engine/stage.h"
 #include "sim.h"
+#include "testdorf/test_place.h"
 
 namespace sim {
 namespace {
@@ -178,6 +179,22 @@ void drain(Run& r, const char* store, const char* good, int keep) {
     const int s = l.find_store(store), g = l.find_good(good);
     if (s >= 0 && g >= 0 && l.qty(s, g) > keep)
         l.take(s, g, l.qty(s, g) - keep, Booking::Spoil, at(r.clock.world_us()));
+}
+
+// Testort einer Bühne nach Kennung (seit 0.5.10 Teil 2b: Stellplätze)
+pixelia::TestPlace* test_place(Run& r, const char* name) {
+    for (int i = 0; i < r.stage.count(); ++i)
+        if (std::strcmp(r.stage.scene(i).name(), name) == 0) return static_cast<pixelia::TestPlace*>(&r.stage.scene(i));
+    return nullptr;
+}
+
+// Bestand eines Lagerplatzes auf n setzen (Zugang bzw. Verderben)
+void set_stock(Run& r, const char* store, const char* good, int n) {
+    Ledger& l = r.ledger();
+    const int s = l.find_store(store), g = l.find_good(good);
+    if (s < 0 || g < 0) return;
+    if (l.qty(s, g) > n) l.take(s, g, l.qty(s, g) - n, Booking::Spoil, at(r.clock.world_us()));
+    if (l.qty(s, g) < n) l.add(s, g, n - l.qty(s, g), Booking::Produce, at(r.clock.world_us()));
 }
 
 // kleine Wirtschaft für die Aufgabenliste: Holzstapel (Erzeuger) → Holzlege, Kiste → Brotregal
@@ -633,6 +650,133 @@ std::vector<Case> cases() {
              for (int run = 1; run < 3; ++run)
                  if (save[run] != save[0])
                      return std::string(run == 1 ? "Wiese sichtbar: " : "Orte wechselnd: ") + first_byte_diff(save[0], save[run]);
+             return std::string();
+         }},
+        {"Stellplätze: jedes Stück einzeln wie im Warenbuch; neu gezeichnet wird nur das Rechteck, pixelgleich mit dem ganzen Bild",
+         [] {
+             Run r(51, "testort-raum", 11, 0, 1.0);
+             pixelia::TestPlace* raum = test_place(r, "testort-raum");
+             if (!raum || !raum->room().has_background()) return std::string("Raum nicht betreten");
+             const pixelia::Room& room = raum->room();
+             Ledger& l = r.ledger();
+             const int lege = l.find_store("raum_holzlege"), regal = l.find_store("raum_brotregal");
+             const int holz = l.find_good("brennholz"), brot = l.find_good("brot");
+             const int lp = l.store_def(lege)->part, rp = l.store_def(regal)->part;
+             if (room.slot_count(lp) != 12 || room.slot_count(rp) != 8) return std::string("Stellplätze fehlen");
+             std::vector<uint8_t> part_bg(pixelia::kCoarsePixels);
+             for (int round = 0; round < 6; ++round) {
+                 const int nh = (round * 5) % 13, nb = (round * 3 + 1) % 9;
+                 set_stock(r, "raum_holzlege", "brennholz", nh);
+                 set_stock(r, "raum_brotregal", "brot", nb);
+                 const uint32_t before = room.bakes();
+                 r.run(1);
+                 if (room.fill_shown(lp) != l.qty(lege, holz) || room.fill_shown(rp) != l.qty(regal, brot))
+                     return "Runde " + std::to_string(round) + ": gezeigt " + std::to_string(room.fill_shown(lp)) + "/" +
+                            std::to_string(room.fill_shown(rp)) + " statt " + std::to_string(l.qty(lege, holz)) + "/" +
+                            std::to_string(l.qty(regal, brot));
+                 if (room.bakes() - before > 2) return std::string("zu oft neu gezeichnet");
+                 std::copy_n(room.background(), pixelia::kCoarsePixels, part_bg.begin());
+                 const_cast<pixelia::Room&>(room).invalidate();  // ganzes Bild zum Vergleich
+                 if (!std::equal(part_bg.begin(), part_bg.end(), room.background()))
+                     return "Runde " + std::to_string(round) + ": Teil-Neuzeichnen weicht vom ganzen Bild ab";
+             }
+             // Antippen: ein Stück gehört zu seinem Lagerplatz
+             set_stock(r, "raum_holzlege", "brennholz", 12);
+             r.run(1);
+             int sx, sy;
+             if (!room.slot_point(lp, 11, &sx, &sy) || room.hit_part(sx, sy - 1, nullptr) != lp)
+                 return std::string("Stück antippen trifft den Lagerplatz nicht");
+             // gleicher Bestand: kein Neuzeichnen
+             const uint32_t b = room.bakes();
+             r.run(30);
+             if (room.bakes() != b) return std::string("Neuzeichnen ohne Änderung");
+             return checked(l) .empty() ? std::string() : checked(l);
+         }},
+        {"Lehmbackofen glüht, solange jemand an ihm backt; frisches Brot liegt auf dem Brett daneben",
+         [] {
+             Run r(53, "testort-platz", 9, 0, 60.0);
+             pixelia::TestPlace* platz = test_place(r, "testort-platz");
+             if (!platz) return std::string("Platz fehlt");
+             const pixelia::Room& room = platz->room();
+             Ledger& l = r.ledger();
+             const int ofen = l.find_store("platz_backofen");
+             const int part = l.store_def(ofen)->part;
+             set_stock(r, "platz_backofen", "brot", 2);  // unter low: es wird gebacken
+             int glow = 0, ticks = 0, made0 = static_cast<int>(booked(l, "brot", Booking::Produce));
+             for (int t = 0; t < 30 * 60 * 4; ++t) {  // 4 Weltstunden im Zeitraffer 60
+                 r.run(1);
+                 ++ticks;
+                 if (room.part(part).state == 1) {
+                     ++glow;
+                     // im Hintergrundbild steht die Glut (helle Glut, Grundfarbe 42) in der Öffnung
+                     const pixelia::Rect ir = room.image_rect(part);
+                     bool lit = false;
+                     for (int y = ir.y; y < ir.y + ir.h && !lit; ++y)
+                         for (int x = ir.x; x < ir.x + 24 && !lit; ++x) lit = room.background()[y * pixelia::kCoarseWidth + x] == 42;
+                     if (!lit) return std::string("Glut nicht im Bild");
+                 }
+                 if (room.fill_shown(part) != std::min(l.qty(ofen, l.find_good("brot")), 6))
+                     return std::string("Brett zeigt nicht den Bestand");
+             }
+             const int made = static_cast<int>(booked(l, "brot", Booking::Produce)) - made0;
+             if (made < 2) return "nichts gebacken (" + std::to_string(made) + ")";
+             if (glow == 0 || glow == ticks) return "Glut " + std::to_string(glow) + " von " + std::to_string(ticks) + " Schritten";
+             return checked(l);
+         }},
+        {"Messung: Zeichenkosten der 60 Stücke (Holzstapel 40, Holzlege 12, Brotregal 8), Neuzeichnen eines Lagers (PC)",
+         [] {
+             char line[200];
+             for (const char* place : {"testort-wiese", "testort-raum"}) {
+                 Run r(52, place, 11, 0, 1.0);
+                 pixelia::TestPlace* tp = test_place(r, place);
+                 if (!tp) return std::string("Ort fehlt");
+                 const pixelia::Room& room = tp->room();
+                 const bool wiese = place[8] == 'w';
+                 auto fill = [&](bool full) {
+                     if (wiese) {
+                         set_stock(r, "wiese_holzstapel", "brennholz", full ? 40 : 0);
+                     } else {
+                         set_stock(r, "raum_holzlege", "brennholz", full ? 12 : 0);
+                         set_stock(r, "raum_brotregal", "brot", full ? 8 : 0);
+                     }
+                     r.run(1);
+                 };
+                 std::vector<uint8_t> frame(pixelia::kScreenPixels);
+                 auto frames = [&] {
+                     pixelia::Canvas c(frame.data(), pixelia::kScreenWidth, pixelia::kScreenHeight);
+                     const auto t0 = std::chrono::steady_clock::now();
+                     for (int k = 0; k < 400; ++k) r.stage.render(c);
+                     return std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - t0).count() / 400;
+                 };
+                 fill(false);
+                 const double empty = frames();
+                 fill(true);
+                 const double full = frames();
+                 // Neuzeichnen: ein Stück weg und wieder dazu (Teil) gegen das ganze Bild
+                 const int store = r.ledger().find_store(wiese ? "wiese_holzstapel" : "raum_holzlege");
+                 const int part = r.ledger().store_def(store)->part;
+                 auto ticks = [&](bool change) {
+                     const auto t0 = std::chrono::steady_clock::now();
+                     for (int k = 0; k < 200; ++k) {
+                         if (change)
+                             set_stock(r, wiese ? "wiese_holzstapel" : "raum_holzlege", "brennholz",
+                                       wiese ? 39 + k % 2 : 11 + k % 2);
+                         tp->tick(r.clock);
+                     }
+                     return std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - t0).count() / 200;
+                 };
+                 const double base = ticks(false);
+                 const double part_us = ticks(true) - base;  // ohne den Rest des Schritts
+                 const auto t1 = std::chrono::steady_clock::now();
+                 for (int k = 0; k < 200; ++k) const_cast<pixelia::Room&>(room).invalidate();
+                 const double all_us =
+                     std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - t1).count() / 200;
+                 std::snprintf(line, sizeof(line),
+                               "  info  %s: Bild leer %.1f µs, voll (%d Stücke) %.1f µs; Neuzeichnen Teil %.1f µs, ganz %.1f µs",
+                               place + 8, empty, wiese ? 40 : 20, full, part_us, all_us);
+                 std::printf("%s\n", line);
+                 if (room.fill_shown(part) == 0) return std::string("keine Stücke zu sehen");
+             }
              return std::string();
          }},
         {"Messung: Planer an der Takt-Grenze mit 48 Figuren an einem Ort (PC; Gerät etwa zehnmal langsamer)",
