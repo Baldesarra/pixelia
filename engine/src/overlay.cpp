@@ -111,9 +111,47 @@ int meter(Canvas& c, int x, int y, int w, const CardMeter& m) {
     return font::kLineHeight;
 }
 
+// Punkt eines Schritts (7 × 7): fertig gefüllt, läuft als Ring mit gefüllter linker Hälfte, offen als grauer Ring
+void step_dot(Canvas& c, int x, int y, uint8_t state) {
+    static constexpr const char* kDot[7] = {"..###..", ".#ooo#.", "#ooooo#", "#ooooo#", "#ooooo#", ".#ooo#.", "..###.."};
+    const uint8_t ink = state == 0 ? kSurfaceHigh : kPrimary;
+    for (int j = 0; j < 7; ++j)
+        for (int i = 0; i < 7; ++i) {
+            const char m = kDot[j][i];
+            if (m == '#' || (m == 'o' && (state == 2 || (state == 1 && i <= 3)))) c.fill_rect(x + i, y + j, 1, 1, ink);
+        }
+}
+
+// Teilaufgaben als senkrechte Leiste (seit 0.5.10): Punkt, Name, beim laufenden Schritt darunter das Material; gibt
+// das untere Ende zurück
+int steps(Canvas& c, int x, int y, int w, int max_y, const Card& card) {
+    const int lh = font::kLineHeight;
+    const int tx = x + 11, tw = w - 11;
+    int prev_dot = -1;
+    uint8_t prev_state = 0;
+    for (int i = 0; i < card.step_count && y + lh <= max_y; ++i) {
+        const CardStep& s = card.steps[i];
+        const int dot = y + font::kCapTop;
+        if (prev_dot >= 0)  // Linie vom vorigen Punkt zu diesem; fertige Strecke in der Akzentfarbe
+            c.fill_rect(x + 3, prev_dot + 7, 1, dot - prev_dot - 7, prev_state == 2 ? kPrimary : kSurfaceHigh);
+        step_dot(c, x, dot, s.state);
+        font::draw(c, tx, y, font::ellipsize(s.title, tw), s.state == 1 ? kText : kTextDim);
+        y += lh;
+        for (int k = 0; s.state == 1 && k < s.detail_count && y + lh <= max_y; ++k) {
+            font::draw(c, tx + 4, y, font::ellipsize(s.detail[k], tw - 4), kTextDim);
+            y += lh;
+        }
+        y += 2;
+        prev_dot = dot;
+        prev_state = s.state;
+    }
+    return y + 2;
+}
+
 // Gedanke bzw. Beschreibung und Angaben untereinander; gibt das untere Ende zurück
 int body(Canvas& c, int x, int y, int w, int max_y, const Card& card, const CardStyle& st) {
     const int lh = font::kLineHeight;
+    if (card.step_count > 0) y = steps(c, x, y, w, max_y, card);
     if (!card.quote.empty()) {
         int tx = x;
         if (card.kind == Card::Kind::Figure && s_symbols.pixels) {

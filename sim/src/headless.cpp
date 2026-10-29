@@ -94,6 +94,43 @@ bool render_overlay_screen(const std::string& name, pixelia::Canvas& canvas, con
     } else if (name == "karte-tuer" || name == "karte-teil") {
         what = name.substr(6);
         toast = false;
+    } else if (name == "karte-schritte" || name == "karte-lager" || name == "karte-vorrat") {
+        // seit 0.5.10 (Wahl des Users nach Kontaktbogen): Karte eines Projekts mit senkrechter Schritt-Leiste (nur der
+        // laufende Schritt zeigt sein Material), Lagerplatz mit einer Ware in Zeilen, mit mehreren als kurze Liste
+        ui::Card c;
+        c.kind = ui::Card::Kind::Building;
+        if (name == "karte-schritte") {
+            c.title = "Bett bauen";
+            c.subtitle = "Im Bau: Schritt 2 von 3";
+            c.where = "Testort Kammer";
+            auto step = [&](const char* t, uint8_t state, std::initializer_list<const char*> d) {
+                ui::CardStep& s = c.steps[c.step_count++];
+                s.title = t;
+                s.state = state;
+                for (const char* x : d) s.detail[s.detail_count++] = x;
+            };
+            step("Gestell", 2, {"Bretter 4 / 4", "Nägel 8 / 8"});
+            step("Liegefläche", 1, {"Bretter 1 / 2", "Nägel 1 / 4"});
+            step("Strohsack", 0, {"Stroh 0 / 4"});
+            c.add_line("Testfigur 3 arbeitet, noch etwa 2 Std.");
+        } else if (name == "karte-lager") {
+            c.title = "Holzlege";
+            c.subtitle = "Hausvorrat";
+            c.where = "Testort Raum";
+            c.add_line("Brennholz: 9 von 12");
+            c.add_line("Reicht noch 1 Tag");
+            c.add_line("Heute: 10 gebracht, 6 verbrannt");
+        } else {
+            c.title = "Vorratskiste";
+            c.subtitle = "Gemeinschaftslager · 106/200";
+            c.where = "Testort Platz";
+            c.add_line("Brot 24 · gut");
+            c.add_line("Bretter 12 · davon 6 reserviert");
+            c.add_line("Nägel 60 · gut");
+            c.add_line("Stroh 10 · knapp");
+        }
+        ui::render_card(canvas, c, cs);
+        return true;
     } else if (name == "uhr" || name == "uhr-sekunden" || name == "uhr-unten") {
         clk.seconds = name == "uhr-sekunden";
         if (name == "uhr-unten") clk.corner = ui::Corner::BottomRight;
@@ -499,7 +536,8 @@ int run_headless(const Options& opt) {
             std::printf("FEHLER: Systemanzeige \"%s\" gibt es nicht (setup, setup-leer, setup-fehler, update, "
                         "update-fertig, failed, message, toast, toast-lang, toast-ip, info, info-setup, "
                         "info-offline, hold, reset, reset-ohne-pin, reset-halten, karte-seite, karte-mitte, "
-                        "karte-leiste, karte-tuer, karte-teil, schrift-fett, schrift-klein, schrift-normal, uhr, "
+                        "karte-leiste, karte-tuer, karte-teil, karte-lager, karte-vorrat, karte-schritte, "
+                        "schrift-fett, schrift-klein, schrift-normal, uhr, "
                         "uhr-sekunden, uhr-unten, meldung-oben, meldung-unten)\n", opt.screen.c_str());
             return 2;
         }

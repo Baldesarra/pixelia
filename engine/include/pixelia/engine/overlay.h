@@ -117,10 +117,22 @@ struct CardMeter {
     uint8_t progress = 0;  // 0–255 zur nächsten Stufe (bei 3: voll)
 };
 
+// Teilaufgabe eines Projekts als Schritt einer senkrechten Leiste (seit 0.5.10, Wunsch und Wahl des Users nach
+// Kontaktbogen): Punkt (offen, läuft, fertig), daneben der Name; nur der laufende Schritt zeigt darunter sein Material
+// („Bretter 1 / 2“, je Angabe eine Zeile). So bleibt die Karte auch bei 13 Schritten (Lok) übersichtlich
+struct CardStep {
+    static constexpr int kMaxDetails = 3;
+    std::string title;
+    std::string detail[kMaxDetails];
+    int detail_count = 0;
+    uint8_t state = 0;     // 0 offen, 1 läuft, 2 fertig
+};
+
 struct Card {
     enum class Kind : uint8_t { None, Figure, Building, Exhibit };
     static constexpr int kMaxLines = 4;
     static constexpr int kMaxMeters = 3;
+    static constexpr int kMaxSteps = 8;
     Kind kind = Kind::None;
     std::string title;
     std::string subtitle;  // was die Figur gerade tut (Teile: Zustand, z. B. „im Bau“)
@@ -134,6 +146,8 @@ struct Card {
     int line_count = 0;
     CardMeter meters[kMaxMeters];  // unter den Angaben, je eine Zeile (so viele, wie Platz haben)
     int meter_count = 0;
+    CardStep steps[kMaxSteps];     // seit 0.5.10: Teilaufgaben eines Projekts, vor den Angaben
+    int step_count = 0;
     Symbol hint_symbol = Symbol::None;
     CardPicture picture;
     int mark_x = -1, mark_y = -1, mark_h = 0;  // Markierung in der Welt (fein): Fußpunkt und Höhe, −1 = keine

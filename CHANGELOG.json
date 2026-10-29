@@ -23,7 +23,8 @@
       "Engine: Reichweite aus den Abgängen der letzten 24 Weltstunden, Soll und Obergrenze in Tagen, Notbestand unter einem Tag; Lager leer, voll und Notbestand als Ereignis „lager“ in der Chronik",
       "Engine: Speicherstand mit Abschnitten WARE, LAGR, STCK, RESV (Kennungen, sortiert); Stand 0.5.9 lädt mit Test-Startvorrat, Bestand unbekannter Lagerplätze kommt ins Gemeinschaftslager",
       "Dorf: Testinhalt Holzkette, Brot und Vorratskiste (waren.cpp, Testwerte); der Herd im Testraum holt jede Füllung Brennholz aus der Holzlege (StateDef::fuel) und bleibt ohne Holz aus",
-      "Simulator: --test warenbuch (10 Prüfungen): Buchungen, Tragen, Reservierung, Einzelstücke, Reichweite, Speicherstand, alter Stand, Herd, Nachholen 30 Stunden, Neustart"
+      "Simulator: --test warenbuch (10 Prüfungen): Buchungen, Tragen, Reservierung, Einzelstücke, Reichweite, Speicherstand, alter Stand, Herd, Nachholen 30 Stunden, Neustart",
+      "Display: Karte mit senkrechter Schritt-Leiste für Projekte (CardStep: Punkt offen, läuft, fertig; nur der laufende Schritt zeigt sein Material), Beispielkarten --screen karte-schritte, karte-lager, karte-vorrat"
     ],
     "i": [
       "Engine: je Schritt erst die Takt-Grenzen (grob, mit Warenbuch), dann Kalender und Ortszustände, dann die betretenen Orte (voll); Ortszustände gehen nie über die letzte Takt-Grenze hinaus (P10 mit Warenbuch)",
