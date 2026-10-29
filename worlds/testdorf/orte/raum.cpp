@@ -46,7 +46,7 @@ constexpr StateDef kStates[] = {
     {.kind = StateKind::Light, .id = "kerze", .part = 14, .light = LightKind::Tallow, .x = 41, .y = 46,
      .rule = StateRule::Homecomer},
     {.kind = StateKind::Fire, .id = "ofen", .part = 17, .light = LightKind::Hearth, .x = 104, .y = 60,
-     .rule = StateRule::Hearth},
+     .rule = StateRule::Hearth, .fuel = "brennholz", .fuel_store = "raum_holzlege", .fuel_units = 1},
     {.kind = StateKind::Work, .id = "bett", .part = 6, .capacity = 1},
 };
 

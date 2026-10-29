@@ -77,6 +77,8 @@ struct AreaDef {
     // Startbesetzung (seit 0.5.9, figure.h); ohne Daten legt die Welt je Ort PlaceDef::figures Testfiguren an
     const FigureDef* figures = nullptr;
     uint8_t figure_count = 0;
+    // Waren, Lagerplätze und Startvorrat (seit 0.5.10, ledger.h); nullptr = keine
+    const EconomyDef* economy = nullptr;
 };
 
 // Die Welt (worlds/gebiete.cpp): alle Gebiete in fester Reihenfolge

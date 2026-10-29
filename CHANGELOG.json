@@ -1,5 +1,41 @@
 [
   {
+    "v": "0.5.10",
+    "d": "",
+    "t": "",
+    "s": "",
+    "k": {
+      "s": "Die Welt weiß, was es gibt und wo es liegt",
+      "n": [
+        "Warenbuch: Die Welt weiß jetzt genau, welche Waren es gibt, wie viele und wo sie liegen, auch was jemand gerade trägt",
+        "Lagerplätze: Jeder Lagerplatz hat eine Obergrenze; Werkzeuge und andere Einzelstücke haben Besitzer und Zustand",
+        "Reichweite: Für jede Ware rechnet die Welt aus, wie lange der Vorrat noch reicht, und merkt sich, wenn ein Lager leer oder voll ist oder etwas knapp wird",
+        "Herd: Der Herd im Testraum verbrennt echtes Holz aus der Holzlege; ist keines mehr da, bleibt er kalt",
+        "Nichts geht verloren: Nach einem Neustart und nach dem Nachholen stimmt jeder Bestand aufs Stück genau"
+      ],
+      "i": [
+        "Nachholen: War Pixelia länger aus, holt die Welt erst das Verpasste nach und lässt die Figuren danach weitermachen"
+      ]
+    },
+    "n": [
+      "Engine: Warenbuch für die ganze Welt (ledger.h): Waren, Lagerplätze mit Obergrenze, Bestände, Einzelstücke mit Besitzer, Zustand, Hersteller und Tag, Trage je Figur nach Gewicht (Korb 10 Trageeinheiten)",
+      "Engine: Buchungsarten herstellen, sammeln, finden, eintauschen, verbrauchen, verbauen, verderben, austauschen, umlagern; Reservierung je Vorhaben; Bedarf getrennt; Zähler je Ware führen die Bilanz (check)",
+      "Engine: Reichweite aus den Abgängen der letzten 24 Weltstunden, Soll und Obergrenze in Tagen, Notbestand unter einem Tag; Lager leer, voll und Notbestand als Ereignis „lager“ in der Chronik",
+      "Engine: Speicherstand mit Abschnitten WARE, LAGR, STCK, RESV (Kennungen, sortiert); Stand 0.5.9 lädt mit Test-Startvorrat, Bestand unbekannter Lagerplätze kommt ins Gemeinschaftslager",
+      "Dorf: Testinhalt Holzkette, Brot und Vorratskiste (waren.cpp, Testwerte); der Herd im Testraum holt jede Füllung Brennholz aus der Holzlege (StateDef::fuel) und bleibt ohne Holz aus",
+      "Simulator: --test warenbuch (10 Prüfungen): Buchungen, Tragen, Reservierung, Einzelstücke, Reichweite, Speicherstand, alter Stand, Herd, Nachholen 30 Stunden, Neustart"
+    ],
+    "i": [
+      "Engine: je Schritt erst die Takt-Grenzen (grob, mit Warenbuch), dann Kalender und Ortszustände, dann die betretenen Orte (voll); Ortszustände gehen nie über die letzte Takt-Grenze hinaus (P10 mit Warenbuch)",
+      "Engine: holen die Ortszustände mehr als 10 Weltminuten nach (Laden, Uhrsprung), warten die Tätigkeiten und setzen danach neu an; Vergangenes kommt so vor dem Jetzt ins Warenbuch"
+    ],
+    "h": [
+      "Dorf: Werte im Testdorf (Korb 10, Holzlege 12, Holzstapel 40 …) sind Testwerte; das Balancing mit Zeitraffer-Bericht kommt ab 0.5.12 bzw. 0.6.x",
+      "Chronik: nur Besonderes aus dem Warenbuch, nicht jede Bewegung (Wahl des Users 2026-10-29); jede Bewegung steht im Wirtschafts-Protokoll und in der Lager-Karte"
+    ],
+    "pr": []
+  },
+  {
     "v": "0.5.9",
     "d": "2026-10-29",
     "t": "Weltzustand, Figuren und Speicherstand",

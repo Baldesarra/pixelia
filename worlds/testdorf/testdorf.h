@@ -31,5 +31,6 @@ inline constexpr const char* kLegend = " .,\"*=_-ocWST#hHsf~";
 
 extern const PlaceDef kWiese, kRaum, kKammer, kPlatz;
 extern const AreaDef kArea;
+extern const EconomyDef kEconomy;  // Waren, Lagerplätze, Startvorrat (seit 0.5.10, waren.cpp)
 
 }  // namespace pixelia::testdorf

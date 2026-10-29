@@ -42,7 +42,14 @@ void duration_text(int64_t minutes, char* out, size_t n) {
 // Abschnitte des Speicherstands (Kennung, Version)
 constexpr char kWorld[] = "WELT", kCal[] = "KAL ", kPlaces[] = "ORTE", kStates[] = "ZUST", kFlags[] = "MERK",
                kFigs[] = "FIGS", kChron[] = "CHRO", kVisits[] = "BESU",
-               kDoings[] = "TAET";  // seit 0.5.9 Teil 2: Takt-Grenze und Tätigkeiten
+               kDoings[] = "TAET",  // seit 0.5.9 Teil 2: Takt-Grenze und Tätigkeiten
+               // seit 0.5.10: Warenbuch (Waren mit Zählern, Bestände, Einzelstücke, Reservierungen)
+               kGoods[] = "WARE", kStock[] = "LAGR", kItems[] = "STCK", kReserve[] = "RESV";
+
+bool ledger_chunk(const char* tag) {
+    return std::strcmp(tag, kGoods) == 0 || std::strcmp(tag, kStock) == 0 || std::strcmp(tag, kItems) == 0 ||
+           std::strcmp(tag, kReserve) == 0;
+}
 
 }  // namespace
 
@@ -443,6 +450,17 @@ size_t Stage::save_state(uint8_t* buf, size_t cap, uint32_t generation) const {
         w.i64(d.since_us);
         w.record_end(r);
     }
+
+    // Warenbuch (seit 0.5.10): alles mit Kennungen, sortiert (unabhängig von der Reihenfolge im Speicher)
+    const Ledger& led = env_.ledger;
+    w.chunk(kGoods, 1);
+    led.save_goods(w);
+    w.chunk(kStock, 1);
+    led.save_stock(w);
+    w.chunk(kItems, 1);
+    led.save_items(w);
+    w.chunk(kReserve, 1);
+    led.save_reservations(w);
     return w.finish();
 }
 
@@ -482,8 +500,19 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
     };
 
     // Jeder Abschnitt ersetzt seinen Teil des Weltzustands; fehlt einer, bleibt der Teil beim Anfangswert (frisch
-    // angelegte Welt nach init())
+    // angelegte Welt nach init()). Warenbuch (seit 0.5.10): Gibt es einen seiner Abschnitte, ersetzt es das ganze Buch;
+    // ein Stand 0.5.9 behält den Startvorrat der frischen Welt
     bool figures = false;
+    bool ledger = false;
+    {
+        SaveChunks c(data, n);
+        char tag[5];
+        uint16_t version = 0;
+        SaveReader d;
+        while (c.next(tag, &version, &d)) ledger = ledger || ledger_chunk(tag);
+    }
+    Ledger::LoadStats ls;
+    if (ledger) env_.ledger.clear();
     SaveChunks c(data, n);
     char tag[5];
     uint16_t version = 0;
@@ -683,10 +712,25 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
                 v.to = d.u16();
                 if (d.ok()) env_.visits.add(v);
             }
+        } else if (std::strcmp(tag, kGoods) == 0) {
+            env_.ledger.load_goods(d, version, &ls);
+        } else if (std::strcmp(tag, kStock) == 0) {
+            env_.ledger.load_stock(d, version, &ls);
+        } else if (std::strcmp(tag, kItems) == 0) {
+            env_.ledger.load_items(d, version, &ls);
+        } else if (std::strcmp(tag, kReserve) == 0) {
+            env_.ledger.load_reservations(d, version, &ls);
         } else if (std::strcmp(tag, kPlaces) != 0 && std::strcmp(tag, kDoings) != 0) {
             ++rep.skipped_chunks;  // neuere Firmware: unbekannt, übersprungen
         }
     }
+    if (ledger) env_.ledger.finish_load(&ls);
+    rep.ledger = ledger;
+    rep.stock = ls.stock;
+    rep.items = ls.items;
+    rep.reservations = ls.reservations;
+    rep.lost = ls.lost;
+    rep.moved = ls.moved;
 
     // Figuren in ihre Orte, Verbindungen neu; Weltzeit und Wetter rechnen im nächsten Schritt neu, die Ortszustände
     // holen von state_minute_ aus nach

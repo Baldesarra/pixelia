@@ -13,6 +13,7 @@ set(PIXELIA_ENGINE_SRCS
     src/figure_art.cpp
     src/font.cpp
     src/gesture.cpp
+    src/ledger.cpp
     src/light.cpp
     src/memory.cpp
     src/overlay.cpp

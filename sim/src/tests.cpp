@@ -2528,8 +2528,9 @@ int run_group(const char* title, const std::vector<Case>& cases) {
 
 int run_tests(const std::string& which) {
     if (which != "gestures" && which != "redact" && which != "stage" && which != "assets" && which != "overlay" &&
-        which != "welt" && which != "orte" && which != "speicher" && which != "all") {
-        std::printf("FEHLER: Test \"%s\" gibt es nicht (gestures, redact, stage, assets, overlay, welt, orte, speicher, all)\n",
+        which != "welt" && which != "orte" && which != "speicher" && which != "warenbuch" && which != "all") {
+        std::printf("FEHLER: Test \"%s\" gibt es nicht (gestures, redact, stage, assets, overlay, welt, orte, speicher, "
+                    "warenbuch, all)\n",
                     which.c_str());
         return 2;
     }
@@ -2545,6 +2546,7 @@ int run_tests(const std::string& which) {
         failed += run_group("Ortszustände, Ereignis-Bus, Fahrzeuge", state_cases());
     }
     if (which == "speicher" || which == "all") failed += run_group("Weltzustand, Figuren und Speicherstand", save_cases());
+    if (which == "warenbuch" || which == "all") failed += run_ledger_tests();
     return failed ? 1 : 0;
 }
 

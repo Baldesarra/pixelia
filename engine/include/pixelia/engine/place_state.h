@@ -10,7 +10,9 @@
 //   Lichtkreis, Farben. Ändern dürfen Orte sie nur über Handlungen (anzünden, löschen, abdecken, schöpfen,
 //   weiterarbeiten), wie später die Figuren.
 // - Bis zum Tagesgerüst (0.5.11) entscheiden Hausregeln (StateRule) über Licht und Feuer, nach Weltzeit und
-//   Sonnenzeiten. Brennstoff ist bis zum Warenbuch (0.5.10) unbegrenzt vorrätig: Wer anzündet, füllt auf.
+//   Sonnenzeiten. Brennstoff war bis 0.5.9 unbegrenzt vorrätig (wer anzündet, füllt auf); seit 0.5.10 holt ein Zustand
+//   mit StateDef::fuel jede Füllung aus dem Warenbuch (ledger.h, verbrauchen) und meldet dort seinen Bedarf. Ist nichts
+//   da, bleibt das Feuer aus bzw. brennt herunter. Ohne fuel bleibt es unbegrenzt.
 // - Lichtquellen-Arten (LightKind) mit Stärke nach SETTING.md Kapitel 9: Die Stärke ergibt Radius und Helligkeit des
 //   Lichtkreises (light_circle); die Quellen eines Ortes addieren sich für den Schein nach außen bis zur Obergrenze.
 // - Wechselt ein Zustand seine Stufe (Licht an/aus, Feuer → Glut → kalt, Becken voll …), meldet er das über den
@@ -25,6 +27,8 @@
 #include "pixelia/engine/light.h"
 
 namespace pixelia {
+
+class Ledger;
 
 enum class StateKind : uint8_t {
     Light,    // Kerze, Lampe, Laterne: brennt, solange die Füllung reicht (Stufe 0 aus, 1 an)
@@ -66,6 +70,11 @@ struct StateDef {
     uint16_t capacity = 0;   // Füllstand: Liter; Arbeit: Arbeitsminuten bis fertig
     uint16_t rain = 0;       // Füllstand: Liter je Stunde bei vollem Regen (Dach, Rinne, offene Fläche)
     StateRule rule = StateRule::None;
+    // Brennstoff aus dem Warenbuch (seit 0.5.10): Ware und Lagerplatz (Kennungen), Stück je Füllung (Feuer: 60
+    // Brennminuten, Licht: eine Brenndauer). nullptr = unbegrenzt wie bis 0.5.9
+    const char* fuel = nullptr;
+    const char* fuel_store = nullptr;
+    uint8_t fuel_units = 1;
 };
 
 // Was die Bühne je Weltminute mitgibt
@@ -119,6 +128,10 @@ public:
     void step(int minute, const StateInput& in);
     // Ereignisse gehen auf diesen Bus (nullptr = keiner)
     void set_bus(EventBus* bus) { bus_ = bus; }
+    // Brennstoff aus diesem Warenbuch (seit 0.5.10; nullptr = unbegrenzt); Weltzeit der Buchungen (die Bühne setzt sie
+    // je Weltminute)
+    void set_ledger(Ledger* ledger) { ledger_ = ledger; }
+    void set_time(int64_t us) { now_us_ = us; }
     void set_day(int day) { day_ = day; }
     uint32_t version() const { return version_; }  // zählt jeden Stufenwechsel
     // Stufenwechsel der Zustände eines Ortes (seit 0.5.9 Teil 2: die Darstellung zeichnet nur nach eigenen Änderungen neu)
@@ -155,7 +168,11 @@ private:
     void reset(Entry& e) const;
     int compute_phase(const Entry& e) const;
     void update_phase(int i);
-    void apply_rule(int i, int minute, const StateInput& in);
+    // out: das Feuer ist in dieser Minute heruntergebrannt (Bedarf wird dann gemeldet, sonst nur am Beginn der Zeit)
+    void apply_rule(int i, int minute, const StateInput& in, bool out);
+    // Eine Füllung Brennstoff aus dem Warenbuch; tell = auch melden, wenn nichts da ist. false = nichts bekommen
+    bool feed(int i, bool tell);
+    void light(int i, bool on, bool tell);  // set_on mit Wahl, ob ein Mangel gemeldet wird
 
     std::array<Place, kMaxPlaces> places_{};
     int places_n_ = 0;
@@ -163,6 +180,8 @@ private:
     std::array<uint16_t, kMax> rev_{};  // Stufenwechsel je Zustand
     int n_ = 0;
     EventBus* bus_ = nullptr;
+    Ledger* ledger_ = nullptr;
+    int64_t now_us_ = 0;
     int day_ = 0;
     uint32_t version_ = 0;
     uint32_t restored_ = 0;

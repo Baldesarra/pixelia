@@ -43,7 +43,7 @@ uint64_t Stage::doing_seed(uint16_t who, uint32_t seq) const {
     return x ^ (x >> 31);
 }
 
-void Stage::advance(int64_t now) {
+void Stage::advance_grid(int64_t now) {
     last_grid_steps_ = 0;
     if (grid_ == INT64_MIN || now < grid_ - 2 * kGridUs || now - grid_ > kActivityCatchUp) reseat(now);
     // grobe Stufe: Takt-Grenze für Takt-Grenze, alle Orte
@@ -51,15 +51,32 @@ void Stage::advance(int64_t now) {
         const int64_t t = grid_ + kGridUs;
         deliver_transit(t);
         for (int i = 0; i < count_; ++i) plan(i, t);
+        // Warenbuch (seit 0.5.10): Fächer der Reichweite, Besonderes für die Chronik; was mehrere Orte betrifft, ändert
+        // sich nur hier
+        env_.ledger.step(t, env_.calendar.date().day, &env_.events);
         env_.events.deliver();  // Regeln sehen alles bis hierher, egal welcher Ort sichtbar ist
         for (int i = 0; i < count_; ++i) scenes_[i]->step(t);
         grid_ = t;
         ++last_grid_steps_;
     }
-    // volle Stufe: die betretenen Orte bis jetzt, aber echt vor der nächsten Takt-Grenze
+}
+
+void Stage::advance_full(int64_t now) {
+    // volle Stufe: die betretenen Orte bis jetzt, aber echt vor der nächsten Takt-Grenze (seit 0.5.10 nach Kalender und
+    // Ortszuständen, siehe Stage::tick)
+    if (grid_ == INT64_MIN) return;
     const int64_t until = std::min(now, grid_ + kGridUs - 1);
     for (int i = 0; i < count_; ++i)
         if (entered(i)) plan(i, until);
+}
+
+bool Stage::states_behind() const {
+    // seit 0.5.10: holen die Ortszustände mehr als kActivityCatchUp nach (Laden, Sprung der Uhr), warten die Tätigkeiten;
+    // danach setzen sie neu an (reseat). So kommt das Vergangene vor dem Jetzt ins Warenbuch
+    if (!world_valid_ || state_minute_ == INT64_MIN) return false;
+    const int64_t m = WorldClock::kUsPerMinute;
+    const int64_t wm = world_us_ >= 0 ? world_us_ / m : (world_us_ - m + 1) / m;
+    return wm - state_minute_ > kActivityCatchUp / m;
 }
 
 void Stage::reseat(int64_t now) {
