@@ -892,6 +892,17 @@ void apply_place_requests(int ticks) {
             }
             continue;
         }
+        if (std::strcmp(cmd, "projekte") == 0) {
+            // Projekte ins Log (seit 0.5.10 Teil 3): Schritt, Arbeit, verbautes Material, wer, worauf es wartet
+            const pixelia::ProjectList& pl = s_stage.environment().projects;
+            const pixelia::Ledger& led = s_stage.environment().ledger;
+            ESP_LOGI(TAG, "Projekte: %d", pl.count());
+            for (int i = 0; i < pl.count(); ++i) {
+                char buf[200];
+                ESP_LOGI(TAG, "  %s", pl.describe(i, led, buf, sizeof(buf)));
+            }
+            continue;
+        }
         const bool ok = s_stage.command(cmd);
         ESP_LOGI(TAG, "Befehl \"%s\" an %s: %s", cmd, s_stage.scene(s_stage.active()).name(), ok ? "ok" : "unbekannt");
     }

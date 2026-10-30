@@ -147,8 +147,8 @@ enum class DoingKind : uint8_t { None, Idle, Wander, Use, Leave, kCount };  // N
 const char* doing_kind_name(DoingKind k);  // keine, steht, geht, benutzt, geht hinaus
 // Wozu (seit 0.5.10 Teil 2, Aufgabenliste tasks.h): Der Planer bucht an seinem Ende danach (Holen, Bringen, Herstellen,
 // Essen), auch auf dem Weg dorthin steht es auf der Karte. Board: wartet bis zur Takt-Grenze und schaut, ob es etwas zu
-// tun gibt; Stow: legt ab, was ohne Aufgabe in der Trage liegt
-enum class DoingAim : uint8_t { None, Board, Fetch, Bring, Return, Produce, Eat, Stow, kCount };
+// tun gibt; Stow: legt ab, was ohne Aufgabe in der Trage liegt; Build (seit 0.5.10 Teil 3): arbeitet an einem Projekt
+enum class DoingAim : uint8_t { None, Board, Fetch, Bring, Return, Produce, Eat, Stow, Build, kCount };
 struct Doing {
     DoingKind kind = DoingKind::None;
     DoingAim aim = DoingAim::None;  // Speicherstand: hinten im Datensatz (TAET)

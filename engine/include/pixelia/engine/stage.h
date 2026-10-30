@@ -190,6 +190,7 @@ public:
         bool ledger = false;
         int stock = 0, items = 0, reservations = 0, lost = 0, moved = 0;
         int tasks = 0;  // Aufgaben übernommen (seit 0.5.10 Teil 2)
+        int projects = 0;  // Projekte übernommen (seit 0.5.10 Teil 3)
     };
     // Weltzustand in buf schreiben, an einer Takt-Grenze (zwischen zwei tick()); Länge, 0 = Puffer zu klein
     size_t save_state(uint8_t* buf, size_t cap, uint32_t generation) const;

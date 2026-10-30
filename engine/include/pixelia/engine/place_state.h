@@ -1,6 +1,7 @@
 #pragma once
 // Ortszustände (seit 0.5.8, SETTING.md Kapitel 10): was sich an einem Ort mit der Zeit ändert und weiterläuft, wenn
-// niemand hinschaut. Licht mit Brennstoff, Feuer und Glut, Nässe, Füllstand, angefangene Arbeit.
+// niemand hinschaut. Licht mit Brennstoff, Feuer und Glut, Nässe, Füllstand. Angefangene Arbeit (bis 0.5.10 Teil 2
+// StateKind::Work, „Bett im Bau“) ist seit 0.5.10 Teil 3 ein Projekt (projects.h).
 //
 // - Die Zustände gehören zur Welt (Umgebung, environment.h), nicht zur Szene: Die Bühne schreibt sie Minute für Minute
 //   der Weltzeit fort (step), für alle Orte gleich, ob sie zu sehen sind oder nicht. Springt die Uhr vor, holt die
@@ -35,7 +36,6 @@ enum class StateKind : uint8_t {
     Fire,     // Herd, Kamin: brennt mit Brennstoff, dann Glut, kühlt langsam ab (0 kalt, 1 Glut, 2 Feuer)
     Wetness,  // Boden draußen: steigt bei Regen, trocknet langsam (0 trocken, 1 feucht, 2 nass, 3 sehr nass)
     Fill,     // Becken, Fass: steigt bei Regen, sinkt beim Schöpfen (0 leer, 1 wenig, 2 halb, 3 voll)
-    Work,     // angefangene Arbeit: bleibt liegen, bis jemand weitermacht (0 offen, 1 angefangen, 2 fertig)
 };
 
 // Lichtquellen-Arten (SETTING.md Kapitel 9)
@@ -67,7 +67,7 @@ struct StateDef {
     int8_t part = -1;        // Teil der Raumliste, das den Zustand zeigt (Zustandsbild = Stufe), −1 = keins
     LightKind light = LightKind::OilLamp;  // Licht: Art; Feuer: Art beim Brennen (die Glut ist immer Glut)
     int16_t x = 0, y = 0;    // Licht und Feuer: Mitte des Lichtkreises (grobe Bildpunkte)
-    uint16_t capacity = 0;   // Füllstand: Liter; Arbeit: Arbeitsminuten bis fertig
+    uint16_t capacity = 0;   // Füllstand: Liter
     uint16_t rain = 0;       // Füllstand: Liter je Stunde bei vollem Regen (Dach, Rinne, offene Fläche)
     StateRule rule = StateRule::None;
     // Brennstoff aus dem Warenbuch (seit 0.5.10): Ware und Lagerplatz (Kennungen), Stück je Füllung (Feuer: 60
@@ -104,7 +104,7 @@ public:
 
     // Abfragen
     int phase(int i) const { return e_[i].phase; }
-    int value(int i) const { return e_[i].value; }  // Brennstoff (Minuten), Nässe 0–1000, Liter, Arbeit (Sekunden)
+    int value(int i) const { return e_[i].value; }  // Brennstoff (Minuten), Nässe 0–1000, Liter
     int heat(int i) const { return e_[i].heat; }    // Feuer: 0–1000
     bool on(int i) const { return e_[i].on; }       // Licht brennt bzw. Feuer mit Flamme
     bool covered(int i) const { return e_[i].covered; }
@@ -120,8 +120,7 @@ public:
     void set_on(int i, bool on);       // anzünden (leere Füllung wird aufgefüllt) bzw. löschen
     void cover(int i, bool on);        // Feuer abdecken: keine Flamme, die Glut hält über Nacht
     int draw(int i, int liters);       // schöpfen: so viel kam
-    void work(int i, int seconds);     // weiterarbeiten
-    void set_value(int i, int v);      // Prüfbefehle: Brennstoff, Nässe, Liter, Arbeit
+    void set_value(int i, int v);      // Prüfbefehle: Brennstoff, Nässe, Liter
     void set_heat(int i, int v);
 
     // Eine Weltminute fortschreiben (minute: Minute des Tages)

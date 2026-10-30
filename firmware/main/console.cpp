@@ -130,6 +130,7 @@ void print_help() {
     ESP_LOGI(TAG, "  ort cmd <Befehl>   Befehl an Bühne/Ort, z. B. innenlicht um, ofen glut, nass 80, becken 50, regen fein, blitze 12 30");
     ESP_LOGI(TAG, "  ort cmd zustaende  Ortszustände ins Log (Herd, Kerze, Lampe, Becken, Nässe)");
     ESP_LOGI(TAG, "  ort cmd aufgaben   Aufgabenliste ins Log (holen, bringen, herstellen; wer, von wo nach wo)");
+    ESP_LOGI(TAG, "  ort cmd projekte   Projekte ins Log; ort cmd projekt bett start|stufe <n>|fertig (Prüfbefehl)");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
     ESP_LOGI(TAG, "  assets [quelle eingebettet|littlefs|sd | kopieren littlefs|sd | messen | leeren | budget <KB>]   Grafik-Pakete");
     ESP_LOGI(TAG, "  sd | sd neu                                    microSD-Karte: Zustand, neu einhängen");

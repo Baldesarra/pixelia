@@ -586,7 +586,7 @@ void TestPlace::apply_states() {
     for (int s = 0; s < def_.state_count; ++s) {
         const StateDef& d = def_.states[s];
         const int i = state_first_ + s;
-        int phase = d.kind == StateKind::Light ? 1 : d.kind == StateKind::Work ? 2 : 0;  // ohne Umgebung: Licht an
+        int phase = d.kind == StateKind::Light ? 1 : 0;  // ohne Umgebung: Licht an
         if (st) {
             phase = st->phase(i);
             add(st->circle(i));
@@ -594,10 +594,7 @@ void TestPlace::apply_states() {
             add(light_circle(d.x, d.y, light_kind(d.light).strength));
         }
         const bool part = d.part >= 0 && d.part < room_.part_count();
-        if (d.kind == StateKind::Work) {
-            // im Bau stellt seit 0.5.9 Teil 2 der Planer an der Takt-Grenze ein (sync_building); ohne Umgebung hier
-            if (!st && part && room_.building(d.part) != (phase < 2)) room_.set_building(d.part, phase < 2);
-        } else if (d.kind == StateKind::Wetness) {
+        if (d.kind == StateKind::Wetness) {
             for (int p = 0; p < room_.part_count(); ++p)
                 if (room_.part(p).part == kPPuddle) room_.set_state(p, phase >= 2 ? 1 : 0);
         } else if (part) {
@@ -926,12 +923,94 @@ bool TestPlace::go_store(const FigureRecord& f, int store, DoingAim aim, int pie
     return true;
 }
 
+bool TestPlace::claim_project(const FigureRecord& f, int64_t at) {
+    // PLATZHALTER bis 0.5.11 (Blockwahl des Tagesgerüsts): wer an einem Projekt arbeitet. Nur genau an einer
+    // Takt-Grenze (in der festen Reihenfolge der Orte): das nächste begonnene Projekt ohne Arbeiter, dessen Schritt die
+    // Figur kann (bei Gleichstand die kleinere Kennung); weiter als kNearHops Orte erst, wenn es so lange wartet
+    ProjectList& pl = env_->projects;
+    const PlaceGraph& g = world_graph();
+    uint16_t best = 0;
+    int best_key = 1 << 30;
+    for (int i = 0; i < pl.count(); ++i) {
+        const Project& p = pl.at(i);
+        if (!p.begun || p.who || p.wait == ProjectWait::Weather || !pl.can_work(p, f)) continue;
+        const int hops = g.hops(index_, pl.place_of(p));
+        if (hops < 0 || (hops > kNearHops && at - p.step_us < kFarWaitUs)) continue;
+        if (hops < best_key) {
+            best_key = hops;
+            best = p.id;
+        }
+    }
+    return best && pl.claim(best, f, at);
+}
+
+bool TestPlace::build_work(const FigureRecord& f, const Project& p, int64_t at, Rng& rng, Doing* out) {
+    // am Projekt arbeiten (seit 0.5.10 Teil 3): hingehen, dann Arbeitsgänge von 15–30 Weltminuten am Benutzungspunkt des
+    // Teils im Bau, bis der Schritt fertig ist oder Feierabend (dann aufhören, frei an der nächsten Takt-Grenze)
+    ProjectList& pl = env_->projects;
+    if (p.leaving) return false;
+    if (!ProjectList::work_time(at) || !pl.can_work(p, f)) {
+        pl.leave(p.id, f.id);
+        return false;
+    }
+    const int place = pl.place_of(p);
+    if (place != index_) return go_place(f, place, DoingAim::Build, at, rng, out);
+    const ProjectDef& pd = pl.def(p.def);
+    const uint32_t total = pl.step_total_s(p);
+    Doing d;
+    d.sx = d.gx = f.doing.gx;
+    d.sy = d.gy = f.doing.gy;
+    d.start_us = at;
+    d.aim = DoingAim::Build;
+    if (!p.begun || p.work_s >= total) {
+        // Schritt fertig: bis zur Takt-Grenze stehen bleiben (dort geht es weiter oder das Projekt wird frei)
+        d.kind = DoingKind::Idle;
+        d.walk_us = at;
+        d.end_us = (floor_div(at, WorldClock::kUsPerSecond) + 1) * WorldClock::kUsPerSecond;
+        *out = d;
+        return true;
+    }
+    int gx = d.sx, gy = d.sy;
+    int steps = -1;
+    if (pd.part >= 0 && pd.part < room_.part_count() && room_.use_point(pd.part, 0, &gx, &gy, nullptr))
+        steps = room_.path(d.sx, d.sy, gx, gy);
+    if (steps >= 0) {
+        d.kind = DoingKind::Use;
+        d.part = static_cast<uint8_t>(pd.part);
+        d.k = 0;
+    } else {
+        gx = d.sx;
+        gy = d.sy;
+        steps = 0;
+        d.kind = DoingKind::Wander;  // ohne Arbeitsplatz: wo sie gerade steht
+    }
+    d.gx = static_cast<uint8_t>(gx);
+    d.gy = static_cast<uint8_t>(gy);
+    d.steps = static_cast<uint16_t>(steps);
+    d.walk_us = at + steps * tile_us(f.id);
+    int64_t len = static_cast<int64_t>(rng.range(15 * 60, 30 * 60)) * WorldClock::kUsPerSecond;
+    len = std::min<int64_t>(len, static_cast<int64_t>(total - p.work_s) * WorldClock::kUsPerSecond);
+    const int64_t day = floor_div(d.walk_us, WorldClock::kUsPerDay) * WorldClock::kUsPerDay;
+    len = std::min<int64_t>(len, day + ProjectList::kWorkTo * WorldClock::kUsPerMinute - d.walk_us);
+    d.end_us = d.walk_us + std::max<int64_t>(len, WorldClock::kUsPerSecond);
+    *out = d;
+    return true;
+}
+
 bool TestPlace::plan_work(const FigureRecord& f, int64_t at, Rng& rng, Doing* out) {
     if (!env_ || !env_->ledger.ready() || f.id >= kStatistIds) return false;
     TaskList& tl = env_->tasks;
     Ledger& l = env_->ledger;
     const Task* t = tl.of(f.id);
-    if (!t && on_grid(at) && claim_task(f, at)) t = tl.of(f.id);
+    const Project* pj = t ? nullptr : env_->projects.of(f.id);
+    // PLATZHALTER bis 0.5.11 (Blockwahl): wer nichts hat, nimmt an einer Takt-Grenze zuerst ein Projekt, das er kann
+    // (seit 0.5.10 Teil 3), sonst eine Aufgabe
+    if (!t && !pj && on_grid(at)) {
+        if (claim_project(f, at))
+            pj = env_->projects.of(f.id);
+        else if (claim_task(f, at))
+            t = tl.of(f.id);
+    }
     if (t) {
         switch (t->phase) {
             case TaskPhase::Fetch: return go_store(f, t->from, DoingAim::Fetch, t->qty, at, rng, out);
@@ -951,6 +1030,7 @@ bool TestPlace::plan_work(const FigureRecord& f, int64_t at, Rng& rng, Doing* ou
     // Platzhalter bis 0.5.11 (Hunger): Mahlzeit zur festen Zeit, wenn hier Brot liegt
     if (meal_due(f, at))
         if (const int shelf = food_here(); shelf >= 0) return go_store(f, shelf, DoingAim::Eat, 1, at, rng, out);
+    if (pj && build_work(f, *pj, at, rng, out)) return true;
     // schauen, ob es etwas zu tun gibt: übernommen wird nur an einer Takt-Grenze, bis dahin stehen
     if (!on_grid(at) && rng.below(100) < static_cast<uint32_t>(kLookChance)) {
         Doing d;
@@ -1016,6 +1096,16 @@ void TestPlace::finish_work(const FigureRecord& f, const Doing& d) {
             info.holder = 0;
             const int got = l.take(shelf, brot, 1, Booking::Consume, info);
             l.demand(brot, shelf, 1, got, info);
+            return;
+        }
+        case DoingAim::Build: {
+            // Arbeitsgang am Projekt (seit 0.5.10 Teil 3): so lange, wie die Figur am Teil im Bau stand; verbaut dabei
+            if (d.kind != DoingKind::Use) return;
+            ProjectList& pl = env_->projects;
+            const Project* p = pl.of(f.id);
+            if (!p || pl.place_of(*p) != index_ || d.part != pl.def(p->def).part) return;
+            const int seconds = static_cast<int>((d.end_us - d.walk_us) / WorldClock::kUsPerSecond);
+            pl.work(p->id, f.id, seconds, d.end_us, env_->calendar.date().day, l, &env_->figures);
             return;
         }
         case DoingAim::Stow: {
@@ -1094,14 +1184,11 @@ void TestPlace::finish(const FigureRecord& f, const Doing& d) {
     if (!env_) return;
     // Warenbuch (seit 0.5.10 Teil 2): holen, bringen, herstellen, essen
     if (d.aim != DoingAim::None && env_->ledger.ready()) finish_work(f, d);
-    // Ortszustände (seit 0.5.8): am Becken schöpfen, am Bau weiterarbeiten (so lange, wie die Figur dort war)
+    // Ortszustände (seit 0.5.8): am Becken schöpfen (am Bau arbeiten seit 0.5.10 Teil 3 im Projekt, finish_work)
     if (d.kind != DoingKind::Use) return;
-    const int seconds = static_cast<int>((d.end_us - d.walk_us) / WorldClock::kUsPerSecond);
     for (int s = 0; s < state_n_; ++s) {
         const StateDef& sd = def_.states[s];
-        if (sd.part != d.part) continue;
-        if (sd.kind == StateKind::Fill) env_->states.draw(state_first_ + s, 1);
-        if (sd.kind == StateKind::Work && room_.building(sd.part)) env_->states.work(state_first_ + s, seconds);
+        if (sd.part == d.part && sd.kind == StateKind::Fill) env_->states.draw(state_first_ + s, 1);
     }
 }
 
@@ -1126,13 +1213,27 @@ void TestPlace::entry_tile(uint8_t entry, Rng& rng, uint8_t* tx, uint8_t* ty) co
 }
 
 void TestPlace::sync_building() {
-    if (!env_ || state_first_ < 0) return;
-    for (int s = 0; s < state_n_; ++s) {
-        const StateDef& d = def_.states[s];
-        if (d.kind != StateKind::Work || d.part < 0 || d.part >= room_.part_count()) continue;
-        const bool building = env_->states.phase(state_first_ + s) < 2;
-        if (room_.building(d.part) != building) room_.set_building(d.part, building);
+    // seit 0.5.10 Teil 3 aus den Projekten (vorher Ortszustand Arbeit): Teil im Bau, solange sein Projekt läuft (Wege und
+    // Benutzungspunkte hängen daran, deshalb nur an der Takt-Grenze); Bau-Bild in Stufen nach dem Zwischenstand
+    if (!env_) return;
+    const ProjectList& pl = env_->projects;
+    for (int d = 0; d < pl.defs(); ++d) {
+        const ProjectDef& pd = pl.def(d);
+        if (pd.part < 0 || pd.part >= room_.part_count() || std::strcmp(pd.place, name()) != 0) continue;
+        const Project* p = pl.at_place(index_, pd.part);
+        if (room_.building(pd.part) != (p != nullptr)) room_.set_building(pd.part, p != nullptr);
+        if (p) room_.set_state(pd.part, build_image(*p));
+        else if (room_.part(pd.part).state != 0) room_.set_state(pd.part, 0);
     }
+}
+
+int TestPlace::build_image(const Project& p) const {
+    // Bild k zeigt den Stand nach k Teilaufgaben, das erste schon beim ersten Arbeitsgang (Wahl des Users: je
+    // Teilaufgabe ein Bild); vorher der leere Bauplatz (Bild 0). Hat das Bau-Bild weniger Zustände, das letzte
+    const ProjectDef& pd = env_->projects.def(p.def);
+    const PartStage* look = pd.part >= 0 ? room_.look(pd.part) : nullptr;
+    const int states = look ? std::max<int>(1, look->sheet.states) : 1;
+    return std::min(p.step + (p.work_s > 0 ? 1 : 0), states - 1);
 }
 
 void TestPlace::step(int64_t /*at*/) {
@@ -1650,18 +1751,13 @@ bool TestPlace::command(const char* cmd) {
                 if (!d || d->layer != PartLayer::Standing || d->kind == PartKind::Deco || d->kind == PartKind::Light)
                     continue;
                 bool stateful = false;  // Ofen und Becken zeigen ihren Zustand, kein „im Bau“
-                for (int s = 0; s < def_.state_count; ++s)
-                    stateful = stateful || (def_.states[s].part == i && def_.states[s].kind != StateKind::Work);
+                for (int s = 0; s < def_.state_count; ++s) stateful = stateful || def_.states[s].part == i;
                 if (stateful) continue;
                 if (pass == 0) {
                     any = true;
                     if (room_.building(i)) on = false;  // schon im Bau: alles wieder fertig
                 } else {
                     room_.set_building(i, on);
-                    // angefangene Arbeit (seit 0.5.8): das Bett wird erst fertig, wenn genug daran gearbeitet wurde
-                    for (int s = 0; env_ && s < state_n_; ++s)
-                        if (def_.states[s].part == i && def_.states[s].kind == StateKind::Work)
-                            env_->states.set_value(state_first_ + s, on ? 0 : def_.states[s].capacity * 60);
                 }
             }
         // wer gerade ein Teil benutzt, das nun im Bau ist, steht auf

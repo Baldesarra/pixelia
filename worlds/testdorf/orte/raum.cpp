@@ -1,7 +1,8 @@
 // Testort Raum: Tapete, zwei große Fenster mit Vorhang und Fensterbank (Kerze, Blumentöpfe auf Stellplätzen),
 // Schrank, Bett, Tisch, Stühle, Teppich, Lampe, seit 0.5.8 Teil 2 ein Ofen; Tür unten (→ Wiese), Innentür rechts
 // (→ Kammer). Bett und Tisch haben zwei Ausbaustufen (Befehl „ausbau“), alle Möbel einen Zustand „im Bau“
-// („baustelle“). Ortszustände: Lampe (Abendlicht), Kerze für Heimkehrer, Ofen mit Glut (Herdfeuer), Bett im Bau.
+// („baustelle“). Ortszustände: Lampe (Abendlicht), Kerze für Heimkehrer, Ofen mit Glut (Herdfeuer); das „Bett im Bau“
+// (angefangene Arbeit) ist seit 0.5.10 Teil 3 das Bett-Projekt in der Kammer.
 #include "testdorf/testdorf.h"
 
 namespace pixelia::testdorf {
@@ -40,7 +41,7 @@ constexpr Exit kExits[] = {
     {24, 9, 1, 2, 23, 9, Facing::Left, ExitKind::Door, "testort-kammer", 0, Transition::Fade},
 };
 constexpr RoomDef kRoom = {{kFloor, kWalls, nullptr}, kLegend, {0, kRowPaper, 0}, kParts, 19, kExits, 2};
-// Ortszustände: Rüböllampe (Teil 10), Talgkerze auf der Fensterbank (Teil 14), Ofen (Teil 17), Bett (Teil 6)
+// Ortszustände: Rüböllampe (Teil 10), Talgkerze auf der Fensterbank (Teil 14), Ofen (Teil 17)
 constexpr StateDef kStates[] = {
     {.kind = StateKind::Light, .id = "lampe", .part = 10, .light = LightKind::OilLamp, .x = 188, .y = 100,
      .rule = StateRule::Evening},
@@ -48,12 +49,11 @@ constexpr StateDef kStates[] = {
      .rule = StateRule::Homecomer},
     {.kind = StateKind::Fire, .id = "ofen", .part = 17, .light = LightKind::Hearth, .x = 104, .y = 60,
      .rule = StateRule::Hearth, .fuel = "brennholz", .fuel_store = "raum_holzlege", .fuel_units = 1},
-    {.kind = StateKind::Work, .id = "bett", .part = 6, .capacity = 1},
 };
 
 }  // namespace
 
 const PlaceDef kRaum = {"testort-raum", "Testort Raum", 0, &kRoom, "raum", 3, false,
-                        {268, 248, 222}, 220, {100, 74, 56}, GlassRole::Sky, kStates, 4, nullptr, 0, "testhaus"};
+                        {268, 248, 222}, 220, {100, 74, 56}, GlassRole::Sky, kStates, 3, nullptr, 0, "testhaus"};
 
 }  // namespace pixelia::testdorf

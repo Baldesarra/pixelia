@@ -112,6 +112,46 @@ Task* TaskList::add(TaskKind kind, int good, int from, int to, int qty, int64_t 
     return &t;
 }
 
+Task* TaskList::fetch(Ledger& l, int good, int from, int to, int qty, int64_t at_us, uint8_t flags) {
+    // Menge am Quell-Lager reservieren; ist nichts frei, gibt es die Aufgabe nicht
+    Task* t = add(TaskKind::Fetch, good, from, to, qty, at_us, flags);
+    if (!t) return nullptr;
+    t->res = l.reserve(from, good, t->qty, t->id);
+    t->qty = static_cast<uint16_t>(l.reservation_left(t->res));
+    if (t->res && t->qty) return t;
+    l.release(t->res);
+    const uint16_t id = t->id;
+    for (int i = 0; i < n_; ++i)
+        if (t_[i].id == id) {
+            remove(i);
+            break;
+        }
+    return nullptr;
+}
+
+const Task* TaskList::add_fetch(Ledger& l, int good, int from, int to, int qty, int64_t at_us, uint8_t flags) {
+    return ensure() && from >= 0 && to >= 0 && from != to ? fetch(l, good, from, to, qty, at_us, flags) : nullptr;
+}
+
+int TaskList::incoming(int to, int good) const {
+    int n = 0;
+    for (int i = 0; i < n_; ++i) {
+        const Task& t = t_[i];
+        if (t.kind != TaskKind::Fetch || t.to != to || (good >= 0 && t.good != good)) continue;
+        if (t.phase == TaskPhase::Open || t.phase == TaskPhase::Fetch) n += t.qty;
+        if (t.phase == TaskPhase::Bring) n += t.carried;
+    }
+    return n;
+}
+
+void TaskList::cancel(uint16_t id) {
+    for (int i = 0; i < n_; ++i)
+        if (t_[i].id == id && t_[i].phase == TaskPhase::Open) {
+            t_[i].phase = TaskPhase::Done;
+            ++version_;
+        }
+}
+
 void TaskList::remove(int i) {
     for (int k = i + 1; k < n_; ++k) t_[k - 1] = t_[k];
     --n_;
@@ -165,7 +205,7 @@ void TaskList::step(int64_t at_us, int32_t day, Ledger& l, const FigureBook& boo
                 t.phase = TaskPhase::Done;
                 ++version_;
             }
-        } else if (t.kind == TaskKind::Fetch && t.phase == TaskPhase::Open) {
+        } else if (t.kind == TaskKind::Fetch && t.phase == TaskPhase::Open && !(t.flags & kTaskProject)) {
             const StockRule* r = rule_of(l, t.to, t.good);
             if (!r || l.qty(t.to, t.good) >= r->low) {
                 t.phase = TaskPhase::Done;
@@ -195,18 +235,7 @@ void TaskList::step(int64_t at_us, int32_t day, Ledger& l, const FigureBook& boo
             const int avail = l.available(src, g);
             // lohnt der Weg (mindestens die halbe Ladung)? Sonst warten; ist der Vorrat schon leer, holt jemand, was da ist
             if (need <= 0 || avail <= 0 || (avail * 2 < need && q > 0)) continue;
-            Task* t = add(TaskKind::Fetch, g, src, s, std::min(need, avail), at_us, 0);
-            if (!t) continue;
-            t->res = l.reserve(src, g, t->qty, t->id);
-            t->qty = static_cast<uint16_t>(l.reservation_left(t->res));
-            if (t->res && t->qty) continue;
-            l.release(t->res);
-            const uint16_t id = t->id;
-            for (int i = 0; i < n_; ++i)
-                if (t_[i].id == id) {
-                    remove(i);
-                    break;
-                }
+            fetch(l, g, src, s, std::min(need, avail), at_us, 0);
         }
     }
     // 4. Notbestand: Herstellen wird Gemeinschaftsaufgabe an jedem Erzeugerlager mit einer Regel für die Ware
@@ -239,7 +268,7 @@ const char* TaskList::describe(int i, const Ledger& l, char* buf, int n) const {
     }
     const Task& t = t_[i];
     std::snprintf(buf, n, "#%u %s%s %u/%u %s %s%s%s, Figur %u", static_cast<unsigned>(t.id), task_phase_id(t.phase),
-                  (t.flags & kTaskCommunity) ? " (Gemeinschaft)" : "",
+                  (t.flags & kTaskCommunity) ? " (Gemeinschaft)" : (t.flags & kTaskProject) ? " (Projekt)" : "",
                   static_cast<unsigned>(t.kind == TaskKind::Fetch ? t.carried : l.qty(t.to, t.good)),
                   static_cast<unsigned>(t.qty), l.good(t.good).title, t.from >= 0 ? l.store_title(t.from) : "",
                   t.from >= 0 ? " → " : "", l.store_title(t.to), static_cast<unsigned>(t.who));

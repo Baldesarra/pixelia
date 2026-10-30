@@ -107,9 +107,10 @@ std::string first_byte_diff(const std::vector<uint8_t>& a, const std::vector<uin
            std::to_string(b.size());
 }
 
-// Warenbuch als Text: Bestände je Lagerplatz und Zähler je Ware (Vergleich zweier Abläufe)
+// Warenbuch als Text: Bestände je Lagerplatz und Zähler je Ware (Vergleich zweier Abläufe). Die Lagerplätze nach
+// Kennung sortiert: Tragen entstehen in beliebiger Reihenfolge, der Speicherstand legt sie sortiert an
 std::string ledger_text(const Ledger& l) {
-    std::string t;
+    std::vector<std::string> rows;
     char key[12], line[160];
     for (int s = 0; s < l.stores(); ++s) {
         uint8_t g[16];
@@ -118,9 +119,12 @@ std::string ledger_text(const Ledger& l) {
         for (int k = 0; k < n; ++k) {
             std::snprintf(line, sizeof(line), "%s/%s=%u(%d) ", l.store_key(s, key, sizeof(key)), l.good(g[k]).id, q[k],
                           l.reserved(s, g[k]));
-            t += line;
+            rows.push_back(line);
         }
     }
+    std::sort(rows.begin(), rows.end());
+    std::string t;
+    for (const std::string& r : rows) t += r;
     for (int g = 0; g < l.goods(); ++g) {
         const Ledger::GoodTotals& x = l.totals(g);
         std::snprintf(line, sizeof(line), "\n%s: Anfang %lld, verbraucht %lld, Bedarf %lld/%lld", l.good(g).id,
@@ -171,7 +175,47 @@ std::string checked(const Ledger& l, const TaskList& t) {
     return e;
 }
 
-std::string checked(Run& r) { return checked(r.ledger(), r.stage.environment().tasks); }
+// seit 0.5.10 Teil 3 dazu die Projekte
+std::string checked(Run& r) {
+    std::string e = checked(r.ledger(), r.stage.environment().tasks);
+    char buf[200];
+    if (const char* x = r.stage.environment().projects.check(r.ledger(), buf, sizeof(buf)); e.empty() && x) e = x;
+    return e;
+}
+
+// laufendes Bett-Projekt der Kammer (seit 0.5.10 Teil 3), nullptr = keins
+const pixelia::Project* bed(Run& r) {
+    const pixelia::ProjectList& pl = r.stage.environment().projects;
+    const int d = pl.find_def("kammer_bett");
+    for (int i = 0; i < pl.count(); ++i)
+        if (pl.at(i).def == d) return &pl.at(i);
+    return nullptr;
+}
+
+// Uhr auf die nächste Takt-Grenze, dann ein Schritt (Vergleich zweier Abläufe an derselben Stelle)
+void to_grid(Run& r) {
+    const int64_t g = pixelia::Stage::kGridUs;
+    r.clock.set_world_us((r.clock.world_us() / g + 1) * g);
+    r.stage.tick(r.clock);
+}
+
+// verbautes Material als Text
+std::string built_text(const Ledger& l) {
+    return "Bretter " + std::to_string(booked(l, "bretter", Booking::Build)) + ", Nägel " +
+           std::to_string(booked(l, "naegel", Booking::Build)) + ", Stroh " +
+           std::to_string(booked(l, "stroh", Booking::Build));
+}
+
+// Projekte als Text (Vergleich zweier Abläufe)
+std::string projects_text(const pixelia::ProjectList& p, const Ledger& l) {
+    std::string s;
+    char line[240];
+    for (int i = 0; i < p.count(); ++i) {
+        p.describe(i, l, line, sizeof(line));
+        s += std::string(line) + "; ";
+    }
+    return s;
+}
 
 // Vorrat auf keep verringern (verderben), damit Aufgaben entstehen
 void drain(Run& r, const char* store, const char* good, int keep) {
@@ -335,18 +379,22 @@ std::vector<Case> cases() {
              if (vorrat < 0 || bretter < 0 || hand < 0) return std::string("Testdorf ohne Vorratskiste");
              l.move(vorrat, hand, bretter, 3, at(a.clock.world_us()));
              const uint16_t r = l.reserve(vorrat, bretter, 4, 77);
+             // seit 0.5.10 Teil 3 holt das Bett-Projekt auch Bretter: verglichen wird mit dem Stand vor dem Speichern
+             const int left = l.reservation_left(r), free = l.available(vorrat, bretter);
+             if (!r || left == 0) return std::string("nichts reserviert");
              const std::vector<uint8_t> s1 = a.save(3);
              Run b(99, "testort-wiese");
              pixelia::Stage::LoadReport rep;
              if (!b.stage.load_state(s1.data(), s1.size(), &rep)) return std::string("Laden: ") + rep.why;
-             if (!rep.ledger || rep.stock == 0 || rep.items != 1 || rep.reservations != 1 || rep.lost || rep.moved)
+             if (!rep.ledger || rep.stock == 0 || rep.items != 1 || rep.reservations < 1 || rep.lost || rep.moved)
                  return "Bericht: " + std::to_string(rep.stock) + " Einträge, " + std::to_string(rep.items) + " Stücke";
              const std::vector<uint8_t> s2 = b.save(3);
              if (s1 != s2) return first_byte_diff(s1, s2);
              const Ledger& m = b.ledger();
              if (m.qty(m.hand(a.stage.environment().figures.at(2).id), bretter) != 3) return std::string("Trage leer");
-             if (m.reservation_left(r) != 4 || m.available(vorrat, bretter) != 5) return std::string("Reservierung weg");
-             if (ledger_text(m) != ledger_text(l)) return std::string("Warenbuch nach dem Laden anders");
+             if (m.reservation_left(r) != left || m.available(vorrat, bretter) != free) return std::string("Reservierung weg");
+             if (ledger_text(m) != ledger_text(l))
+                 return "Warenbuch nach dem Laden anders:\n" + ledger_text(l) + "\n" + ledger_text(m);
              return checked(m);
          }},
         {"Alter Stand 0.5.9 lädt weiter und bekommt den Test-Startvorrat; unbekannter Lagerplatz → Gemeinschaftslager",
@@ -651,6 +699,229 @@ std::vector<Case> cases() {
                  if (save[run] != save[0])
                      return std::string(run == 1 ? "Wiese sichtbar: " : "Orte wechselnd: ") + first_byte_diff(save[0], save[run]);
              return std::string();
+         }},
+        // --- Projekte (seit 0.5.10 Teil 3) ---
+        {"Projekt Bett: Material genau einmal über Reservierung, drei Teilaufgaben nur mit Tischlern und tagsüber; Chronik nur Besonderes",
+         [] {
+             Run r(41, "testort-raum", 6, 30, 60.0);
+             std::vector<pixelia::ProjectRecord> rec;
+             r.stage.environment().projects.set_listener(
+                 [](void* c, const pixelia::ProjectRecord& x) {
+                     static_cast<std::vector<pixelia::ProjectRecord>*>(c)->push_back(x);
+                 },
+                 &rec);
+             const Ledger& l = r.ledger();
+             const int vorrat = l.find_store("platz_vorrat"), site = l.find_store("kammer_baustelle");
+             const int bretter = l.find_good("bretter"), naegel = l.find_good("naegel"), stroh = l.find_good("stroh");
+             const int b0 = l.qty(vorrat, bretter), n0 = l.qty(vorrat, naegel), s0 = l.qty(vorrat, stroh);
+             pixelia::TestPlace* kammer = test_place(r, "testort-kammer");
+             if (!kammer || !bed(r)) return std::string("kein Bett-Projekt in der Kammer");
+             const pixelia::FigureBook& book = r.stage.environment().figures;
+             bool worked = false, building_seen = false;
+             int max_stack = 0;
+             for (int t = 0; t < 30 * 60 * 48 && bed(r); ++t) {  // höchstens zwei Welttage
+                 r.run(1);
+                 const pixelia::Project* p = bed(r);
+                 if (!p) break;
+                 max_stack = std::max(max_stack, l.load(site));
+                 if (kammer->room().building(1)) building_seen = true;
+                 if (p->who) {
+                     const pixelia::FigureRecord* f = book.find(p->who);
+                     if (!f || f->skills[static_cast<int>(pixelia::Skill::Joinery)].level < pixelia::SkillLevel::Beginner)
+                         return std::string("arbeitet ohne Tischlern");
+                     if (!p->leaving && p->work_s > 0) worked = true;
+                 }
+                 // Arbeitsgänge enden spätestens um 19 Uhr (die letzte Takt-Grenze liegt höchstens 2 Weltsekunden zurück)
+                 if (p->who && !p->leaving && p->wait == pixelia::ProjectWait::None &&
+                     !pixelia::ProjectList::work_time(r.clock.world_us()) &&
+                     !pixelia::ProjectList::work_time(r.clock.world_us() - 3 * pixelia::Stage::kGridUs))
+                     return "arbeitet nach Feierabend um " + std::to_string(r.clock.hour()) + " Uhr";
+                 if (t % 600 == 0)
+                     if (std::string e = checked(r); !e.empty()) return e;
+             }
+             if (bed(r)) return "nicht fertig: " + projects_text(r.stage.environment().projects, l);
+             r.run(30);  // die Chronik liest den Bus im nächsten Schritt
+             if (!worked || !building_seen) return std::string("niemand hat am Bett gearbeitet");
+             if (kammer->room().building(1)) return std::string("Bett noch im Bau");
+             if (built_text(l) != "Bretter 8, Nägel 6, Stroh 4") return "verbaut: " + built_text(l);
+             if (l.qty(vorrat, bretter) != b0 - 8 || l.qty(vorrat, naegel) != n0 - 6 || l.qty(vorrat, stroh) != s0 - 4 ||
+                 l.load(site) != 0)
+                 return "Vorratskiste: " + ledger_text(l);
+             if (max_stack < 6) return "Stapel an der Baustelle höchstens " + std::to_string(max_stack);
+             if (rec.size() != 4 || !rec[0].step || !rec[2].step || rec[3].step)
+                 return "Protokoll: " + std::to_string(rec.size()) + " Einträge";
+             uint32_t person = 0;
+             for (int k = 0; k < 3; ++k) person += rec[k].person_s;
+             if (person != 480u * 60u || rec[3].person_s != person || rec[3].planned_s != 480u * 60u)
+                 return "Personensekunden " + std::to_string(person);
+             if (rec[0].wait_s[static_cast<int>(pixelia::ProjectWait::Material)] == 0)
+                 return std::string("keine Wartezeit auf Material gezählt");
+             int q = 0;
+             for (int k = 0; k < rec[3].good_count; ++k) q += rec[3].qty[k];
+             if (q != 18) return "verbaut laut Protokoll " + std::to_string(q);
+             const pixelia::Chronicle& ch = r.stage.environment().chronicle;
+             int steps = 0, done = 0;
+             for (int i = 0; i < ch.count(); ++i) {
+                 const std::string x = ch.at(i).text;
+                 steps += x.find("Bett bauen: ") == 0 && x.find(" fertig") != std::string::npos;
+                 done += x == "Projekt fertig: Bett bauen";
+             }
+             if (steps != 3 || done != 1)
+                 return "Chronik: " + std::to_string(steps) + " Teilaufgaben, " + std::to_string(done) + " Projekt";
+             return checked(r);
+         }},
+        {"Neustart mitten im Bau: Zwischenstand, Reservierung und verbautes Material bleiben; alles wie ohne Neustart",
+         [] {
+             Run a(43, "testort-raum", 6, 30, 60.0);
+             const pixelia::Project* p = nullptr;
+             for (int t = 0; t < 30 * 60 * 24; ++t) {
+                 a.run(1);
+                 p = bed(a);
+                 if (p && p->begun && p->step == 0 && p->work_s >= 90 * 60 && p->who && !p->leaving) break;
+                 p = nullptr;
+             }
+             if (!p) return "Gestell nicht halb fertig: " + projects_text(a.stage.environment().projects, a.ledger());
+             const uint32_t work = p->work_s;
+             const std::vector<uint8_t> s = a.save();
+             Run b(43, "testort-raum");
+             pixelia::Stage::LoadReport rep;
+             if (!b.stage.load_state(s.data(), s.size(), &rep)) return std::string("Laden: ") + rep.why;
+             const pixelia::Project* q = bed(b);
+             if (rep.projects != 1 || !q || q->work_s != work || !q->begun) return std::string("Zwischenstand nicht geladen");
+             b.clock.set_world_us(a.clock.world_us());
+             b.clock.set_speed(60.0);
+             a.run(30 * 60 * 3);  // drei Weltstunden
+             b.run(30 * 60 * 3);
+             to_grid(a);
+             to_grid(b);
+             const pixelia::Environment& ea = a.stage.environment();
+             const pixelia::Environment& eb = b.stage.environment();
+             const std::string x = ledger_text(a.ledger()) + built_text(a.ledger()) + tasks_text(ea.tasks, a.ledger()) +
+                                   projects_text(ea.projects, a.ledger());
+             const std::string y = ledger_text(b.ledger()) + built_text(b.ledger()) + tasks_text(eb.tasks, b.ledger()) +
+                                   projects_text(eb.projects, b.ledger());
+             if (x != y) return "ohne Neustart: " + x + "\n          mit Neustart: " + y;
+             if (booked(b.ledger(), "bretter", Booking::Build) <= 0) return std::string("nichts verbaut");
+             return checked(b);
+         }},
+        {"Neustart mitten im Materialtransport zur Baustelle: kommt genau einmal an und wird genau einmal verbaut",
+         [] {
+             Run a(47, "testort-raum", 6, 30, 60.0);
+             uint16_t who = 0;
+             const pixelia::FigureBook& book = a.stage.environment().figures;
+             const TaskList& tl = a.stage.environment().tasks;
+             const int kammer = pixelia::place_index("testort-kammer");
+             for (int t = 0; t < 30 * 60 * 12 && !who; ++t) {
+                 a.run(1);
+                 for (int k = 0; k < book.count() && !who; ++k) {
+                     const Task* x = tl.of(book.at(k).id);
+                     if (x && (x->flags & pixelia::kTaskProject) && x->phase == TaskPhase::Bring && x->carried > 0 &&
+                         book.at(k).where.place != kammer)
+                         who = book.at(k).id;
+                 }
+             }
+             if (!who) return std::string("niemand trägt Material zur Kammer");
+             const std::vector<uint8_t> s = a.save();
+             Run b(47, "testort-raum");
+             pixelia::Stage::LoadReport rep;
+             if (!b.stage.load_state(s.data(), s.size(), &rep)) return std::string("Laden: ") + rep.why;
+             if (rep.tasks == 0 || rep.projects != 1) return std::string("Aufgabe oder Projekt nicht im Stand");
+             b.clock.set_world_us(a.clock.world_us());
+             b.clock.set_speed(60.0);
+             a.run(30 * 60 * 14);  // bis zum Abend: das Bett ist fertig
+             b.run(30 * 60 * 14);
+             to_grid(a);
+             to_grid(b);
+             const pixelia::Environment& ea = a.stage.environment();
+             const pixelia::Environment& eb = b.stage.environment();
+             const std::string x = ledger_text(a.ledger()) + built_text(a.ledger()) + projects_text(ea.projects, a.ledger());
+             const std::string y = ledger_text(b.ledger()) + built_text(b.ledger()) + projects_text(eb.projects, b.ledger());
+             if (x != y) return "ohne Neustart: " + x + "\n          mit Neustart: " + y;
+             if (bed(b) || built_text(b.ledger()) != "Bretter 8, Nägel 6, Stroh 4")
+                 return "verbaut: " + built_text(b.ledger()) + "; " + projects_text(eb.projects, b.ledger());
+             return checked(b);
+         }},
+        {"P10 mit Bau: kein Ort sichtbar, Kammer sichtbar, Orte wechselnd ergibt denselben Speicherstand (Zeitraffer 60)",
+         [] {
+             std::vector<uint8_t> save[3];
+             std::string built;
+             for (int run = 0; run < 3; ++run) {
+                 Run r(53, run == 0 ? "scrolltest" : "testort-kammer", 6, 30, 60.0);
+                 const pixelia::Transition kinds[] = {pixelia::Transition::Cut, pixelia::Transition::Dissolve,
+                                                      pixelia::Transition::Fade};
+                 const int ticks = 30 * 60 * 6;  // 6 Weltstunden
+                 for (int t = 0, k = 0; t < ticks; t += 9 * 30, ++k) {
+                     r.run(std::min(9 * 30, ticks - t));
+                     if (run == 2) r.stage.go(1 + (k * 3) % (r.stage.count() - 1), kinds[k % 3]);
+                 }
+                 to_grid(r);
+                 save[run] = r.save();
+                 if (std::string e = checked(r); !e.empty()) return "Lauf " + std::to_string(run) + ": " + e;
+                 if (run == 0) built = built_text(r.ledger());
+             }
+             if (built == "Bretter 0, Nägel 0, Stroh 0") return std::string("nichts gebaut");
+             for (int run = 1; run < 3; ++run)
+                 if (save[run] != save[0])
+                     return std::string(run == 1 ? "Kammer sichtbar: " : "Orte wechselnd: ") +
+                            first_byte_diff(save[0], save[run]);
+             return std::string();
+         }},
+        {"Alter Stand mit „Bett im Bau“ (0.5.9, 0.5.10 Teil 1–2) lädt: das Bett-Projekt beginnt frisch, das Bett im Raum ist fertig",
+         [] {
+             std::vector<uint8_t> old;
+             if (FILE* f = std::fopen("sim/testdata/welt-0.5.9.pxw", "rb")) {
+                 uint8_t buf[4096];
+                 for (size_t k; (k = std::fread(buf, 1, sizeof(buf), f)) > 0;) old.insert(old.end(), buf, buf + k);
+                 std::fclose(f);
+             }
+             if (old.empty()) return std::string("Vorlage sim/testdata/welt-0.5.9.pxw fehlt");
+             Run b(1);
+             pixelia::Stage::LoadReport rep;
+             if (!b.stage.load_state(old.data(), old.size(), &rep)) return std::string("Laden: ") + rep.why;
+             const pixelia::Project* p = bed(b);
+             if (rep.projects != 0 || !p || p->step != 0 || p->begun || p->work_s != 0)
+                 return std::string("kein frisches Projekt");
+             b.run(30 * 60);
+             pixelia::TestPlace* raum = test_place(b, "testort-raum");
+             if (!raum || raum->room().building(6)) return std::string("Bett im Raum noch im Bau");
+             if (std::string e = checked(b); !e.empty()) return "0.5.9: " + e;
+             // Stand aus Teil 1–2: ohne Abschnitt PROJ (hier umbenannt), aber mit Reservierungen eines begonnenen Bettes
+             Run a(5, "testort-raum", 6, 30, 60.0);
+             for (int t = 0; t < 30 * 60 * 12 && !(bed(a) && bed(a)->begun); ++t) a.run(1);
+             if (!bed(a) || !bed(a)->begun) return std::string("Bett nicht begonnen");
+             std::vector<uint8_t> s = a.save();
+             const std::string tag = "PROJ";
+             auto it = std::search(s.begin(), s.end(), tag.begin(), tag.end());
+             if (it == s.end()) return std::string("Abschnitt PROJ fehlt");
+             it[3] = 'X';
+             const uint32_t c = pixelia::crc32(s.data() + 8, s.size() - 8);
+             for (int k = 0; k < 4; ++k) s[4 + k] = static_cast<uint8_t>(c >> (8 * k));
+             Run m(6, "testort-raum");
+             if (!m.stage.load_state(s.data(), s.size(), &rep)) return std::string("ohne PROJ: ") + rep.why;
+             m.clock.set_world_us(a.clock.world_us());
+             m.clock.set_speed(60.0);
+             if (!bed(m) || bed(m)->begun) return std::string("ohne PROJ: kein frisches Projekt");
+             m.run(30 * 60 * 14);
+             if (bed(m) || built_text(m.ledger()) != "Bretter 8, Nägel 6, Stroh 4")
+                 return "ohne PROJ verbaut: " + built_text(m.ledger());
+             return checked(m);
+         }},
+        {"Prüfbefehl „projekt bett start|stufe <n>|fertig“: springt im Projekt, die Bilanz bleibt exakt",
+         [] {
+             Run r(7, "testort-kammer", 9, 0, 60.0);
+             r.run(30 * 60);  // eine Weltstunde: Material unterwegs, vielleicht schon begonnen
+             if (!r.stage.command("projekt bett stufe 2") || !bed(r) || bed(r)->step != 2) return std::string("stufe 2");
+             if (r.stage.command("projekt tisch fertig")) return std::string("unbekanntes Projekt angenommen");
+             if (!r.stage.command("projekt bett fertig")) return std::string("fertig");
+             r.run(30 * 60 * 2);  // Rest zurück in die Vorratskiste
+             pixelia::TestPlace* kammer = test_place(r, "testort-kammer");
+             const Ledger& l = r.ledger();
+             if (bed(r) || !kammer || kammer->room().building(1) || l.load(l.find_store("kammer_baustelle")) != 0)
+                 return "nicht aufgeräumt: " + projects_text(r.stage.environment().projects, l) + ledger_text(l);
+             if (!r.stage.command("projekt bett start") || !bed(r) || bed(r)->step != 0) return std::string("start");
+             r.run(30);
+             if (!kammer->room().building(1)) return std::string("neues Bett nicht im Bau");
+             return checked(r);
          }},
         {"Stellplätze: jedes Stück einzeln wie im Warenbuch; neu gezeichnet wird nur das Rechteck, pixelgleich mit dem ganzen Bild",
          [] {

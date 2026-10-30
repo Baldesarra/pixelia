@@ -4,9 +4,13 @@
 // Holzkette (Wahl des Users 2026-10-29): Auf der Wiese wird Holz in den Holzstapel gespalten, die Holzlege neben dem
 // Herd im Raum holt Nachschub (Korb: 10 Trageeinheiten), der Herd verbrennt das Holz (StateDef::fuel in orte/raum.cpp).
 // Brot im Regal: einzelne Laibe, Nachschub aus der Vorratskiste am Platz, die ihr Brot vom Backofen daneben holt (seit
-// Teil 2, Platzhalter: dort wird gebacken wie am Holzstapel gespalten). Bett-Projekt in der Kammer: Bretter, Nägel und
-// Stroh aus der Vorratskiste, die Säge ist ein Einzelstück.
+// Teil 2, Platzhalter: dort wird gebacken wie am Holzstapel gespalten). Bett-Projekt in der Kammer (seit Teil 3,
+// projects.h): drei Teilaufgaben mit Bretter, Nägel und Stroh aus der Vorratskiste, Mengen nach WIRTSCHAFT 7 (Bett 8
+// Bretter, 6 Nägel, Strohsack 4 Stroh, ohne Stoff), Dauer nach SETTING 8 (Bett 1 Tag ≈ 8 Arbeitsstunden); arbeiten darf
+// nur, wer Tischlern kann (Wahl des Users). Die Säge ist ein Einzelstück (Werkzeuge an Projekten kommen später).
 #include "testdorf/testdorf.h"
+
+#include "pixelia/engine/projects.h"
 
 namespace pixelia::testdorf {
 namespace {
@@ -46,6 +50,24 @@ constexpr StoreDef kStores[] = {
      .capacity = 20, .part = 14, .rules = kOven, .rule_count = 1},
 };
 
+// Bett in der Kammer: Teil 1 der Raumliste (orte/kammer.cpp), Baustelle kammer_baustelle
+constexpr ProjectNeed kFrame[] = {{"bretter", 6}, {"naegel", 4}};
+constexpr ProjectNeed kSlats[] = {{"bretter", 2}, {"naegel", 2}};
+constexpr ProjectNeed kSack[] = {{"stroh", 4}};
+constexpr ProjectStepDef kBedSteps[] = {
+    {.id = "gestell", .title = "Gestell zimmern", .label = "Gestell", .needs = kFrame, .need_count = 2,
+     .skill = Skill::Joinery, .level = SkillLevel::Beginner, .minutes = 240},
+    {.id = "liegeflaeche", .title = "Liegefläche legen", .label = "Liegefläche", .needs = kSlats, .need_count = 2,
+     .skill = Skill::Joinery, .level = SkillLevel::Beginner, .minutes = 150},
+    {.id = "strohsack", .title = "Strohsack füllen", .label = "Strohsack", .needs = kSack, .need_count = 1,
+     .skill = Skill::Joinery, .level = SkillLevel::Beginner, .minutes = 90},
+};
+constexpr ProjectDef kProjects[] = {
+    {.id = "kammer_bett", .title = "Bett bauen", .kind = ProjectKind::Furniture, .place = "testort-kammer",
+     .site = "kammer_baustelle", .source = "platz_vorrat", .part = 1, .steps = kBedSteps, .step_count = 3,
+     .start = true},
+};
+
 constexpr StartStock kStart[] = {
     {"wiese_holzstapel", "brennholz", 24}, {"raum_holzlege", "brennholz", 8}, {"raum_brotregal", "brot", 6},
     {"platz_vorrat", "brot", 24},          {"platz_vorrat", "bretter", 12},   {"platz_vorrat", "naegel", 60},
@@ -54,7 +76,8 @@ constexpr StartStock kStart[] = {
 
 }  // namespace
 
-const EconomyDef kEconomy = {kGoods, sizeof(kGoods) / sizeof(kGoods[0]), kStores, sizeof(kStores) / sizeof(kStores[0]),
-                             kStart, sizeof(kStart) / sizeof(kStart[0])};
+const EconomyDef kEconomy = {kGoods,    sizeof(kGoods) / sizeof(kGoods[0]),      kStores,
+                             sizeof(kStores) / sizeof(kStores[0]),     kStart,    sizeof(kStart) / sizeof(kStart[0]),
+                             kProjects, sizeof(kProjects) / sizeof(kProjects[0])};
 
 }  // namespace pixelia::testdorf

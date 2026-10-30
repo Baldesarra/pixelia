@@ -100,6 +100,8 @@ struct StartStock {
     uint16_t condition = 1000;  // Einzelstücke: Zustand 0–1000
 };
 
+struct ProjectDef;  // projects.h
+
 struct EconomyDef {
     const GoodDef* goods = nullptr;
     uint8_t good_count = 0;
@@ -107,6 +109,8 @@ struct EconomyDef {
     uint8_t store_count = 0;
     const StartStock* start = nullptr;  // Startvorrat (neue Welt; alter Speicherstand ohne Warenbuch)
     uint8_t start_count = 0;
+    const ProjectDef* projects = nullptr;  // Projekte (seit 0.5.10 Teil 3, projects.h)
+    uint8_t project_count = 0;
 };
 
 // --- Laufzeit ---

@@ -19,6 +19,7 @@ set(PIXELIA_ENGINE_SRCS
     src/overlay.cpp
     src/camera.cpp
     src/png.cpp
+    src/projects.cpp
     src/qr.cpp
     src/redact.cpp
     src/room.cpp

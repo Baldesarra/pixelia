@@ -93,7 +93,6 @@ void PlaceStates::reset(Entry& e) const {
             e.on = d.rule != StateRule::Homecomer;  // wie bis 0.5.7: Lichter brennen, bis die Welt läuft
             break;
         case StateKind::Fill: e.value = static_cast<uint16_t>(d.capacity / 2); break;
-        case StateKind::Work: e.value = static_cast<uint16_t>(std::min(65535, d.capacity * 60)); break;
         default: break;
     }
     e.phase = static_cast<uint8_t>(compute_phase(e));
@@ -127,7 +126,6 @@ int PlaceStates::compute_phase(const Entry& e) const {
             const int pct = e.value * 100 / d.capacity;
             return pct < 5 ? 0 : pct < 35 ? 1 : pct < 75 ? 2 : 3;
         }
-        case StateKind::Work: return e.value == 0 ? 0 : e.value >= d.capacity * 60 ? 2 : 1;
     }
     return 0;
 }
@@ -207,9 +205,6 @@ int PlaceStates::describe(int i, char* buf, int n) const {
             return std::snprintf(buf, n, "Boden %s", kWet[std::min<int>(e.phase, 3)]);
         }
         case StateKind::Fill: return std::snprintf(buf, n, "Wasser: %d von %d Litern", e.value, d.capacity);
-        case StateKind::Work:
-            if (e.phase == 2) return std::snprintf(buf, n, "fertig");
-            return std::snprintf(buf, n, "im Bau, %d %% fertig", d.capacity ? e.value * 100 / (d.capacity * 60) : 0);
     }
     return 0;
 }
@@ -279,20 +274,12 @@ int PlaceStates::draw(int i, int liters) {
     return got;
 }
 
-void PlaceStates::work(int i, int seconds) {
-    if (i < 0 || i >= n_ || e_[i].def->kind != StateKind::Work || seconds <= 0) return;
-    Entry& e = e_[i];
-    e.value = static_cast<uint16_t>(std::min(e.def->capacity * 60, e.value + seconds));
-    update_phase(i);
-}
-
 void PlaceStates::set_value(int i, int v) {
     if (i < 0 || i >= n_) return;
     Entry& e = e_[i];
     int hi = 65535;
     if (e.def->kind == StateKind::Wetness) hi = kWetMax;
     if (e.def->kind == StateKind::Fill) hi = e.def->capacity;
-    if (e.def->kind == StateKind::Work) hi = e.def->capacity * 60;
     e.value = static_cast<uint16_t>(std::clamp(v, 0, hi));
     e.frac = 0;
     if (e.def->kind == StateKind::Light && e.value == 0) e.on = false;
@@ -354,7 +341,6 @@ void PlaceStates::step(int minute, const StateInput& in) {
                     e.frac %= 60;
                 }
                 break;
-            case StateKind::Work: break;  // bleibt liegen
         }
         update_phase(i);
         if (d.rule != StateRule::None) apply_rule(i, minute, in, out);

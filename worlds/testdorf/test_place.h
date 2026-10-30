@@ -154,7 +154,8 @@ private:
     void apply_wet();     // nasser Boden: Weg und Pflaster dunkler
     void read_events();
     uint32_t states_version() const;  // Stufenwechsel der eigenen Zustände und der Räume hinter den Fenstern
-    void sync_building();  // im Bau nach den Ortszuständen (Planer: Wege und Benutzungspunkte hängen daran)
+    void sync_building();  // im Bau nach den Projekten (Planer: Wege und Benutzungspunkte hängen daran)
+    int build_image(const Project& p) const;  // Bau-Bild (Zustand) nach dem Zwischenstand
     bool random_free_tile(Rng& rng, int* tx, int* ty) const;
     void spawn_at(Figure& f, int tx, int ty, Facing facing, uint8_t row, bool guide, uint16_t id);
     bool any_free_tile(int* tx, int* ty) const;  // der Reihe nach (wenn der Zufall nichts findet)
@@ -173,6 +174,10 @@ private:
     // Mahlzeit (Platzhalter bis 0.5.11), auf die nächste Takt-Grenze warten; false = gewohnter Planer
     bool plan_work(const FigureRecord& f, int64_t at, Rng& rng, Doing* out);
     bool claim_task(const FigureRecord& f, int64_t at);
+    // Projekte (seit 0.5.10 Teil 3, projects.h): PLATZHALTER bis 0.5.11 für die Wahl, wer daran arbeitet; hingehen und
+    // Arbeitsgänge am Teil im Bau
+    bool claim_project(const FigureRecord& f, int64_t at);
+    bool build_work(const FigureRecord& f, const Project& p, int64_t at, Rng& rng, Doing* out);
     // zum Lagerplatz (an diesem Ort: an seinen Benutzungspunkt; sonst über den nächsten Ausgang Richtung seines Ortes)
     bool go_store(const FigureRecord& f, int store, DoingAim aim, int pieces, int64_t at, Rng& rng, Doing* out);
     bool go_place(const FigureRecord& f, int place, DoingAim aim, int64_t at, Rng& rng, Doing* out);

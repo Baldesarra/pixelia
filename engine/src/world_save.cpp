@@ -45,7 +45,8 @@ constexpr char kWorld[] = "WELT", kCal[] = "KAL ", kPlaces[] = "ORTE", kStates[]
                kDoings[] = "TAET",  // seit 0.5.9 Teil 2: Takt-Grenze und Tätigkeiten
                // seit 0.5.10: Warenbuch (Waren mit Zählern, Bestände, Einzelstücke, Reservierungen)
                kGoods[] = "WARE", kStock[] = "LAGR", kItems[] = "STCK", kReserve[] = "RESV",
-               kTasks[] = "AUFG";  // seit 0.5.10 Teil 2: Aufgabenliste der Gemeinschaft
+               kTasks[] = "AUFG",  // seit 0.5.10 Teil 2: Aufgabenliste der Gemeinschaft
+               kProjects[] = "PROJ";  // seit 0.5.10 Teil 3: Projekte mit Teilaufgaben
 
 bool ledger_chunk(const char* tag) {
     return std::strcmp(tag, kGoods) == 0 || std::strcmp(tag, kStock) == 0 || std::strcmp(tag, kItems) == 0 ||
@@ -465,6 +466,8 @@ size_t Stage::save_state(uint8_t* buf, size_t cap, uint32_t generation) const {
     led.save_reservations(w);
     w.chunk(kTasks, 1);
     env_.tasks.save(w, led);
+    w.chunk(kProjects, 1);
+    env_.projects.save(w, led);
     return w.finish();
 }
 
@@ -517,9 +520,12 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
     }
     Ledger::LoadStats ls;
     if (ledger) env_.ledger.clear();
-    // Aufgabenliste (seit 0.5.10 Teil 2) immer neu: ohne Abschnitt leer, Reservierungen ohne Aufgabe gibt der nächste
-    // Schritt frei
+    // Aufgabenliste (seit 0.5.10 Teil 2) und Projekte (Teil 3) immer neu: ohne Abschnitt leer, Reservierungen ohne
+    // Aufgabe bzw. Projekt gibt der nächste Schritt frei. Ein Stand ohne Projekte (0.5.9, 0.5.10 Teil 1–2: „Bett im
+    // Bau“ war ein Ortszustand im Raum) beginnt die Projekte der Daten frisch, das alte Bett im Raum ist einfach fertig
     env_.tasks.clear();
+    env_.projects.clear();
+    bool projects = false;
     SaveChunks c(data, n);
     char tag[5];
     uint16_t version = 0;
@@ -729,11 +735,15 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
             env_.ledger.load_reservations(d, version, &ls);
         } else if (std::strcmp(tag, kTasks) == 0) {
             rep.tasks = env_.tasks.load(d, version, env_.ledger);
+        } else if (std::strcmp(tag, kProjects) == 0) {
+            rep.projects = env_.projects.load(d, version, env_.ledger);
+            projects = true;
         } else if (std::strcmp(tag, kPlaces) != 0 && std::strcmp(tag, kDoings) != 0) {
             ++rep.skipped_chunks;  // neuere Firmware: unbekannt, übersprungen
         }
     }
     if (ledger) env_.ledger.finish_load(&ls);
+    if (!projects) env_.projects.start_new();
     rep.ledger = ledger;
     rep.stock = ls.stock;
     rep.items = ls.items;

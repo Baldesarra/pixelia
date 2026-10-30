@@ -16,7 +16,9 @@
 //   Takt-Grenze (claim), in der festen Reihenfolge der Orte. Danach gehört eine Aufgabe ihrer Figur: Nur sie ändert
 //   Phase und Getragenes (in Scene::finish an ihrem Ort); andere sehen nur offene Aufgaben, step() nur an der
 //   Takt-Grenze. Die Liste ist nach Kennung sortiert, Auswahl nur nach festen Schlüsseln.
-// - Kennungen 1 … kMaxId sind zugleich Halter ihrer Reservierung im Warenbuch (Projekte ab 0.5.10 Teil 3 darüber).
+// - Projekte (seit 0.5.10 Teil 3, projects.h) holen ihr Material über dieselben Aufgaben (add_fetch mit kTaskProject,
+//   nur in ProjectList::step an der Takt-Grenze); ob sie noch nötig sind, entscheidet dann das Projekt, nicht die Regel.
+// - Kennungen 1 … kMaxId sind zugleich Halter ihrer Reservierung im Warenbuch (Projekte ab ProjectList::kFirstId).
 // - Liegt im Grafik-Speicher (auf dem Gerät PSRAM, ~1,3 KB), angelegt beim ersten Mal.
 
 #include <cstdint>
@@ -42,7 +44,10 @@ enum class TaskPhase : uint8_t {
 };
 const char* task_phase_id(TaskPhase p);  // offen, holen, bringen, zurueck, arbeiten, fertig (Speicherstand, Log)
 
-enum TaskFlag : uint8_t { kTaskCommunity = 1 };  // Gemeinschaftsaufgabe (Notbestand)
+enum TaskFlag : uint8_t {
+    kTaskCommunity = 1,  // Gemeinschaftsaufgabe (Notbestand)
+    kTaskProject = 2,    // Material eines Projekts (seit 0.5.10 Teil 3)
+};
 
 struct Task {
     uint16_t id = 0;
@@ -84,6 +89,12 @@ public:
     const Task* of(uint16_t who) const;
     // Übernehmen (nur in Scene::decide genau an einer Takt-Grenze): offen und die Figur hat keine andere
     bool claim(uint16_t id, uint16_t who, int64_t at_us);
+    // Holen und Bringen für ein Projekt (nur an der Takt-Grenze, ProjectList::step): Menge am Quell-Lager reserviert, so
+    // viel wie frei ist; nullptr = nichts frei oder kein Platz
+    const Task* add_fetch(Ledger& ledger, int good, int from, int to, int qty, int64_t at_us, uint8_t flags);
+    // unterwegs zu diesem Lagerplatz (offen und holen: Menge, bringen: Getragenes; good −1 = alle Waren)
+    int incoming(int to, int good) const;
+    void cancel(uint16_t id);  // offene Aufgabe streichen (nur an der Takt-Grenze; step räumt sie auf)
     // eine Zeile für Log und Konsole („aufgaben“): „#3 holen 0/9 Brennholz Holzstapel → Holzlege, Figur 1004“
     const char* describe(int i, const Ledger& ledger, char* buf, int n) const;
     uint32_t version() const { return version_; }  // zählt neue, übernommene und aufgeräumte Aufgaben
@@ -100,6 +111,7 @@ public:
 private:
     bool ensure();
     Task* add(TaskKind kind, int good, int from, int to, int qty, int64_t at_us, uint8_t flags);
+    Task* fetch(Ledger& l, int good, int from, int to, int qty, int64_t at_us, uint8_t flags);  // mit Reservierung
     void remove(int i);
     int active(TaskKind kind, int to, int good, int flags_mask, int flags) const;
 

@@ -57,6 +57,11 @@ void Stage::advance_grid(int64_t now) {
         // Aufgabenliste (seit 0.5.10 Teil 2): nach allen Planern, so sieht sie jeden Ort gleich weit; übernommen wird an
         // der nächsten Takt-Grenze
         env_.tasks.step(t, env_.calendar.date().day, env_.ledger, env_.figures, &env_.events);
+        // Projekte (seit 0.5.10 Teil 3): nach der Aufgabenliste; Schritte beginnen und enden nur hier, ihre Holen-Aufgaben
+        // übernimmt man ab der nächsten Takt-Grenze
+        const WeatherKind wk = env_.weather.kind();
+        const bool bad = wk == WeatherKind::Rain || wk == WeatherKind::Snow || wk == WeatherKind::Storm;
+        env_.projects.step(t, env_.calendar.date().day, env_.ledger, env_.tasks, env_.figures, &env_.events, bad);
         env_.events.deliver();  // Regeln sehen alles bis hierher, egal welcher Ort sichtbar ist
         for (int i = 0; i < count_; ++i) scenes_[i]->step(t);
         grid_ = t;

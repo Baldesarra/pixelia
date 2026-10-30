@@ -186,7 +186,8 @@ Stage::Stage() : assets_(&asset_store()) {
     toast_reader_ = env_.events.subscribe(kCalendarEvents | event_bit(EventKind::Stock));
     // Chronik (seit 0.5.9): Kalender, neue Stufen von Fähigkeiten und Beziehungen; seit 0.5.10 Besonderes im Warenbuch
     chron_reader_ = env_.events.subscribe(kCalendarEvents | event_bit(EventKind::SkillUp) |
-                                          event_bit(EventKind::BondChanged) | event_bit(EventKind::Stock));
+                                          event_bit(EventKind::BondChanged) | event_bit(EventKind::Stock) |
+                                          event_bit(EventKind::Project));
     // Warenbuch (seit 0.5.10): Ortszustände holen ihren Brennstoff dort
     env_.states.set_ledger(&env_.ledger);
     place_of_.fill(-1);
@@ -286,6 +287,8 @@ void Stage::init(uint64_t seed) {
     env_.ledger.build();
     env_.ledger.start_stock(1);
     env_.tasks.clear();  // seit 0.5.10 Teil 2
+    env_.projects.build(env_.ledger);  // seit 0.5.10 Teil 3: Projekte der Daten (Testinhalt: Bett in der Kammer)
+    env_.projects.start_new();
     for (int i = 0; i < count_; ++i) scenes_[i]->init(seed + static_cast<uint64_t>(i) * 0x9E3779B97F4A7C15ULL);
     populate_figures();  // seit 0.5.9: die Figuren gehören der Welt, die Orte zeigen sie
     adopt_figures();
@@ -357,6 +360,27 @@ bool Stage::command(const char* cmd) {
     if (std::strcmp(cmd, "wetter auto") == 0) {
         release_weather();
         return true;
+    }
+    if (std::strncmp(cmd, "projekt ", 8) == 0) {
+        // Prüfbefehl (seit 0.5.10 Teil 3): „projekt bett start|stufe <n>|fertig“, n = fertige Teilaufgaben; das Projekt
+        // nach dem Ende seiner Kennung (kammer_bett). Bucht sofort, nicht an der Takt-Grenze: nur zum Ansehen am Gerät
+        char name[24] = {}, what[12] = {};
+        int k = 0;
+        if (std::sscanf(cmd, "projekt %23s %11s %d", name, what, &k) < 2) return false;
+        ProjectList& pl = env_.projects;
+        int def = -1;
+        for (int d = 0; d < pl.defs() && def < 0; ++d) {
+            const std::string_view id = pl.def(d).id, nm = name;
+            if (id == nm || (id.size() > nm.size() && id.substr(id.size() - nm.size()) == nm &&
+                             id[id.size() - nm.size() - 1] == '_'))
+                def = d;
+        }
+        if (def < 0) return false;
+        const int32_t day = env_.calendar.date().day;
+        if (std::strcmp(what, "start") == 0) return pl.test_start(def, world_us_, env_.ledger, env_.tasks);
+        if (std::strcmp(what, "fertig") == 0) k = pl.def(def).step_count;
+        else if (std::strcmp(what, "stufe") != 0) return false;
+        return pl.test_jump(def, k, world_us_, day, env_.ledger, env_.tasks, &env_.events);
     }
     if (std::sscanf(cmd, "mond %15s", word) == 1) {
         const std::string_view w(word);
