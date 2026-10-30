@@ -74,40 +74,37 @@ export const STORY: StoryStep[] = [
   },
   {
     d: '2026-10-22',
-    title: 'Bilder aus Paketen',
-    text: 'Alle Grafiken liegen jetzt in Paketen und laden, während das Bild abblendet. Ein eigenes Werkzeug übersetzt gemalte Bilder in die Pixelia-Farben.',
+    title: 'Doppelt im Speicher',
+    text: 'Eine Überraschung hinter den Kulissen: Weil die Firmware selbst im PSRAM läuft, lag jedes eingebaute Bild zweimal im Speicher, einmal gepackt und einmal entpackt. Seitdem wohnt nur noch das Nötigste in der Firmware.',
   },
   {
     d: '2026-10-22',
-    title: 'Antippen erlaubt',
-    text: 'Wer eine Figur antippt, sieht ihre Karte mit Name, Tätigkeit und Gedanken. Wischen wechselt den Ort, und oben rechts tickt eine kleine Pixel-Uhr.',
+    title: 'Die falsche Figur',
+    text: 'Eigentlich sollte langes Halten auf einer Figur ihr folgen. Im Test erwischte der Finger aber ständig jemanden, der gerade vorbeilief. Also bekam die Karte einen Knopf „Folgen“, und langes Halten zeigt wie früher Adresse und Zustand des Geräts.',
     images: [picture(karte, '0.5.6/karte-seite.png', 'Karte einer Figur am Rand')],
   },
   {
     d: '2026-10-26',
-    title: 'Ein eigener Kalender',
-    text: 'Pixelia bekommt Jahreszeiten, Wetter, das sich von selbst ändert, und den echten Mond von heute, der nachts sogar durchs Fenster scheint.',
+    title: 'Tag 1',
+    text: 'Am 26. Oktober 2026 begann in Pixelia die Zeit. Das Wetter wird seitdem aus dem Datum berechnet statt gewürfelt: Nach einem Neustart regnet es genau wie vorher. Und der Mond über dem Dorf hat dieselbe Phase wie der echte draußen.',
     images: [picture(mond, '0.5.7/mond-vergleich.png', 'Der Mond in seinen Phasen')],
   },
   {
     d: '2026-10-27',
-    title: 'Orte mit Gedächtnis',
-    text: 'Orte werden Module mit eigenem Zustand: Der Herd glimmt nachts nach, Regen füllt das Becken und macht den Boden nass, und der Testraum bekommt große Fenster.',
+    title: 'Eine Kerze für Heimkehrer',
+    text: 'Ist nachts noch jemand unterwegs, brennt auf der Fensterbank eine Kerze, bis alle zu Hause sind. Zur Wahl standen Kachelofen, Herd und Kamin. Gewonnen hat der Herd, unter dessen Abdeckung nachts die Glut weiterglimmt.',
     images: [picture(raum, '0508-raum-mond.png', 'Testraum nachts: Herdfeuer, Kerze, Mond')],
   },
   {
     d: '2026-10-29',
-    title: 'Die Welt vergisst nichts',
-    text: 'Figuren gehören jetzt der Welt, mit Fähigkeiten, Beziehungen, Erinnerungen und eigener Statur. Ein Speicherstand übersteht jeden Neustart und holt nach, was verpasst wurde.',
+    title: 'Doppelt so teuer wie gedacht',
+    text: 'Figuren mit Bauch, Gehstock und vier Größen sollten 375 Mikrosekunden je Bild kosten, das Gerät brauchte doppelt so viel. Die Bildrate hielt trotzdem. Ob der Speicherstand hält, wurde ganz altmodisch geprüft: Stecker ziehen.',
     images: [picture(statur, 'figuren-statur.png', 'Figuren in vier Größen und drei Breiten')],
   },
   {
     d: '2026-10-30',
     title: 'Wo ist das Brot?',
-    text:
-      'Die Welt zählt jetzt jeden Scheit und jeden Laib, holt Nachschub im Korb und baut in der Kammer ein Bett. Die erste Lager-Karte im Web sah gut aus, ' +
-      'bis die Frage kam: Und wenn das Dorf 16 Häuser und 20 Waren hat? Nach vier Lösungswegen gewinnt „Sorgen zuerst“: Die Karte zeigt nur, was knapp ist, ' +
-      'alles andere steht auf der Seite Lager. Und die wackelnde Welle am Bett, die stundenlang Eile vortäuschte, wird zu ruhigen Segmenten, eins je Arbeitsschritt.',
+    text: 'Im Testraum steht ein Brotregal, obwohl Brot um 1850 im Brotkorb lag. Es bleibt Testinhalt bis zur echten Küche. Die größere Frage kam später: Was zeigt die Lager-Karte, wenn das Dorf 16 Häuser hat? Vier Lösungswege später gewinnt „Sorgen zuerst“, und eine Welle, die stundenlang Eile vortäuschte, muss ruhigen Segmenten weichen.',
     images: [
       picture(lagerEntwuerfe, '0510-lager-karte-entwuerfe.png', 'Erste Runde: drei Entwürfe der Lager-Karte'),
       picture(lagerIdeen, '0510-lager-ideen.png', 'Großes Dorf: vier Lösungswege'),
