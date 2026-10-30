@@ -52,7 +52,20 @@ export const loadWorld = (more = false) => get<WorldState>(more ? '/api/world?me
 // (−1 = kein Abgang)
 export type StoreGood = { t: string; q: number; res: number };
 export type StoreRow = { t: string; place: string; kind: string; load: number; cap: number; lv: number; h: number; goods: StoreGood[]; reach: string };
-export type GoodRow = { t: string; cat?: string; q: number; res: number; lv: number; h: number; reach: string };
+// q: im ganzen Dorf; davon site an Baustellen (sites Stück, die erste in sitePlace) und hand gerade getragen (seit Teil 4c)
+export type GoodRow = {
+  t: string;
+  cat?: string;
+  q: number;
+  res: number;
+  lv: number;
+  h: number;
+  reach: string;
+  site?: number;
+  sites?: number;
+  sitePlace?: string;
+  hand?: number;
+};
 export type ProjectRow = { t: string; place: string; step: number; steps: number; stepT: string; pct: number; stepPct: number; shares: number[]; wait: string; who: string };
 export type LagerState = { lager?: { stores: StoreRow[]; goods: GoodRow[]; projects: ProjectRow[] } };
 

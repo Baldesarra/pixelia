@@ -676,7 +676,8 @@ esp_err_t world_get(httpd_req_t* req) {
             j.end_arr().arr("goods");
             for (int i = 0; i < v->goods; ++i) {
                 const gfx::LagerGood& g = v->g[i];
-                j.obj().str("t", g.title).num("q", g.qty).num("res", g.res).num("lv", g.lv).num("h", g.hours).str("reach", g.reach).end_obj();
+                j.obj().str("t", g.title).num("q", g.qty).num("res", g.res).num("lv", g.lv).num("h", g.hours).str("reach", g.reach);
+                j.num("site", g.site).num("sites", g.sites).str("sitePlace", g.site_place).num("hand", g.hand).end_obj();
             }
             j.end_arr().arr("projects");
             for (int i = 0; i < v->projects; ++i) {

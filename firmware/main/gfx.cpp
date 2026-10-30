@@ -644,7 +644,22 @@ void fill_lager(app::gfx::LagerView& v) {
         r = {};
         std::snprintf(r.title, sizeof(r.title), "%s", l.good(k).title);
         r.qty = static_cast<uint16_t>(std::min(total, 65535));
-        for (int s = 0; s < l.stores(); ++s) r.res = static_cast<uint16_t>(r.res + l.reserved(s, k));
+        for (int s = 0; s < l.stores(); ++s) {
+            r.res = static_cast<uint16_t>(r.res + l.reserved(s, k));
+            // Baustellen und Tragen zeigt die Seite Lager mit, sonst geht die Summe nicht auf (Nägel 54 + 6 = 60)
+            const int q = l.qty(s, k);
+            if (q <= 0) continue;
+            const pixelia::StoreKind kind = l.store_kind(s);
+            if (kind == pixelia::StoreKind::Hand) {
+                r.hand = static_cast<uint16_t>(r.hand + q);
+            } else if (kind == pixelia::StoreKind::Site) {
+                r.site = static_cast<uint16_t>(r.site + q);
+                if (r.sites++ == 0) {
+                    const pixelia::PlaceDef* p = pixelia::place_at(l.store_place(s));
+                    std::snprintf(r.site_place, sizeof(r.site_place), "%s", p ? p->title : "?");
+                }
+            }
+        }
         r.lv = static_cast<uint8_t>(l.level(k));
         const int h = l.reach_hours(k);
         r.hours = static_cast<int16_t>(std::min(h, 32767));
@@ -686,6 +701,28 @@ void fill_lager_view() {
     if (s_lager_req.load() != 1 || !s_lager) return;
     fill_lager(*s_lager);
     s_lager_req.store(2);
+}
+
+// Konsole „wirtschaft bestand“ (seit 0.5.10 Teil 4c, Prüfung „jede Buchung genau einmal“): jeder Lagerplatz samt
+// Baustellen mit Kennung wie im Protokoll, dazu die noch offenen Zeilen. Bei offen=0 steht alles bis jetzt in den
+// Dateien: Bestand jetzt = Bestand vorher + Summe der Bewegungen dazwischen
+void log_stock() {
+    const pixelia::Ledger& l = s_stage.environment().ledger;
+    const pixelia::EconomyLog::Stats es = s_econ.stats();
+    const int64_t m = s_stage.environment().world_minute;
+    ESP_LOGI(TAG, "bestand-kopf,weltminute=%lld,zeilen=%lu,geschrieben=%lu,offen=%ld,verloren=%lu",
+             static_cast<long long>(m), static_cast<unsigned long>(es.rows), static_cast<unsigned long>(es.written),
+             static_cast<long>(es.rows) - static_cast<long>(es.written) - static_cast<long>(es.lost),
+             static_cast<unsigned long>(es.lost));
+    for (int s = 0; l.ready() && s < l.stores(); ++s) {
+        uint8_t g[24];
+        uint16_t q[24];
+        char kb[12];
+        const int k = l.contents(s, g, q, 24);
+        const char* key = l.store_key(s, kb, sizeof(kb));
+        for (int i = 0; i < k; ++i) ESP_LOGI(TAG, "bestand,%s,%s,%u", key, l.good(g[i]).id, static_cast<unsigned>(q[i]));
+    }
+    ESP_LOGI(TAG, "bestand-ende");
 }
 
 // Konsole „lager“: dieselben Angaben ins Log
@@ -1027,6 +1064,10 @@ void apply_place_requests(int ticks) {
         }
         if (std::strcmp(cmd, "lager") == 0) {
             log_lager();  // seit 0.5.10 Teil 4b: wie die Lager-Karte im Web
+            continue;
+        }
+        if (std::strcmp(cmd, "bestand") == 0) {
+            log_stock();
             continue;
         }
         if (std::strcmp(cmd, "projekte") == 0) {

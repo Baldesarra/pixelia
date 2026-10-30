@@ -1,11 +1,13 @@
 <script lang="ts">
   // Seite Lager (seit 0.5.10 Teil 4b, Unterseite von Welt, Wahl des Users): Umschalter Waren | Orte. Waren: eine Zeile
-  // je Ware fürs ganze Dorf, antippen zeigt, wo sie liegt (knappe Lager zuerst). Orte: Orte mit knappem oder leerem
-  // Lager offen, alle anderen in einer Sammelzeile (Wahl des Users nach Beispieldorf mit 20 Orten). Die volle
-  // Lager-Seite mit Zu- und Abgängen und Gruppen der Waren kommt mit 0.6.x/0.7.x. Stand alle 30 s.
+  // je Ware fürs ganze Dorf, antippen zeigt, wo sie liegt (knappe Lager zuerst, dazu Baustellen und Getragenes).
+  // Orte (seit Teil 4c, Wahl des Users aus fünf Ideen, skizzen/0510-orte-ideen.png): eine Kurzzeile je Ort, immer
+  // zugeklappt, mit einem Punkt je Lager und dem wichtigsten Satz; Sorgen oben, dann nach Name, ab 9 Orten der Rest in
+  // einer Sammelzeile. Gebiete (Idee 2) kommen mit den echten Orten. Zu- und Abgänge und Gruppen der Waren mit
+  // 0.6.x/0.7.x. Stand alle 30 s.
   import { onDestroy } from 'svelte';
   import { ButtonGroup, Card, Icon } from '../lib/m3';
-  import { loadLager, shortReach, worry, type LagerState, type StoreRow } from '../lib/world';
+  import { loadLager, shortReach, ware, worries, worry, type GoodRow, type LagerState, type StoreRow } from '../lib/world';
 
   let w = $state<LagerState | null>(null);
   const load = () => loadLager().then((v) => (w = v), () => null);
@@ -25,31 +27,49 @@
       .map((s) => ({ s, q: s.goods.find((x) => x.t === t)?.q ?? -1 }))
       .filter((r) => r.q >= 0)
       .sort((a, b) => +worry(b.s) - +worry(a.s) || b.q - a.q);
+  // Baustellen und Getragenes gehören zur Summe der Ware (Nägel 60 = 54 in der Kiste + 6 an der Baustelle)
+  const extra = (x: GoodRow) => [
+    ...(x.site ? [x.sites && x.sites > 1 ? `${x.sites} Baustellen: ${x.site}` : `${x.sitePlace} · Baustelle: ${x.site}`] : []),
+    ...(x.hand ? [`Wird getragen: ${x.hand}`] : []),
+  ];
   const goodWorries = (t: string) => stores.filter((s) => worry(s) && s.goods.length === 1 && s.goods[0].t === t).length;
   const MAXW = 8;
 
-  // Orte: Orte mit Sorgen offen, ab 9 Lagerplätzen die übrigen in einer Sammelzeile
-  type Group = { place: string; rows: StoreRow[]; worries: number; empty: number; red: boolean };
+  // Orte: Kurzzeile je Ort, Sorgen oben (leer vor knapp), dann nach Name; ab 9 Orten die übrigen in einer Sammelzeile
+  type Group = { place: string; rows: StoreRow[]; worst: StoreRow[] };
   const groups = $derived.by(() => {
     const out: Group[] = [];
     for (const s of stores) {
       let p = out.find((x) => x.place === s.place);
-      if (!p) out.push((p = { place: s.place, rows: [], worries: 0, empty: 0, red: false }));
+      if (!p) out.push((p = { place: s.place, rows: [], worst: [] }));
       p.rows.push(s);
-      p.worries += +worry(s);
-      p.empty += +(s.load === 0 && s.lv === 1);
-      p.red ||= s.lv === 1;
     }
-    return out;
+    for (const g of out) g.worst = worries(g.rows);
+    // wie worries(): leer vor Notbestand vor knapp, dann was am kürzesten reicht
+    const key = (g: Group) => {
+      const w = g.worst[0];
+      return w ? [w.lv, w.load ? 1 : 0, w.h < 0 ? 1e9 : w.h] : [9, 0, 0];
+    };
+    return out.sort((a, b) => {
+      const x = key(a), y = key(b);
+      return x[0] - y[0] || x[1] - y[1] || x[2] - y[2] || a.place.localeCompare(b.place, 'de');
+    });
   });
-  const fold = $derived(stores.length > 8);
-  let toggled = $state<Record<string, boolean>>({});
+  const MAXP = 8;
+  let openPlace = $state<string | null>(null);
   let showCalm = $state(false);
-  const isOpen = (g: Group) => !fold || (toggled[g.place] ?? g.worries > 0);
-  const calm = $derived(groups.filter((g) => !g.worries));
-  const shown = $derived(fold ? [...groups.filter((g) => g.worries), ...(showCalm ? calm : [])] : groups);
-  const status = (g: Group) => (g.empty ? `${g.empty} leer` : g.worries ? `${g.worries} knapp` : 'alles gut');
-  const worryCount = $derived(groups.reduce((n, g) => n + g.worries, 0));
+  const shown = $derived(
+    groups.length > MAXP && !showCalm ? groups.slice(0, Math.max(MAXP - 1, groups.filter((g) => g.worst.length).length)) : groups,
+  );
+  const hidden = $derived(groups.length - shown.length);
+  // „Brot leer“, „Mehl für 1 Tag“, bei mehreren Sorgen „· +1“ (kurz, damit Name und Punkte in eine Zeile passen)
+  const status = (g: Group) => {
+    const w = g.worst[0];
+    if (!w) return 'alles gut';
+    const more = g.worst.length > 1 ? ` · +${g.worst.length - 1}` : '';
+    return `${ware(w)} ${w.load ? shortReach(w).replace(/^noch (etwa )?/, 'für ') : 'leer'}${more}`;
+  };
+  const worryCount = $derived(groups.reduce((n, g) => n + g.worst.length, 0));
   const goodsLine = (s: StoreRow) => s.goods.map((x) => `${x.t} ${x.q}${x.res ? ` (${x.res} reserviert)` : ''}`).join(' · ');
 </script>
 
@@ -83,28 +103,24 @@
                 <span class="wchip" class:lv1={r.s.lv === 1 && worry(r.s)} class:lv2={r.s.lv === 2}>{r.s.place} · {r.s.t}: {r.q}</span>
               {/each}
               {#if rows.length > MAXW}<span class="wchip more">+ {rows.length - MAXW} weitere</span>{/if}
+              {#each extra(x) as e (e)}<span class="wchip site">{e}</span>{/each}
             </div>
           {/if}
         {/each}
       {/each}
     {:else}
       <p class="summary muted">
-        {groups.length} {groups.length === 1 ? 'Ort' : 'Orte'} · {stores.length} Lager{#if worryCount} · <span class="warn">{worryCount} knapp oder leer</span>{/if}
+        {groups.length} {groups.length === 1 ? 'Ort' : 'Orte'} · {stores.length} Lager{#if worryCount}{' · '}<span class="warn">{worryCount} knapp oder leer</span>{/if}
       </p>
-      <div class="groups" class:fold>
+      <div class="groups">
         {#each shown as g (g.place)}
-          {@const open = isOpen(g)}
-          {#if fold}
-            <button class="ghead" class:open aria-expanded={open} onclick={() => (toggled = { ...toggled, [g.place]: !open })}>
-              <span class="place-chip">{g.place}</span>
-              <span class="gstat" class:lv1={g.red} class:lv2={g.worries && !g.red}>
-                {#if !open}<span class="muted">{`${g.rows.length} Lager · `}</span>{/if}{status(g)}
-              </span>
-              <Icon name="keyboard_arrow_down" size={20} />
-            </button>
-          {:else}
-            <span class="place-chip">{g.place}</span>
-          {/if}
+          {@const open = openPlace === g.place}
+          {@const w = g.worst[0]}
+          <button class="ghead" class:open aria-expanded={open} onclick={() => (openPlace = open ? null : g.place)}>
+            <span class="name"><b>{g.place}</b> <span class="dots">{#each g.rows as s (s.t)}<i class="dot lv{s.lv}"></i>{/each}</span></span>
+            <span class="gstat small" class:lv1={w?.lv === 1} class:lv2={w?.lv === 2} class:muted={!w}>{status(g)}</span>
+            <Icon name="keyboard_arrow_down" size={18} />
+          </button>
           {#if open}
             {#each g.rows as s (s.t)}
               <div class="line">
@@ -116,11 +132,11 @@
             {/each}
           {/if}
         {/each}
-        {#if fold && calm.length}
+        {#if hidden || showCalm}
           <button class="ghead calm" class:open={showCalm} aria-expanded={showCalm} onclick={() => (showCalm = !showCalm)}>
-            <span class="place-chip">{showCalm ? 'Weniger' : `${calm.length} weitere ${calm.length === 1 ? 'Ort' : 'Orte'}`}</span>
-            <span class="gstat">{showCalm ? '' : 'alles gut'}</span>
-            <Icon name="keyboard_arrow_down" size={20} />
+            <span class="name muted small">{showCalm ? 'Weniger zeigen' : `… ${hidden} weitere ${hidden === 1 ? 'Ort' : 'Orte'}, alles gut`}</span>
+            <span></span>
+            <Icon name="keyboard_arrow_down" size={18} />
           </button>
         {/if}
       </div>
@@ -176,9 +192,21 @@
     padding: 8px 4px;
   }
   .ghead {
-    grid-template-columns: auto 1fr 20px;
-    gap: 8px;
-    padding: 6px 4px;
+    grid-template-columns: 1fr auto 18px;
+    padding: 8px 4px;
+  }
+  .ghead.open {
+    background: var(--md-sys-color-surface-container-high);
+  }
+  .dots {
+    display: inline-flex;
+    gap: 3px;
+    margin-left: 4px;
+    vertical-align: 1px;
+  }
+  .dots .dot {
+    width: 7px;
+    height: 7px;
   }
   .gline:hover,
   .ghead:hover {
@@ -212,6 +240,11 @@
     background: var(--md-sys-color-surface-container-highest);
     font: var(--md-sys-typescale-label-medium);
   }
+  .wchip.site {
+    background: none;
+    outline: 1px solid var(--md-sys-color-outline-variant);
+    outline-offset: -1px;
+  }
   .wchip.more {
     background: none;
     color: var(--md-sys-color-on-surface-variant);
@@ -220,27 +253,9 @@
     display: grid;
     gap: 2px;
   }
-  .place-chip {
-    justify-self: start;
-    margin: 10px 0 4px;
-    padding: 2px 10px;
-    border-radius: var(--md-sys-shape-corner-full);
-    background: var(--md-sys-color-tertiary-container);
-    color: var(--md-sys-color-on-tertiary-container);
-    font: var(--md-sys-typescale-label-medium);
-    font-weight: 650;
-  }
-  .place-chip:first-child,
-  .ghead .place-chip {
-    margin: 0;
-  }
-  .fold .ghead:not(.open) .place-chip {
-    background: var(--md-sys-color-surface-container-highest);
-    color: var(--md-sys-color-on-surface);
-  }
   .gstat {
     justify-self: end;
-    font: var(--md-sys-typescale-body-small);
+    text-align: right;
   }
   .line {
     display: grid;
@@ -249,7 +264,7 @@
     align-items: center;
     padding: 6px 4px;
   }
-  .fold .line {
+  .line {
     padding-left: 14px;
   }
   .name {

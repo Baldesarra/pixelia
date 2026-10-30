@@ -234,10 +234,13 @@ struct LagerStore {
 };
 struct LagerGood {
     char title[14];
-    uint16_t qty, res;
+    uint16_t qty, res;  // qty im ganzen Dorf: Lagerplätze + Baustellen + getragen
     uint8_t lv;
     int16_t hours;
     char reach[28];
+    uint16_t site, hand;  // davon an Baustellen bzw. gerade getragen (seit 0.5.10 Teil 4c)
+    uint8_t sites;        // Zahl der Baustellen mit dieser Ware
+    char site_place[24];  // Ort der ersten Baustelle
 };
 struct LagerProject {
     char title[24], place[24], step_title[24], wait[64], who[16];

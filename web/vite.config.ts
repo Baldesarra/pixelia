@@ -128,7 +128,7 @@ function mockDevice(): Plugin {
       { t: 'Brennholz', q: 40, res: 0, lv: 3, h: 101, reach: 'Reicht noch 4 Tage' },
       { t: 'Brot', q: 20, res: 0, lv: 3, h: 30, reach: 'Reicht noch 1 Tag' },
       { t: 'Bretter', q: 6, res: 2, lv: 0, h: -1, reach: '' },
-      { t: 'Nägel', q: 10, res: 2, lv: 0, h: -1, reach: '' },
+      { t: 'Nägel', q: 16, res: 2, lv: 0, h: -1, reach: '', site: 6, sites: 1, sitePlace: 'Kammer', hand: 0 },
       { t: 'Stroh', q: 4, res: 0, lv: 0, h: -1, reach: '' },
       { t: 'Säge', q: 1, res: 0, lv: 0, h: -1, reach: '' },
     ],
