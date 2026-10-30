@@ -53,7 +53,7 @@ export const loadWorld = (more = false) => get<WorldState>(more ? '/api/world?me
 export type StoreGood = { t: string; q: number; res: number };
 export type StoreRow = { t: string; place: string; kind: string; load: number; cap: number; lv: number; h: number; goods: StoreGood[]; reach: string };
 export type GoodRow = { t: string; cat?: string; q: number; res: number; lv: number; h: number; reach: string };
-export type ProjectRow = { t: string; place: string; step: number; steps: number; stepT: string; pct: number; wait: string; who: string };
+export type ProjectRow = { t: string; place: string; step: number; steps: number; stepT: string; pct: number; stepPct: number; shares: number[]; wait: string; who: string };
 export type LagerState = { lager?: { stores: StoreRow[]; goods: GoodRow[]; projects: ProjectRow[] } };
 
 // Entwicklung: Parameter der Seite gehen an den Mock (?leer=1, ?viele=1)

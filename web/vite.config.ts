@@ -133,7 +133,7 @@ function mockDevice(): Plugin {
       { t: 'Säge', q: 1, res: 0, lv: 0, h: -1, reach: '' },
     ],
     projects: [
-      { t: 'Bett bauen', place: 'Kammer', step: 2, steps: 3, stepT: 'Liegefläche', pct: 55, wait: 'Wartet auf die Säge', who: '' },
+      { t: 'Bett bauen', place: 'Kammer', step: 2, steps: 3, stepT: 'Liegefläche', pct: 58, stepPct: 28, shares: [50, 31, 19], wait: 'Wartet auf die Säge', who: '' },
     ],
   };
   // Dorf mit vielen Orten (Ausblick Kapitel 1, ?viele=1): Erzeuger- und Gemeinschaftslager, 16 Häuser mit drei Vorräten
@@ -178,8 +178,8 @@ function mockDevice(): Plugin {
       { t: 'Nägel', cat: 'Baustoff und Werkzeug', q: 60, res: 0, lv: 0, h: -1, reach: '' },
     ],
     projects: [
-      { t: 'Bett bauen', place: 'Haus Ida', step: 2, steps: 3, stepT: 'Liegefläche', pct: 55, wait: '', who: 'Konrad' },
-      { t: 'Notunterkunft', place: 'Bahnhof', step: 1, steps: 4, stepT: 'Wände', pct: 12, wait: 'Wartet auf Bretter', who: '' },
+      { t: 'Bett bauen', place: 'Haus Ida', step: 2, steps: 3, stepT: 'Liegefläche', pct: 58, stepPct: 28, shares: [50, 31, 19], wait: '', who: 'Konrad' },
+      { t: 'Notunterkunft', place: 'Bahnhof', step: 1, steps: 4, stepT: 'Wände', pct: 12, stepPct: 30, shares: [40, 20, 25, 15], wait: 'Wartet auf Bretter', who: '' },
     ],
   };
   const mockChronicle = [

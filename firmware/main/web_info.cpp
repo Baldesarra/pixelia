@@ -682,7 +682,9 @@ esp_err_t world_get(httpd_req_t* req) {
             for (int i = 0; i < v->projects; ++i) {
                 const gfx::LagerProject& p = v->p[i];
                 j.obj().str("t", p.title).str("place", p.place).num("step", p.step).num("steps", p.steps).str("stepT", p.step_title);
-                j.num("pct", p.pct).str("wait", p.wait).str("who", p.who).end_obj();
+                j.num("pct", p.pct).num("stepPct", p.step_pct).arr("shares");
+                for (int k = 0; k < p.steps && k < 6; ++k) j.num(nullptr, p.step_share[k]);
+                j.end_arr().str("wait", p.wait).str("who", p.who).end_obj();
             }
             j.end_arr().end_obj();
         }

@@ -241,7 +241,9 @@ struct LagerGood {
 };
 struct LagerProject {
     char title[24], place[24], step_title[24], wait[64], who[16];
-    uint8_t step, steps, pct;  // step ab 1
+    uint8_t step, steps, pct;  // step ab 1, pct des ganzen Projekts
+    uint8_t step_pct;          // Fortschritt des laufenden Schritts
+    uint8_t step_share[6];     // Anteil jedes Schritts an der ganzen Arbeit in Prozent (Segmente)
 };
 struct LagerView {
     int stores, goods, projects;

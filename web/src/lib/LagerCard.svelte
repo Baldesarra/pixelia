@@ -2,7 +2,7 @@
   // Lager (seit 0.5.10 Teil 4b, Seite Welt, Wahl des Users „Sorgen zuerst“): nur was knapp oder leer ist, sonst ein
   // Satz; laufende Projekte mit Fortschritt; Knopf zur Seite Lager (Waren | Orte). Stand aus /api/world?lager=1 alle 30 s.
   import { onDestroy } from 'svelte';
-  import { Button, Card, Icon, WavyProgress } from './m3';
+  import { Button, Card, Icon } from './m3';
   import { loadLager, shortReach, ware, worries, type LagerState } from './world';
 
   let w = $state<LagerState | null>(null);
@@ -18,8 +18,7 @@
   const places = $derived(new Set(stores.filter((s) => !worst.includes(s)).map((s) => s.place)).size);
   const SHOW = 3;
   let all = $state(false);
-  const calm = $derived(stores.length - worst.length);
-</script>
+  const calm = $derived(stores.length - worst.length);</script>
 
 <Card>
   <h2 class="card-title"><Icon name="inventory_2" size={20} />Lager</h2>
@@ -65,7 +64,15 @@
               <span class="tnum qty">{p.pct} %</span>
             </div>
             <span class="muted small">{p.place} · Schritt {p.step} von {p.steps}: {p.stepT}</span>
-            <WavyProgress value={p.pct / 100} label="Fortschritt {p.t}" />
+            <!-- ein Segment je Schritt, Breite nach Arbeitszeit; steht still (Wahl des Users: die Welle störte bei
+                 Fortschritt über Stunden) -->
+            <div class="segs" role="progressbar" aria-label="Fortschritt {p.t}" aria-valuemin={0} aria-valuemax={100} aria-valuenow={p.pct}>
+              {#each p.shares as share, i (i)}
+                <span class="seg" style:flex-grow={share}>
+                  <span class="fill" style:width="{i < p.step - 1 ? 100 : i === p.step - 1 ? p.stepPct : 0}%"></span>
+                </span>
+              {/each}
+            </div>
             {#if p.wait}
               <span class="state lv2"><Icon name="schedule" size={16} />{p.wait}</span>
             {:else if p.who}
@@ -177,6 +184,35 @@
   }
   .qty {
     font-weight: 600;
+  }
+  .segs {
+    display: flex;
+    gap: 4px;
+    margin: 4px 0 2px;
+  }
+  .seg {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 12px;
+    height: 10px;
+    overflow: hidden;
+    border-radius: var(--md-sys-shape-corner-full);
+    background: var(--md-sys-color-secondary-container);
+  }
+  .fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: inherit;
+    background: var(--md-sys-color-primary);
+    transition: width var(--m3-spatial-slow);
+  }
+  .seg:not(:first-child) {
+    border-top-left-radius: 3px;
+    border-bottom-left-radius: 3px;
+  }
+  .seg:not(:last-child) {
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
   }
   .state {
     display: flex;

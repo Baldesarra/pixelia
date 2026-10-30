@@ -671,6 +671,10 @@ void fill_lager(app::gfx::LagerView& v) {
             if (k < pr.step) done += d.steps[k].minutes * 60u;
         }
         r.pct = static_cast<uint8_t>(all ? std::min<uint32_t>(99, done * 100 / all) : 0);
+        const uint32_t step_s = d.steps[pr.step].minutes * 60u;
+        r.step_pct = static_cast<uint8_t>(step_s ? std::min<uint32_t>(99, pr.work_s * 100 / step_s) : 0);
+        for (int k = 0; k < d.step_count && k < 6; ++k)
+            r.step_share[k] = static_cast<uint8_t>(all ? d.steps[k].minutes * 6000u / all : 0);
         pl.wait_text(pr, l, r.wait, sizeof(r.wait));
         if (r.wait[0] >= 'a' && r.wait[0] <= 'z') r.wait[0] = static_cast<char>(r.wait[0] - 'a' + 'A');
         if (const pixelia::FigureRecord* f = pr.who ? env.figures.find(pr.who) : nullptr)
