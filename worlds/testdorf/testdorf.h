@@ -12,7 +12,12 @@ namespace pixelia::testdorf {
 // Teile des Katalogs (Bilder in assets/testorte, Paket „moebel“ bzw. „raum“)
 enum Part : uint8_t {
     kPDoor, kPWindow, kPPicture, kPWardrobe, kPBed, kPTable, kPChair, kPCrate, kPRug, kPLamp, kPPlant, kPToken,
-    kPBush, kPBench, kPWindowBig, kPCandle, kPPot, kPOven, kPBasin, kPPuddle, kPartCount,
+    kPBush, kPBench, kPWindowBig, kPCandle, kPPot, kPOven, kPBasin, kPPuddle,
+    // seit 0.5.10 Teil 2b: Lagerplätze mit Stellplätzen für jedes Stück, Arbeitsplätze
+    kPWoodpile, kPWoodshed, kPBreadShelf, kPChopBlock, kPBakeOven,
+    // seit 0.5.10 Teil 3b: Materialstapel einer Baustelle (unsichtbare Grundfläche, versperrt nichts) und Bauplane am
+    // Boden darunter (nur zu sehen, solange gebaut wird)
+    kPBuildPile, kPBuildCloth, kPartCount,
 };
 
 // Farbreihen: 0 wie gezeichnet, 1–4 rot, blau, gelb, lavendel, 5 Holz, 6 Tapete (seit 0.5.8 Teil 2 ohne Grün: dessen
@@ -31,5 +36,6 @@ inline constexpr const char* kLegend = " .,\"*=_-ocWST#hHsf~";
 
 extern const PlaceDef kWiese, kRaum, kKammer, kPlatz;
 extern const AreaDef kArea;
+extern const EconomyDef kEconomy;  // Waren, Lagerplätze, Startvorrat (seit 0.5.10, waren.cpp)
 
 }  // namespace pixelia::testdorf

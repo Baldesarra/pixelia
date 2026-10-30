@@ -14,6 +14,9 @@
 
 namespace pixelia {
 class AssetStore;
+class Ledger;
+class ProjectList;
+struct Project;
 }
 
 namespace pixelia::ui {
@@ -117,10 +120,22 @@ struct CardMeter {
     uint8_t progress = 0;  // 0–255 zur nächsten Stufe (bei 3: voll)
 };
 
+// Teilaufgabe eines Projekts als Schritt einer senkrechten Leiste (seit 0.5.10, Wunsch und Wahl des Users nach
+// Kontaktbogen): Punkt (offen, läuft, fertig), daneben der Name; nur der laufende Schritt zeigt darunter sein Material
+// („Bretter 1 / 2“, je Angabe eine Zeile). So bleibt die Karte auch bei 13 Schritten (Lok) übersichtlich
+struct CardStep {
+    static constexpr int kMaxDetails = 3;
+    std::string title;
+    std::string detail[kMaxDetails];
+    int detail_count = 0;
+    uint8_t state = 0;     // 0 offen, 1 läuft, 2 fertig
+};
+
 struct Card {
     enum class Kind : uint8_t { None, Figure, Building, Exhibit };
-    static constexpr int kMaxLines = 4;
+    static constexpr int kMaxLines = 6;  // seit 0.5.10 Teil 2b: Lager mit mehreren Waren
     static constexpr int kMaxMeters = 3;
+    static constexpr int kMaxSteps = 8;
     Kind kind = Kind::None;
     std::string title;
     std::string subtitle;  // was die Figur gerade tut (Teile: Zustand, z. B. „im Bau“)
@@ -134,6 +149,8 @@ struct Card {
     int line_count = 0;
     CardMeter meters[kMaxMeters];  // unter den Angaben, je eine Zeile (so viele, wie Platz haben)
     int meter_count = 0;
+    CardStep steps[kMaxSteps];     // seit 0.5.10: Teilaufgaben eines Projekts, vor den Angaben
+    int step_count = 0;
     Symbol hint_symbol = Symbol::None;
     CardPicture picture;
     int mark_x = -1, mark_y = -1, mark_h = 0;  // Markierung in der Welt (fein): Fußpunkt und Höhe, −1 = keine
@@ -148,5 +165,21 @@ void render_card(Canvas& canvas, const Card& card, const CardStyle& style);
 Rect card_rect(const Card& card, const CardStyle& style);
 // Knopf unten auf der Seitenkarte (seit 0.5.6): „Folgen“ bei einer Figur, „Betreten“ bei einer Tür; w = 0: keiner
 Rect card_button(const Card& card, const CardStyle& style);
+
+// Karte eines Lagerplatzes (seit 0.5.10 Teil 2b, Wahl des Users nach Kontaktbogen) mit den Daten des Warenbuchs: eine
+// Ware in Zeilen („Brennholz: 9 von 12“, Reichweite in Worten, heute gebracht und verbraucht, Reserviertes, was hinten
+// liegt), mehrere als kurze Liste („Brot 24 · gut“). slots = Stellplätze des Teils (0 = zeigt keine Stücke, nichts
+// liegt „hinten“). Setzt Art, Titel, Unterzeile und Angaben; Ort, Bild und Hinweis setzt der Ort
+void store_card(const Ledger& ledger, int store, int slots, Card* card);
+// Reichweite in Worten (seit Teil 4b auch für Weboberfläche und Konsole „lager“): „Leer“, „Gerade kein Verbrauch“,
+// „Reicht noch etwa 9 Std.“, „Reicht noch 1 Tag“, „Reicht noch 3 Tage“; hours = Ledger::reach_hours (−1 = kein Abgang).
+// Gibt buf oder eine feste Zeichenkette zurück
+const char* reach_text(int qty, int hours, char* buf, int n);
+
+// Karte eines Projekts (seit 0.5.10 Teil 3b, Wahl des Users nach Kontaktbogen): senkrechte Schritt-Leiste aus den
+// Teilaufgaben, nur der laufende Schritt zeigt sein Material („Bretter 4 / 6“ = verbaut / Bedarf); darunter der Grund
+// des Wartens in einem Satz bzw. wer arbeitet, und wie viel Arbeit noch fehlt. worker = Name der Figur, die daran
+// arbeitet (nullptr = niemand). Setzt Art, Titel, Unterzeile, Schritte und Angaben; Ort und Hinweis setzt der Ort
+void project_card(const ProjectList& projects, const Project& p, const Ledger& ledger, const char* worker, Card* card);
 
 }  // namespace pixelia::ui

@@ -17,6 +17,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "pixelia/engine/color.h"
+#include "pixelia/engine/econ_log.h"
 #include "pixelia/engine/memory.h"
 #include "pixelia/engine/camera.h"
 #include "pixelia/engine/overlay.h"
@@ -451,6 +452,11 @@ constexpr size_t kSaveCap = 96 * 1024;
 constexpr int64_t kSaveEveryUs = 5LL * 60 * 1000000;
 const pixelia::SaveSlots s_slots("/data", "welt");
 constexpr const char* kImportMark = "/data/welt-eingespielt";  // Sicherung eingespielt: Eintrag in die Chronik
+// Wirtschafts-Protokoll (seit 0.5.10 Teil 4, engine/econ_log.h): Zeilen im PSRAM, Schnitt beim Packen (Kern 1),
+// Anhängen nach dem Schreiben des Speicherstands (Lade-Task, Kern 0). So steht jede Buchung genau einmal im Protokoll
+constexpr const char* kEconDir = "/data/wirtschaft";
+constexpr size_t kEconBuffer = 128 * 1024;  // je Puffer (laufend, ausstehend), PSRAM
+pixelia::EconomyLog s_econ;
 std::atomic<bool> s_save_locked{false};  // Sicherung eingespielt: bis zum Neustart nicht speichern
 uint8_t* s_save_buf = nullptr;  // PSRAM
 size_t s_save_len = 0;
@@ -461,10 +467,15 @@ app::gfx::SaveInfo s_save{};  // unter s_world_lock
 std::atomic<int> s_view_req{0};
 app::gfx::WorldView* s_view = nullptr;  // PSRAM
 std::mutex s_view_lock;
+// Lager (seit 0.5.10 Teil 4b): eigene Anfrage, damit /api/world?lager=1 nicht die Figuren mitfüllt
+std::atomic<int> s_lager_req{0};
+app::gfx::LagerView* s_lager = nullptr;  // PSRAM
+std::mutex s_lager_lock;
 
 void load_save() {
     s_save_buf = static_cast<uint8_t*>(heap_caps_malloc(kSaveCap, MALLOC_CAP_SPIRAM));
     s_view = static_cast<app::gfx::WorldView*>(heap_caps_calloc(1, sizeof(app::gfx::WorldView), MALLOC_CAP_SPIRAM));
+    s_lager = static_cast<app::gfx::LagerView*>(heap_caps_calloc(1, sizeof(app::gfx::LagerView), MALLOC_CAP_SPIRAM));
     std::vector<uint8_t> d;
     pixelia::SaveHeader h;
     int slot = -1;
@@ -522,6 +533,7 @@ void save_tick(int64_t now) {
     }
     const int64_t t = esp_timer_get_time();
     const size_t n = s_stage.save_state(s_save_buf, kSaveCap, gen);
+    if (n) s_econ.cut();  // was bis jetzt gebucht ist, gehört zu diesem Stand (angehängt nach dem Schreiben)
     const uint32_t us = static_cast<uint32_t>(esp_timer_get_time() - t);
     int figures = 0, transit = 0;
     const pixelia::FigureBook& book = s_stage.environment().figures;
@@ -582,6 +594,164 @@ void fill_view() {
     v.visits_open = 0;
     for (int i = 0; i < env.visits.count(); ++i) v.visits_open += env.visits.at(i).to == pixelia::Visit::kOpen;
     s_view_req.store(2);
+}
+
+// Lager-Ansicht aus Warenbuch und Projekten (Grafik-Task): Weboberfläche und Konsole „lager“
+void fill_lager(app::gfx::LagerView& v) {
+    const pixelia::Environment& env = s_stage.environment();
+    const pixelia::Ledger& l = env.ledger;
+    v.stores = v.goods = v.projects = 0;
+    char buf[64];
+    for (int s = 0; s < l.stores() && v.stores < 24; ++s) {
+        const pixelia::StoreKind kind = l.store_kind(s);
+        if (kind == pixelia::StoreKind::Site || kind == pixelia::StoreKind::Hand) continue;
+        app::gfx::LagerStore& r = v.s[v.stores++];
+        r = {};
+        std::snprintf(r.title, sizeof(r.title), "%s", l.store_title(s));
+        const pixelia::PlaceDef* p = pixelia::place_at(l.store_place(s));
+        std::snprintf(r.place, sizeof(r.place), "%s", p ? p->title : "?");
+        std::snprintf(r.kind, sizeof(r.kind), "%s", pixelia::store_kind_title(kind));
+        r.load = static_cast<uint16_t>(l.load(s));
+        r.cap = static_cast<uint16_t>(l.capacity(s));
+        r.lv = static_cast<uint8_t>(l.store_level(s));
+        uint8_t g[6];
+        uint16_t q[6];
+        const int n = l.contents(s, g, q, 6);
+        for (int k = 0; k < n; ++k) {
+            std::snprintf(r.g[k].title, sizeof(r.g[k].title), "%s", l.good(g[k]).title);
+            r.g[k].qty = q[k];
+            r.g[k].res = static_cast<uint16_t>(l.reserved(s, g[k]));
+        }
+        r.goods = static_cast<uint8_t>(n);
+        r.hours = -1;
+        // eine Ware (leer: die Ware der ersten Regel): Reichweite in Worten wie die Karte am Display
+        int good = n == 1 ? g[0] : -1;
+        if (const pixelia::StoreDef* d = l.store_def(s); n == 0 && d && d->rule_count > 0) good = l.find_good(d->rules[0].good);
+        if (n <= 1 && good >= 0) {
+            if (n == 0) {
+                std::snprintf(r.g[0].title, sizeof(r.g[0].title), "%s", l.good(good).title);
+                r.goods = 1;
+            }
+            const int h = l.reach_hours(s, good);
+            r.hours = static_cast<int16_t>(std::min(h, 32767));
+            std::snprintf(r.reach, sizeof(r.reach), "%s", pixelia::ui::reach_text(l.qty(s, good), h, buf, sizeof(buf)));
+        }
+    }
+    for (int k = 0; k < l.goods() && v.goods < 16; ++k) {
+        const int total = l.total(k);
+        if (total == 0 && l.use_24h(k) == 0) continue;  // gibt es gerade nicht im Dorf
+        app::gfx::LagerGood& r = v.g[v.goods++];
+        r = {};
+        std::snprintf(r.title, sizeof(r.title), "%s", l.good(k).title);
+        r.qty = static_cast<uint16_t>(std::min(total, 65535));
+        for (int s = 0; s < l.stores(); ++s) {
+            r.res = static_cast<uint16_t>(r.res + l.reserved(s, k));
+            // Baustellen und Tragen zeigt die Seite Lager mit, sonst geht die Summe nicht auf (Nägel 54 + 6 = 60)
+            const int q = l.qty(s, k);
+            if (q <= 0) continue;
+            const pixelia::StoreKind kind = l.store_kind(s);
+            if (kind == pixelia::StoreKind::Hand) {
+                r.hand = static_cast<uint16_t>(r.hand + q);
+            } else if (kind == pixelia::StoreKind::Site) {
+                r.site = static_cast<uint16_t>(r.site + q);
+                if (r.sites++ == 0) {
+                    const pixelia::PlaceDef* p = pixelia::place_at(l.store_place(s));
+                    std::snprintf(r.site_place, sizeof(r.site_place), "%s", p ? p->title : "?");
+                }
+            }
+        }
+        r.lv = static_cast<uint8_t>(l.level(k));
+        const int h = l.reach_hours(k);
+        r.hours = static_cast<int16_t>(std::min(h, 32767));
+        if (h >= 0) std::snprintf(r.reach, sizeof(r.reach), "%s", pixelia::ui::reach_text(total, h, buf, sizeof(buf)));
+    }
+    const pixelia::ProjectList& pl = env.projects;
+    for (int i = 0; i < pl.count() && v.projects < 4; ++i) {
+        const pixelia::Project& pr = pl.at(i);
+        const pixelia::ProjectDef& d = pl.def(pr.def);
+        if (pr.done(d.step_count)) continue;
+        app::gfx::LagerProject& r = v.p[v.projects++];
+        r = {};
+        std::snprintf(r.title, sizeof(r.title), "%s", d.title);
+        const pixelia::PlaceDef* p = pixelia::place_at(pl.place_of(pr));
+        std::snprintf(r.place, sizeof(r.place), "%s", p ? p->title : "?");
+        r.step = static_cast<uint8_t>(pr.step + 1);
+        r.steps = d.step_count;
+        const pixelia::ProjectStepDef& st = d.steps[pr.step];
+        std::snprintf(r.step_title, sizeof(r.step_title), "%s", st.label ? st.label : st.title);
+        // Fortschritt nach Arbeitszeit aller Schritte
+        uint32_t all = 0, done = pr.work_s;
+        for (int k = 0; k < d.step_count; ++k) {
+            all += d.steps[k].minutes * 60u;
+            if (k < pr.step) done += d.steps[k].minutes * 60u;
+        }
+        r.pct = static_cast<uint8_t>(all ? std::min<uint32_t>(99, done * 100 / all) : 0);
+        const uint32_t step_s = d.steps[pr.step].minutes * 60u;
+        r.step_pct = static_cast<uint8_t>(step_s ? std::min<uint32_t>(99, pr.work_s * 100 / step_s) : 0);
+        for (int k = 0; k < d.step_count && k < 6; ++k)
+            r.step_share[k] = static_cast<uint8_t>(all ? d.steps[k].minutes * 6000u / all : 0);
+        pl.wait_text(pr, l, r.wait, sizeof(r.wait));
+        if (r.wait[0] >= 'a' && r.wait[0] <= 'z') r.wait[0] = static_cast<char>(r.wait[0] - 'a' + 'A');
+        if (const pixelia::FigureRecord* f = pr.who ? env.figures.find(pr.who) : nullptr)
+            std::snprintf(r.who, sizeof(r.who), "%s", f->name.data());
+    }
+}
+
+void fill_lager_view() {
+    if (s_lager_req.load() != 1 || !s_lager) return;
+    fill_lager(*s_lager);
+    s_lager_req.store(2);
+}
+
+// Konsole „wirtschaft bestand“ (seit 0.5.10 Teil 4c, Prüfung „jede Buchung genau einmal“): jeder Lagerplatz samt
+// Baustellen mit Kennung wie im Protokoll, dazu die noch offenen Zeilen. Bei offen=0 steht alles bis jetzt in den
+// Dateien: Bestand jetzt = Bestand vorher + Summe der Bewegungen dazwischen
+void log_stock() {
+    const pixelia::Ledger& l = s_stage.environment().ledger;
+    const pixelia::EconomyLog::Stats es = s_econ.stats();
+    const int64_t m = s_stage.environment().world_minute;
+    ESP_LOGI(TAG, "bestand-kopf,weltminute=%lld,zeilen=%lu,geschrieben=%lu,offen=%ld,verloren=%lu",
+             static_cast<long long>(m), static_cast<unsigned long>(es.rows), static_cast<unsigned long>(es.written),
+             static_cast<long>(es.rows) - static_cast<long>(es.written) - static_cast<long>(es.lost),
+             static_cast<unsigned long>(es.lost));
+    for (int s = 0; l.ready() && s < l.stores(); ++s) {
+        uint8_t g[24];
+        uint16_t q[24];
+        char kb[12];
+        const int k = l.contents(s, g, q, 24);
+        const char* key = l.store_key(s, kb, sizeof(kb));
+        for (int i = 0; i < k; ++i) ESP_LOGI(TAG, "bestand,%s,%s,%u", key, l.good(g[i]).id, static_cast<unsigned>(q[i]));
+    }
+    ESP_LOGI(TAG, "bestand-ende");
+}
+
+// Konsole „lager“: dieselben Angaben ins Log
+void log_lager() {
+    static app::gfx::LagerView* v = static_cast<app::gfx::LagerView*>(heap_caps_malloc(sizeof(app::gfx::LagerView), MALLOC_CAP_SPIRAM));
+    if (!v) return;
+    fill_lager(*v);
+    static constexpr const char* kLv[] = {"ohne Verbrauch", "Notbestand", "knapp", "gut", "reichlich"};
+    ESP_LOGI(TAG, "Lager: %d Lagerplätze", v->stores);
+    for (int i = 0; i < v->stores; ++i) {
+        const app::gfx::LagerStore& s = v->s[i];
+        char goods[96] = "";
+        for (int k = 0, at = 0; k < s.goods && at < static_cast<int>(sizeof(goods)) - 1; ++k)
+            at += std::snprintf(goods + at, sizeof(goods) - at, "%s%s %u%s", k ? ", " : "", s.g[k].title, s.g[k].qty,
+                                s.g[k].res ? " (res.)" : "");
+        ESP_LOGI(TAG, "  %s (%s, %s): %u/%u, %s, %s%s%s", s.title, s.place, s.kind, s.load, s.cap, kLv[s.lv % 5], goods,
+                 s.reach[0] ? " · " : "", s.reach);
+    }
+    ESP_LOGI(TAG, "Waren im Dorf: %d", v->goods);
+    for (int i = 0; i < v->goods; ++i) {
+        const app::gfx::LagerGood& g = v->g[i];
+        ESP_LOGI(TAG, "  %s %u (reserviert %u), %s%s%s", g.title, g.qty, g.res, kLv[g.lv % 5], g.reach[0] ? " · " : "", g.reach);
+    }
+    ESP_LOGI(TAG, "Projekte in Arbeit: %d", v->projects);
+    for (int i = 0; i < v->projects; ++i) {
+        const app::gfx::LagerProject& p = v->p[i];
+        ESP_LOGI(TAG, "  %s (%s): Schritt %u von %u (%s), %u %%, %s", p.title, p.place, p.step, p.steps, p.step_title, p.pct,
+                 p.wait[0] ? p.wait : p.who[0] ? p.who : "niemand dran");
+    }
 }
 
 // Weltzeit fortschreiben (Grafik-Task, nach den Logik-Schritten): Testuhr, Länge, Meldungen, Speichern, Stand
@@ -881,6 +1051,36 @@ void apply_place_requests(int ticks) {
             }
             continue;
         }
+        if (std::strcmp(cmd, "aufgaben") == 0) {
+            // Aufgabenliste ins Log (seit 0.5.10 Teil 2, Wunsch des Users): wer holt was von wo nach wo
+            const pixelia::TaskList& tl = s_stage.environment().tasks;
+            const pixelia::Ledger& led = s_stage.environment().ledger;
+            ESP_LOGI(TAG, "Aufgaben: %d", tl.count());
+            for (int i = 0; i < tl.count(); ++i) {
+                char buf[128];
+                ESP_LOGI(TAG, "  %s", tl.describe(i, led, buf, sizeof(buf)));
+            }
+            continue;
+        }
+        if (std::strcmp(cmd, "lager") == 0) {
+            log_lager();  // seit 0.5.10 Teil 4b: wie die Lager-Karte im Web
+            continue;
+        }
+        if (std::strcmp(cmd, "bestand") == 0) {
+            log_stock();
+            continue;
+        }
+        if (std::strcmp(cmd, "projekte") == 0) {
+            // Projekte ins Log (seit 0.5.10 Teil 3): Schritt, Arbeit, verbautes Material, wer, worauf es wartet
+            const pixelia::ProjectList& pl = s_stage.environment().projects;
+            const pixelia::Ledger& led = s_stage.environment().ledger;
+            ESP_LOGI(TAG, "Projekte: %d", pl.count());
+            for (int i = 0; i < pl.count(); ++i) {
+                char buf[200];
+                ESP_LOGI(TAG, "  %s", pl.describe(i, led, buf, sizeof(buf)));
+            }
+            continue;
+        }
         const bool ok = s_stage.command(cmd);
         ESP_LOGI(TAG, "Befehl \"%s\" an %s: %s", cmd, s_stage.scene(s_stage.active()).name(), ok ? "ok" : "unbekannt");
     }
@@ -918,6 +1118,15 @@ void gfx_task(void* arg) {
     // Speicherstand (seit 0.5.9) hier statt im Haupt-Task: die Bühne gehört Kern 1, und der Haupt-Task hat nur 3,5 KB Stack
     pixelia::set_figure_art_clock([] { return static_cast<int64_t>(esp_timer_get_time()); });
     load_save();
+    // Wirtschafts-Protokoll an Warenbuch und Projekte hängen (Puffer im PSRAM), Ordner zählen
+    if (s_econ.attach(s_stage.environment(), kEconBuffer, "geraet")) {
+        s_econ.scan(kEconDir);
+        const pixelia::EconomyLog::Stats es = s_econ.stats();
+        ESP_LOGI(TAG, "Wirtschafts-Protokoll %s: %lu Dateien, %.1f KB", kEconDir, static_cast<unsigned long>(es.files),
+                 es.bytes / 1024.0);
+    } else {
+        ESP_LOGW(TAG, "Wirtschafts-Protokoll: kein Puffer im PSRAM");
+    }
 
     pixelia::ui::apply_palette(s_ui_pal);
     for (int i = 0; i < 16; ++i) s_ui_pal565[i] = pixelia::to_rgb565(s_ui_pal[pixelia::ui::kFirstIndex + i]);
@@ -990,11 +1199,15 @@ void gfx_task(void* arg) {
                          s_stage.transition_step(), was ? "lief" : "aus", s_stage.last_grid_steps(),
                          s_stage.last_prepare());
             s_camera.tick(s_stage);
+            s_econ.step(s_stage);
         }
+        // Puffer des Protokolls zu drei Vierteln voll (Nachholen nach langer Pause): gleich speichern
+        if (s_econ.wants_save()) request_save();
         s_place.store(s_stage.active(), std::memory_order_relaxed);
         update_world_state(ticks);
         save_tick(t0);
         fill_view();
+        fill_lager_view();
         update_card(t0, ticks);
         after_ticks(t0);
         publish_camera(ticks);
@@ -1280,6 +1493,38 @@ void write_save() {
                  static_cast<unsigned long>(s_save.pack_us), static_cast<unsigned long>(ms));
     else
         ESP_LOGW(TAG, "Speicherstand nicht geschrieben (%s)", s_slots.path(slot));
+    // Wirtschafts-Protokoll: erst jetzt anhängen (der Stand mit diesen Buchungen liegt sicher im Flash)
+    if (ok && s_econ.pending()) {
+        const int64_t e0 = esp_timer_get_time();
+        const uint32_t before = s_econ.stats().written;
+        const bool eok = s_econ.flush(kEconDir);
+        const pixelia::EconomyLog::Stats es = s_econ.stats();
+        const uint32_t ems = static_cast<uint32_t>((esp_timer_get_time() - e0) / 1000);
+        {
+            std::lock_guard<std::mutex> g(s_world_lock);
+            s_save.econ_flush_ms = ems;
+        }
+        if (eok)
+            ESP_LOGI(TAG, "Wirtschafts-Protokoll: %lu Zeilen angehängt in %lu ms, %lu Dateien, %.1f KB (Tage %ld–%ld)",
+                     static_cast<unsigned long>(es.written - before), static_cast<unsigned long>(ems),
+                     static_cast<unsigned long>(es.files), es.bytes / 1024.0, static_cast<long>(es.first_day),
+                     static_cast<long>(es.last_day));
+        else
+            ESP_LOGW(TAG, "Wirtschafts-Protokoll nicht angehängt (%s), bleibt im Puffer", kEconDir);
+    }
+    {
+        const pixelia::EconomyLog::Stats es = s_econ.stats();
+        std::lock_guard<std::mutex> g(s_world_lock);
+        s_save.econ_rows = es.rows;
+        s_save.econ_written = es.written;
+        s_save.econ_lost = es.lost;
+        s_save.econ_files = es.files;
+        s_save.econ_bytes = es.bytes;
+        s_save.econ_deleted = es.deleted;
+        s_save.econ_first = es.first_day;
+        s_save.econ_last = es.last_day;
+        s_save.econ_error = es.error;
+    }
     s_save_state.store(0);
 }
 
@@ -1332,6 +1577,17 @@ bool world_view(WorldView* out) {
     const bool ok = s_view_req.load() == 2;
     if (ok) std::memcpy(out, s_view, sizeof(WorldView));
     s_view_req.store(0);
+    return ok;
+}
+
+bool lager_view(LagerView* out) {
+    std::lock_guard<std::mutex> g(s_lager_lock);
+    if (!s_lager) return false;
+    s_lager_req.store(1);
+    for (int i = 0; i < 25 && s_lager_req.load() != 2; ++i) vTaskDelay(pdMS_TO_TICKS(10));
+    const bool ok = s_lager_req.load() == 2;
+    if (ok) std::memcpy(out, s_lager, sizeof(LagerView));
+    s_lager_req.store(0);
     return ok;
 }
 

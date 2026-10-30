@@ -14,7 +14,7 @@ option(PIXELIA_SIM_WINDOW "Fenster-Modus mit SDL3 bauen" ON)
 
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../engine ${CMAKE_BINARY_DIR}/engine)
 
-add_executable(pixelia-sim src/main.cpp src/headless.cpp src/tests.cpp src/world.cpp)
+add_executable(pixelia-sim src/main.cpp src/headless.cpp src/tests.cpp src/world.cpp src/ledger_tests.cpp)
 target_link_libraries(pixelia-sim PRIVATE pixelia_engine)
 if(MINGW)
     # Ohne mitgelieferte DLLs lauffähig (libc++, libunwind)

@@ -42,7 +42,16 @@ void duration_text(int64_t minutes, char* out, size_t n) {
 // Abschnitte des Speicherstands (Kennung, Version)
 constexpr char kWorld[] = "WELT", kCal[] = "KAL ", kPlaces[] = "ORTE", kStates[] = "ZUST", kFlags[] = "MERK",
                kFigs[] = "FIGS", kChron[] = "CHRO", kVisits[] = "BESU",
-               kDoings[] = "TAET";  // seit 0.5.9 Teil 2: Takt-Grenze und Tätigkeiten
+               kDoings[] = "TAET",  // seit 0.5.9 Teil 2: Takt-Grenze und Tätigkeiten
+               // seit 0.5.10: Warenbuch (Waren mit Zählern, Bestände, Einzelstücke, Reservierungen)
+               kGoods[] = "WARE", kStock[] = "LAGR", kItems[] = "STCK", kReserve[] = "RESV",
+               kTasks[] = "AUFG",  // seit 0.5.10 Teil 2: Aufgabenliste der Gemeinschaft
+               kProjects[] = "PROJ";  // seit 0.5.10 Teil 3: Projekte mit Teilaufgaben
+
+bool ledger_chunk(const char* tag) {
+    return std::strcmp(tag, kGoods) == 0 || std::strcmp(tag, kStock) == 0 || std::strcmp(tag, kItems) == 0 ||
+           std::strcmp(tag, kReserve) == 0;
+}
 
 }  // namespace
 
@@ -441,8 +450,24 @@ size_t Stage::save_state(uint8_t* buf, size_t cap, uint32_t generation) const {
         w.i64(d.walk_us);
         w.i64(d.end_us);
         w.i64(d.since_us);
+        w.u8(static_cast<uint8_t>(d.aim));  // seit 0.5.10 Teil 2 hinten im Datensatz (ältere Stände: kein Zweck)
         w.record_end(r);
     }
+
+    // Warenbuch (seit 0.5.10): alles mit Kennungen, sortiert (unabhängig von der Reihenfolge im Speicher)
+    const Ledger& led = env_.ledger;
+    w.chunk(kGoods, 1);
+    led.save_goods(w);
+    w.chunk(kStock, 1);
+    led.save_stock(w);
+    w.chunk(kItems, 1);
+    led.save_items(w);
+    w.chunk(kReserve, 1);
+    led.save_reservations(w);
+    w.chunk(kTasks, 1);
+    env_.tasks.save(w, led);
+    w.chunk(kProjects, 1);
+    env_.projects.save(w, led);
     return w.finish();
 }
 
@@ -482,8 +507,25 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
     };
 
     // Jeder Abschnitt ersetzt seinen Teil des Weltzustands; fehlt einer, bleibt der Teil beim Anfangswert (frisch
-    // angelegte Welt nach init())
+    // angelegte Welt nach init()). Warenbuch (seit 0.5.10): Gibt es einen seiner Abschnitte, ersetzt es das ganze Buch;
+    // ein Stand 0.5.9 behält den Startvorrat der frischen Welt
     bool figures = false;
+    bool ledger = false;
+    {
+        SaveChunks c(data, n);
+        char tag[5];
+        uint16_t version = 0;
+        SaveReader d;
+        while (c.next(tag, &version, &d)) ledger = ledger || ledger_chunk(tag);
+    }
+    Ledger::LoadStats ls;
+    if (ledger) env_.ledger.clear();
+    // Aufgabenliste (seit 0.5.10 Teil 2) und Projekte (Teil 3) immer neu: ohne Abschnitt leer, Reservierungen ohne
+    // Aufgabe bzw. Projekt gibt der nächste Schritt frei. Ein Stand ohne Projekte (0.5.9, 0.5.10 Teil 1–2: „Bett im
+    // Bau“ war ein Ortszustand im Raum) beginnt die Projekte der Daten frisch, das alte Bett im Raum ist einfach fertig
+    env_.tasks.clear();
+    env_.projects.clear();
+    bool projects = false;
     SaveChunks c(data, n);
     char tag[5];
     uint16_t version = 0;
@@ -683,10 +725,31 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
                 v.to = d.u16();
                 if (d.ok()) env_.visits.add(v);
             }
+        } else if (std::strcmp(tag, kGoods) == 0) {
+            env_.ledger.load_goods(d, version, &ls);
+        } else if (std::strcmp(tag, kStock) == 0) {
+            env_.ledger.load_stock(d, version, &ls);
+        } else if (std::strcmp(tag, kItems) == 0) {
+            env_.ledger.load_items(d, version, &ls);
+        } else if (std::strcmp(tag, kReserve) == 0) {
+            env_.ledger.load_reservations(d, version, &ls);
+        } else if (std::strcmp(tag, kTasks) == 0) {
+            rep.tasks = env_.tasks.load(d, version, env_.ledger);
+        } else if (std::strcmp(tag, kProjects) == 0) {
+            rep.projects = env_.projects.load(d, version, env_.ledger);
+            projects = true;
         } else if (std::strcmp(tag, kPlaces) != 0 && std::strcmp(tag, kDoings) != 0) {
             ++rep.skipped_chunks;  // neuere Firmware: unbekannt, übersprungen
         }
     }
+    if (ledger) env_.ledger.finish_load(&ls);
+    if (!projects) env_.projects.start_new();
+    rep.ledger = ledger;
+    rep.stock = ls.stock;
+    rep.items = ls.items;
+    rep.reservations = ls.reservations;
+    rep.lost = ls.lost;
+    rep.moved = ls.moved;
 
     // Figuren in ihre Orte, Verbindungen neu; Weltzeit und Wetter rechnen im nächsten Schritt neu, die Ortszustände
     // holen von state_minute_ aus nach
@@ -719,6 +782,10 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
                 x.walk_us = r.i64();
                 x.end_us = r.i64();
                 x.since_us = r.i64();
+                if (r.left()) {
+                    const uint8_t aim = r.u8();
+                    x.aim = aim < static_cast<uint8_t>(DoingAim::kCount) ? static_cast<DoingAim>(aim) : DoingAim::None;
+                }
                 FigureRecord* f = env_.figures.find(id);
                 const bool sane = r.ok() && x.kind < DoingKind::kCount && x.sx < kTilesX && x.gx < kTilesX &&
                                   x.sy < kTilesY && x.gy < kTilesY && x.start_us <= x.walk_us && x.walk_us <= x.end_us;

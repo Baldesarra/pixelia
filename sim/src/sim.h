@@ -41,6 +41,7 @@ struct Options {
     std::string world_report;     // Weltjahr im Zeitraffer als Bericht (seit 0.5.7)
     int report_days = 0;          // Tage im Bericht (0 = ein Weltjahr und der nächste Frühling)
     int season_len = 7;           // Tage je Jahreszeit
+    std::string econ_dir;         // Wirtschafts-Protokoll in diesen Ordner (seit 0.5.10 Teil 4, wie am Gerät)
 };
 
 // Bühne mit den Orten des Geräts, Startort opt.scene; false = Ort unbekannt
@@ -54,6 +55,7 @@ int run_headless(const Options& opt);
 int run_tests(const std::string& which);  // 0 = alle bestanden
 int world_report(const Options& opt);     // Weltjahr im Zeitraffer (world.cpp)
 int run_world_tests();                    // Zahl der Fehler
+int run_ledger_tests();                   // Warenbuch (seit 0.5.10, ledger_tests.cpp), Zahl der Fehler
 int run_window(const Options& opt);
 
 // Beispieldaten der Info-Karte: info (im WLAN), info-setup, info-offline

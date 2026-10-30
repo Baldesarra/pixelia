@@ -10,6 +10,7 @@
   import { prefs } from './lib/prefs.svelte';
   import { themeSync } from './lib/theme-sync.svelte';
   import World from './pages/World.svelte';
+  import Lager from './pages/Lager.svelte';
   import Overview from './pages/Overview.svelte';
   import SystemHub from './pages/SystemHub.svelte';
   import SettingsHub from './pages/SettingsHub.svelte';
@@ -40,6 +41,7 @@
   type Page = { title: string; view: Component<any>; parent?: string; props?: Record<string, unknown> };
   const pages: Record<string, Page> = {
     welt: { title: 'Welt', view: World },
+    lager: { title: 'Lager', view: Lager, parent: 'welt' },
     uebersicht: { title: 'Übersicht', view: Overview },
     system: { title: 'System', view: SystemHub },
     einstellungen: { title: 'Einstellungen', view: SettingsHub },

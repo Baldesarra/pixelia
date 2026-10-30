@@ -4,6 +4,8 @@
 #include <cstdio>
 
 #include "pixelia/engine/assets.h"
+#include "pixelia/engine/ledger.h"
+#include "pixelia/engine/projects.h"
 
 namespace pixelia::ui {
 
@@ -111,9 +113,47 @@ int meter(Canvas& c, int x, int y, int w, const CardMeter& m) {
     return font::kLineHeight;
 }
 
+// Punkt eines Schritts (7 × 7): fertig gefüllt, läuft als Ring mit gefüllter linker Hälfte, offen als grauer Ring
+void step_dot(Canvas& c, int x, int y, uint8_t state) {
+    static constexpr const char* kDot[7] = {"..###..", ".#ooo#.", "#ooooo#", "#ooooo#", "#ooooo#", ".#ooo#.", "..###.."};
+    const uint8_t ink = state == 0 ? kSurfaceHigh : kPrimary;
+    for (int j = 0; j < 7; ++j)
+        for (int i = 0; i < 7; ++i) {
+            const char m = kDot[j][i];
+            if (m == '#' || (m == 'o' && (state == 2 || (state == 1 && i <= 3)))) c.fill_rect(x + i, y + j, 1, 1, ink);
+        }
+}
+
+// Teilaufgaben als senkrechte Leiste (seit 0.5.10): Punkt, Name, beim laufenden Schritt darunter das Material; gibt
+// das untere Ende zurück
+int steps(Canvas& c, int x, int y, int w, int max_y, const Card& card) {
+    const int lh = font::kLineHeight;
+    const int tx = x + 11, tw = w - 11;
+    int prev_dot = -1;
+    uint8_t prev_state = 0;
+    for (int i = 0; i < card.step_count && y + lh <= max_y; ++i) {
+        const CardStep& s = card.steps[i];
+        const int dot = y + font::kCapTop;
+        if (prev_dot >= 0)  // Linie vom vorigen Punkt zu diesem; fertige Strecke in der Akzentfarbe
+            c.fill_rect(x + 3, prev_dot + 7, 1, dot - prev_dot - 7, prev_state == 2 ? kPrimary : kSurfaceHigh);
+        step_dot(c, x, dot, s.state);
+        font::draw(c, tx, y, font::ellipsize(s.title, tw), s.state == 1 ? kText : kTextDim);
+        y += lh;
+        for (int k = 0; s.state == 1 && k < s.detail_count && y + lh <= max_y; ++k) {
+            font::draw(c, tx + 4, y, font::ellipsize(s.detail[k], tw - 4), kTextDim);
+            y += lh;
+        }
+        y += 2;
+        prev_dot = dot;
+        prev_state = s.state;
+    }
+    return y + 2;
+}
+
 // Gedanke bzw. Beschreibung und Angaben untereinander; gibt das untere Ende zurück
 int body(Canvas& c, int x, int y, int w, int max_y, const Card& card, const CardStyle& st) {
     const int lh = font::kLineHeight;
+    if (card.step_count > 0) y = steps(c, x, y, w, max_y, card);
     if (!card.quote.empty()) {
         int tx = x;
         if (card.kind == Card::Kind::Figure && s_symbols.pixels) {
@@ -404,6 +444,119 @@ void render_card(Canvas& c, const Card& card, const CardStyle& st) {
     c.fill_rect(tx, y + 2, tw, 1, kOutline);
     body(c, tx, y + 7, tw, r.y + r.h - 20, card, st);
     hint(c, 0, r.y + r.h - 15, card, st, true, r.x + r.w - pad);
+}
+
+const char* reach_text(int qty, int hours, char* buf, int n) {
+    if (qty == 0) return "Leer";
+    if (hours < 0) return "Gerade kein Verbrauch";
+    if (hours < 1) return "Reicht keine Stunde mehr";
+    if (hours < 24) return std::snprintf(buf, static_cast<size_t>(n), "Reicht noch etwa %d Std.", hours), buf;
+    if (hours < 48) return "Reicht noch 1 Tag";
+    return std::snprintf(buf, static_cast<size_t>(n), "Reicht noch %d Tage", hours / 24), buf;
+}
+
+void store_card(const Ledger& l, int store, int slots, Card* card) {
+    card->kind = Card::Kind::Building;
+    card->title = l.store_title(store);
+    const StoreKind kind = l.store_kind(store);
+    uint8_t g[Card::kMaxLines];
+    uint16_t q[Card::kMaxLines];
+    const int n = l.contents(store, g, q, Card::kMaxLines);
+    char buf[64];
+    if (n >= 2) {
+        // mehrere Waren: kurze Liste, je Ware Stand im Dorf in einem Wort oder was davon reserviert ist
+        std::snprintf(buf, sizeof(buf), "%s · %d/%d", store_kind_title(kind), l.load(store), l.capacity(store));
+        card->subtitle = buf;
+        static constexpr const char* kLevel[] = {"", " · Notbestand", " · knapp", " · gut", " · reichlich"};
+        for (int k = 0; k < n; ++k) {
+            const int res = l.reserved(store, g[k]);
+            if (res > 0)
+                std::snprintf(buf, sizeof(buf), "%s %u · davon %d reserviert", l.good(g[k]).title, q[k], res);
+            else
+                std::snprintf(buf, sizeof(buf), "%s %u%s", l.good(g[k]).title, q[k],
+                              kLevel[static_cast<int>(l.level(g[k]))]);
+            card->add_line(buf);
+        }
+        return;
+    }
+    // eine Ware in Zeilen; leer: die Ware aus der ersten Regel
+    card->subtitle = store_kind_title(kind);
+    int good = n == 1 ? g[0] : -1;
+    if (const StoreDef* d = l.store_def(store); good < 0 && d && d->rule_count > 0) good = l.find_good(d->rules[0].good);
+    if (good < 0) {
+        card->add_line("Leer");
+        return;
+    }
+    const int qty = l.qty(store, good);
+    std::snprintf(buf, sizeof(buf), "%s: %d von %d", l.good(good).title, qty, l.capacity(store));
+    card->add_line(buf);
+    card->add_line(reach_text(qty, l.reach_hours(store, good), buf, sizeof(buf)));
+    // heute dazu und weg, je eine Zeile (eine passt nicht in die Breite der Karte)
+    std::snprintf(buf, sizeof(buf), "Heute %s: %d", kind == StoreKind::Producer ? "gemacht" : "gebracht",
+                  l.in_today(store, good));
+    card->add_line(buf);
+    std::snprintf(buf, sizeof(buf), "Heute %s: %d", kind == StoreKind::House ? "verbraucht" : "geholt",
+                  l.out_today(store, good));
+    card->add_line(buf);
+    if (const int res = l.reserved(store, good); res > 0)
+        card->add_line((std::snprintf(buf, sizeof(buf), "%d davon reserviert", res), buf));
+    if (const int back = qty - slots; slots > 0 && back > 0)
+        card->add_line((std::snprintf(buf, sizeof(buf), back == 1 ? "1 liegt hinten" : "%d liegen hinten", back), buf));
+}
+
+void project_card(const ProjectList& pl, const Project& p, const Ledger& l, const char* worker, Card* card) {
+    const ProjectDef& d = pl.def(p.def);
+    card->kind = Card::Kind::Building;
+    card->title = d.title;
+    char buf[64];
+    const int steps = std::min<int>(d.step_count, Card::kMaxSteps);
+    std::snprintf(buf, sizeof(buf), "Im Bau · Schritt %d von %d", std::min<int>(p.step + 1, d.step_count),
+                  d.step_count);
+    card->subtitle = buf;
+    card->step_count = 0;
+    for (int i = 0; i < steps; ++i) {
+        const ProjectStepDef& s = d.steps[i];
+        CardStep& cs = card->steps[card->step_count++];
+        cs.title = s.label ? s.label : s.title;
+        cs.state = i < p.step ? 2 : i == p.step ? 1 : 0;
+        cs.detail_count = 0;
+        if (i != p.step) continue;
+        for (int k = 0; k < s.need_count && k < Project::kMaxNeeds && cs.detail_count < CardStep::kMaxDetails; ++k) {
+            const int g = l.find_good(s.needs[k].good);
+            if (s.needs[k].tool && g >= 0) {
+                // Werkzeug (seit Teil 4): da, unterwegs (in einer Trage) oder fehlt
+                const int site = pl.site_of(p);
+                const char* state = "fehlt";
+                if (site >= 0 && l.qty(site, g) >= s.needs[k].qty) state = "da";
+                for (int i = 0; i < l.items() && state[0] == 'f'; ++i)
+                    if (l.item_at(i).good == g && l.store_kind(l.item_at(i).store) == StoreKind::Hand) state = "unterwegs";
+                std::snprintf(buf, sizeof(buf), "%s %s", l.good(g).title, state);
+                cs.detail[cs.detail_count++] = buf;
+                continue;
+            }
+            std::snprintf(buf, sizeof(buf), "%s %u / %u", g >= 0 ? l.good(g).title : s.needs[k].good,
+                          static_cast<unsigned>(p.used[k]), static_cast<unsigned>(s.needs[k].qty));
+            cs.detail[cs.detail_count++] = buf;
+        }
+    }
+    // Warten in einem Satz, sonst wer arbeitet; dazu die Arbeit bis zum Ende des Projekts (eine Person)
+    pl.wait_text(p, l, buf, sizeof(buf));
+    if (buf[0]) {
+        if (buf[0] >= 'a' && buf[0] <= 'z') buf[0] = static_cast<char>(buf[0] - 'a' + 'A');
+        card->add_line(buf);
+    } else if (worker && worker[0]) {
+        card->add_line(std::string(worker) + " arbeitet");
+    }
+    uint32_t left = 0;
+    for (int i = p.step; i < d.step_count; ++i) left += d.steps[i].minutes * 60u;
+    left -= std::min(left, p.work_s);
+    const unsigned mins = (left + 59) / 60;
+    if (mins == 0) return;
+    if (mins < 60)
+        std::snprintf(buf, sizeof(buf), "Noch etwa %u Min. Arbeit", std::max(5u, (mins + 4) / 5 * 5));
+    else
+        std::snprintf(buf, sizeof(buf), "Noch etwa %u Std. Arbeit", (mins + 30) / 60);
+    card->add_line(buf);
 }
 
 }  // namespace pixelia::ui

@@ -626,6 +626,12 @@ esp_err_t world_get(httpd_req_t* req) {
     j.num("figures", s.figures).num("transit", s.transit).num("chronicle", s.chronicle);
     j.num("caughtUp", s.caught_up).num("skipped", s.skipped).num("catchingUp", s.catching_up);
     j.boolean("test", s.test).boolean("waiting", s.waiting).str("error", s.error).end_obj();
+    // Wirtschafts-Protokoll (seit 0.5.10 Teil 4): Zeilen, Dateien und Dauer des Anhängens beim Speichern
+    j.obj("wirtschaft").num("rows", static_cast<int64_t>(s.econ_rows)).num("written", static_cast<int64_t>(s.econ_written));
+    j.num("lost", static_cast<int64_t>(s.econ_lost)).num("files", static_cast<int64_t>(s.econ_files));
+    j.num("bytes", static_cast<int64_t>(s.econ_bytes)).num("flushMs", static_cast<int64_t>(s.econ_flush_ms));
+    j.num("deleted", static_cast<int64_t>(s.econ_deleted)).num("firstDay", s.econ_first).num("lastDay", s.econ_last);
+    j.boolean("error", s.econ_error).end_obj();
     // Figuren und Chronik nur auf Wunsch (?mehr=1): die Grafik-Task füllt die Ansicht im nächsten Bild
     std::string more;
     if (query_value(req, "mehr", &more) && more == "1") {
@@ -652,6 +658,36 @@ esp_err_t world_get(httpd_req_t* req) {
                     .str("text", v->ch[i].text).end_obj();
             j.end_arr();
             j.num("visits", v->visits).num("visitsOpen", v->visits_open);
+        }
+    }
+    // Lager (seit 0.5.10 Teil 4b, ?lager=1): Lagerplätze, Waren im Dorf, Projekte; die Grafik-Task füllt auf Anfrage
+    std::string lager;
+    if (query_value(req, "lager", &lager) && lager == "1") {
+        static gfx::LagerView* v = static_cast<gfx::LagerView*>(heap_caps_malloc(sizeof(gfx::LagerView), MALLOC_CAP_SPIRAM));
+        if (v && gfx::lager_view(v)) {
+            j.obj("lager").arr("stores");
+            for (int i = 0; i < v->stores; ++i) {
+                const gfx::LagerStore& s = v->s[i];
+                j.obj().str("t", s.title).str("place", s.place).str("kind", s.kind).num("load", s.load).num("cap", s.cap);
+                j.num("lv", s.lv).num("h", s.hours).str("reach", s.reach).arr("goods");
+                for (int k = 0; k < s.goods; ++k) j.obj().str("t", s.g[k].title).num("q", s.g[k].qty).num("res", s.g[k].res).end_obj();
+                j.end_arr().end_obj();
+            }
+            j.end_arr().arr("goods");
+            for (int i = 0; i < v->goods; ++i) {
+                const gfx::LagerGood& g = v->g[i];
+                j.obj().str("t", g.title).num("q", g.qty).num("res", g.res).num("lv", g.lv).num("h", g.hours).str("reach", g.reach);
+                j.num("site", g.site).num("sites", g.sites).str("sitePlace", g.site_place).num("hand", g.hand).end_obj();
+            }
+            j.end_arr().arr("projects");
+            for (int i = 0; i < v->projects; ++i) {
+                const gfx::LagerProject& p = v->p[i];
+                j.obj().str("t", p.title).str("place", p.place).num("step", p.step).num("steps", p.steps).str("stepT", p.step_title);
+                j.num("pct", p.pct).num("stepPct", p.step_pct).arr("shares");
+                for (int k = 0; k < p.steps && k < 6; ++k) j.num(nullptr, p.step_share[k]);
+                j.end_arr().str("wait", p.wait).str("who", p.who).end_obj();
+            }
+            j.end_arr().end_obj();
         }
     }
     j.end_obj();

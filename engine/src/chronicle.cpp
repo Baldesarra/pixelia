@@ -66,6 +66,8 @@ bool Chronicle::note(const WorldEvent& e, const FigureBook& figures, int32_t day
         case EventKind::SeasonEvening:
         case EventKind::SeasonBegins:
         case EventKind::First:
+        case EventKind::Stock:    // seit 0.5.10: nur Besonderes (Wahl des Users), nicht jede Bewegung
+        case EventKind::Project:  // seit 0.5.10 Teil 3: Teilaufgabe fertig, Projekt fertig
             std::snprintf(c.text, sizeof(c.text), "%s", e.text);
             break;
         case EventKind::SkillUp:

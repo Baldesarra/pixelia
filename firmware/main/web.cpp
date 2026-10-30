@@ -766,7 +766,10 @@ void start() {
     cfg.core_id = kSystemCore;
     cfg.stack_size = 8192;
     cfg.task_priority = 5;
-    cfg.max_uri_handlers = 60;  // 0.5.0: 54 belegt
+    // Jede eingebettete Datei hat einen eigenen Eintrag. Bis 0.5.10 fest 60: die Vorschaubilder von „So entstand
+    // Pixelia“ füllten die Tabelle, die Captive-Portal-Adressen fehlten (ESP_ERR_HTTPD_HANDLERS_FULL). Jetzt 53 feste
+    // Adressen (API, Captive Portal) + Dateien + Reserve
+    cfg.max_uri_handlers = static_cast<uint16_t>(assets::kCount + 60);
     cfg.max_open_sockets = 7;
     cfg.lru_purge_enable = true;
     cfg.recv_wait_timeout = 10;

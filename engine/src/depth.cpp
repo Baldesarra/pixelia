@@ -169,4 +169,12 @@ void DepthList::draw(Canvas& c, bool all) {
     }
 }
 
+void DepthList::draw_clipped(Canvas& c, const Rect& clip) {
+    sort();
+    for (int k = 0; k < n_; ++k) {
+        const DepthItem& it = items_[sorted_[k]];
+        if (bounds(it).overlaps(clip)) draw_item(c, it, clip);
+    }
+}
+
 }  // namespace pixelia

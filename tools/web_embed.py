@@ -24,6 +24,7 @@ MIME = {
     ".json": "application/json",
     ".woff2": "font/woff2",
     ".png": "image/png",
+    ".webp": "image/webp",  # Vorschaubilder in „So entstand Pixelia“ (seit 0.5.10)
     ".ico": "image/x-icon",
 }
 COMPRESS = {".html", ".js", ".css", ".svg", ".json"}

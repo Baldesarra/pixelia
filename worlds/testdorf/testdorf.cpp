@@ -18,6 +18,7 @@ std::unique_ptr<Scene> make(const PlaceDef& def, int index) { return std::make_u
 
 }  // namespace
 
-const AreaDef kArea = {"testdorf", "Testdorf", kPlaces, sizeof(kPlaces) / sizeof(kPlaces[0]), make};
+const AreaDef kArea = {"testdorf", "Testdorf", kPlaces, sizeof(kPlaces) / sizeof(kPlaces[0]), make,
+                       nullptr,  0,          &kEconomy};
 
 }  // namespace pixelia::testdorf

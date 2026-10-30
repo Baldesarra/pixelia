@@ -2,6 +2,9 @@
 
 #include <cstdio>
 #include <cstring>
+#include <new>
+
+#include "pixelia/engine/memory.h"
 
 namespace pixelia {
 
@@ -90,6 +93,7 @@ void PlaceGraph::build(const PlaceDef* const* places, int count) {
                 if (ex.to && std::strcmp(ex.to, defs_[q]->id) == 0) e.to = static_cast<uint8_t>(q);
         }
     }
+    build_hops();
 }
 
 const char* PlaceGraph::check(char* buf, int n) const {
@@ -130,25 +134,40 @@ const char* PlaceGraph::check(char* buf, int n) const {
     return buf;
 }
 
-int PlaceGraph::hops(int a, int b) const {
-    if (a == b) return 0;
-    std::array<int8_t, kMaxPlaces> dist{};
-    dist.fill(-1);
-    std::array<uint8_t, kMaxPlaces> queue{};
-    int head = 0, tail = 0;
-    dist[a] = 0;
-    queue[tail++] = static_cast<uint8_t>(a);
-    while (head < tail) {
-        const int c = queue[head++];
-        for (int i = 0; i < e_; ++i) {
-            const Edge& e = edges_[i];
-            if (e.from != c || e.to == 0xFF || dist[e.to] >= 0) continue;
-            dist[e.to] = static_cast<int8_t>(dist[c] + 1);
-            if (e.to == b) return dist[b];
-            queue[tail++] = e.to;
+void PlaceGraph::build_hops() {
+    // Breitensuche von jedem Ort aus
+    for (int a = 0; a < kMaxPlaces; ++a) hops_[a].fill(-1);
+    for (int a = 0; a < n_; ++a) {
+        std::array<int8_t, kMaxPlaces>& dist = hops_[a];
+        std::array<uint8_t, kMaxPlaces> queue{};
+        int head = 0, tail = 0;
+        dist[a] = 0;
+        queue[tail++] = static_cast<uint8_t>(a);
+        while (head < tail) {
+            const int c = queue[head++];
+            for (int i = 0; i < e_; ++i) {
+                const Edge& e = edges_[i];
+                if (e.from != c || e.to == 0xFF || dist[e.to] >= 0) continue;
+                dist[e.to] = static_cast<int8_t>(dist[c] + 1);
+                queue[tail++] = e.to;
+            }
         }
     }
-    return -1;
+}
+
+int PlaceGraph::hops(int a, int b) const {
+    if (a < 0 || b < 0 || a >= n_ || b >= n_) return -1;
+    return hops_[a][b];
+}
+
+const PlaceGraph& world_graph() {
+    static PlaceGraph* g = [] {
+        void* p = asset_alloc(sizeof(PlaceGraph));
+        PlaceGraph* x = p ? new (p) PlaceGraph() : new PlaceGraph();
+        x->build();
+        return x;
+    }();
+    return *g;
 }
 
 }  // namespace pixelia

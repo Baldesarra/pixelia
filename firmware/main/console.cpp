@@ -9,7 +9,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <dirent.h>
 #include <memory>
+#include <sys/stat.h>
 #include <new>
 #include <string>
 
@@ -129,6 +131,10 @@ void print_help() {
     ESP_LOGI(TAG, "  welt speichern | figuren | chronik              Speicherstand jetzt schreiben, Figuren mit Ort, Chronik (seit 0.5.9)");
     ESP_LOGI(TAG, "  ort cmd <Befehl>   Befehl an Bühne/Ort, z. B. innenlicht um, ofen glut, nass 80, becken 50, regen fein, blitze 12 30");
     ESP_LOGI(TAG, "  ort cmd zustaende  Ortszustände ins Log (Herd, Kerze, Lampe, Becken, Nässe)");
+    ESP_LOGI(TAG, "  ort cmd aufgaben   Aufgabenliste ins Log (holen, bringen, herstellen; wer, von wo nach wo)");
+    ESP_LOGI(TAG, "  ort cmd projekte   Projekte ins Log; ort cmd projekt bett start|stufe <n>|fertig (Prüfbefehl)");
+    ESP_LOGI(TAG, "  lager              Lagerplätze (Stand, Reichweite), Waren im Dorf und Projekte ins Log (wie die Lager-Karte)");
+    ESP_LOGI(TAG, "  wirtschaft [<Datei> | bestand]   Protokoll-Dateien, eine Datei ins Log, Bestand aller Lagerplätze (Bilanz prüfen)");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
     ESP_LOGI(TAG, "  assets [quelle eingebettet|littlefs|sd | kopieren littlefs|sd | messen | leeren | budget <KB>]   Grafik-Pakete");
     ESP_LOGI(TAG, "  sd | sd neu                                    microSD-Karte: Zustand, neu einhängen");
@@ -475,6 +481,47 @@ bool handle(char* line) {
         board::backlight::set_duty(static_cast<uint32_t>(std::atoi(argv[1])));
         ESP_LOGI(TAG, "Pulsbreite %lu von %lu", static_cast<unsigned long>(board::backlight::duty()),
                  static_cast<unsigned long>(board::backlight::kMaxDuty));
+    } else if (is("lager")) {
+        // Lagerplätze mit Stand und Reichweite, Waren im Dorf, Projekte (seit 0.5.10 Teil 4b, wie die Lager-Karte)
+        if (!gfx::place_command("lager")) ESP_LOGW(TAG, "Befehl nicht angenommen");
+    } else if (is("wirtschaft")) {
+        // Wirtschafts-Protokoll prüfen (seit 0.5.10 Teil 4c): Dateien, eine Datei ins Log, Bestand aller Lagerplätze.
+        // Abholen und Bericht kommen mit 0.5.12
+        static constexpr const char* kDir = "/data/wirtschaft";
+        static char line[256], path[96];
+        if (argc >= 2 && std::strcmp(argv[1], "bestand") == 0) {
+            if (!gfx::place_command("bestand")) ESP_LOGW(TAG, "Befehl nicht angenommen");
+        } else if (argc >= 2) {
+            std::snprintf(path, sizeof(path), "%s/%.60s", kDir, argv[1]);
+            FILE* f = std::fopen(path, "rb");
+            if (!f) {
+                ESP_LOGW(TAG, "%s fehlt", path);
+            } else {
+                int n = 0;
+                while (std::fgets(line, sizeof(line), f)) {
+                    line[std::strcspn(line, "\r\n")] = 0;
+                    ESP_LOGI(TAG, "%s|%s", argv[1], line);
+                    if (++n % 32 == 0) vTaskDelay(pdMS_TO_TICKS(20));  // Log-Puffer und WebSocket nicht fluten
+                }
+                std::fclose(f);
+                ESP_LOGI(TAG, "%s: %d Zeilen", argv[1], n);
+            }
+        } else if (DIR* d = opendir(kDir)) {
+            int n = 0;
+            long sum = 0;
+            while (dirent* e = readdir(d)) {
+                struct stat sb;
+                std::snprintf(path, sizeof(path), "%s/%.60s", kDir, e->d_name);
+                if (stat(path, &sb) != 0) continue;
+                ESP_LOGI(TAG, "  %-32s %6ld Byte", e->d_name, static_cast<long>(sb.st_size));
+                ++n;
+                sum += sb.st_size;
+            }
+            closedir(d);
+            ESP_LOGI(TAG, "%s: %d Dateien, %.1f KB", kDir, n, sum / 1024.0);
+        } else {
+            ESP_LOGI(TAG, "%s gibt es noch nicht", kDir);
+        }
     } else if (is("welt")) {
         // seit 0.5.7: Weltkalender, Mond, Wetter-Simulation; „welt laenge <Tage>“, „welt auto“ (Simulation wieder an)
         if (argc >= 3 && std::strcmp(argv[1], "laenge") == 0) {

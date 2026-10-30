@@ -54,6 +54,7 @@ void print_help() {
         "  --load N                Lastregler der Szene (z. B. Zahl der Sprites)\n"
         "  --true-colors           Palettenfarben statt Display-Farben (RGB565)\n"
         "  --run-seconds X         Fenster nach X Sekunden schließen (mit --screenshot: Bild beim Schließen)\n"
+        "  --wirtschaft DIR        Wirtschafts-Protokoll (CSV je Welttag und Tabelle) in DIR schreiben (kopflos)\n"
         "  --screen NAME           Systemanzeige mit Beispieldaten als Screenshot (kopflos): setup, setup-leer,\n"
         "                          setup-fehler, update, update-fertig, failed, message, toast, toast-lang,\n"
         "                          toast-ip, info, info-setup, info-offline, hold\n"
@@ -131,6 +132,8 @@ int main(int argc, char** argv) {
             opt.moments = std::atoi(next());
         } else if (a == "--span-days") {
             opt.span_days = std::atof(next());
+        } else if (a == "--wirtschaft") {
+            opt.econ_dir = next();
         } else if (a == "--load") {
             opt.load = std::atoi(next());
         } else if (a == "--true-colors") {

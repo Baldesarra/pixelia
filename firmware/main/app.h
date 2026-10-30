@@ -173,6 +173,10 @@ struct SaveInfo {
     bool test;              // Testuhr oder Zeitraffer: es wird nicht gespeichert
     bool waiting;           // Weltzeit wartet auf die Uhrzeit: es wird noch nicht gespeichert
     char error[48];
+    // Wirtschafts-Protokoll (seit 0.5.10 Teil 4, /data/wirtschaft): angehängt mit dem Speicherstand
+    uint32_t econ_rows, econ_written, econ_lost, econ_files, econ_bytes, econ_flush_ms, econ_deleted;
+    int32_t econ_first, econ_last;  // Welttage im Ordner
+    bool econ_error;
 };
 SaveInfo save_info();
 bool request_save();  // im nächsten Bild packen, danach schreibt die Lade-Task; false = läuft schon
@@ -212,6 +216,45 @@ struct WorldView {
     int visits, visits_open;
 };
 bool world_view(WorldView* out);  // false = Grafik-Task antwortet nicht
+
+// Lager für die Weboberfläche (seit 0.5.10 Teil 4b, /api/world?lager=1) und die Konsole „lager“: Lagerplätze ohne
+// Baustellen und Tragen, Waren im ganzen Dorf, laufende Projekte. Füllt die Grafik-Task auf Anfrage (~7 KB PSRAM).
+// lv = pixelia::StockLevel (0 ohne Verbrauch, 1 Notbestand/leer, 2 knapp, 3 gut, 4 reichlich); hours −1 = kein Abgang
+struct LagerStore {
+    char title[20], place[24], kind[20];
+    uint16_t load, cap;
+    uint8_t lv;
+    int16_t hours;
+    char reach[28];  // nur bei einer Ware
+    uint8_t goods;
+    struct {
+        char title[14];
+        uint16_t qty, res;
+    } g[6];
+};
+struct LagerGood {
+    char title[14];
+    uint16_t qty, res;  // qty im ganzen Dorf: Lagerplätze + Baustellen + getragen
+    uint8_t lv;
+    int16_t hours;
+    char reach[28];
+    uint16_t site, hand;  // davon an Baustellen bzw. gerade getragen (seit 0.5.10 Teil 4c)
+    uint8_t sites;        // Zahl der Baustellen mit dieser Ware
+    char site_place[24];  // Ort der ersten Baustelle
+};
+struct LagerProject {
+    char title[24], place[24], step_title[24], wait[64], who[16];
+    uint8_t step, steps, pct;  // step ab 1, pct des ganzen Projekts
+    uint8_t step_pct;          // Fortschritt des laufenden Schritts
+    uint8_t step_share[6];     // Anteil jedes Schritts an der ganzen Arbeit in Prozent (Segmente)
+};
+struct LagerView {
+    int stores, goods, projects;
+    LagerStore s[24];
+    LagerGood g[16];
+    LagerProject p[4];
+};
+bool lager_view(LagerView* out);  // false = Grafik-Task antwortet nicht
 
 // Touch der Welt und Kamera (seit 0.5.6, engine/overlay.h und camera.h). Eingaben in Leinwand-Koordinaten
 // (400 × 240) übernimmt der Grafik-Task vor dem nächsten Logik-Schritt: Probe = Finger aufgesetzt (Figur darunter?),

@@ -7,17 +7,20 @@ set(PIXELIA_ENGINE_SRCS
     src/chronicle.cpp
     src/color.cpp
     src/depth.cpp
+    src/econ_log.cpp
     src/environment.cpp
     src/events.cpp
     src/figure.cpp
     src/figure_art.cpp
     src/font.cpp
     src/gesture.cpp
+    src/ledger.cpp
     src/light.cpp
     src/memory.cpp
     src/overlay.cpp
     src/camera.cpp
     src/png.cpp
+    src/projects.cpp
     src/qr.cpp
     src/redact.cpp
     src/room.cpp
@@ -30,6 +33,7 @@ set(PIXELIA_ENGINE_SRCS
     src/sprite.cpp
     src/stage.cpp
     src/system_ui.cpp
+    src/tasks.cpp
     src/tiles.cpp
     src/tiny_font.cpp
     src/vehicle.cpp

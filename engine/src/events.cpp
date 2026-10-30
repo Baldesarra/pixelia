@@ -13,6 +13,8 @@ const char* event_kind_name(EventKind k) {
         case EventKind::WeatherChanged: return "wetter";
         case EventKind::SkillUp: return "faehigkeit";
         case EventKind::BondChanged: return "beziehung";
+        case EventKind::Stock: return "lager";
+        case EventKind::Project: return "projekt";
         default: return "?";
     }
 }

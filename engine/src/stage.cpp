@@ -183,10 +183,23 @@ Stage::Stage() : assets_(&asset_store()) {
     env_.calendar.set_bus(&env_.events);
     env_.states.set_bus(&env_.events);
     env_.figures.set_bus(&env_.events);
-    toast_reader_ = env_.events.subscribe(kCalendarEvents);
-    // Chronik (seit 0.5.9): Kalender, neue Stufen von Fähigkeiten und Beziehungen
-    chron_reader_ = env_.events.subscribe(kCalendarEvents | event_bit(EventKind::SkillUp) | event_bit(EventKind::BondChanged));
+    toast_reader_ = env_.events.subscribe(kCalendarEvents | event_bit(EventKind::Stock) | event_bit(EventKind::Project));
+    // Chronik (seit 0.5.9): Kalender, neue Stufen von Fähigkeiten und Beziehungen; seit 0.5.10 Besonderes im Warenbuch
+    chron_reader_ = env_.events.subscribe(kCalendarEvents | event_bit(EventKind::SkillUp) |
+                                          event_bit(EventKind::BondChanged) | event_bit(EventKind::Stock) |
+                                          event_bit(EventKind::Project));
+    // Warenbuch (seit 0.5.10): Ortszustände holen ihren Brennstoff dort
+    env_.states.set_ledger(&env_.ledger);
     place_of_.fill(-1);
+}
+
+bool Stage::poll_event(WorldEvent* out) {
+    // aus dem Warenbuch nur der Notbestand (leer, voll, Gemeinschaftsaufgabe nur in der Chronik); seit 0.5.10 Teil 3b
+    // ein fertiges Projekt (Wahl des Users), eine fertige Teilaufgabe nur in der Chronik
+    while (env_.events.poll(toast_reader_, out))
+        if ((out->kind != EventKind::Stock || out->a == 2) && (out->kind != EventKind::Project || out->a == 1))
+            return true;
+    return false;
 }
 
 Stage::~Stage() {
@@ -271,6 +284,13 @@ void Stage::init(uint64_t seed) {
     grid_ = INT64_MIN;  // Stufen der Simulation (seit 0.5.9 Teil 2): der erste Schritt setzt alle an
     decisions_ = reseats_ = 0;
     last_grid_steps_ = 0;
+    hold_activities_ = false;
+    // Warenbuch (seit 0.5.10): Waren und Lagerplätze aus den Gebieten, Startvorrat; ein Speicherstand ersetzt beides
+    env_.ledger.build();
+    env_.ledger.start_stock(1);
+    env_.tasks.clear();  // seit 0.5.10 Teil 2
+    env_.projects.build(env_.ledger);  // seit 0.5.10 Teil 3: Projekte der Daten (Testinhalt: Bett in der Kammer)
+    env_.projects.start_new();
     for (int i = 0; i < count_; ++i) scenes_[i]->init(seed + static_cast<uint64_t>(i) * 0x9E3779B97F4A7C15ULL);
     populate_figures();  // seit 0.5.9: die Figuren gehören der Welt, die Orte zeigen sie
     adopt_figures();
@@ -342,6 +362,27 @@ bool Stage::command(const char* cmd) {
     if (std::strcmp(cmd, "wetter auto") == 0) {
         release_weather();
         return true;
+    }
+    if (std::strncmp(cmd, "projekt ", 8) == 0) {
+        // Prüfbefehl (seit 0.5.10 Teil 3): „projekt bett start|stufe <n>|fertig“, n = fertige Teilaufgaben; das Projekt
+        // nach dem Ende seiner Kennung (kammer_bett). Bucht sofort, nicht an der Takt-Grenze: nur zum Ansehen am Gerät
+        char name[24] = {}, what[12] = {};
+        int k = 0;
+        if (std::sscanf(cmd, "projekt %23s %11s %d", name, what, &k) < 2) return false;
+        ProjectList& pl = env_.projects;
+        int def = -1;
+        for (int d = 0; d < pl.defs() && def < 0; ++d) {
+            const std::string_view id = pl.def(d).id, nm = name;
+            if (id == nm || (id.size() > nm.size() && id.substr(id.size() - nm.size()) == nm &&
+                             id[id.size() - nm.size() - 1] == '_'))
+                def = d;
+        }
+        if (def < 0) return false;
+        const int32_t day = env_.calendar.date().day;
+        if (std::strcmp(what, "start") == 0) return pl.test_start(def, world_us_, env_.ledger, env_.tasks);
+        if (std::strcmp(what, "fertig") == 0) k = pl.def(def).step_count;
+        else if (std::strcmp(what, "stufe") != 0) return false;
+        return pl.test_jump(def, k, world_us_, day, env_.ledger, env_.tasks, &env_.events);
     }
     if (std::sscanf(cmd, "mond %15s", word) == 1) {
         const std::string_view w(word);
@@ -556,10 +597,14 @@ void Stage::tick(const WorldClock& clock) {
         pending_ = -1;
         start_transition(to, pending_trans_);  // setzt pending_ wieder, solange das Ziel noch lädt
     }
-    // Seit 0.5.9 Teil 2: Tätigkeiten und Übergaben (world_sim.cpp) vor Kalender und Ortszuständen, damit beide Stufen
-    // bei jeder Entscheidung dieselbe Umgebung sehen
-    advance(world_us_);
+    // Seit 0.5.9 Teil 2 Tätigkeiten und Übergaben (world_sim.cpp); seit 0.5.10 in drei Schritten: Takt-Grenzen (grob),
+    // Kalender und Ortszustände, betretene Orte (voll). So sehen beide Stufen bei jeder Entscheidung dieselbe Umgebung,
+    // und Ortszustände buchen im Warenbuch zwischen denselben Tätigkeiten (P10). Holen die Ortszustände länger nach,
+    // warten die Tätigkeiten
+    hold_activities_ = states_behind();
+    if (!hold_activities_) advance_grid(world_us_);
     update_world(clock);
+    if (!hold_activities_) advance_full(world_us_);
     env_.weather.tick();  // vor den Orten: alle sehen im selben Schritt dasselbe Wetter
     // volle Stufe: nur die betretenen Orte zeigen (seit 0.5.9 Teil 2; vorher rechneten alle Orte mit 30 Hz)
     const uint32_t ticked = entered_;
@@ -836,10 +881,19 @@ void Stage::step_states(int64_t wm) {
         for (int k = 0; k < transit_n_; ++k) in.lead_known = in.lead_known || transit_[k].t.follow;
     }
     env_.states.set_day(env_.calendar.date().day);
-    const int64_t until = std::min(wm, state_minute_ + kCatchUpPerTick);
+    // seit 0.5.10 nie weiter als die letzte Takt-Grenze, solange die Tätigkeiten laufen: Ortszustände und Figuren buchen
+    // im Warenbuch in derselben Reihenfolge wie in Echtzeit
+    int64_t limit = wm;
+    if (!hold_activities_ && grid_ != INT64_MIN) {
+        const int64_t g = grid_ >= 0 ? grid_ / WorldClock::kUsPerMinute
+                                     : (grid_ - WorldClock::kUsPerMinute + 1) / WorldClock::kUsPerMinute;
+        limit = std::max(state_minute_, std::min(limit, g));
+    }
+    const int64_t until = std::min(limit, state_minute_ + kCatchUpPerTick);
     for (int64_t m = state_minute_ + 1; m <= until; ++m) {
         const int64_t d = m >= 0 ? m / 1440 : (m - 1439) / 1440;
         const int mod = static_cast<int>(m - d * 1440);
+        env_.states.set_time(m * WorldClock::kUsPerMinute);  // Buchungen im Warenbuch zur Zeit dieser Minute
         if (wm - m > 30) {
             // verpasste Zeit: Regen nach der Wetter-Simulation dieser Wetterzeit (einmal je Wetterzeit gerechnet)
             const int64_t key = weather_slot_key(d, mod);
@@ -856,7 +910,8 @@ void Stage::step_states(int64_t wm) {
             env_.states.step(mod, in);
         }
     }
-    state_minute_ = until;
+    state_minute_ = std::max(state_minute_, until);
+    env_.states.set_time(world_us_);
 }
 
 void Stage::render(Canvas& fine) const {

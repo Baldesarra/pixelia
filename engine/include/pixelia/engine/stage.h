@@ -43,6 +43,10 @@
 //   Entscheidung zur Zeit ihres Blockendes fällt, bucht ein Ort sichtbar wie unsichtbar dasselbe (P10, --test speicher).
 //   Springt die Uhr (zurück oder mehr als kActivityCatchUp vor), setzt die Bühne alle Figuren neu an (gleicher Ort, neue
 //   Tätigkeit); bis dahin holt sie Tätigkeiten genau nach, höchstens kMaxGridPerTick Takt-Grenzen je Schritt.
+// - Seit 0.5.10 (Warenbuch, ledger.h) in jedem Schritt: erst die Takt-Grenzen (grob, dort auch das Warenbuch), dann
+//   Kalender und Ortszustände, zuletzt die betretenen Orte (voll). Ortszustände buchen so zwischen denselben Tätigkeiten,
+//   ob man hinschaut oder nicht, und gehen nie weiter als die letzte Takt-Grenze. Holen sie mehr als kActivityCatchUp
+//   nach (nach dem Laden, Sprung der Uhr), warten die Tätigkeiten, bis sie fertig sind, und setzen dann neu an.
 
 #include <array>
 #include <cstdint>
@@ -164,8 +168,9 @@ public:
     // Wetter-Simulation an (Standard) oder Übersteuerung durch die Prüfbefehle aktiv (bis Wetterzeit override_key)
     bool weather_overridden() const { return override_key_ != kNoOverride; }
     void release_weather();  // Simulation wieder an
-    // Kurzmeldungen der Welt (Jahreszeitenabend, Wechsel, Erstlinge) abholen; seit 0.5.8 ein Leser am Ereignis-Bus
-    bool poll_event(WorldEvent* out) { return env_.events.poll(toast_reader_, out); }
+    // Kurzmeldungen der Welt (Jahreszeitenabend, Wechsel, Erstlinge; seit 0.5.10 Teil 2 Notbestand im Warenbuch, Wunsch
+    // des Users) abholen; seit 0.5.8 ein Leser am Ereignis-Bus
+    bool poll_event(WorldEvent* out);
     EventBus& events() { return env_.events; }
 
     void tick(const WorldClock& clock);
@@ -181,6 +186,11 @@ public:
         int unknown_places = 0;    // Bezüge auf Orte, die es nicht mehr gibt (Figuren kommen in den ersten Ort)
         int skipped_chunks = 0;    // unbekannte Abschnitte (neuere Firmware)
         int doings = 0;            // laufende Tätigkeiten übernommen (seit 0.5.9 Teil 2; 0 = alle neu angesetzt)
+        // Warenbuch (seit 0.5.10): im Stand enthalten (sonst Startvorrat), Einträge, verlorene bzw. umgelegte Stück
+        bool ledger = false;
+        int stock = 0, items = 0, reservations = 0, lost = 0, moved = 0;
+        int tasks = 0;  // Aufgaben übernommen (seit 0.5.10 Teil 2)
+        int projects = 0;  // Projekte übernommen (seit 0.5.10 Teil 3)
     };
     // Weltzustand in buf schreiben, an einer Takt-Grenze (zwischen zwei tick()); Länge, 0 = Puffer zu klein
     size_t save_state(uint8_t* buf, size_t cap, uint32_t generation) const;
@@ -219,7 +229,9 @@ private:
     void prefetch_neighbors();
     void prepare_scenes();  // Vorarbeit mit kPrepareBudget
     // Stufen der Simulation (world_sim.cpp)
-    void advance(int64_t now);                     // Takt-Grenzen bis now, dann die betretenen Orte bis now
+    void advance_grid(int64_t now);                // grobe Stufe: Takt-Grenzen bis now (alle Orte, Warenbuch)
+    void advance_full(int64_t now);                // volle Stufe: die betretenen Orte bis now (echt vor der nächsten)
+    bool states_behind() const;                    // Ortszustände holen mehr als kActivityCatchUp nach
     void reseat(int64_t now);                      // nach einem Sprung der Uhr: alle neu ansetzen
     void plan(int scene, int64_t until);           // Blockenden des Ortes bis until (einschließlich)
     void run_doing(int scene, FigureRecord& f);    // ein Blockende: Wirkung, Übergabe oder nächste Tätigkeit
@@ -307,6 +319,7 @@ private:
     int64_t grid_ = INT64_MIN;
     uint32_t decisions_ = 0, reseats_ = 0;
     int last_grid_steps_ = 0;
+    bool hold_activities_ = false;  // seit 0.5.10: Tätigkeiten warten, bis die Ortszustände nachgeholt sind
     // Gemeinsame Palette während einer Überblendung: Index der Szene → Platz, Platz → Quelle (Szene, Index)
     std::array<uint8_t, 256> map_from_{};
     std::array<uint8_t, 256> map_to_{};

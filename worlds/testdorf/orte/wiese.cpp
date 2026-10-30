@@ -25,15 +25,16 @@ constexpr RoomPart kParts[] = {
     {kPDoor, 11, 1, 0, kRowWood, 0, 0},  {kPWindow, 9, 1, 0, kRowWood, 0, 0},
     {kPWindow, 14, 1, 0, kRowWood, 0, 0}, {kPBush, 2, 4, 0, 0, 0, 0},
     {kPBush, 20, 4, 0, 0, 0, 0},          {kPBush, 4, 12, 0, 0, 0, 0},
-    {kPCrate, 15, 4, 0, kRowWood, 0, 0},  {kPBench, 18, 12, 0, kRowWood, 0, 0},
+    {kPWoodpile, 15, 5, 0, kRowWood, 0, 0}, {kPBench, 18, 12, 0, kRowWood, 0, 0},
     {kPPuddle, 11, 6, 0, 0, 0, 0},        {kPPuddle, 16, 9, 0, 0, 0, 0},
+    {kPChopBlock, 14, 7, 0, 0, 0, 0},     // seit 0.5.10 Teil 2b: Hackklotz vor dem Holzstapel (Teil 6)
 };
 constexpr Exit kExits[] = {
     {11, 3, 2, 1, 11, 4, Facing::Down, ExitKind::Door, "testort-raum", 0, Transition::Fade},
     {24, 9, 1, 2, 23, 9, Facing::Left, ExitKind::Edge, "testort-platz", 0, Transition::Fade},
     {7, 14, 2, 1, 7, 13, Facing::Up, ExitKind::Path, "testort-platz", 1, Transition::Fade, 30, kOpenDayOnly},
 };
-constexpr RoomDef kRoom = {{kFloor, kWalls, kDeco}, kLegend, {0, 0, 0}, kParts, 10, kExits, 3};
+constexpr RoomDef kRoom = {{kFloor, kWalls, kDeco}, kLegend, {0, 0, 0}, kParts, 11, kExits, 3};
 // Nässe des Bodens (seit 0.5.8): Weg dunkler, ab „nass“ Pfützen
 constexpr StateDef kStates[] = {{.kind = StateKind::Wetness, .id = "boden"}};
 // Fenster des Hauses: Lichtkreis davor, leuchten nur, wenn im Raum dahinter Licht brennt

@@ -47,7 +47,9 @@ public:
     void load(int layer, const char* const* rows, int count, const char* legend);
     bool blocks(const TileSet& set, int tx, int ty) const;  // eine Ebene versperrt (außerhalb: ja)
     // Ebene zeichnen; Kachel 0 bleibt frei. opaque: Kacheln decken (Boden), sonst bleiben Index-0-Punkte offen.
-    void draw(Canvas& c, const TileSet& set, int layer, bool opaque, const uint8_t* remap = nullptr) const;
+    // Seit 0.5.10 Teil 2b nur die Kacheln [tx0, tx1) × [ty0, ty1) (Teil des Hintergrundbilds neu vorzeichnen)
+    void draw(Canvas& c, const TileSet& set, int layer, bool opaque, const uint8_t* remap = nullptr, int tx0 = 0,
+              int ty0 = 0, int tx1 = kTilesX, int ty1 = kTilesY) const;
 
 private:
     uint8_t t_[kTileLayers][kTilesY][kTilesX]{};

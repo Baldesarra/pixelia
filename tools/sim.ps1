@@ -68,8 +68,9 @@ if ($SimArgs.Count -gt 0) {
     try {
         $exe = Join-Path $buildDir 'pixelia-sim.exe'
         if (-not (Test-Path $exe)) { $exe = Join-Path $buildDir 'pixelia-sim' }
+        # -Last statt -First: -First beendete den Simulator nach 60 Zeilen (Exit -1 mitten in --test all)
         & $exe @SimArgs 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath (Join-Path $logDir 'sim-last.log') |
-            Select-Object -First 60
+            Select-Object -Last 60
         $code = $LASTEXITCODE
     } finally {
         Pop-Location

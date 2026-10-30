@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstring>
 
+#include "pixelia/engine/ledger.h"
+
 namespace pixelia {
 
 namespace {
@@ -91,7 +93,6 @@ void PlaceStates::reset(Entry& e) const {
             e.on = d.rule != StateRule::Homecomer;  // wie bis 0.5.7: Lichter brennen, bis die Welt läuft
             break;
         case StateKind::Fill: e.value = static_cast<uint16_t>(d.capacity / 2); break;
-        case StateKind::Work: e.value = static_cast<uint16_t>(std::min(65535, d.capacity * 60)); break;
         default: break;
     }
     e.phase = static_cast<uint8_t>(compute_phase(e));
@@ -125,7 +126,6 @@ int PlaceStates::compute_phase(const Entry& e) const {
             const int pct = e.value * 100 / d.capacity;
             return pct < 5 ? 0 : pct < 35 ? 1 : pct < 75 ? 2 : 3;
         }
-        case StateKind::Work: return e.value == 0 ? 0 : e.value >= d.capacity * 60 ? 2 : 1;
     }
     return 0;
 }
@@ -205,25 +205,43 @@ int PlaceStates::describe(int i, char* buf, int n) const {
             return std::snprintf(buf, n, "Boden %s", kWet[std::min<int>(e.phase, 3)]);
         }
         case StateKind::Fill: return std::snprintf(buf, n, "Wasser: %d von %d Litern", e.value, d.capacity);
-        case StateKind::Work:
-            if (e.phase == 2) return std::snprintf(buf, n, "fertig");
-            return std::snprintf(buf, n, "im Bau, %d %% fertig", d.capacity ? e.value * 100 / (d.capacity * 60) : 0);
     }
     return 0;
 }
 
-void PlaceStates::set_on(int i, bool on) {
+bool PlaceStates::feed(int i, bool tell) {
+    // seit 0.5.10: eine Füllung aus dem Warenbuch (ganz oder gar nicht); ohne Brennstoff in den Daten unbegrenzt
+    const StateDef& d = *e_[i].def;
+    if (!d.fuel || !ledger_) return true;
+    const int g = ledger_->find_good(d.fuel);
+    const int s = d.fuel_store ? ledger_->find_store(d.fuel_store) : -1;
+    if (g < 0 || s < 0) return true;  // Daten passen nicht zum Warenbuch: wie bis 0.5.9
+    BookingInfo info;
+    info.at_us = now_us_;
+    info.reason = d.id;
+    const int want = std::max<int>(1, d.fuel_units);
+    const int got = ledger_->available(s, g) >= want ? ledger_->take(s, g, want, Booking::Consume, info) : 0;
+    if (got > 0 || tell) ledger_->demand(g, s, want, got, info);
+    return got >= want;
+}
+
+void PlaceStates::light(int i, bool on, bool tell) {
     if (i < 0 || i >= n_) return;
     Entry& e = e_[i];
     switch (e.def->kind) {
         case StateKind::Light:
-            if (on && e.value < std::max(1, light_kind(e.def->light).burn / 4))
-                e.value = std::max<uint16_t>(1, light_kind(e.def->light).burn);  // neue Kerze, Lampe gefüllt
+            if (on && e.value < std::max(1, light_kind(e.def->light).burn / 4)) {
+                if (feed(i, tell))
+                    e.value = std::max<uint16_t>(1, light_kind(e.def->light).burn);  // neue Kerze, Lampe gefüllt
+                else if (e.value == 0)
+                    return;  // nichts da: bleibt dunkel
+            }
             e.on = on;
             break;
         case StateKind::Fire:
             if (on) {
-                if (e.value < 30) e.value = 60;  // nachlegen
+                if (e.value < 30 && feed(i, tell)) e.value = 60;  // nachlegen
+                if (e.value == 0) return;  // kein Holz: bleibt, wie es ist (kalt oder abgedeckte Glut)
                 e.covered = false;
                 e.heat = static_cast<uint16_t>(std::max<int>(e.heat, kEmber));
             }
@@ -233,6 +251,8 @@ void PlaceStates::set_on(int i, bool on) {
     }
     update_phase(i);
 }
+
+void PlaceStates::set_on(int i, bool on) { light(i, on, true); }
 
 void PlaceStates::cover(int i, bool on) {
     if (i < 0 || i >= n_ || e_[i].def->kind != StateKind::Fire) return;
@@ -254,20 +274,12 @@ int PlaceStates::draw(int i, int liters) {
     return got;
 }
 
-void PlaceStates::work(int i, int seconds) {
-    if (i < 0 || i >= n_ || e_[i].def->kind != StateKind::Work || seconds <= 0) return;
-    Entry& e = e_[i];
-    e.value = static_cast<uint16_t>(std::min(e.def->capacity * 60, e.value + seconds));
-    update_phase(i);
-}
-
 void PlaceStates::set_value(int i, int v) {
     if (i < 0 || i >= n_) return;
     Entry& e = e_[i];
     int hi = 65535;
     if (e.def->kind == StateKind::Wetness) hi = kWetMax;
     if (e.def->kind == StateKind::Fill) hi = e.def->capacity;
-    if (e.def->kind == StateKind::Work) hi = e.def->capacity * 60;
     e.value = static_cast<uint16_t>(std::clamp(v, 0, hi));
     e.frac = 0;
     if (e.def->kind == StateKind::Light && e.value == 0) e.on = false;
@@ -286,6 +298,7 @@ void PlaceStates::step(int minute, const StateInput& in) {
         Entry& e = e_[i];
         const StateDef& d = *e.def;
         const bool sky = places_[e.place].sky;
+        bool out = false;  // in dieser Minute heruntergebrannt
         switch (d.kind) {
             case StateKind::Light:
                 if (e.on) {
@@ -297,7 +310,10 @@ void PlaceStates::step(int minute, const StateInput& in) {
                 if (e.on) {
                     e.heat = static_cast<uint16_t>(std::min(kHot, e.heat + 100));
                     if (e.value > 0) --e.value;
-                    if (e.value == 0) e.on = false;
+                    if (e.value == 0) {
+                        e.on = false;
+                        out = true;
+                    }
                 } else if (e.covered) {
                     if (e.heat > kBanked)
                         e.heat = static_cast<uint16_t>(std::max(kBanked, e.heat - 10));
@@ -325,14 +341,13 @@ void PlaceStates::step(int minute, const StateInput& in) {
                     e.frac %= 60;
                 }
                 break;
-            case StateKind::Work: break;  // bleibt liegen
         }
         update_phase(i);
-        if (d.rule != StateRule::None) apply_rule(i, minute, in);
+        if (d.rule != StateRule::None) apply_rule(i, minute, in, out);
     }
 }
 
-void PlaceStates::apply_rule(int i, int minute, const StateInput& in) {
+void PlaceStates::apply_rule(int i, int minute, const StateInput& in, bool out) {
     Entry& e = e_[i];
     const StateDef& d = *e.def;
     const bool dark = minute < in.sun.rise - kDusk || minute >= in.sun.set + kDusk;
@@ -350,20 +365,22 @@ void PlaceStates::apply_rule(int i, int minute, const StateInput& in) {
             if (e.ruled && want == e.want) return;  // nur bei Wechseln: was jemand von Hand macht, bleibt
             e.ruled = true;
             e.want = want;
-            set_on(i, want);
+            light(i, want, true);
             return;
         }
         case StateRule::Hearth: {
             const bool window = (minute >= 6 * 60 && minute < 8 * 60) || (minute >= 11 * 60 + 30 && minute < 13 * 60) ||
                                 (minute >= 17 * 60 && minute < kCover);
             const bool night = minute >= kCover || minute < 6 * 60;
+            // Bedarf ohne Holz (seit 0.5.10) nur zu Beginn jeder Zeit und wenn das Feuer gerade ausgeht, nicht je Minute
+            const bool begins = minute == 6 * 60 || minute == 11 * 60 + 30 || minute == 17 * 60;
             if (minute == kCover || (!e.ruled && night)) {
                 if (!e.ruled) set_heat(i, 300);  // Start in der Nacht: abgedeckte Glut von gestern
                 cover(i, true);
             } else if (window) {
                 if (!e.on)
-                    set_on(i, true);
-                else if (e.value < 20)
+                    light(i, true, begins || out);
+                else if (e.value < 20 && feed(i, false))
                     e.value = static_cast<uint16_t>(e.value + 60);  // nachlegen
             }
             e.ruled = true;

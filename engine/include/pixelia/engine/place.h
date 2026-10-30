@@ -77,6 +77,8 @@ struct AreaDef {
     // Startbesetzung (seit 0.5.9, figure.h); ohne Daten legt die Welt je Ort PlaceDef::figures Testfiguren an
     const FigureDef* figures = nullptr;
     uint8_t figure_count = 0;
+    // Waren, Lagerplätze und Startvorrat (seit 0.5.10, ledger.h); nullptr = keine
+    const EconomyDef* economy = nullptr;
 };
 
 // Die Welt (worlds/gebiete.cpp): alle Gebiete in fester Reihenfolge
@@ -121,13 +123,20 @@ public:
     // Fehler in einem Satz (leer = alles gut): fehlendes Ziel, Ankunft ohne Ausgang, Verbindung ohne Rückweg, nicht
     // alle Orte erreichbar (in beide Richtungen)
     const char* check(char* buf, int n) const;
-    // kürzester Weg (Zahl der Verbindungen) von a nach b, −1 = keiner
+    // kürzester Weg (Zahl der Verbindungen) von a nach b, −1 = keiner (seit 0.5.10 Teil 2 aus einer Tabelle, die build
+    // einmal ausrechnet: Planer fragen an jeder Takt-Grenze)
     int hops(int a, int b) const;
 
 private:
+    void build_hops();
     std::array<const PlaceDef*, kMaxPlaces> defs_{};
     std::array<Edge, kMaxEdges> edges_{};
+    std::array<std::array<int8_t, kMaxPlaces>, kMaxPlaces> hops_{};
     int n_ = 0, e_ = 0;
 };
+
+// Orts-Graph der ganzen Welt (seit 0.5.10 Teil 2: Wege der Planer über mehrere Orte), einmal aus world_areas() gebaut,
+// im Grafik-Speicher
+const PlaceGraph& world_graph();
 
 }  // namespace pixelia

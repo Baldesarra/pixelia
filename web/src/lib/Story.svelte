@@ -30,6 +30,16 @@
           <span class="d tnum">{dateDe(st.d)}</span>
           <b>{st.title}</b>
           <span>{st.text}</span>
+          {#if st.images?.length}
+            <span class="pics">
+              {#each st.images as im (im.href)}
+                <a href={im.href} target="_blank" rel="noopener" title={im.alt}>
+                  <img src={im.src} alt={im.alt} loading="lazy" />
+                  <span class="cap">{im.alt}</span>
+                </a>
+              {/each}
+            </span>
+          {/if}
           {#if st.links?.length}
             <span class="links">
               {#each st.links as l (l.href)}
@@ -135,6 +145,36 @@
   b {
     font: var(--md-sys-typescale-title-medium);
     font-weight: 650;
+  }
+  /* Vorschaubilder (seit 0.5.10): nebeneinander zum Wischen, antippen öffnet das große Bild */
+  .pics {
+    display: flex;
+    gap: 8px;
+    margin: 8px 0 2px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 4px;
+  }
+  .pics a {
+    display: grid;
+    flex: 0 0 min(78%, 260px);
+    gap: 4px;
+    scroll-snap-align: start;
+    color: inherit;
+    text-decoration: none;
+  }
+  .pics img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    object-position: top left;
+    border-radius: var(--md-sys-shape-corner-medium);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    background: var(--md-sys-color-surface-container-high);
+  }
+  .cap {
+    font: var(--md-sys-typescale-label-small);
+    color: var(--md-sys-color-on-surface-variant);
   }
   .links {
     display: flex;

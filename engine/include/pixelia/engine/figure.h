@@ -145,8 +145,13 @@ struct Whereabouts {
 // dann übergibt die Bühne sie in einem Schritt.
 enum class DoingKind : uint8_t { None, Idle, Wander, Use, Leave, kCount };  // None: gleich neu entscheiden
 const char* doing_kind_name(DoingKind k);  // keine, steht, geht, benutzt, geht hinaus
+// Wozu (seit 0.5.10 Teil 2, Aufgabenliste tasks.h): Der Planer bucht an seinem Ende danach (Holen, Bringen, Herstellen,
+// Essen), auch auf dem Weg dorthin steht es auf der Karte. Board: wartet bis zur Takt-Grenze und schaut, ob es etwas zu
+// tun gibt; Stow: legt ab, was ohne Aufgabe in der Trage liegt; Build (seit 0.5.10 Teil 3): arbeitet an einem Projekt
+enum class DoingAim : uint8_t { None, Board, Fetch, Bring, Return, Produce, Eat, Stow, Build, kCount };
 struct Doing {
     DoingKind kind = DoingKind::None;
+    DoingAim aim = DoingAim::None;  // Speicherstand: hinten im Datensatz (TAET)
     uint8_t part = 0xFF, k = 0;  // Use: Teil (Nummer in der Raumliste) und Benutzungspunkt
     uint8_t exit = 0xFF;         // Leave: Ausgang
     uint8_t sx = 0, sy = 0;      // Start-Kachel
