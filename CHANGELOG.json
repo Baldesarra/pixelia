@@ -44,7 +44,7 @@
       "Display: Karte eines Projekts aus echten Daten (ui::project_card: Schritt-Leiste, Material verbaut/Bedarf, Grund des Wartens, wer arbeitet, Arbeit übrig), Kurzmeldung bei fertigem Projekt; Vorlagen mit echten Daten",
       "Engine: Werkzeug am Projekt (ProjectNeed::tool, Wartegrund werkzeug): die Säge wird für Gestell und Liegefläche einmal geholt, nicht verbaut, danach zurück; vergeben wartet ein anderes Projekt",
       "Engine: Wirtschafts-Protokoll (econ_log.h): bewegungen, projekte, bedarf, bestand_lager_tag, wetter_tag als CSV je Welttag in /data/wirtschaft (≤ 1 MB), angehängt mit dem Speicherstand; Simulator: --wirtschaft DIR",
-      "Web: Lager-Karte auf der Seite Welt (Sorgen zuerst: knappe und leere Lager, sonst ein Satz; Projekte mit Fortschritt je Schritt), Unterseite Lager mit Waren | Orte (Orte mit Sorgen offen, Rest in einer Sammelzeile)",
+      "Web: Lager-Karte „Sorgen zuerst“ (knappe und leere Lager, Projekte mit Schritt-Segmenten), Seite Lager mit Waren | Orte (Rest in einer Sammelzeile); „So entstand Pixelia“ mit Vorschaubildern (WebP)",
       "Engine: Ledger::store_level (Stand eines Lagers nach seinen Regeln), ui::reach_text (Reichweite in Worten für Karte, Web, Konsole); /api/world?lager=1 und Konsole lager, Ansicht 7 KB PSRAM nur auf Anfrage",
       "Simulator: --test warenbuch 32 Prüfungen (u. a. Holzkette, Brot über zwei Orte, Bett-Projekt, Säge, Neustart im Transport und mitten im Bau, P10 mit Bau, Protokoll genau einmal, alter Stand)"
     ],

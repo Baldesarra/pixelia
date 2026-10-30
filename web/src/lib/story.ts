@@ -1,14 +1,23 @@
 // „So entstand Pixelia“ (seit 0.5.4): Rückblick auf die Entwicklung, als Easter Egg nach 7× Tippen aufs
 // Pixelia-Zeichen oben links und als Seite unter System → Experimentell. Neue Arbeitsstände und Zwischenstände hier unten anhängen (Datum, Titel, ein bis zwei
 // Sätze, optional Links). Die Skizzen sind zu groß für die Firmware (zusammen ~920 KB) und liegen auf GitHub Pages
-// (pages.yml kopiert docs/skizzen); entschieden in 0.5.5: sie bleiben dort (Projektplan Kapitel 14).
+// (pages.yml kopiert docs/skizzen); entschieden in 0.5.5: sie bleiben dort (Projektplan Kapitel 14). Seit 0.5.10 dazu
+// kleine Vorschaubilder in der Firmware, damit die Seite auch ohne Internet Bilder zeigt.
+
+import lagerEntwuerfe from '../assets/story/0510-entwuerfe.webp';
+import lagerIdeen from '../assets/story/0510-ideen.webp';
+import lagerFortschritt from '../assets/story/0510-fortschritt.webp';
 
 export const SKETCH_URL = 'https://baldesarra.github.io/pixelia/skizzen/';
 
 export type StoryLink = { label: string; href: string };
-export type StoryStep = { d: string; title: string; text: string; links?: StoryLink[] };
+// Bilder (seit 0.5.10): kleines Vorschaubild in der Firmware (web/src/assets/story, WebP ~10–20 KB), antippen öffnet
+// das große Bild auf GitHub Pages
+export type StoryImage = { src: string; alt: string; href: string };
+export type StoryStep = { d: string; title: string; text: string; links?: StoryLink[]; images?: StoryImage[] };
 
 const sketch = (file: string, label: string): StoryLink => ({ label, href: SKETCH_URL + file });
+const picture = (src: string, file: string, alt: string): StoryImage => ({ src, alt, href: SKETCH_URL + file });
 
 export const STORY: StoryStep[] = [
   {
@@ -58,5 +67,18 @@ export const STORY: StoryStep[] = [
     d: '2026-10-22',
     title: 'Aufgeräumt',
     text: 'Die Oberfläche bekommt eine neue Ordnung mit Welt, Übersicht, System und Einstellungen. Und dieses kleine Geheimnis.',
+  },
+  {
+    d: '2026-10-30',
+    title: 'Wo ist das Brot?',
+    text:
+      'Die Welt zählt jetzt jeden Scheit und jeden Laib, holt Nachschub im Korb und baut in der Kammer ein Bett. Die erste Lager-Karte im Web sah gut aus, ' +
+      'bis die Frage kam: Und wenn das Dorf 16 Häuser und 20 Waren hat? Nach vier Lösungswegen gewinnt „Sorgen zuerst“: Die Karte zeigt nur, was knapp ist, ' +
+      'alles andere steht auf der Seite Lager. Und die wackelnde Welle am Bett, die stundenlang Eile vortäuschte, wird zu ruhigen Segmenten, eins je Arbeitsschritt.',
+    images: [
+      picture(lagerEntwuerfe, '0510-lager-karte-entwuerfe.png', 'Erste Runde: drei Entwürfe der Lager-Karte'),
+      picture(lagerIdeen, '0510-lager-ideen.png', 'Großes Dorf: vier Lösungswege'),
+      picture(lagerFortschritt, '0510-fortschritt-varianten.png', 'Ruhiger Fortschritt: Füllbalken, Segmente, stille Welle'),
+    ],
   },
 ];
