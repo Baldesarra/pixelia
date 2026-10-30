@@ -1138,6 +1138,7 @@ std::vector<Case> cases() {
                  const std::string dir = ".logs/test-wirtschaft-" + std::to_string(lost_hour);
                  std::error_code ec0;
                  std::filesystem::remove_all(dir, ec0);
+                 std::filesystem::create_directories(".logs", ec0);  // fehlt in der CI (flush legt nur den letzten Ordner an)
                  Run a(71, "testort-raum", 6, 0, 60.0);
                  pixelia::EconomyLog la;
                  if (!la.attach(a.stage.environment(), 128 * 1024, "simulator")) return std::string("kein Puffer");
@@ -1214,6 +1215,7 @@ std::vector<Case> cases() {
              const std::string dir = ".logs/test-wirtschaft-max";
              std::error_code ec0;
              std::filesystem::remove_all(dir, ec0);
+             std::filesystem::create_directories(".logs", ec0);
              std::filesystem::create_directories(dir);
              const std::string big(400 * 1024, 'x');
              for (int d = 1; d <= 3; ++d) {

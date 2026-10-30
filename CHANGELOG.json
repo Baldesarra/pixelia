@@ -52,7 +52,7 @@
     ],
     "f": [
       "Dorf: Ohne Weg schaut eine Figur nach vorn bzw. zur Tür; vorher hing der Blick davon ab, seit wann der Ort zu sehen ist (Bild nach einem Schnitt anders)",
-      "Web: Mit den Vorschaubildern war die Adresstabelle voll (60), 7 Captive-Portal-Adressen fehlten (HANDLERS_FULL); jetzt Dateien + 60. sim.ps1 beendete --test all nach 60 Zeilen"
+      "Web: Mit den Vorschaubildern war die Adresstabelle voll (60), 7 Captive-Portal-Adressen fehlten (HANDLERS_FULL); jetzt Dateien + 60. sim.ps1 beendete --test all nach 60 Zeilen, Protokoll-Test lief ohne .logs nicht (CI)"
     ],
     "r": [
       "Engine: Ortszustand „angefangene Arbeit“ (StateKind::Work, Bett im Bau im Testraum), ersetzt durch Projekte; ein alter Stand damit lädt, das Bett-Projekt beginnt frisch"
