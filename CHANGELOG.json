@@ -16,7 +16,8 @@
         "Gemeinsam helfen: Wird etwas im ganzen Dorf knapp, helfen mehrere zusammen; das steht in der Chronik, und eine Kurzmeldung sagt Bescheid",
         "Vorräte im Bild: Jeder Scheit und jeder Laib liegt einzeln im Lager; tippt man ein Lager an, zeigt die Karte, wie viel drin ist, wie lange es reicht und was heute dazukam",
         "Projekte: Größere Arbeiten bestehen aus Teilaufgaben mit eigenem Material; fehlt etwas, wartet das Projekt, und die Chronik meldet jede fertige Teilaufgabe",
-        "Bett: Tagsüber baut in der Kammer jemand mit Tischlern ein Bett (Gestell, Liegefläche, Strohsack); das alte Bett im Bau im Testraum ist weg"
+        "Bett: Tagsüber baut in der Kammer jemand mit Tischlern ein Bett, man sieht es in Stufen wachsen; den Strohsack darf jeder füllen; das alte Bett im Testraum ist weg",
+        "Baustelle: Das Material liegt auf einer Bauplane am Bett und wird mit der Arbeit weniger; die Karte zeigt Schritte, Wartegrund und wer arbeitet; Meldung, wenn fertig"
       ],
       "i": [
         "Nachholen: War Pixelia länger aus, holt die Welt erst das Verpasste nach und lässt die Figuren danach weitermachen"
@@ -31,12 +32,14 @@
       "Engine: Aufgabenliste (tasks.h, AUFG): Holen und Bringen mit Reservierung aus den Regeln der Lager, Herstellen, Notbestand als Gemeinschaftsaufgabe; entsteht und wird übernommen nur an Takt-Grenzen",
       "Engine: Projekte mit Teilaufgaben (projects.h, PROJ): Material ein Schritt voraus, Reservierung an der Baustelle, Verbauen mit der Arbeit, Fähigkeit, Zwischenstand, Wartezeit nach Grund, ProjectRecord",
       "Engine: Zweck einer Tätigkeit (DoingAim), Orts-Graph der Welt mit Entfernungstabelle (world_graph), Zähleinheiten (Scheit, Laib); Füllung im Raum-Baukasten (set_fill) zeichnet nur ihr Rechteck neu",
+      "Engine: set_fill mit Stellplatz-Bereichen (mehrere Waren auf einem Teil), set_state zeichnet nur das Rechteck des Teils neu (Bett-Stufe 1,3 µs statt 12,9 µs, PC); Bau-Bild sofort nach dem Laden",
       "Dorf: Testinhalt Holzkette, Brot und Vorratskiste (waren.cpp); Herd holt Brennholz aus der Holzlege, Backofen am Platz (Wahl des Users); Platzhalter bis 0.5.11: zwei feste Mahlzeiten je Figur",
       "Dorf: Planer übernimmt Aufgaben, geht über die Ausgänge Richtung Lager (manchmal der Feldweg), trägt im Korb; Karte einer Figur mit Aufgabe und Trage; ort cmd aufgaben, Kurzmeldung bei Notbestand",
       "Dorf: Holzstapel (40) mit Hackklotz, Holzlege (12), Brotregal (8), Lehmbackofen mit Brett (6) und Glut statt Platzhalter-Kisten; Karte eines Lagers (ui::store_card), Befehl ort cmd vorrat",
-      "Dorf: Bett-Projekt in der Kammer (Gestell, Liegefläche, Strohsack; 8 Bretter, 6 Nägel, 4 Stroh), nur wer Tischlern kann, 7–19 Uhr (Platzhalter bis 0.5.11); ort cmd projekte, projekt bett start|stufe|fertig",
-      "Display: Karte mit senkrechter Schritt-Leiste für Projekte (CardStep: nur der laufende Schritt zeigt sein Material), --screen karte-schritte; karte-lager und karte-vorrat mit echten Daten",
-      "Simulator: --test warenbuch 24 Prüfungen (u. a. Holzkette, Brot über zwei Orte, Bett-Projekt, Neustart im Transport und mitten im Bau, P10 mit Transporten und mit Bau, alter Stand mit Bett im Bau)"
+      "Dorf: Bett-Projekt in der Kammer (Gestell, Liegefläche, Strohsack; 8 Bretter, 6 Nägel, 4 Stroh), Tischlern nötig (Strohsack jeder), 7–19 Uhr (Platzhalter bis 0.5.11); ort cmd projekte, projekt bett …",
+      "Dorf: Bett im Bau in vier Stufen, daneben der Materialstapel (Bretter, Stroh, Nägel je Bereich), der mit der Arbeit schrumpft, Bauplane am Boden; helles Holz, selbst gezeichnet (Wahl des Users)",
+      "Display: Karte eines Projekts aus echten Daten (ui::project_card: Schritt-Leiste, Material verbaut/Bedarf, Grund des Wartens, wer arbeitet, Arbeit übrig), Kurzmeldung bei fertigem Projekt; Vorlagen mit echten Daten",
+      "Simulator: --test warenbuch 26 Prüfungen (u. a. Holzkette, Brot über zwei Orte, Bett-Projekt, Neustart im Transport und mitten im Bau, P10 mit Bau, Materialstapel mit Wegen und Laden, alter Stand)"
     ],
     "i": [
       "Engine: je Schritt erst die Takt-Grenzen (Warenbuch, Aufgaben, Projekte), dann Kalender und Ortszustände (nie über die letzte Takt-Grenze), dann betretene Orte; über 10 Weltminuten Nachholen warten Tätigkeiten"
@@ -48,7 +51,7 @@
       "Engine: Ortszustand „angefangene Arbeit“ (StateKind::Work, Bett im Bau im Testraum), ersetzt durch Projekte; ein alter Stand damit lädt, das Bett-Projekt beginnt frisch"
     ],
     "g": [
-      "Simulator: alle 132 Prüfungen grün; Bett fertig mit genau 8 Brettern, 6 Nägeln, 4 Stroh und 8 Personenstunden; 48 Figuren in einem Ort: Takt-Grenze im Mittel 10 µs (PC); Firmware 2,06 MB (33 %)"
+      "Simulator: alle 134 Prüfungen grün; Bett fertig mit genau 8 Brettern, 6 Nägeln, 4 Stroh und 8 Personenstunden; 48 Figuren in einem Ort: Takt-Grenze im Mittel 10 µs (PC); Firmware 2,07 MB (33 %)"
     ],
     "h": [
       "Dorf: Werte im Testdorf (Korb 10, Holzlege 12, Bett 8 Stunden …) sind Testwerte, Balancing ab 0.5.12 bzw. 0.6.x; das Brotregal ist nur Testinhalt; sichtbares Tragen kommt mit 0.6.x (Wahl des Users)",

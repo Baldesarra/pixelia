@@ -7,7 +7,8 @@
 // Teil 2, Platzhalter: dort wird gebacken wie am Holzstapel gespalten). Bett-Projekt in der Kammer (seit Teil 3,
 // projects.h): drei Teilaufgaben mit Bretter, Nägel und Stroh aus der Vorratskiste, Mengen nach WIRTSCHAFT 7 (Bett 8
 // Bretter, 6 Nägel, Strohsack 4 Stroh, ohne Stoff), Dauer nach SETTING 8 (Bett 1 Tag ≈ 8 Arbeitsstunden); arbeiten darf
-// nur, wer Tischlern kann (Wahl des Users). Die Säge ist ein Einzelstück (Werkzeuge an Projekten kommen später).
+// nur, wer Tischlern kann (Wahl des Users), den Strohsack füllen kann jeder (seit Teil 3b). Die Säge ist ein
+// Einzelstück (Werkzeuge an Projekten: Wahl des Users 2026-10-30, kommt in Teil 4).
 #include "testdorf/testdorf.h"
 
 #include "pixelia/engine/projects.h"
@@ -34,7 +35,8 @@ constexpr StockRule kStore[] = {{"brot", 12, 24}};  // Vorratskiste: Brot vom Ba
 
 // part: Teil der Raumliste, an dessen Benutzungspunkt geholt und gebracht wird; seit 0.5.10 Teil 2b eigene Teile mit
 // einem Stellplatz je Stück (Holzstapel Wiese Teil 6 mit Hackklotz Teil 10, Holzlege Raum Teil 18, Brotregal Raum
-// Teil 12, Lehmbackofen Platz Teil 14); die Vorratskiste (Platz Teil 13) bleibt eine Kiste
+// Teil 12, Lehmbackofen Platz Teil 14, seit Teil 3b Materialstapel Kammer Teil 6); die Vorratskiste (Platz Teil 13)
+// bleibt eine Kiste
 constexpr StoreDef kStores[] = {
     {.id = "wiese_holzstapel", .title = "Holzstapel", .place = "testort-wiese", .kind = StoreKind::Producer,
      .capacity = 40, .part = 6, .rules = kWoodpile, .rule_count = 1, .work_part = 10},
@@ -45,7 +47,7 @@ constexpr StoreDef kStores[] = {
     {.id = "platz_vorrat", .title = "Vorratskiste", .place = "testort-platz", .kind = StoreKind::Community,
      .capacity = 200, .part = 13, .rules = kStore, .rule_count = 1, .source = "platz_backofen"},
     {.id = "kammer_baustelle", .title = "Baustelle", .place = "testort-kammer", .kind = StoreKind::Site,
-     .capacity = 60},
+     .capacity = 60, .part = 6},  // Materialstapel neben dem Bett (seit Teil 3b)
     {.id = "platz_backofen", .title = "Backofen", .place = "testort-platz", .kind = StoreKind::Producer,
      .capacity = 20, .part = 14, .rules = kOven, .rule_count = 1},
 };
@@ -59,8 +61,9 @@ constexpr ProjectStepDef kBedSteps[] = {
      .skill = Skill::Joinery, .level = SkillLevel::Beginner, .minutes = 240},
     {.id = "liegeflaeche", .title = "Liegefläche legen", .label = "Liegefläche", .needs = kSlats, .need_count = 2,
      .skill = Skill::Joinery, .level = SkillLevel::Beginner, .minutes = 150},
+    // Strohsack füllen kann jeder (seit Teil 3b, Wahl des Users: Helfer ohne Tischlern)
     {.id = "strohsack", .title = "Strohsack füllen", .label = "Strohsack", .needs = kSack, .need_count = 1,
-     .skill = Skill::Joinery, .level = SkillLevel::Beginner, .minutes = 90},
+     .skill = Skill::Joinery, .level = SkillLevel::Unknown, .minutes = 90},
 };
 constexpr ProjectDef kProjects[] = {
     {.id = "kammer_bett", .title = "Bett bauen", .kind = ProjectKind::Furniture, .place = "testort-kammer",

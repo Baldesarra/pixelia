@@ -963,6 +963,118 @@ std::vector<Case> cases() {
              if (room.bakes() != b) return std::string("Neuzeichnen ohne Änderung");
              return checked(l) .empty() ? std::string() : checked(l);
          }},
+        {"Materialstapel und Bau-Bild: Stapel je Ware wie im Warenbuch, Bett in Stufen, Bauplane, pixelgleich; Wege frei; nach dem Laden sofort richtig; Kurzmeldung",
+         [] {
+             Run r(57, "testort-kammer", 6, 30, 60.0);
+             pixelia::TestPlace* kammer = test_place(r, "testort-kammer");
+             if (!kammer || !kammer->room().has_background()) return std::string("Kammer nicht betreten");
+             const pixelia::Room& room = kammer->room();
+             Ledger& l = r.ledger();
+             const int site = l.find_store("kammer_baustelle");
+             const int pile = l.store_def(site)->part, bett = 1;
+             // erwartete Stücke je Bereich (test_place.cpp kSitePieces): Bretter 0–7, Stroh 8–11, Nägel 12–14 je zwei
+             auto expect = [&](pixelia::Ledger& lg, int st, int first) {
+                 const char* good = first == 0 ? "bretter" : first == 8 ? "stroh" : "naegel";
+                 const int q = lg.qty(st, lg.find_good(good));
+                 return first == 12 ? std::min((q + 1) / 2, 3) : std::min(q, first == 0 ? 8 : 4);
+             };
+             // Wege frei: Grundfläche begehbar, kein Benutzungspunkt darauf, Bett und Stapel von der Tür erreichbar
+             const pixelia::Rect pr = room.part_rect(pile);
+             for (int i = 0; i < room.part_count(); ++i)
+                 for (int k = 0; k < 4; ++k) {
+                     int tx, ty;
+                     if (i == pile || !room.use_point(i, k, &tx, &ty, nullptr)) continue;
+                     if (tx * 8 >= pr.x && tx * 8 < pr.x + pr.w && ty * 8 >= pr.y && ty * 8 < pr.y + pr.h)
+                         return "Benutzungspunkt von Teil " + std::to_string(i) + " liegt unter dem Stapel";
+                 }
+             for (int ty = pr.y / 8; ty < (pr.y + pr.h) / 8; ++ty)
+                 for (int tx = pr.x / 8; tx < (pr.x + pr.w) / 8; ++tx)
+                     if (!room.walkable(tx, ty)) return std::string("Stapel versperrt den Weg");
+             std::vector<uint8_t> part_bg(pixelia::kCoarsePixels);
+             int seen_states = 0, max_boards = 0, checks = 0;
+             bool shrank = false;
+             int last_boards = -1;
+             std::vector<uint8_t> mid;
+             int mid_state = -1, mid_shown[3] = {};
+             const int plane = 7;  // Bauplane (orte/kammer.cpp)
+             int toasts = 0;
+             for (int t = 0; t < 30 * 60 * 16 && (bed(r) || !seen_states); ++t) {
+                 r.run(1);
+                 const pixelia::Project* p = bed(r);
+                 for (pixelia::WorldEvent e; r.stage.poll_event(&e);)
+                     if (e.kind == pixelia::EventKind::Project) {
+                         if (e.a != 1) return "Kurzmeldung für eine Teilaufgabe: " + std::string(e.text);
+                         ++toasts;
+                     }
+                 if (p && !p->done(3) && room.part(plane).state != 1) return std::string("Bauplane fehlt während des Baus");
+                 for (int first : {0, 8, 12})
+                     if (room.fill_shown(pile, first) != expect(l, site, first))
+                         return "Bereich " + std::to_string(first) + ": gezeigt " +
+                                std::to_string(room.fill_shown(pile, first)) + " statt " +
+                                std::to_string(expect(l, site, first));
+                 const int boards = room.fill_shown(pile, 0);
+                 if (last_boards >= 0 && boards < last_boards) shrank = true;
+                 last_boards = boards;
+                 max_boards = std::max(max_boards, boards);
+                 if (p) {
+                     seen_states |= 1 << room.part(bett).state;
+                     for (int k : {0, 1})  // Bett und Stapel erreichbar (Arbeiter und Träger)
+                         for (int part : {bett, pile}) {
+                             int tx, ty;
+                             if (room.use_point(part, k, &tx, &ty, nullptr) && room.path(1, 9, tx, ty) < 0)
+                                 return "Teil " + std::to_string(part) + " nicht erreichbar";
+                         }
+                     // mitten im Bau mit Material am Stapel: Stand zum Laden merken
+                     if (mid.empty() && p->begun && p->step == 1 && p->work_s > 0 && room.fill_shown(pile) > 0) {
+                         mid = r.save();
+                         mid_state = room.part(bett).state;
+                         for (int k = 0; k < 3; ++k) mid_shown[k] = room.fill_shown(pile, k == 0 ? 0 : k == 1 ? 8 : 12);
+                     }
+                 }
+                 if (t % 600 == 0) {  // Teil-Neuzeichnen pixelgleich mit dem ganzen Bild
+                     std::copy_n(room.background(), pixelia::kCoarsePixels, part_bg.begin());
+                     const_cast<pixelia::Room&>(room).invalidate();
+                     if (!std::equal(part_bg.begin(), part_bg.end(), room.background()))
+                         return "Schritt " + std::to_string(t) + ": Teil-Neuzeichnen weicht vom ganzen Bild ab";
+                     ++checks;
+                 }
+             }
+             if (bed(r)) return "Bett nicht fertig: " + projects_text(r.stage.environment().projects, l);
+             if (seen_states != 0xF) return "Bau-Bild zeigte nicht alle vier Stufen (" + std::to_string(seen_states) + ")";
+             if (max_boards < 6 || !shrank) return std::string("Stapel wuchs nicht bzw. schrumpfte nicht");
+             if (room.fill_shown(pile) != 0 || room.building(bett)) return std::string("nach dem Ende nicht aufgeräumt");
+             for (int t = 0; t < 30 * 60 && l.load(site) > 0; ++t) r.run(1);  // Übriges zurück, dann ist die Plane weg
+             r.run(1);
+             if (l.load(site) > 0 || room.part(plane).state != 0) return std::string("Bauplane bleibt liegen");
+             if (toasts != 1) return "Kurzmeldungen „Projekt fertig“: " + std::to_string(toasts);
+             if (mid.empty()) return std::string("kein Stand mitten im Bau");
+             // nach dem Laden mitten im Bau: Stapel und Stufe schon im ersten Bild, ohne Takt-Grenze
+             Run b(58, "testort-kammer", 6, 30, 1.0);
+             pixelia::Stage::LoadReport rep;
+             if (!b.stage.load_state(mid.data(), mid.size(), &rep)) return std::string("Laden: ") + rep.why;
+             b.run(1);
+             const pixelia::Room& rb = test_place(b, "testort-kammer")->room();
+             if (rb.part(bett).state != mid_state || !rb.building(bett))
+                 return "nach dem Laden Stufe " + std::to_string(rb.part(bett).state) + " statt " + std::to_string(mid_state);
+             for (int k = 0; k < 3; ++k)
+                 if (rb.fill_shown(pile, k == 0 ? 0 : k == 1 ? 8 : 12) != mid_shown[k])
+                     return "nach dem Laden Stapel " + std::to_string(k) + " falsch";
+             // alter Stand 0.5.9 ohne Baustellen-Waren: leerer Stapel, Bauplatz
+             std::vector<uint8_t> old;
+             if (FILE* f = std::fopen("sim/testdata/welt-0.5.9.pxw", "rb")) {
+                 uint8_t buf[4096];
+                 for (size_t k; (k = std::fread(buf, 1, sizeof(buf), f)) > 0;) old.insert(old.end(), buf, buf + k);
+                 std::fclose(f);
+             }
+             Run c(59, "testort-kammer", 6, 30, 1.0);
+             if (old.empty() || !c.stage.load_state(old.data(), old.size(), &rep)) return std::string("alter Stand");
+             c.run(1);
+             const pixelia::Room& rc = test_place(c, "testort-kammer")->room();
+             if (rc.fill_shown(pile) != 0 || rc.part(bett).state != 0 || !rc.building(bett))
+                 return std::string("alter Stand: Stapel nicht leer oder nicht Bauplatz");
+             std::printf("  info  Bretter höchstens %d gezeigt, %d Vergleiche mit dem ganzen Bild\n", max_boards, checks);
+             return checked(r);
+         }},
         {"Lehmbackofen glüht, solange jemand an ihm backt; frisches Brot liegt auf dem Brett daneben",
          [] {
              Run r(53, "testort-platz", 9, 0, 60.0);
@@ -1048,6 +1160,44 @@ std::vector<Case> cases() {
                  std::printf("%s\n", line);
                  if (room.fill_shown(part) == 0) return std::string("keine Stücke zu sehen");
              }
+             return std::string();
+         }},
+        {"Messung: Materialstapel (15 Stücke) und Bau-Bild des Betts, Neuzeichnen nur des Rechtecks (PC)",
+         [] {
+             Run r(60, "testort-kammer", 11, 0, 1.0);
+             pixelia::TestPlace* tp = test_place(r, "testort-kammer");
+             if (!tp) return std::string("Ort fehlt");
+             pixelia::Room& room = const_cast<pixelia::Room&>(tp->room());
+             auto fill = [&](bool full) {
+                 set_stock(r, "kammer_baustelle", "bretter", full ? 8 : 0);
+                 set_stock(r, "kammer_baustelle", "stroh", full ? 4 : 0);
+                 set_stock(r, "kammer_baustelle", "naegel", full ? 6 : 0);
+                 r.run(1);
+             };
+             std::vector<uint8_t> frame(pixelia::kScreenPixels);
+             auto frames = [&] {
+                 pixelia::Canvas c(frame.data(), pixelia::kScreenWidth, pixelia::kScreenHeight);
+                 const auto t0 = std::chrono::steady_clock::now();
+                 for (int k = 0; k < 400; ++k) r.stage.render(c);
+                 return std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - t0).count() / 400;
+             };
+             fill(false);
+             const double empty = frames();
+             fill(true);
+             const double full = frames();
+             if (room.fill_shown(r.ledger().store_def(r.ledger().find_store("kammer_baustelle"))->part) != 15)
+                 return std::string("Stapel nicht voll");
+             auto per = [](auto&& fn) {
+                 const auto t0 = std::chrono::steady_clock::now();
+                 for (int k = 0; k < 200; ++k) fn(k);
+                 return std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - t0).count() / 200;
+             };
+             const double brett = per([&](int k) { set_stock(r, "kammer_baustelle", "bretter", 7 + k % 2); tp->tick(r.clock); }) -
+                                  per([&](int) { tp->tick(r.clock); });
+             const double stufe = per([&](int k) { room.set_state(1, 1 + k % 3); });
+             const double ganz = per([&](int) { room.invalidate(); });
+             std::printf("  info  Kammer: Bild leer %.1f µs, voller Stapel %.1f µs; Neuzeichnen ein Brett %.1f µs, "
+                         "Stufe des Betts %.1f µs, ganzes Bild %.1f µs\n", empty, full, brett, stufe, ganz);
              return std::string();
          }},
         {"Messung: Planer an der Takt-Grenze mit 48 Figuren an einem Ort (PC; Gerät etwa zehnmal langsamer)",

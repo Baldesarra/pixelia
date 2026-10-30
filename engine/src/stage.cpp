@@ -183,7 +183,7 @@ Stage::Stage() : assets_(&asset_store()) {
     env_.calendar.set_bus(&env_.events);
     env_.states.set_bus(&env_.events);
     env_.figures.set_bus(&env_.events);
-    toast_reader_ = env_.events.subscribe(kCalendarEvents | event_bit(EventKind::Stock));
+    toast_reader_ = env_.events.subscribe(kCalendarEvents | event_bit(EventKind::Stock) | event_bit(EventKind::Project));
     // Chronik (seit 0.5.9): Kalender, neue Stufen von Fähigkeiten und Beziehungen; seit 0.5.10 Besonderes im Warenbuch
     chron_reader_ = env_.events.subscribe(kCalendarEvents | event_bit(EventKind::SkillUp) |
                                           event_bit(EventKind::BondChanged) | event_bit(EventKind::Stock) |
@@ -194,9 +194,11 @@ Stage::Stage() : assets_(&asset_store()) {
 }
 
 bool Stage::poll_event(WorldEvent* out) {
-    // aus dem Warenbuch nur der Notbestand (leer, voll, Gemeinschaftsaufgabe nur in der Chronik)
+    // aus dem Warenbuch nur der Notbestand (leer, voll, Gemeinschaftsaufgabe nur in der Chronik); seit 0.5.10 Teil 3b
+    // ein fertiges Projekt (Wahl des Users), eine fertige Teilaufgabe nur in der Chronik
     while (env_.events.poll(toast_reader_, out))
-        if (out->kind != EventKind::Stock || out->a == 2) return true;
+        if ((out->kind != EventKind::Stock || out->a == 2) && (out->kind != EventKind::Project || out->a == 1))
+            return true;
     return false;
 }
 

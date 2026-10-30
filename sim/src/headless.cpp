@@ -101,24 +101,10 @@ bool render_overlay_screen(const std::string& name, pixelia::Canvas& canvas, con
         toast = false;
     } else if (name == "karte-schritte") {
         // seit 0.5.10 (Wahl des Users nach Kontaktbogen): Karte eines Projekts mit senkrechter Schritt-Leiste (nur der
-        // laufende Schritt zeigt sein Material); echte Daten mit den Projekten (Teil 3)
-        ui::Card c;
-        c.kind = ui::Card::Kind::Building;
-        c.title = "Bett bauen";
-        c.subtitle = "Im Bau: Schritt 2 von 3";
-        c.where = "Testort Kammer";
-        auto step = [&](const char* t, uint8_t state, std::initializer_list<const char*> d) {
-            ui::CardStep& s = c.steps[c.step_count++];
-            s.title = t;
-            s.state = state;
-            for (const char* x : d) s.detail[s.detail_count++] = x;
-        };
-        step("Gestell", 2, {"Bretter 4 / 4", "Nägel 8 / 8"});
-        step("Liegefläche", 1, {"Bretter 1 / 2", "Nägel 1 / 4"});
-        step("Strohsack", 0, {"Stroh 0 / 4"});
-        c.add_line("Testfigur 3 arbeitet, noch etwa 2 Std.");
-        ui::render_card(canvas, c, cs);
-        return true;
+        // laufende Schritt zeigt sein Material); seit Teil 3b echte Daten über describe: das Bett-Projekt in der Kammer
+        // (--scene testort-kammer, mit --time und --frames vorspulen, z. B. 07:00 und --speed 120 --frames 3000)
+        what = "Bett bauen";
+        toast = false;
     } else if (name == "uhr" || name == "uhr-sekunden" || name == "uhr-unten") {
         clk.seconds = name == "uhr-sekunden";
         if (name == "uhr-unten") clk.corner = ui::Corner::BottomRight;

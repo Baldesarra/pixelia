@@ -15,6 +15,8 @@
 namespace pixelia {
 class AssetStore;
 class Ledger;
+class ProjectList;
+struct Project;
 }
 
 namespace pixelia::ui {
@@ -169,5 +171,11 @@ Rect card_button(const Card& card, const CardStyle& style);
 // liegt), mehrere als kurze Liste („Brot 24 · gut“). slots = Stellplätze des Teils (0 = zeigt keine Stücke, nichts
 // liegt „hinten“). Setzt Art, Titel, Unterzeile und Angaben; Ort, Bild und Hinweis setzt der Ort
 void store_card(const Ledger& ledger, int store, int slots, Card* card);
+
+// Karte eines Projekts (seit 0.5.10 Teil 3b, Wahl des Users nach Kontaktbogen): senkrechte Schritt-Leiste aus den
+// Teilaufgaben, nur der laufende Schritt zeigt sein Material („Bretter 4 / 6“ = verbaut / Bedarf); darunter der Grund
+// des Wartens in einem Satz bzw. wer arbeitet, und wie viel Arbeit noch fehlt. worker = Name der Figur, die daran
+// arbeitet (nullptr = niemand). Setzt Art, Titel, Unterzeile, Schritte und Angaben; Ort und Hinweis setzt der Ort
+void project_card(const ProjectList& projects, const Project& p, const Ledger& ledger, const char* worker, Card* card);
 
 }  // namespace pixelia::ui

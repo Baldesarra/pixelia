@@ -71,9 +71,10 @@ enum Tile : uint8_t {
 };
 static_assert(kTileCount == 19, "Legende passt zu den Kacheln");
 
-// Bilder „im Bau“: halbfertiges Bett, Materialstapel; seit 0.5.10 Teil 2b Stücke der Lagerplätze (keine eigenen
-// Teile des Katalogs, testdorf.h)
+// Bilder „im Bau“: halbfertiges Bett, Materialstapel; seit 0.5.10 Teil 2b Stücke der Lagerplätze, seit Teil 3b des
+// Materialstapels einer Baustelle (keine eigenen Teile des Katalogs, testdorf.h)
 constexpr uint8_t kPBedFrame = kPartCount, kPSite = kPartCount + 1, kPLog = kPartCount + 2, kPLoaf = kPartCount + 3;
+constexpr uint8_t kPBoard = kPartCount + 4, kPStraw = kPartCount + 5, kPNails = kPartCount + 6;
 
 // Benutzungspunkte (Kachel relativ zur Lage des Teils)
 constexpr UsePoint kUseWardrobe[] = {{0, 1, Facing::Up, UsePose::Stand, 0}, {1, 1, Facing::Up, UsePose::Stand, 0}};
@@ -93,6 +94,7 @@ constexpr UsePoint kUseWoodshed[] = {{1, 1, Facing::Up, UsePose::Stand, 0}};
 constexpr UsePoint kUseShelf[] = {{1, 3, Facing::Up, UsePose::Stand, 0}};  // Wandregal: davor am Boden
 constexpr UsePoint kUseChop[] = {{-1, 0, Facing::Right, UsePose::Stand, 0}};
 constexpr UsePoint kUseBakeOven[] = {{-1, 0, Facing::Right, UsePose::Stand, 0}};  // links daneben: Glut bleibt sichtbar
+constexpr UsePoint kUseBuildPile[] = {{1, 1, Facing::Up, UsePose::Stand, 0}};       // vor dem Stapel abladen
 
 // Stellplätze der Lagerplätze (seit 0.5.10 Teil 2b, Wahl des Users: jedes Stück einzeln): Fußpunkt je Stück, von unten
 // nach oben gefüllt; ungerade Reihen um ein halbes Scheit versetzt
@@ -112,6 +114,13 @@ constexpr std::array<SlotPoint, 12> kShedSlots = [] {
 constexpr SlotPoint kShelfSlots[] = {{4, 12}, {10, 12}, {16, 12}, {22, 12}, {4, 4}, {10, 4}, {16, 4}, {22, 4}};
 // Brett neben dem Lehmbackofen (Wunsch des Users): frisches Brot als Pyramide, der Rest liegt „hinten“
 constexpr SlotPoint kBoardSlots[] = {{28, 12}, {33, 12}, {38, 12}, {31, 9}, {36, 9}, {33, 6}};
+// Materialstapel einer Baustelle (seit 0.5.10 Teil 3b, Wahl des Users „beides“): Bereiche je Ware, siehe kSitePieces.
+// Bretter 0–7 in zwei Stapeln zu vier Lagen (Lage für Lage, oben zuerst weg), Stroh 8–11, Nägel 12–14 davor
+constexpr SlotPoint kBuildPileSlots[] = {
+    {6, 12}, {19, 12}, {6, 10}, {19, 10}, {6, 8}, {19, 8}, {6, 6}, {19, 6},  // Bretter
+    {28, 12}, {34, 12}, {31, 9}, {25, 9},                                    // Stroh, das letzte lehnt an den Brettern
+    {4, 12}, {9, 12}, {14, 12},                                              // Nägel vor den Brettern
+};
 
 // Großes Fenster mit Vorhang und Fensterbank (seit 0.5.8, STIL.md Kapitel 8, Wahl des Users): Scheiben (Mond im
 // Fenster) und drei Stellplätze auf der Bank
@@ -161,10 +170,16 @@ constexpr StageSpec kStages[] = {
     {kPBreadShelf, "teil/brotregal", 3, 1, kUseShelf, 1, 0, kShelfSlots, 8},
     {kPChopBlock, "teil/hackklotz", 1, 1, kUseChop, 1},
     {kPBakeOven, "teil/backofen", 5, 1, kUseBakeOven, 1, 0, kBoardSlots, 6},  // Zustände kalt, Glut (es wird gebacken)
-    {kPBedFrame, "teil/bett/bau", 2, 3, kUseBuild, 1},  // im Bau: Rahmen ohne Matratze
+    {kPBuildPile, "teil/baustapel", 4, 1, kUseBuildPile, 1, 0, kBuildPileSlots, 15},  // seit 0.5.10 Teil 3b
+    {kPBuildCloth, "teil/bauplane", 9, 4, nullptr, 0},  // Zustände: nicht da, liegt aus (Wahl des Users 2026-10-30)
+    // im Bau (seit 0.5.10 Teil 3b in Stufen, build_image): Bauplatz, Gestell, Liegefläche, Strohsack wird gefüllt
+    {kPBedFrame, "teil/bett/bau", 2, 3, kUseBuild, 1},
     {kPSite, "teil/stapel", 1, 1, nullptr, 0},          // Materialstapel: Bretter
     {kPLog, "stueck/scheit", 1, 1, nullptr, 0},         // Stücke: drei Spielarten
     {kPLoaf, "stueck/laib", 1, 1, nullptr, 0},          // zwei Spielarten
+    {kPBoard, "stueck/brett", 1, 1, nullptr, 0},        // seit 0.5.10 Teil 3b: Materialstapel
+    {kPStraw, "stueck/stroh", 1, 1, nullptr, 0},        // zwei Spielarten
+    {kPNails, "stueck/naegel", 1, 1, nullptr, 0},       // je zwei Nägel ein Bild, zwei Spielarten
 };
 constexpr int kStageCount = sizeof(kStages) / sizeof(kStages[0]);
 
@@ -200,6 +215,8 @@ constexpr PartSpec kParts[kPartCount] = {
     {"brotregal", PartKind::Storage, PartLayer::Wall, false},
     {"hackklotz", PartKind::Work, PartLayer::Standing, true},
     {"backofen", PartKind::Work, PartLayer::Standing, true},
+    {"baustapel", PartKind::Storage, PartLayer::Standing, false},
+    {"bauplane", PartKind::Deco, PartLayer::Floor, false},
 };
 
 // Asset-Pakete (assets/testorte/pakete.json): Grundausstattung immer geladen, gemeinsame Möbel und Ortspakete beim
@@ -521,11 +538,24 @@ void TestPlace::build_room() {
 bool TestPlace::random_free_tile(Rng& rng, int* tx, int* ty) const {
     for (int n = 0; n < 64; ++n) {
         const int x = static_cast<int>(rng.below(kTilesX)), y = static_cast<int>(rng.below(kTilesY));
-        if (room_.walkable(x, y) && room_.exit_at(x, y) < 0) {
+        if (room_.walkable(x, y) && room_.exit_at(x, y) < 0 && !on_pile(x, y)) {
             *tx = x;
             *ty = y;
             return true;
         }
+    }
+    return false;
+}
+
+bool TestPlace::on_pile(int tx, int ty) const {
+    // Grundfläche eines Lagers, das nicht versperrt (Materialstapel, seit 0.5.10 Teil 3b): begehbar, aber kein Ziel
+    // zum Herumstehen, damit niemand mitten in den Brettern wartet
+    for (int i = 0; i < room_.part_count(); ++i) {
+        const PartDef* d = room_.def(i);
+        if (!d || d->blocks || d->kind != PartKind::Storage || d->layer != PartLayer::Standing) continue;
+        const Rect r = room_.part_rect(i);
+        if (tx * kTileSize >= r.x && tx * kTileSize < r.x + r.w && ty * kTileSize >= r.y && ty * kTileSize < r.y + r.h)
+            return true;
     }
     return false;
 }
@@ -733,6 +763,20 @@ int TestPlace::food_here() const {
     return -1;
 }
 
+const Project* TestPlace::project_of_part(int part) const {
+    // laufendes Projekt, dessen Teil im Bau oder dessen Baustelle (Materialstapel) dieses Teil ist
+    if (!env_ || !env_->ledger.ready() || part < 0) return nullptr;
+    const ProjectList& pl = env_->projects;
+    for (int i = 0; i < pl.count(); ++i) {
+        const Project& p = pl.at(i);
+        if (p.done(pl.def(p.def).step_count) || pl.place_of(p) != index_) continue;
+        const int site = pl.site_of(p);
+        const StoreDef* sd = site >= 0 ? env_->ledger.store_def(site) : nullptr;
+        if (pl.def(p.def).part == part || (sd && sd->part == part) || room_.part(part).part == kPBuildCloth) return &p;
+    }
+    return nullptr;
+}
+
 int TestPlace::store_of_part(int part) const {
     if (!env_ || !env_->ledger.ready() || part < 0) return -1;
     const Ledger& l = env_->ledger;
@@ -741,28 +785,58 @@ int TestPlace::store_of_part(int part) const {
     return -1;
 }
 
-void TestPlace::sync_stock(int64_t now) {
+void TestPlace::sync_fills() {
     // Bild des Stücks je Ware (Testinhalt); gezeigt wird die erste Ware aus den Regeln des Lagerplatzes. Ändert sich
     // nichts, tut set_fill nichts; sonst zeichnet der Raum nur das Rechteck der Stücke neu
     static constexpr struct {
         const char* good;
         uint8_t stage;
     } kPieces[] = {{"brennholz", kPLog}, {"brot", kPLoaf}};
+    // Materialstapel einer Baustelle (seit 0.5.10 Teil 3b): jede Ware in ihrem Bereich der Stellplätze (kBuildPileSlots),
+    // per Stück je Bild (Nägel: je zwei ein Bild, aufgerundet); was keinen Platz hat, liegt „hinten“
+    static constexpr struct {
+        const char* good;
+        uint8_t stage, first, count, per;
+    } kSitePieces[] = {{"bretter", kPBoard, 0, 8, 1}, {"stroh", kPStraw, 8, 4, 1}, {"naegel", kPNails, 12, 3, 2}};
     if (!env_ || !env_->ledger.ready()) return;
     const Ledger& l = env_->ledger;
     Kit& k = kit();
+    auto piece_of = [&](uint8_t part) -> const PartStage* {
+        for (int st = 0; st < kStageCount; ++st)
+            if (kStages[st].part == part) return &k.stages[st];
+        return nullptr;
+    };
     for (int s = 0; s < l.stores(); ++s) {
         const StoreDef* d = l.store_def(s);
-        if (!d || d->part < 0 || d->rule_count == 0 || l.store_place(s) != index_ || room_.slot_count(d->part) == 0)
+        if (!d || d->part < 0 || l.store_place(s) != index_ || room_.slot_count(d->part) == 0) continue;
+        if (d->kind == StoreKind::Site) {
+            for (const auto& p : kSitePieces) {
+                const int g = l.find_good(p.good);
+                const int q = g >= 0 ? l.qty(s, g) : 0;
+                room_.set_fill(d->part, piece_of(p.stage), (q + p.per - 1) / p.per, p.first, p.count);
+            }
+            // Bauplane (Wahl des Users 2026-10-30): liegt aus, solange hier gebaut wird oder noch Material liegt
+            bool active = l.load(s) > 0;
+            const ProjectList& pl = env_->projects;
+            for (int i = 0; i < pl.count() && !active; ++i)
+                active = pl.site_of(pl.at(i)) == s && !pl.at(i).done(pl.def(pl.at(i).def).step_count);
+            for (int i = 0; i < room_.part_count(); ++i)
+                if (room_.part(i).part == kPBuildCloth) room_.set_state(i, active ? 1 : 0);
             continue;
+        }
+        if (d->rule_count == 0) continue;
         const int g = l.find_good(d->rules[0].good);
         const PartStage* piece = nullptr;
         for (const auto& p : kPieces)
-            if (g >= 0 && std::strcmp(l.good(g).id, p.good) == 0)
-                for (int st = 0; st < kStageCount; ++st)
-                    if (kStages[st].part == p.stage) piece = &k.stages[st];
+            if (g >= 0 && std::strcmp(l.good(g).id, p.good) == 0) piece = piece_of(p.stage);
         room_.set_fill(d->part, piece, g >= 0 ? l.qty(s, g) : 0);
     }
+}
+
+void TestPlace::sync_stock(int64_t now) {
+    sync_fills();
+    if (!env_ || !env_->ledger.ready()) return;
+    const Ledger& l = env_->ledger;
     // Lehmbackofen glüht, solange jemand an ihm backt (Wunsch des Users; Zustandsbild 1 = Glut)
     for (int s = 0; s < l.stores(); ++s) {
         const StoreDef* d = l.store_def(s);
@@ -1373,6 +1447,7 @@ void TestPlace::tick(const WorldClock& clock) {
     if (env_ && env_->states.restored() != restored_seen_) {  // Speicherstand geladen (seit 0.5.9)
         restored_seen_ = env_->states.restored();
         states_dirty_ = true;
+        sync_building();  // seit 0.5.10 Teil 3b: Bau-Bild sofort, nicht erst an der nächsten Takt-Grenze
     }
     if (const uint32_t v = states_version(); v != states_seen_) {  // eine Stufe hat gewechselt, hier oder hinter dem Fenster
         states_seen_ = v;
@@ -1550,6 +1625,9 @@ void TestPlace::enter() {
         states_seen_ = v;
         apply_states();
     }
+    // Bau-Bild und Materialstapel gleich im ersten Bild richtig (seit 0.5.10 Teil 3b, auch nach dem Laden eines Standes)
+    sync_building();
+    sync_fills();
     room_.enter();
     entered_ = true;  // Licht und Zustände ab dem nächsten Schritt sofort
     // eigener Startwert je Betreten: deterministisch, ändert den Zufall der Figuren nicht
@@ -2125,6 +2203,13 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
             if (sd.kind == StateKind::Light && sd.rule == StateRule::Homecomer)
                 card->quote = "Brennt nachts, solange jemand aus dem Haus unterwegs ist.";
             break;
+        }
+        // Projekt (seit 0.5.10 Teil 3b): das Teil im Bau und sein Materialstapel zeigen die Karte des Projekts
+        if (const Project* p = project_of_part(hit.id)) {
+            const FigureRecord* w = p->who ? env_->figures.find(p->who) : nullptr;
+            ui::project_card(env_->projects, *p, env_->ledger, w ? w->name.data() : nullptr, card);
+            card->picture = {};  // ohne Bild: die Schritt-Leiste bekommt die ganze Breite
+            return true;
         }
         // Lagerplatz (seit 0.5.10 Teil 2b): Daten aus dem Warenbuch; Arbeitsplatz eines Erzeugerlagers (Hackklotz)
         if (const int s = store_of_part(hit.id); s >= 0) {

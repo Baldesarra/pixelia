@@ -5,6 +5,7 @@
 
 #include "pixelia/engine/assets.h"
 #include "pixelia/engine/ledger.h"
+#include "pixelia/engine/projects.h"
 
 namespace pixelia::ui {
 
@@ -504,6 +505,50 @@ void store_card(const Ledger& l, int store, int slots, Card* card) {
         card->add_line((std::snprintf(buf, sizeof(buf), "%d davon reserviert", res), buf));
     if (const int back = qty - slots; slots > 0 && back > 0)
         card->add_line((std::snprintf(buf, sizeof(buf), back == 1 ? "1 liegt hinten" : "%d liegen hinten", back), buf));
+}
+
+void project_card(const ProjectList& pl, const Project& p, const Ledger& l, const char* worker, Card* card) {
+    const ProjectDef& d = pl.def(p.def);
+    card->kind = Card::Kind::Building;
+    card->title = d.title;
+    char buf[64];
+    const int steps = std::min<int>(d.step_count, Card::kMaxSteps);
+    std::snprintf(buf, sizeof(buf), "Im Bau · Schritt %d von %d", std::min<int>(p.step + 1, d.step_count),
+                  d.step_count);
+    card->subtitle = buf;
+    card->step_count = 0;
+    for (int i = 0; i < steps; ++i) {
+        const ProjectStepDef& s = d.steps[i];
+        CardStep& cs = card->steps[card->step_count++];
+        cs.title = s.label ? s.label : s.title;
+        cs.state = i < p.step ? 2 : i == p.step ? 1 : 0;
+        cs.detail_count = 0;
+        if (i != p.step) continue;
+        for (int k = 0; k < s.need_count && k < Project::kMaxNeeds && cs.detail_count < CardStep::kMaxDetails; ++k) {
+            const int g = l.find_good(s.needs[k].good);
+            std::snprintf(buf, sizeof(buf), "%s %u / %u", g >= 0 ? l.good(g).title : s.needs[k].good,
+                          static_cast<unsigned>(p.used[k]), static_cast<unsigned>(s.needs[k].qty));
+            cs.detail[cs.detail_count++] = buf;
+        }
+    }
+    // Warten in einem Satz, sonst wer arbeitet; dazu die Arbeit bis zum Ende des Projekts (eine Person)
+    pl.wait_text(p, l, buf, sizeof(buf));
+    if (buf[0]) {
+        if (buf[0] >= 'a' && buf[0] <= 'z') buf[0] = static_cast<char>(buf[0] - 'a' + 'A');
+        card->add_line(buf);
+    } else if (worker && worker[0]) {
+        card->add_line(std::string(worker) + " arbeitet");
+    }
+    uint32_t left = 0;
+    for (int i = p.step; i < d.step_count; ++i) left += d.steps[i].minutes * 60u;
+    left -= std::min(left, p.work_s);
+    const unsigned mins = (left + 59) / 60;
+    if (mins == 0) return;
+    if (mins < 60)
+        std::snprintf(buf, sizeof(buf), "Noch etwa %u Min. Arbeit", std::max(5u, (mins + 4) / 5 * 5));
+    else
+        std::snprintf(buf, sizeof(buf), "Noch etwa %u Std. Arbeit", (mins + 30) / 60);
+    card->add_line(buf);
 }
 
 }  // namespace pixelia::ui

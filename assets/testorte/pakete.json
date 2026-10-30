@@ -77,7 +77,12 @@
         "teil/hackklotz": {"datei": "teile/hackklotz.png"},
         "teil/backofen": {"datei": "teile/backofen.png", "bilder": 2, "zustaende": 2},
         "stueck/scheit": {"datei": "teile/scheit.png", "bilder": 3, "zustaende": 3},
-        "stueck/laib": {"datei": "teile/laib.png", "bilder": 2, "zustaende": 2}
+        "stueck/laib": {"datei": "teile/laib.png", "bilder": 2, "zustaende": 2},
+        "teil/baustapel": {"datei": "teile/baustapel.png"},
+        "teil/bauplane": {"datei": "teile/bauplane.png", "bilder": 2, "zustaende": 2},
+        "stueck/brett": {"datei": "teile/brett.png"},
+        "stueck/stroh": {"datei": "teile/stroh.png", "bilder": 2, "zustaende": 2},
+        "stueck/naegel": {"datei": "teile/naegel.png", "bilder": 2, "zustaende": 2}
       }
     },
     "wiese": {
@@ -97,7 +102,7 @@
         "teil/schrank": {"datei": "teile/schrank.png"},
         "teil/bett/0": {"datei": "teile/bett-0.png"},
         "teil/bett/1": {"datei": "teile/bett-1.png"},
-        "teil/bett/bau": {"datei": "teile/bett-bau.png"},
+        "teil/bett/bau": {"datei": "teile/bett-bau.png", "bilder": 4, "zustaende": 4},
         "teil/tisch/0": {"datei": "teile/tisch-0.png"},
         "teil/tisch/1": {"datei": "teile/tisch-1.png"},
         "teil/stuhl": {"datei": "teile/stuhl.png"},

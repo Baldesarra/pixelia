@@ -20,6 +20,14 @@ Facing mirrored(Facing f) {
     return f == Facing::Left ? Facing::Right : f == Facing::Right ? Facing::Left : f;
 }
 
+Rect unite(const Rect& a, const Rect& b) {
+    if (a.empty()) return b;
+    if (b.empty()) return a;
+    const int x0 = std::min(a.x, b.x), y0 = std::min(a.y, b.y);
+    const int x1 = std::max(a.x + a.w, b.x + b.w), y1 = std::max(a.y + a.h, b.y + b.h);
+    return {x0, y0, x1 - x0, y1 - y0};
+}
+
 }  // namespace
 
 struct Room::Storage {
@@ -46,11 +54,14 @@ struct Room::Storage {
     bool build_again = false;  // während des Durchgangs geändert: danach noch einer
     std::array<uint8_t, kCoarseHeight> bx0{}, bx1{};
     uint32_t builds = 0;  // fertige Durchgänge (Prüfungen)
-    // Füllungen der Lagerplätze (seit 0.5.10 Teil 2b): Teil, Stück, Zahl
+    // Füllungen der Lagerplätze (seit 0.5.10 Teil 2b): Teil, Stück, Zahl; seit Teil 3b ein Bereich der Stellplätze
+    // [first, first + count), damit ein Teil mehrere Waren zeigt (Materialstapel einer Baustelle)
     struct Fill {
         int part = -1;
         const PartStage* piece = nullptr;
         int n = 0;
+        int first = 0;
+        int count = 0;
     };
     std::array<Fill, Room::kMaxFills> fills{};
     uint32_t bakes = 0;
@@ -144,9 +155,22 @@ void Room::set_state(int i, int state) {
     if (!st_ || i < 0 || i >= st_->part_count) return;
     const auto s = static_cast<uint8_t>(std::clamp(state, 0, 255));
     if (st_->parts[i].state == s) return;
-    st_->parts[i].state = s;
+    // nur unbewegte Teile stehen im Hintergrundbild; seit 0.5.10 Teil 3b nur ihr Rechteck mit den Stücken neu
+    Rect dirty{};
+    auto grow = [&](const Sprite& sp, int x, int y, int, bool) { dirty = unite(dirty, {x, y, sp.width, sp.height}); };
     const PartStage* l = look(i);
-    if (l && !moving(*l)) bake();  // nur unbewegte Teile stehen im Hintergrundbild
+    const bool was_static = l && !moving(*l);
+    if (was_static) {
+        dirty = image_rect(i);
+        for_pieces(i, grow);
+    }
+    st_->parts[i].state = s;
+    l = look(i);
+    if (l && !moving(*l)) {
+        dirty = unite(dirty, image_rect(i));
+        for_pieces(i, grow);
+    }
+    if (!dirty.empty()) bake_rect(dirty);
 }
 
 void Room::set_building(int i, bool on) {
@@ -253,23 +277,21 @@ int Room::slot_count(int i) const {
     return l ? l->slot_count : 0;
 }
 
-template <class F>
-void Room::for_pieces(int i, int from, int to, F&& fn) const {
-    const Storage::Fill* f = nullptr;
-    for (const auto& x : st_->fills)
-        if (x.part == i) f = &x;
-    if (!f || !f->piece || f->n <= 0 || !f->piece->sheet.pixels) return;
-    const PartStage* hl = look(i);
+template <class Fill, class F>
+void Room::for_fill(const Fill& f, int from, int to, F&& fn) const {
+    if (f.part < 0 || !f.piece || f.n <= 0 || !f.piece->sheet.pixels) return;
+    const PartStage* hl = look(f.part);
     if (!hl || !hl->sheet.pixels) return;
     int hx, hy, hd;
-    if (!locate(i, *hl, &hx, &hy, &hd)) return;
-    const bool hflip = st_->parts[i].flags & kPartFlipped;
-    const SpriteSheet& sh = f->piece->sheet;
+    if (!locate(f.part, *hl, &hx, &hy, &hd)) return;
+    const bool hflip = st_->parts[f.part].flags & kPartFlipped;
+    const SpriteSheet& sh = f.piece->sheet;
     const int variants = std::max(sh.states, 1);
-    to = std::min({to, f->n, static_cast<int>(hl->slot_count)});
-    for (int k = std::max(from, 0); k < to; ++k) {
+    to = std::min({to, f.n, f.count, static_cast<int>(hl->slot_count) - f.first});
+    for (int j = std::max(from, 0); j < to; ++j) {
+        const int k = f.first + j;  // Stellplatz
         const SlotPoint& sp = hl->slots[k];
-        const Sprite s = sh.frame(k % variants, 0);
+        const Sprite s = sh.frame(j % variants, 0);
         const int fx = hx + (hflip ? hl->sheet.width - 1 - sp.x : sp.x);
         // Spielart und Spiegeln nach dem Stellplatz: jeder Stapel sieht gleich aus, egal wie er gewachsen ist
         const bool flip = ((static_cast<unsigned>(k) * 0x9E37u) >> 5) & 1u;
@@ -277,49 +299,56 @@ void Room::for_pieces(int i, int from, int to, F&& fn) const {
     }
 }
 
-namespace {
-Rect unite(const Rect& a, const Rect& b) {
-    if (a.empty()) return b;
-    if (b.empty()) return a;
-    const int x0 = std::min(a.x, b.x), y0 = std::min(a.y, b.y);
-    const int x1 = std::max(a.x + a.w, b.x + b.w), y1 = std::max(a.y + a.h, b.y + b.h);
-    return {x0, y0, x1 - x0, y1 - y0};
+template <class F>
+void Room::for_pieces(int i, F&& fn) const {
+    // Bereiche in der Reihenfolge ihrer Stellplätze: spätere liegen vorn, egal in welcher Reihenfolge sie entstanden
+    int done = -1;
+    for (;;) {
+        const Storage::Fill* next = nullptr;
+        for (const auto& f : st_->fills)
+            if (f.part == i && f.first > done && (!next || f.first < next->first)) next = &f;
+        if (!next) return;
+        for_fill(*next, 0, kMaxParts, fn);
+        done = next->first;
+    }
 }
-}  // namespace
 
-void Room::set_fill(int i, const PartStage* piece, int n) {
-    if (!st_ || i < 0 || i >= st_->part_count) return;
+void Room::set_fill(int i, const PartStage* piece, int n, int first, int count) {
+    if (!st_ || i < 0 || i >= st_->part_count || first < 0 || count <= 0) return;
     n = piece ? std::max(n, 0) : 0;
     Storage::Fill* f = nullptr;
     Storage::Fill* free = nullptr;
     for (auto& x : st_->fills) {
-        if (x.part == i) f = &x;
+        if (x.part == i && x.first == first) f = &x;
         if (x.part < 0 && !free) free = &x;
     }
     if (!f) {
         if (n == 0 || !free) return;
         f = free;
-        *f = {i, piece, 0};
+        *f = {i, piece, 0, first, count};
     }
-    if (f->piece == piece && f->n == n) return;
-    // neu zu zeichnen: bei gleichem Stück nur die Stellplätze zwischen alter und neuer Zahl, sonst alle
-    const int slots = slot_count(i);
-    const int lo = f->piece == piece ? std::min({f->n, n, slots}) : 0;
+    if (f->piece == piece && f->n == n && f->count == count) return;
+    // neu zu zeichnen: bei gleichem Stück und Bereich nur die Stellplätze zwischen alter und neuer Zahl, sonst alle
+    const bool same = f->piece == piece && f->count == count;
+    const int lo = same ? std::min(f->n, n) : 0;
     Rect dirty{};
     auto grow = [&](const Sprite& s, int x, int y, int, bool) { dirty = unite(dirty, {x, y, s.width, s.height}); };
-    for_pieces(i, lo, slots, grow);  // alter Stand: was verschwindet
+    for_fill(*f, lo, kMaxParts, grow);  // alter Stand: was verschwindet
     f->piece = piece;
     f->n = n;
-    for_pieces(i, lo, slots, grow);  // neuer Stand: was dazukommt
+    f->count = count;
+    for_fill(*f, lo, kMaxParts, grow);  // neuer Stand: was dazukommt
     if (n == 0) *f = {};
     if (!dirty.empty()) bake_rect(dirty);
 }
 
-int Room::fill_shown(int i) const {
+int Room::fill_shown(int i, int first) const {
     if (!st_) return 0;
+    int shown = 0;
     for (const auto& x : st_->fills)
-        if (x.part == i && x.piece) return std::min(x.n, slot_count(i));
-    return 0;
+        if (x.part == i && x.piece && (first < 0 || x.first == first))
+            shown += std::max(0, std::min({x.n, x.count, slot_count(i) - x.first}));
+    return shown;
 }
 
 uint32_t Room::bakes() const { return st_ ? st_->bakes : 0; }
@@ -518,7 +547,7 @@ void Room::draw_static(Canvas& c, bool standing, const Rect* clip) const {
             int x, y, depth;
             if (!locate(i, *l, &x, &y, &depth)) continue;
             put(frame_of(p, *l), x, y, p.flags & kPartFlipped, remap_of(p, *l));
-            for_pieces(i, 0, kMaxParts, [&](const Sprite& ps, int px, int py, int, bool f) { put(ps, px, py, f, nullptr); });
+            for_pieces(i, [&](const Sprite& ps, int px, int py, int, bool f) { put(ps, px, py, f, nullptr); });
         }
     }
     if (!standing) return;
@@ -533,8 +562,7 @@ void Room::draw_static(Canvas& c, bool standing, const Rect* clip) const {
         int x, y, depth;
         if (!locate(i, *l, &x, &y, &depth)) continue;
         list.add_at(frame_of(p, *l), x, y, depth, p.flags & kPartFlipped, remap_of(p, *l));
-        for_pieces(i, 0, kMaxParts,
-                   [&](const Sprite& ps, int px, int py, int pd, bool f) { list.add_at(ps, px, py, pd, f); });
+        for_pieces(i, [&](const Sprite& ps, int px, int py, int pd, bool f) { list.add_at(ps, px, py, pd, f); });
     }
     if (clip)
         list.draw_clipped(c, cl);
@@ -731,7 +759,7 @@ int Room::hit_part(int x, int y, int* depth_out) const {
             }
         };
         take(frame_of(p, *l), px, py, depth, p.flags & kPartFlipped);
-        for_pieces(i, 0, kMaxParts, take);  // Stücke einer Füllung gehören zum Lagerplatz
+        for_pieces(i, take);  // Stücke einer Füllung gehören zum Lagerplatz
     }
     if (depth_out) *depth_out = best_depth;
     return best;
@@ -775,7 +803,7 @@ DepthList& Room::begin(Canvas& c, bool with_background, CoarseLayers* layers) co
         if (!locate(i, *l, &x, &y, &depth)) continue;
         list.add_at(frame_of(p, *l), x, y, flat ? kFlatDepth : depth, p.flags & kPartFlipped, remap_of(p, *l),
                     bg && !anim);
-        for_pieces(i, 0, kMaxParts, [&](const Sprite& ps, int px, int py, int pd, bool f) {
+        for_pieces(i, [&](const Sprite& ps, int px, int py, int pd, bool f) {
             list.add_at(ps, px, py, flat ? kFlatDepth : pd, f, nullptr, bg && !anim);
         });
     }
