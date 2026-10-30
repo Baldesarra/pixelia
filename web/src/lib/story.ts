@@ -6,6 +6,10 @@
 
 import lagerEntwuerfe from '../assets/story/0510-entwuerfe.webp';
 import lagerIdeen from '../assets/story/0510-ideen.webp';
+import karte from '../assets/story/0506-karte.webp';
+import mond from '../assets/story/0507-mond.webp';
+import raum from '../assets/story/0508-raum.webp';
+import statur from '../assets/story/0509-statur.webp';
 import lagerFortschritt from '../assets/story/0510-fortschritt.webp';
 
 export const SKETCH_URL = 'https://baldesarra.github.io/pixelia/skizzen/';
@@ -67,6 +71,35 @@ export const STORY: StoryStep[] = [
     d: '2026-10-22',
     title: 'Aufgeräumt',
     text: 'Die Oberfläche bekommt eine neue Ordnung mit Welt, Übersicht, System und Einstellungen. Und dieses kleine Geheimnis.',
+  },
+  {
+    d: '2026-10-22',
+    title: 'Bilder aus Paketen',
+    text: 'Alle Grafiken liegen jetzt in Paketen und laden, während das Bild abblendet. Ein eigenes Werkzeug übersetzt gemalte Bilder in die Pixelia-Farben.',
+  },
+  {
+    d: '2026-10-22',
+    title: 'Antippen erlaubt',
+    text: 'Wer eine Figur antippt, sieht ihre Karte mit Name, Tätigkeit und Gedanken. Wischen wechselt den Ort, und oben rechts tickt eine kleine Pixel-Uhr.',
+    images: [picture(karte, '0.5.6/karte-seite.png', 'Karte einer Figur am Rand')],
+  },
+  {
+    d: '2026-10-26',
+    title: 'Ein eigener Kalender',
+    text: 'Pixelia bekommt Jahreszeiten, Wetter, das sich von selbst ändert, und den echten Mond von heute, der nachts sogar durchs Fenster scheint.',
+    images: [picture(mond, '0.5.7/mond-vergleich.png', 'Der Mond in seinen Phasen')],
+  },
+  {
+    d: '2026-10-27',
+    title: 'Orte mit Gedächtnis',
+    text: 'Orte werden Module mit eigenem Zustand: Der Herd glimmt nachts nach, Regen füllt das Becken und macht den Boden nass, und der Testraum bekommt große Fenster.',
+    images: [picture(raum, '0508-raum-mond.png', 'Testraum nachts: Herdfeuer, Kerze, Mond')],
+  },
+  {
+    d: '2026-10-29',
+    title: 'Die Welt vergisst nichts',
+    text: 'Figuren gehören jetzt der Welt, mit Fähigkeiten, Beziehungen, Erinnerungen und eigener Statur. Ein Speicherstand übersteht jeden Neustart und holt nach, was verpasst wurde.',
+    images: [picture(statur, 'figuren-statur.png', 'Figuren in vier Größen und drei Breiten')],
   },
   {
     d: '2026-10-30',
