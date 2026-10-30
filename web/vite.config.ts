@@ -114,6 +114,74 @@ function mockDevice(): Plugin {
     fig(4000, 'Testfigur 10', 'Testort Kammer', 'ist beschäftigt', [sk('Spinnen', 2)]),
   ];
   // neueste zuerst wie auf dem Gerät (kind: 0 Ereignis, 1 Start, 2 Pause, 3 eingespielt)
+  const g = (t: string, q: number, lv: number, res = 0) => ({ t, q, res, lv });
+  const mockLager = {
+    stores: [
+      { t: 'Holzstapel', place: 'Wiese', kind: 'Erzeugerlager', load: 31, cap: 40, lv: 3, h: 120, goods: [g('Brennholz', 31, 3)], reach: 'Reicht noch 5 Tage' },
+      { t: 'Holzlege', place: 'Raum', kind: 'Hausvorrat', load: 9, cap: 12, lv: 3, h: 76, goods: [g('Brennholz', 9, 3)], reach: 'Reicht noch 3 Tage' },
+      { t: 'Brotregal', place: 'Raum', kind: 'Hausvorrat', load: 2, cap: 8, lv: 2, h: 9, goods: [g('Brot', 2, 2)], reach: 'Reicht noch etwa 9 Std.' },
+      { t: 'Vorratskiste', place: 'Platz', kind: 'Gemeinschaftslager', load: 39, cap: 200, lv: 3, h: -1, reach: '',
+        goods: [g('Brot', 18, 2), g('Bretter', 6, 0, 2), g('Nägel', 10, 0, 2), g('Stroh', 4, 0), g('Säge', 1, 0)] },
+      { t: 'Backofen', place: 'Platz', kind: 'Erzeugerlager', load: 0, cap: 20, lv: 1, h: -1, goods: [g('Brot', 0, 2)], reach: 'Leer' },
+    ],
+    goods: [
+      { t: 'Brennholz', q: 40, res: 0, lv: 3, h: 101, reach: 'Reicht noch 4 Tage' },
+      { t: 'Brot', q: 20, res: 0, lv: 3, h: 30, reach: 'Reicht noch 1 Tag' },
+      { t: 'Bretter', q: 6, res: 2, lv: 0, h: -1, reach: '' },
+      { t: 'Nägel', q: 10, res: 2, lv: 0, h: -1, reach: '' },
+      { t: 'Stroh', q: 4, res: 0, lv: 0, h: -1, reach: '' },
+      { t: 'Säge', q: 1, res: 0, lv: 0, h: -1, reach: '' },
+    ],
+    projects: [
+      { t: 'Bett bauen', place: 'Kammer', step: 2, steps: 3, stepT: 'Liegefläche', pct: 55, wait: 'Wartet auf die Säge', who: '' },
+    ],
+  };
+  // Dorf mit vielen Orten (Ausblick Kapitel 1, ?viele=1): Erzeuger- und Gemeinschaftslager, 16 Häuser mit drei Vorräten
+  const reachText = (d: number) => (d < 1 ? `Reicht noch etwa ${Math.round(d * 24)} Std.` : d < 2 ? 'Reicht noch 1 Tag' : `Reicht noch ${Math.floor(d)} Tage`);
+  const one = (t: string, place: string, kind: string, ware: string, q: number, cap: number, days: number, soll: number) => ({
+    t, place, kind, load: q, cap, h: Math.round(days * 24), lv: q === 0 || days < 1 ? 1 : days < soll ? 2 : 3, goods: [g(ware, q, 3)], reach: q ? reachText(days) : 'Leer',
+  });
+  const houses = ['Greta', 'Jakob', 'Konrad', 'Anna', 'Emil', 'Lene', 'Paul', 'Marie', 'Otto', 'Ida', 'Karl', 'Frieda', 'Hans', 'Berta', 'Wilhelm', 'Sophie'];
+  // Hausvorräte: Ware, Lager, Obergrenze; „knapp“ bzw. „leer“ an festen Häusern
+  const houseGoods: [string, string, number][] = [['Brennholz', 'Holzlege', 12], ['Brot', 'Brotkorb', 6], ['Kerzen', 'Kerzenkiste', 12], ['Rüben', 'Speisekammer', 10], ['Milch', 'Milchkanne', 4]];
+  const mockLagerViele = {
+    stores: [
+      { t: 'Güterschuppen', place: 'Bahnhof', kind: 'Gemeinschaftslager', load: 142, cap: 400, lv: 3, h: -1, reach: '',
+        goods: [g('Mehl', 24, 3), g('Bretter', 30, 0, 8), g('Nägel', 60, 0), g('Salz', 6, 2), g('Säge', 1, 0)] },
+      one('Holzplatz', 'Holzfällerhütte', 'Erzeugerlager', 'Brennholz', 86, 120, 6, 2),
+      one('Auslage', 'Bäckerei', 'Erzeugerlager', 'Brot', 3, 24, 0.4, 1),
+      one('Mehlkammer', 'Bäckerei', 'Erzeugerlager', 'Mehl', 18, 40, 4, 2),
+      one('Scheune', 'Bauernhof', 'Erzeugerlager', 'Heu', 64, 200, 9, 3),
+      one('Erdkeller', 'Bauernhof', 'Erzeugerlager', 'Rüben', 40, 80, 8, 3),
+      one('Milchkammer', 'Bauernhof', 'Erzeugerlager', 'Milch', 9, 20, 1.5, 1),
+      one('Kerzenzieherei', 'Werkstatt', 'Erzeugerlager', 'Kerzen', 22, 60, 7, 3),
+      ...houses.flatMap((n, i) =>
+        houseGoods.map(([ware, t, cap], k) => {
+          const bad = (i * 5 + k * 3) % 23; // 0 = leer, 1–2 = knapp
+          const days = bad === 0 ? 0 : bad < 3 ? 0.5 + bad * 0.2 : 1.5 + ((i + k) % 5);
+          const q = bad === 0 ? 0 : Math.max(1, Math.round((cap * Math.min(days, 4)) / 5));
+          return one(t, `Haus ${n}`, 'Hausvorrat', ware, q, cap, days, 1);
+        }),
+      ),
+    ],
+    // nach Ware übers ganze Dorf (Entwurf „Waren“): Art, Bestand, Reichweite, Stand
+    goods: [
+      { t: 'Brot', cat: 'Essen', q: 41, res: 0, lv: 2, h: 48, reach: 'Reicht noch 1 Tag' },
+      { t: 'Rüben', cat: 'Essen', q: 112, res: 0, lv: 3, h: 48, reach: 'Reicht noch 6 Tage' },
+      { t: 'Milch', cat: 'Essen', q: 27, res: 0, lv: 3, h: 48, reach: 'Reicht noch 2 Tage' },
+      { t: 'Mehl', cat: 'Essen', q: 42, res: 0, lv: 3, h: 48, reach: 'Reicht noch 4 Tage' },
+      { t: 'Salz', cat: 'Essen', q: 6, res: 0, lv: 3, h: 48, reach: 'Reicht noch 12 Tage' },
+      { t: 'Brennholz', cat: 'Brennstoff und Licht', q: 214, res: 0, lv: 3, h: 48, reach: 'Reicht noch 6 Tage' },
+      { t: 'Kerzen', cat: 'Brennstoff und Licht', q: 93, res: 0, lv: 4, h: 48, reach: 'Reicht noch 9 Tage' },
+      { t: 'Heu', cat: 'Tiere', q: 64, res: 0, lv: 3, h: 48, reach: 'Reicht noch 9 Tage' },
+      { t: 'Bretter', cat: 'Baustoff und Werkzeug', q: 30, res: 8, lv: 0, h: -1, reach: '' },
+      { t: 'Nägel', cat: 'Baustoff und Werkzeug', q: 60, res: 0, lv: 0, h: -1, reach: '' },
+    ],
+    projects: [
+      { t: 'Bett bauen', place: 'Haus Ida', step: 2, steps: 3, stepT: 'Liegefläche', pct: 55, wait: '', who: 'Konrad' },
+      { t: 'Notunterkunft', place: 'Bahnhof', step: 1, steps: 4, stepT: 'Wände', pct: 12, wait: 'Wartet auf Bretter', who: '' },
+    ],
+  };
   const mockChronicle = [
     { day: 17, time: '15:42', kind: 0, text: 'Testfigur 9: Fischen jetzt Meister' },
     { day: 17, time: '14:05', kind: 0, text: 'Testfigur 2 und Testfigur 5: jetzt befreundet' },
@@ -407,8 +475,10 @@ function mockDevice(): Plugin {
           test: false, waiting: false, error: '',
         };
         const more = q.get('mehr') === '1' ? { figures: mockFigures, chronicle: mockChronicle, visits: 9, visitsOpen: 2 } : {};
+        // Lager (seit 0.5.10 Teil 4b, ?lager=1): Testdorf mittags; ?leer=1 zeigt die leeren Zustände
+        const lager = q.get('lager') !== '1' ? {} : q.get('leer') === '1' ? { lager: { stores: [], projects: [] } } : { lager: q.get('viele') === '1' ? mockLagerViele : mockLager };
         json(res, {
-          save, ...more,
+          save, ...more, ...lager,
           valid: true, started: true, test: false, start: '2026-10-26', day: 17, year: 1, season: 'herbst', seasonTitle: 'Herbst',
           dayInSeason: 3, seasonDays: seasonLen, evening: false, seasonFrom: '2026-11-09', seasonTo: '2026-11-15', next: 'Winter',
           nextFrom: '2026-11-16', sunrise: '07:41', sunset: '17:49', dayPart: 'Nachmittag',

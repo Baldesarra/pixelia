@@ -247,6 +247,10 @@ public:
     int reach_hours(int store, int good) const;
     int reach_hours(int good) const;
     StockLevel level(int good) const;
+    // Stand eines Lagerplatzes nach seinen Regeln (seit 0.5.10 Teil 4b, Lager-Karte): Notbestand = leer oder reicht
+    // keinen Tag, knapp = unter low bzw. unter dem Soll der Ware, reichlich = über der Obergrenze; schlechteste Regel
+    // zählt; ohne Regeln (Baustelle, Trage) Unknown
+    StockLevel store_level(int store) const;
 
     // An der Takt-Grenze (Bühne): Fächer rollen, Besonderes melden (Lager leer bzw. wieder da, voll, Notbestand) — in
     // fester Reihenfolge der Lagerplätze und Waren

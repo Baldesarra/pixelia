@@ -767,6 +767,28 @@ int Ledger::reach_hours(int good) const {
     return use > 0 ? static_cast<int>(int64_t{total(good)} * 24 / use) : -1;
 }
 
+StockLevel Ledger::store_level(int store) const {
+    const StoreDef* d = store_def(store);
+    if (!d || d->kind == StoreKind::Site) return StockLevel::Unknown;
+    StockLevel worst = StockLevel::Unknown;
+    for (int r = 0; r < d->rule_count; ++r) {
+        const int g = find_good(d->rules[r].good);
+        if (g < 0) continue;
+        const int q = qty(store, g), h = reach_hours(store, g);
+        const GoodDef& gd = good(g);
+        StockLevel l = StockLevel::Ok;
+        if (q == 0 || (h >= 0 && h < 24))
+            l = StockLevel::Emergency;
+        else if (q < d->rules[r].low || (h >= 0 && gd.soll_days && h < gd.soll_days * 24))
+            l = StockLevel::Low;
+        else if (h >= 0 && gd.max_days && h > gd.max_days * 24)
+            l = StockLevel::High;
+        // schlechtester Stand zählt (Notbestand vor knapp vor gut vor reichlich)
+        if (worst == StockLevel::Unknown || static_cast<int>(l) < static_cast<int>(worst)) worst = l;
+    }
+    return worst;
+}
+
 StockLevel Ledger::level(int good) const {
     if (!s_ || good < 0 || good >= s_->good_n) return StockLevel::Unknown;
     const int h = reach_hours(good);

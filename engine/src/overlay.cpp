@@ -446,6 +446,15 @@ void render_card(Canvas& c, const Card& card, const CardStyle& st) {
     hint(c, 0, r.y + r.h - 15, card, st, true, r.x + r.w - pad);
 }
 
+const char* reach_text(int qty, int hours, char* buf, int n) {
+    if (qty == 0) return "Leer";
+    if (hours < 0) return "Gerade kein Verbrauch";
+    if (hours < 1) return "Reicht keine Stunde mehr";
+    if (hours < 24) return std::snprintf(buf, static_cast<size_t>(n), "Reicht noch etwa %d Std.", hours), buf;
+    if (hours < 48) return "Reicht noch 1 Tag";
+    return std::snprintf(buf, static_cast<size_t>(n), "Reicht noch %d Tage", hours / 24), buf;
+}
+
 void store_card(const Ledger& l, int store, int slots, Card* card) {
     card->kind = Card::Kind::Building;
     card->title = l.store_title(store);
@@ -481,19 +490,7 @@ void store_card(const Ledger& l, int store, int slots, Card* card) {
     const int qty = l.qty(store, good);
     std::snprintf(buf, sizeof(buf), "%s: %d von %d", l.good(good).title, qty, l.capacity(store));
     card->add_line(buf);
-    const int h = l.reach_hours(store, good);
-    if (qty == 0)
-        card->add_line("Leer");
-    else if (h < 0)
-        card->add_line("Gerade kein Verbrauch");
-    else if (h < 1)
-        card->add_line("Reicht keine Stunde mehr");
-    else if (h < 24)
-        card->add_line((std::snprintf(buf, sizeof(buf), "Reicht noch etwa %d Std.", h), buf));
-    else if (h < 48)
-        card->add_line("Reicht noch 1 Tag");
-    else
-        card->add_line((std::snprintf(buf, sizeof(buf), "Reicht noch %d Tage", h / 24), buf));
+    card->add_line(reach_text(qty, l.reach_hours(store, good), buf, sizeof(buf)));
     // heute dazu und weg, je eine Zeile (eine passt nicht in die Breite der Karte)
     std::snprintf(buf, sizeof(buf), "Heute %s: %d", kind == StoreKind::Producer ? "gemacht" : "gebracht",
                   l.in_today(store, good));

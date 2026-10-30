@@ -16,6 +16,7 @@
 
 #include "pixelia/engine/econ_log.h"
 #include "pixelia/engine/ledger.h"
+#include "pixelia/engine/overlay.h"
 #include "pixelia/engine/place.h"
 #include "pixelia/engine/png.h"
 #include "pixelia/engine/save.h"
@@ -264,6 +265,26 @@ constexpr pixelia::EconomyDef kEco2 = {kGoods, 4, kStores2, 4, kStart2, 4};
 
 std::vector<Case> cases() {
     return {
+        {"Lager-Karte im Web (Teil 4b): Stand eines Lagerplatzes nach seinen Regeln, Reichweite in Worten",
+         [] {
+             Ledger l;
+             build(l);
+             const int stapel = l.find_store("stapel"), lege = l.find_store("lege"), holz = l.find_good("holz");
+             if (l.store_level(stapel) != pixelia::StockLevel::Unknown) return std::string("ohne Regel nicht Unknown");
+             if (l.store_level(lege) != pixelia::StockLevel::Emergency) return std::string("leere Lege nicht Notbestand");
+             l.add(lege, holz, 3, Booking::Produce, at(1));
+             if (l.store_level(lege) != pixelia::StockLevel::Low) return std::string("3 unter low 4 nicht knapp");
+             l.add(lege, holz, 5, Booking::Produce, at(2));
+             if (l.store_level(lege) != pixelia::StockLevel::Ok) return std::string("8 ohne Verbrauch nicht gut");
+             char b[40];
+             const std::pair<int, int> in[] = {{0, 5}, {5, -1}, {5, 0}, {5, 9}, {5, 30}, {5, 80}};
+             const char* want[] = {"Leer", "Gerade kein Verbrauch", "Reicht keine Stunde mehr", "Reicht noch etwa 9 Std.",
+                                   "Reicht noch 1 Tag", "Reicht noch 3 Tage"};
+             for (int i = 0; i < 6; ++i)
+                 if (std::string(pixelia::ui::reach_text(in[i].first, in[i].second, b, sizeof(b))) != want[i])
+                     return std::string("reach_text: ") + want[i];
+             return checked(l);
+         }},
         {"Buchungen: Zugang bis zur Obergrenze, Abgang nie unter null, Umlagern ändert die Welt nicht; Bilanz stimmt",
          [] {
              Ledger l;

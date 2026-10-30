@@ -4,6 +4,7 @@
   // zum Link (href) und wandert nach oben; „soon“ fällt dann weg.
   import { Card, Icon, WavyProgress, type IconName } from '../lib/m3';
   import CameraCard from '../lib/CameraCard.svelte';
+  import LagerCard from '../lib/LagerCard.svelte';
   import WorldCard from '../lib/WorldCard.svelte';
   import WorldLog from '../lib/WorldLog.svelte';
   import { device } from '../lib/status.svelte';
@@ -17,7 +18,6 @@
   const pages: { icon: IconName; title: string; text: string; chapter: number }[] = [
     { icon: 'group', title: 'Bewohner', text: 'Wer da lebt, was sie brauchen und können', chapter: 1 },
     { icon: 'psychology', title: 'Gedanken', text: 'Was gerade jemand denkt und warum', chapter: 1 },
-    { icon: 'inventory_2', title: 'Lager', text: 'Vorräte, Füllstand und wie lange sie reichen', chapter: 1 },
     { icon: 'menu_book', title: 'Tagebuch', text: 'Was im Dorf passiert ist, auch während du weg warst', chapter: 1 },
     { icon: 'checklist', title: 'Wunschliste', text: 'Was das Dorf als Nächstes bauen möchte', chapter: 2 },
     { icon: 'mail', title: 'Briefe', text: 'Post aus Nachbardörfern und von Bewohnern', chapter: 2 },
@@ -51,6 +51,7 @@
 
   <WorldCard />
   <CameraCard />
+  <LagerCard />
   <WorldLog />
 
   <h3>Die Kapitel</h3>

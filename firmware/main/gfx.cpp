@@ -467,10 +467,15 @@ app::gfx::SaveInfo s_save{};  // unter s_world_lock
 std::atomic<int> s_view_req{0};
 app::gfx::WorldView* s_view = nullptr;  // PSRAM
 std::mutex s_view_lock;
+// Lager (seit 0.5.10 Teil 4b): eigene Anfrage, damit /api/world?lager=1 nicht die Figuren mitfüllt
+std::atomic<int> s_lager_req{0};
+app::gfx::LagerView* s_lager = nullptr;  // PSRAM
+std::mutex s_lager_lock;
 
 void load_save() {
     s_save_buf = static_cast<uint8_t*>(heap_caps_malloc(kSaveCap, MALLOC_CAP_SPIRAM));
     s_view = static_cast<app::gfx::WorldView*>(heap_caps_calloc(1, sizeof(app::gfx::WorldView), MALLOC_CAP_SPIRAM));
+    s_lager = static_cast<app::gfx::LagerView*>(heap_caps_calloc(1, sizeof(app::gfx::LagerView), MALLOC_CAP_SPIRAM));
     std::vector<uint8_t> d;
     pixelia::SaveHeader h;
     int slot = -1;
@@ -589,6 +594,123 @@ void fill_view() {
     v.visits_open = 0;
     for (int i = 0; i < env.visits.count(); ++i) v.visits_open += env.visits.at(i).to == pixelia::Visit::kOpen;
     s_view_req.store(2);
+}
+
+// Lager-Ansicht aus Warenbuch und Projekten (Grafik-Task): Weboberfläche und Konsole „lager“
+void fill_lager(app::gfx::LagerView& v) {
+    const pixelia::Environment& env = s_stage.environment();
+    const pixelia::Ledger& l = env.ledger;
+    v.stores = v.goods = v.projects = 0;
+    char buf[64];
+    for (int s = 0; s < l.stores() && v.stores < 24; ++s) {
+        const pixelia::StoreKind kind = l.store_kind(s);
+        if (kind == pixelia::StoreKind::Site || kind == pixelia::StoreKind::Hand) continue;
+        app::gfx::LagerStore& r = v.s[v.stores++];
+        r = {};
+        std::snprintf(r.title, sizeof(r.title), "%s", l.store_title(s));
+        const pixelia::PlaceDef* p = pixelia::place_at(l.store_place(s));
+        std::snprintf(r.place, sizeof(r.place), "%s", p ? p->title : "?");
+        std::snprintf(r.kind, sizeof(r.kind), "%s", pixelia::store_kind_title(kind));
+        r.load = static_cast<uint16_t>(l.load(s));
+        r.cap = static_cast<uint16_t>(l.capacity(s));
+        r.lv = static_cast<uint8_t>(l.store_level(s));
+        uint8_t g[6];
+        uint16_t q[6];
+        const int n = l.contents(s, g, q, 6);
+        for (int k = 0; k < n; ++k) {
+            std::snprintf(r.g[k].title, sizeof(r.g[k].title), "%s", l.good(g[k]).title);
+            r.g[k].qty = q[k];
+            r.g[k].res = static_cast<uint16_t>(l.reserved(s, g[k]));
+        }
+        r.goods = static_cast<uint8_t>(n);
+        r.hours = -1;
+        // eine Ware (leer: die Ware der ersten Regel): Reichweite in Worten wie die Karte am Display
+        int good = n == 1 ? g[0] : -1;
+        if (const pixelia::StoreDef* d = l.store_def(s); n == 0 && d && d->rule_count > 0) good = l.find_good(d->rules[0].good);
+        if (n <= 1 && good >= 0) {
+            if (n == 0) {
+                std::snprintf(r.g[0].title, sizeof(r.g[0].title), "%s", l.good(good).title);
+                r.goods = 1;
+            }
+            const int h = l.reach_hours(s, good);
+            r.hours = static_cast<int16_t>(std::min(h, 32767));
+            std::snprintf(r.reach, sizeof(r.reach), "%s", pixelia::ui::reach_text(l.qty(s, good), h, buf, sizeof(buf)));
+        }
+    }
+    for (int k = 0; k < l.goods() && v.goods < 16; ++k) {
+        const int total = l.total(k);
+        if (total == 0 && l.use_24h(k) == 0) continue;  // gibt es gerade nicht im Dorf
+        app::gfx::LagerGood& r = v.g[v.goods++];
+        r = {};
+        std::snprintf(r.title, sizeof(r.title), "%s", l.good(k).title);
+        r.qty = static_cast<uint16_t>(std::min(total, 65535));
+        for (int s = 0; s < l.stores(); ++s) r.res = static_cast<uint16_t>(r.res + l.reserved(s, k));
+        r.lv = static_cast<uint8_t>(l.level(k));
+        const int h = l.reach_hours(k);
+        r.hours = static_cast<int16_t>(std::min(h, 32767));
+        if (h >= 0) std::snprintf(r.reach, sizeof(r.reach), "%s", pixelia::ui::reach_text(total, h, buf, sizeof(buf)));
+    }
+    const pixelia::ProjectList& pl = env.projects;
+    for (int i = 0; i < pl.count() && v.projects < 4; ++i) {
+        const pixelia::Project& pr = pl.at(i);
+        const pixelia::ProjectDef& d = pl.def(pr.def);
+        if (pr.done(d.step_count)) continue;
+        app::gfx::LagerProject& r = v.p[v.projects++];
+        r = {};
+        std::snprintf(r.title, sizeof(r.title), "%s", d.title);
+        const pixelia::PlaceDef* p = pixelia::place_at(pl.place_of(pr));
+        std::snprintf(r.place, sizeof(r.place), "%s", p ? p->title : "?");
+        r.step = static_cast<uint8_t>(pr.step + 1);
+        r.steps = d.step_count;
+        const pixelia::ProjectStepDef& st = d.steps[pr.step];
+        std::snprintf(r.step_title, sizeof(r.step_title), "%s", st.label ? st.label : st.title);
+        // Fortschritt nach Arbeitszeit aller Schritte
+        uint32_t all = 0, done = pr.work_s;
+        for (int k = 0; k < d.step_count; ++k) {
+            all += d.steps[k].minutes * 60u;
+            if (k < pr.step) done += d.steps[k].minutes * 60u;
+        }
+        r.pct = static_cast<uint8_t>(all ? std::min<uint32_t>(99, done * 100 / all) : 0);
+        pl.wait_text(pr, l, r.wait, sizeof(r.wait));
+        if (r.wait[0] >= 'a' && r.wait[0] <= 'z') r.wait[0] = static_cast<char>(r.wait[0] - 'a' + 'A');
+        if (const pixelia::FigureRecord* f = pr.who ? env.figures.find(pr.who) : nullptr)
+            std::snprintf(r.who, sizeof(r.who), "%s", f->name.data());
+    }
+}
+
+void fill_lager_view() {
+    if (s_lager_req.load() != 1 || !s_lager) return;
+    fill_lager(*s_lager);
+    s_lager_req.store(2);
+}
+
+// Konsole „lager“: dieselben Angaben ins Log
+void log_lager() {
+    static app::gfx::LagerView* v = static_cast<app::gfx::LagerView*>(heap_caps_malloc(sizeof(app::gfx::LagerView), MALLOC_CAP_SPIRAM));
+    if (!v) return;
+    fill_lager(*v);
+    static constexpr const char* kLv[] = {"ohne Verbrauch", "Notbestand", "knapp", "gut", "reichlich"};
+    ESP_LOGI(TAG, "Lager: %d Lagerplätze", v->stores);
+    for (int i = 0; i < v->stores; ++i) {
+        const app::gfx::LagerStore& s = v->s[i];
+        char goods[96] = "";
+        for (int k = 0, at = 0; k < s.goods && at < static_cast<int>(sizeof(goods)) - 1; ++k)
+            at += std::snprintf(goods + at, sizeof(goods) - at, "%s%s %u%s", k ? ", " : "", s.g[k].title, s.g[k].qty,
+                                s.g[k].res ? " (res.)" : "");
+        ESP_LOGI(TAG, "  %s (%s, %s): %u/%u, %s, %s%s%s", s.title, s.place, s.kind, s.load, s.cap, kLv[s.lv % 5], goods,
+                 s.reach[0] ? " · " : "", s.reach);
+    }
+    ESP_LOGI(TAG, "Waren im Dorf: %d", v->goods);
+    for (int i = 0; i < v->goods; ++i) {
+        const app::gfx::LagerGood& g = v->g[i];
+        ESP_LOGI(TAG, "  %s %u (reserviert %u), %s%s%s", g.title, g.qty, g.res, kLv[g.lv % 5], g.reach[0] ? " · " : "", g.reach);
+    }
+    ESP_LOGI(TAG, "Projekte in Arbeit: %d", v->projects);
+    for (int i = 0; i < v->projects; ++i) {
+        const app::gfx::LagerProject& p = v->p[i];
+        ESP_LOGI(TAG, "  %s (%s): Schritt %u von %u (%s), %u %%, %s", p.title, p.place, p.step, p.steps, p.step_title, p.pct,
+                 p.wait[0] ? p.wait : p.who[0] ? p.who : "niemand dran");
+    }
 }
 
 // Weltzeit fortschreiben (Grafik-Task, nach den Logik-Schritten): Testuhr, Länge, Meldungen, Speichern, Stand
@@ -899,6 +1021,10 @@ void apply_place_requests(int ticks) {
             }
             continue;
         }
+        if (std::strcmp(cmd, "lager") == 0) {
+            log_lager();  // seit 0.5.10 Teil 4b: wie die Lager-Karte im Web
+            continue;
+        }
         if (std::strcmp(cmd, "projekte") == 0) {
             // Projekte ins Log (seit 0.5.10 Teil 3): Schritt, Arbeit, verbautes Material, wer, worauf es wartet
             const pixelia::ProjectList& pl = s_stage.environment().projects;
@@ -1036,6 +1162,7 @@ void gfx_task(void* arg) {
         update_world_state(ticks);
         save_tick(t0);
         fill_view();
+        fill_lager_view();
         update_card(t0, ticks);
         after_ticks(t0);
         publish_camera(ticks);
@@ -1405,6 +1532,17 @@ bool world_view(WorldView* out) {
     const bool ok = s_view_req.load() == 2;
     if (ok) std::memcpy(out, s_view, sizeof(WorldView));
     s_view_req.store(0);
+    return ok;
+}
+
+bool lager_view(LagerView* out) {
+    std::lock_guard<std::mutex> g(s_lager_lock);
+    if (!s_lager) return false;
+    s_lager_req.store(1);
+    for (int i = 0; i < 25 && s_lager_req.load() != 2; ++i) vTaskDelay(pdMS_TO_TICKS(10));
+    const bool ok = s_lager_req.load() == 2;
+    if (ok) std::memcpy(out, s_lager, sizeof(LagerView));
+    s_lager_req.store(0);
     return ok;
 }
 

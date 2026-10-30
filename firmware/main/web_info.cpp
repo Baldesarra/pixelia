@@ -660,6 +660,33 @@ esp_err_t world_get(httpd_req_t* req) {
             j.num("visits", v->visits).num("visitsOpen", v->visits_open);
         }
     }
+    // Lager (seit 0.5.10 Teil 4b, ?lager=1): Lagerplätze, Waren im Dorf, Projekte; die Grafik-Task füllt auf Anfrage
+    std::string lager;
+    if (query_value(req, "lager", &lager) && lager == "1") {
+        static gfx::LagerView* v = static_cast<gfx::LagerView*>(heap_caps_malloc(sizeof(gfx::LagerView), MALLOC_CAP_SPIRAM));
+        if (v && gfx::lager_view(v)) {
+            j.obj("lager").arr("stores");
+            for (int i = 0; i < v->stores; ++i) {
+                const gfx::LagerStore& s = v->s[i];
+                j.obj().str("t", s.title).str("place", s.place).str("kind", s.kind).num("load", s.load).num("cap", s.cap);
+                j.num("lv", s.lv).num("h", s.hours).str("reach", s.reach).arr("goods");
+                for (int k = 0; k < s.goods; ++k) j.obj().str("t", s.g[k].title).num("q", s.g[k].qty).num("res", s.g[k].res).end_obj();
+                j.end_arr().end_obj();
+            }
+            j.end_arr().arr("goods");
+            for (int i = 0; i < v->goods; ++i) {
+                const gfx::LagerGood& g = v->g[i];
+                j.obj().str("t", g.title).num("q", g.qty).num("res", g.res).num("lv", g.lv).num("h", g.hours).str("reach", g.reach).end_obj();
+            }
+            j.end_arr().arr("projects");
+            for (int i = 0; i < v->projects; ++i) {
+                const gfx::LagerProject& p = v->p[i];
+                j.obj().str("t", p.title).str("place", p.place).num("step", p.step).num("steps", p.steps).str("stepT", p.step_title);
+                j.num("pct", p.pct).str("wait", p.wait).str("who", p.who).end_obj();
+            }
+            j.end_arr().end_obj();
+        }
+    }
     j.end_obj();
     return send_json(req, j.text());
 }

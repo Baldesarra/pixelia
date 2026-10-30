@@ -131,6 +131,7 @@ void print_help() {
     ESP_LOGI(TAG, "  ort cmd zustaende  Ortszustände ins Log (Herd, Kerze, Lampe, Becken, Nässe)");
     ESP_LOGI(TAG, "  ort cmd aufgaben   Aufgabenliste ins Log (holen, bringen, herstellen; wer, von wo nach wo)");
     ESP_LOGI(TAG, "  ort cmd projekte   Projekte ins Log; ort cmd projekt bett start|stufe <n>|fertig (Prüfbefehl)");
+    ESP_LOGI(TAG, "  lager              Lagerplätze (Stand, Reichweite), Waren im Dorf und Projekte ins Log (wie die Lager-Karte)");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
     ESP_LOGI(TAG, "  assets [quelle eingebettet|littlefs|sd | kopieren littlefs|sd | messen | leeren | budget <KB>]   Grafik-Pakete");
     ESP_LOGI(TAG, "  sd | sd neu                                    microSD-Karte: Zustand, neu einhängen");
@@ -477,6 +478,9 @@ bool handle(char* line) {
         board::backlight::set_duty(static_cast<uint32_t>(std::atoi(argv[1])));
         ESP_LOGI(TAG, "Pulsbreite %lu von %lu", static_cast<unsigned long>(board::backlight::duty()),
                  static_cast<unsigned long>(board::backlight::kMaxDuty));
+    } else if (is("lager")) {
+        // Lagerplätze mit Stand und Reichweite, Waren im Dorf, Projekte (seit 0.5.10 Teil 4b, wie die Lager-Karte)
+        if (!gfx::place_command("lager")) ESP_LOGW(TAG, "Befehl nicht angenommen");
     } else if (is("welt")) {
         // seit 0.5.7: Weltkalender, Mond, Wetter-Simulation; „welt laenge <Tage>“, „welt auto“ (Simulation wieder an)
         if (argc >= 3 && std::strcmp(argv[1], "laenge") == 0) {

@@ -171,6 +171,10 @@ Rect card_button(const Card& card, const CardStyle& style);
 // liegt), mehrere als kurze Liste („Brot 24 · gut“). slots = Stellplätze des Teils (0 = zeigt keine Stücke, nichts
 // liegt „hinten“). Setzt Art, Titel, Unterzeile und Angaben; Ort, Bild und Hinweis setzt der Ort
 void store_card(const Ledger& ledger, int store, int slots, Card* card);
+// Reichweite in Worten (seit Teil 4b auch für Weboberfläche und Konsole „lager“): „Leer“, „Gerade kein Verbrauch“,
+// „Reicht noch etwa 9 Std.“, „Reicht noch 1 Tag“, „Reicht noch 3 Tage“; hours = Ledger::reach_hours (−1 = kein Abgang).
+// Gibt buf oder eine feste Zeichenkette zurück
+const char* reach_text(int qty, int hours, char* buf, int n);
 
 // Karte eines Projekts (seit 0.5.10 Teil 3b, Wahl des Users nach Kontaktbogen): senkrechte Schritt-Leiste aus den
 // Teilaufgaben, nur der laufende Schritt zeigt sein Material („Bretter 4 / 6“ = verbaut / Bedarf); darunter der Grund
