@@ -4,13 +4,17 @@
 // geht am selben Stand weiter.
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <functional>
 #include <string>
 #include <vector>
 
+#include "pixelia/engine/econ_log.h"
 #include "pixelia/engine/ledger.h"
 #include "pixelia/engine/place.h"
 #include "pixelia/engine/png.h"
@@ -922,6 +926,312 @@ std::vector<Case> cases() {
              r.run(30);
              if (!kammer->room().building(1)) return std::string("neues Bett nicht im Bau");
              return checked(r);
+         }},
+        // --- Werkzeug am Projekt (seit 0.5.10 Teil 4): die Säge ---
+        {"Säge: genau eine unterwegs, nie verbaut, zählt in der Trage; liegt bei Gestell und Liegefläche da und kommt nach dem Projekt zurück",
+         [] {
+             Run r(61, "testort-raum", 6, 30, 60.0);
+             std::vector<pixelia::ProjectRecord> rec;
+             r.stage.environment().projects.set_listener(
+                 [](void* c, const pixelia::ProjectRecord& x) {
+                     static_cast<std::vector<pixelia::ProjectRecord>*>(c)->push_back(x);
+                 },
+                 &rec);
+             const Ledger& l = r.ledger();
+             const TaskList& tl = r.stage.environment().tasks;
+             const int saege = l.find_good("saege"), vorrat = l.find_store("platz_vorrat");
+             const int site = l.find_store("kammer_baustelle");
+             if (saege < 0 || l.qty(vorrat, saege) != 1) return std::string("keine Säge in der Vorratskiste");
+             bool at_site = false, carried = false;
+             int carry_load = 0;
+             for (int t = 0; t < 30 * 60 * 48 && bed(r); ++t) {
+                 r.run(1);
+                 if (l.total(saege) != 1 || l.items() < 1) return "Sägen im Dorf: " + std::to_string(l.total(saege));
+                 int open = 0;
+                 for (int i = 0; i < tl.count(); ++i) open += tl.at(i).good == saege && tl.at(i).active();
+                 if (open > 1) return "zwei Aufgaben mit der Säge: " + tasks_text(tl, l);
+                 for (int i = 0; i < l.items(); ++i) {
+                     const pixelia::Item& it = l.item_at(i);
+                     if (it.good != saege) continue;
+                     at_site |= it.store == site;
+                     if (l.store_kind(it.store) == pixelia::StoreKind::Hand) {
+                         carried = true;
+                         carry_load = std::max(carry_load, l.load(it.store));
+                     }
+                 }
+                 const pixelia::Project* p = bed(r);
+                 if (p && p->begun && p->step < 2 && (l.qty(site, saege) != 1 || l.reserved(site, saege) != 1))
+                     return "Schritt " + std::to_string(p->step) + " läuft ohne reservierte Säge";
+                 if (t % 600 == 0)
+                     if (std::string e = checked(r); !e.empty()) return e;
+             }
+             if (bed(r)) return "nicht fertig: " + projects_text(r.stage.environment().projects, l);
+             r.run(30 * 60 * 2);  // das Projekt endet, sobald die Baustelle leer ist; die Säge ist dann noch unterwegs
+             if (l.total(saege) != 1) return std::string("Säge verloren");
+             if (!at_site || !carried) return std::string("Säge nie an der Baustelle bzw. nie getragen");
+             if (carry_load < l.good(saege).weight) return "Trage mit Säge nur " + std::to_string(carry_load);
+             if (l.qty(vorrat, saege) != 1 || booked(l, "saege", Booking::Build) != 0)
+                 return "Säge nicht zurück: " + ledger_text(l);
+             if (built_text(l) != "Bretter 8, Nägel 6, Stroh 4") return "verbaut: " + built_text(l);
+             if (rec.size() != 4 || rec[0].tool_count != 1 || rec[0].tools[0] != saege || rec[2].tool_count != 0 ||
+                 rec[3].tool_count != 1)
+                 return std::string("Protokoll ohne Werkzeug");
+             int q = 0;
+             for (int k = 0; k < rec[3].good_count; ++k) q += rec[3].qty[k];
+             if (q != 18) return "verbaut laut Protokoll " + std::to_string(q);
+             return checked(r);
+         }},
+        {"Neustart, während die Säge getragen wird: kommt genau einmal an, alles wie ohne Neustart, danach zurück",
+         [] {
+             Run a(67, "testort-raum", 6, 30, 60.0);
+             const Ledger& la = a.ledger();
+             const int saege = la.find_good("saege");
+             const int kammer = pixelia::place_index("testort-kammer");
+             bool found = false;
+             for (int t = 0; t < 30 * 60 * 12 && !found; ++t) {
+                 a.run(1);
+                 for (int i = 0; i < la.items() && !found; ++i) {
+                     const pixelia::Item& it = la.item_at(i);
+                     const uint16_t who = it.good == saege ? la.hand_owner(it.store) : 0;
+                     const pixelia::FigureRecord* f = who ? a.stage.environment().figures.find(who) : nullptr;
+                     found = f && f->where.place != kammer;
+                 }
+             }
+             if (!found) return std::string("niemand trägt die Säge");
+             const std::vector<uint8_t> s = a.save();
+             Run b(67, "testort-raum");
+             pixelia::Stage::LoadReport rep;
+             if (!b.stage.load_state(s.data(), s.size(), &rep)) return std::string("Laden: ") + rep.why;
+             if (b.ledger().total(saege) != 1) return std::string("nach dem Laden nicht genau eine Säge");
+             b.clock.set_world_us(a.clock.world_us());
+             b.clock.set_speed(60.0);
+             a.run(30 * 60 * 14);
+             b.run(30 * 60 * 14);
+             to_grid(a);
+             to_grid(b);
+             const std::string x = ledger_text(a.ledger()) + projects_text(a.stage.environment().projects, a.ledger());
+             const std::string y = ledger_text(b.ledger()) + projects_text(b.stage.environment().projects, b.ledger());
+             if (x != y) return "ohne Neustart: " + x + "\n          mit Neustart: " + y;
+             const Ledger& lb = b.ledger();
+             if (bed(b) || lb.qty(lb.find_store("platz_vorrat"), saege) != 1 || lb.total(saege) != 1)
+                 return "Säge nicht zurück: " + ledger_text(lb);
+             return checked(b);
+         }},
+        {"Säge vergeben: ein zweites Projekt wartet („an der Baustelle“), bekommt sie nach dem ersten; nie zwei Aufgaben",
+         [] {
+             // eigene kleine Wirtschaft: zwei Baustellen, eine Säge in der Kiste
+             static constexpr pixelia::GoodDef goods[] = {
+                 {.id = "bretter", .title = "Bretter", .weight = 20},
+                 {.id = "saege", .title = "Säge", .weight = 20, .unique = true, .the = "die Säge"},
+             };
+             static constexpr pixelia::StoreDef stores[] = {
+                 {.id = "kiste", .title = "Kiste", .place = "testort-platz", .kind = pixelia::StoreKind::Community,
+                  .capacity = 100},
+                 {.id = "bau_a", .title = "Baustelle", .place = "testort-kammer", .kind = pixelia::StoreKind::Site,
+                  .capacity = 40},
+                 {.id = "bau_b", .title = "Baustelle", .place = "testort-raum", .kind = pixelia::StoreKind::Site,
+                  .capacity = 40},
+             };
+             static constexpr pixelia::ProjectNeed needs[] = {{"bretter", 2}, {"saege", 1, true}};
+             static constexpr pixelia::ProjectStepDef steps[] = {
+                 {.id = "a", .title = "Sägen", .label = "Sägen", .needs = needs, .need_count = 2,
+                  .level = pixelia::SkillLevel::Unknown, .minutes = 60},
+                 {.id = "b", .title = "Sägen", .label = "Sägen", .needs = needs, .need_count = 2,
+                  .level = pixelia::SkillLevel::Unknown, .minutes = 60},
+             };
+             static constexpr pixelia::ProjectDef projects[] = {
+                 {.id = "pa", .title = "A", .place = "testort-kammer", .site = "bau_a", .source = "kiste", .steps = steps,
+                  .step_count = 2, .start = true},
+                 {.id = "pb", .title = "B", .place = "testort-raum", .site = "bau_b", .source = "kiste", .steps = steps,
+                  .step_count = 1, .start = true},
+             };
+             static constexpr pixelia::StartStock start[] = {{"kiste", "bretter", 10}, {"kiste", "saege", 1}};
+             static constexpr pixelia::EconomyDef eco = {goods, 2, stores, 3, start, 2, projects, 2};
+             const pixelia::EconomyDef* defs[] = {&eco};
+             Ledger l;
+             l.build(defs, 1);
+             l.start_stock(1);
+             TaskList tl;
+             pixelia::ProjectList pl;
+             pl.build(defs, 1, l);
+             pl.start_new();
+             pixelia::FigureBook book;
+             const int saege = l.find_good("saege"), kiste = l.find_store("kiste"), a = l.find_store("bau_a"),
+                       b = l.find_store("bau_b");
+             int64_t now = 8 * 3600LL * 1000000;
+             // offene Aufgaben ausführen (wie ein Träger: mit der Reservierung umlagern)
+             auto carry = [&] {
+                 for (int i = 0; i < tl.count(); ++i) {
+                     const Task& t = tl.at(i);
+                     if (t.phase != TaskPhase::Open) continue;
+                     l.move(t.from, t.to, t.good, t.qty, at(now), t.res);
+                     l.release(t.res);
+                     tl.cancel(t.id);
+                 }
+             };
+             auto saw_tasks = [&] {
+                 int n = 0;
+                 for (int i = 0; i < tl.count(); ++i) n += tl.at(i).good == saege && tl.at(i).phase == TaskPhase::Open;
+                 return n;
+             };
+             auto proj = [&](int k) { return &pl.at(k); };
+             char buf[96];
+             for (int round = 0; round < 3; ++round) {
+                 pl.step(now, 1, l, tl, book, nullptr, false);
+                 if (saw_tasks() > 1) return "zwei Sägen-Aufgaben: " + tasks_text(tl, l);
+                 carry();
+                 now += 2'000'000;
+             }
+             pl.step(now, 1, l, tl, book, nullptr, false);
+             if (pl.count() != 2 || !proj(0)->begun || proj(1)->begun || l.qty(a, saege) != 1)
+                 return "A nicht mit Säge begonnen: " + ledger_text(l);
+             if (proj(1)->wait != pixelia::ProjectWait::Tool) return std::string("B wartet nicht auf das Werkzeug");
+             const std::string w = pl.wait_text(*proj(1), l, buf, sizeof(buf));
+             if (w != "Säge ist an der Baustelle (Testort Kammer)") return "Text: " + w;
+             // A: zwei Schritte, die Säge bleibt dazwischen an der Baustelle (nur eine Aufgabe, nie zurück)
+             pl.test_jump(0, 1, now, 1, l, tl, nullptr);
+             pl.step(now, 1, l, tl, book, nullptr, false);
+             if (l.qty(a, saege) != 1 || saw_tasks() != 0) return "Säge zwischen den Schritten: " + ledger_text(l);
+             carry();
+             pl.step(now, 1, l, tl, book, nullptr, false);
+             pl.test_jump(0, 2, now, 1, l, tl, nullptr);
+             // A fertig: das Übrige und die Säge zurück in die Kiste, dann holt B sie
+             for (int round = 0; round < 6 && !(pl.count() == 1 && pl.at(0).begun); ++round) {
+                 pl.step(now, 1, l, tl, book, nullptr, false);
+                 if (saw_tasks() > 1) return "zwei Sägen-Aufgaben: " + tasks_text(tl, l);
+                 carry();
+                 now += 2'000'000;
+             }
+             if (pl.count() != 1 || !pl.at(0).begun || l.qty(b, saege) != 1 || l.total(saege) != 1)
+                 return "B hat die Säge nicht: " + ledger_text(l) + projects_text(pl, l);
+             if (booked(l, "saege", Booking::Build) != 0 || booked(l, "bretter", Booking::Build) != 4)
+                 return "verbaut: " + ledger_text(l);
+             if (l.qty(kiste, saege) != 0) return std::string("Säge doppelt");
+             if (const char* e = pl.check(l, buf, sizeof(buf))) return std::string(e);
+             return checked(l, tl);
+         }},
+        // --- Wirtschafts-Protokoll (seit 0.5.10 Teil 4) ---
+        {"Protokoll: jede Buchung genau einmal, Neustart nach dem Speichern und ohne Speichern (Puffer bis zum Speicherstand)",
+         [] {
+             for (int lost_hour = 0; lost_hour < 2; ++lost_hour) {
+                 const std::string dir = ".logs/test-wirtschaft-" + std::to_string(lost_hour);
+                 std::error_code ec0;
+                 std::filesystem::remove_all(dir, ec0);
+                 Run a(71, "testort-raum", 6, 0, 60.0);
+                 pixelia::EconomyLog la;
+                 if (!la.attach(a.stage.environment(), 128 * 1024, "simulator")) return std::string("kein Puffer");
+                 // Zähler beim Anhängen: das Protokoll muss genau die Buchungen danach enthalten
+                 std::vector<pixelia::Ledger::GoodTotals> base;
+                 for (int g = 0; g < a.ledger().goods(); ++g) base.push_back(a.ledger().totals(g));
+                 auto run = [](Run& r, pixelia::EconomyLog& log, int ticks) {
+                     for (int i = 0; i < ticks; ++i) {
+                         r.run(1);
+                         log.step(r.stage);
+                     }
+                 };
+                 run(a, la, 30 * 60 * 2);  // zwei Weltstunden, dann Speicherstand wie am Gerät: packen, Schnitt, schreiben, anhängen
+                 const std::vector<uint8_t> s = a.save();
+                 la.cut();
+                 if (!la.flush(dir.c_str())) return std::string("Anhängen fehlgeschlagen");
+                 if (lost_hour) run(a, la, 30 * 60);  // eine Stunde ohne Speichern: Strom weg, der Puffer ist verloren
+                 const int64_t restart_us = a.clock.world_us();
+                 la.detach();
+                 Run b(71, "testort-raum");
+                 pixelia::Stage::LoadReport rep;
+                 if (!b.stage.load_state(s.data(), s.size(), &rep)) return std::string("Laden: ") + rep.why;
+                 pixelia::EconomyLog lb;
+                 lb.attach(b.stage.environment(), 128 * 1024, "simulator");
+                 b.clock.set_world_us(restart_us);  // nachholen ab dem Stand
+                 b.clock.set_speed(60.0);
+                 run(b, lb, 30 * 60 * 2);
+                 lb.cut();
+                 if (!lb.flush(dir.c_str())) return std::string("Anhängen nach dem Neustart fehlgeschlagen");
+                 // je Ware und Art: Summe im Protokoll = Zähler im Warenbuch seit dem Anhängen
+                 const Ledger& l = b.ledger();
+                 std::vector<std::array<int64_t, pixelia::kBookingKinds>> sum(l.goods());
+                 for (auto& x : sum) x.fill(0);
+                 int rows = 0;
+                 for (const auto& e : std::filesystem::directory_iterator(dir)) {
+                     if (e.path().filename().string().find("-bewegungen.csv") == std::string::npos) continue;
+                     std::ifstream f(e.path());
+                     for (std::string line; std::getline(f, line);) {
+                         if (line.empty() || line[0] == '#' || line.rfind("welttag", 0) == 0) continue;
+                         std::vector<std::string> c;
+                         for (size_t p = 0;;) {
+                             const size_t q = line.find(',', p);
+                             c.push_back(line.substr(p, q == std::string::npos ? std::string::npos : q - p));
+                             if (q == std::string::npos) break;
+                             p = q + 1;
+                         }
+                         if (c.size() != 12) return "Zeile mit " + std::to_string(c.size()) + " Spalten: " + line;
+                         const int g = l.find_good(c[4]);
+                         int k = 0;
+                         while (k < pixelia::kBookingKinds && c[3] != pixelia::booking_id(static_cast<Booking>(k))) ++k;
+                         if (g < 0 || k == pixelia::kBookingKinds) return "unbekannt: " + line;
+                         sum[g][k] += std::stoi(c[5]);
+                         ++rows;
+                     }
+                 }
+                 if (rows < 10) return "nur " + std::to_string(rows) + " Bewegungen";
+                 for (int g = 0; g < l.goods(); ++g)
+                     for (int k = 0; k < pixelia::kBookingKinds; ++k)
+                         if (sum[g][k] != l.totals(g).moved[k] - base[g].moved[k])
+                             return std::string(lost_hour ? "ohne Speichern: " : "nach dem Speichern: ") + l.good(g).id +
+                                    " " + pixelia::booking_id(static_cast<Booking>(k)) + " im Protokoll " +
+                                    std::to_string(sum[g][k]) + ", im Warenbuch " +
+                                    std::to_string(l.totals(g).moved[k] - base[g].moved[k]);
+                 if (la.stats().lost || lb.stats().lost) return std::string("Zeilen verloren");
+                 std::printf("  info  %s: %d Bewegungen, %u Dateien, %.1f KB\n",
+                             lost_hour ? "ohne Speichern" : "nach dem Speichern", rows, lb.stats().files,
+                             lb.stats().bytes / 1024.0);
+                 std::filesystem::remove_all(dir, ec0);
+             }
+             return std::string();
+         }},
+        {"Protokoll: über 1 MB werden die ältesten Tage gelöscht; Projekte und Kopfzeile mit Formatversion",
+         [] {
+             const std::string dir = ".logs/test-wirtschaft-max";
+             std::error_code ec0;
+             std::filesystem::remove_all(dir, ec0);
+             std::filesystem::create_directories(dir);
+             const std::string big(400 * 1024, 'x');
+             for (int d = 1; d <= 3; ++d) {
+                 char name[64];
+                 std::snprintf(name, sizeof(name), "%s/t%05d-bewegungen.csv", dir.c_str(), d);
+                 std::ofstream(name) << big;
+             }
+             Run r(73, "testort-kammer", 6, 0, 60.0);
+             r.clock.set_world_us(r.clock.world_us() + 9 * pixelia::WorldClock::kUsPerDay);  // Welttag 10
+             r.run(1);
+             pixelia::EconomyLog log;
+             log.attach(r.stage.environment(), 128 * 1024, "simulator");
+             r.stage.command("projekt bett fertig");  // ein Projekt fertig: projekte.csv
+             for (int i = 0; i < 60; ++i) {
+                 r.run(1);
+                 log.step(r.stage);
+             }
+             log.cut();
+             if (!log.flush(dir.c_str())) return std::string("Anhängen fehlgeschlagen");
+             const pixelia::EconomyLog::Stats st = log.stats();
+             if (std::filesystem::exists(dir + "/t00001-bewegungen.csv") || !std::filesystem::exists(dir + "/t00002-bewegungen.csv"))
+                 return std::string("nicht der älteste Tag gelöscht");
+             if (st.bytes > pixelia::EconomyLog::kMaxBytes || st.deleted != 1)
+                 return "danach " + std::to_string(st.bytes) + " Bytes, gelöscht " + std::to_string(st.deleted);
+             std::string projects;
+             for (const auto& e : std::filesystem::directory_iterator(dir))
+                 if (e.path().filename().string().find("-projekte.csv") != std::string::npos) projects = e.path().string();
+             std::ifstream f(projects);
+             std::string head, cols, row;
+             std::getline(f, head);
+             std::getline(f, cols);
+             std::getline(f, row);
+             if (head != "#pixelia-wirtschaft,format=1,tabelle=projekte,quelle=simulator" || cols.rfind("welttag,", 0) != 0 ||
+                 row.find("kammer_bett") == std::string::npos)
+                 return "projekte.csv: " + head + " / " + row;
+             f.close();
+             std::error_code ec;
+             std::filesystem::remove_all(dir, ec);
+             return std::string();
          }},
         {"Stellplätze: jedes Stück einzeln wie im Warenbuch; neu gezeichnet wird nur das Rechteck, pixelgleich mit dem ganzen Bild",
          [] {

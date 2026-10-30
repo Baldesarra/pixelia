@@ -7,6 +7,7 @@ set(PIXELIA_ENGINE_SRCS
     src/chronicle.cpp
     src/color.cpp
     src/depth.cpp
+    src/econ_log.cpp
     src/environment.cpp
     src/events.cpp
     src/figure.cpp

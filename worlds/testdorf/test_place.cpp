@@ -75,6 +75,7 @@ static_assert(kTileCount == 19, "Legende passt zu den Kacheln");
 // Materialstapels einer Baustelle (keine eigenen Teile des Katalogs, testdorf.h)
 constexpr uint8_t kPBedFrame = kPartCount, kPSite = kPartCount + 1, kPLog = kPartCount + 2, kPLoaf = kPartCount + 3;
 constexpr uint8_t kPBoard = kPartCount + 4, kPStraw = kPartCount + 5, kPNails = kPartCount + 6;
+constexpr uint8_t kPSaw = kPartCount + 7;  // seit 0.5.10 Teil 4: Werkzeug auf der Bauplane
 
 // Benutzungspunkte (Kachel relativ zur Lage des Teils)
 constexpr UsePoint kUseWardrobe[] = {{0, 1, Facing::Up, UsePose::Stand, 0}, {1, 1, Facing::Up, UsePose::Stand, 0}};
@@ -120,6 +121,7 @@ constexpr SlotPoint kBuildPileSlots[] = {
     {6, 12}, {19, 12}, {6, 10}, {19, 10}, {6, 8}, {19, 8}, {6, 6}, {19, 6},  // Bretter
     {28, 12}, {34, 12}, {31, 9}, {25, 9},                                    // Stroh, das letzte lehnt an den Brettern
     {4, 12}, {9, 12}, {14, 12},                                              // Nägel vor den Brettern
+    {24, 17},                                                                // Säge vor dem Stapel (seit Teil 4)
 };
 
 // Großes Fenster mit Vorhang und Fensterbank (seit 0.5.8, STIL.md Kapitel 8, Wahl des Users): Scheiben (Mond im
@@ -170,7 +172,7 @@ constexpr StageSpec kStages[] = {
     {kPBreadShelf, "teil/brotregal", 3, 1, kUseShelf, 1, 0, kShelfSlots, 8},
     {kPChopBlock, "teil/hackklotz", 1, 1, kUseChop, 1},
     {kPBakeOven, "teil/backofen", 5, 1, kUseBakeOven, 1, 0, kBoardSlots, 6},  // Zustände kalt, Glut (es wird gebacken)
-    {kPBuildPile, "teil/baustapel", 4, 1, kUseBuildPile, 1, 0, kBuildPileSlots, 15},  // seit 0.5.10 Teil 3b
+    {kPBuildPile, "teil/baustapel", 4, 1, kUseBuildPile, 1, 0, kBuildPileSlots, 16},  // seit 0.5.10 Teil 3b
     {kPBuildCloth, "teil/bauplane", 9, 4, nullptr, 0},  // Zustände: nicht da, liegt aus (Wahl des Users 2026-10-30)
     // im Bau (seit 0.5.10 Teil 3b in Stufen, build_image): Bauplatz, Gestell, Liegefläche, Strohsack wird gefüllt
     {kPBedFrame, "teil/bett/bau", 2, 3, kUseBuild, 1},
@@ -180,6 +182,7 @@ constexpr StageSpec kStages[] = {
     {kPBoard, "stueck/brett", 1, 1, nullptr, 0},        // seit 0.5.10 Teil 3b: Materialstapel
     {kPStraw, "stueck/stroh", 1, 1, nullptr, 0},        // zwei Spielarten
     {kPNails, "stueck/naegel", 1, 1, nullptr, 0},       // je zwei Nägel ein Bild, zwei Spielarten
+    {kPSaw, "stueck/saege", 1, 1, nullptr, 0},          // seit Teil 4: liegt auf der Plane, solange sie da ist
 };
 constexpr int kStageCount = sizeof(kStages) / sizeof(kStages[0]);
 
@@ -797,7 +800,8 @@ void TestPlace::sync_fills() {
     static constexpr struct {
         const char* good;
         uint8_t stage, first, count, per;
-    } kSitePieces[] = {{"bretter", kPBoard, 0, 8, 1}, {"stroh", kPStraw, 8, 4, 1}, {"naegel", kPNails, 12, 3, 2}};
+    } kSitePieces[] = {{"bretter", kPBoard, 0, 8, 1}, {"stroh", kPStraw, 8, 4, 1}, {"naegel", kPNails, 12, 3, 2},
+                       {"saege", kPSaw, 15, 1, 1}};
     if (!env_ || !env_->ledger.ready()) return;
     const Ledger& l = env_->ledger;
     Kit& k = kit();

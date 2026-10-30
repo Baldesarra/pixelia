@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "pixelia/engine/assets.h"
+#include "pixelia/engine/econ_log.h"
 #include "pixelia/engine/color.h"
 #include "pixelia/engine/overlay.h"
 #include "pixelia/engine/png.h"
@@ -50,11 +51,26 @@ struct Stats {
     double render_seconds = 0;
 };
 
+// Wirtschafts-Protokoll (--wirtschaft, seit 0.5.10 Teil 4): dieselben Dateien wie am Gerät. Ohne Speicherstand wird
+// angehängt, sobald der Puffer zu drei Vierteln voll ist, und am Ende
+pixelia::EconomyLog* g_econ = nullptr;
+std::string g_econ_dir;
+
+void econ_flush() {
+    if (!g_econ) return;
+    g_econ->cut();
+    g_econ->flush(g_econ_dir.c_str());
+}
+
 void step(pixelia::Stage& stage, pixelia::WorldClock& clock, Stats& st, uint64_t count) {
     auto t0 = Clock::now();
     for (uint64_t i = 0; i < count; ++i) {
         clock.advance(pixelia::kTickUs);
         stage.tick(clock);
+        if (g_econ) {
+            g_econ->step(stage);
+            if (g_econ->wants_save()) econ_flush();
+        }
     }
     st.ticks += count;
     st.tick_seconds += seconds_since(t0);
@@ -487,6 +503,11 @@ int run_headless(const Options& opt) {
 
     Stats st;
     std::vector<uint8_t> frame(pixelia::kScreenPixels);
+    pixelia::EconomyLog econ;
+    if (!opt.econ_dir.empty() && econ.attach(stage.environment(), 256 * 1024, "simulator")) {
+        g_econ = &econ;
+        g_econ_dir = opt.econ_dir;
+    }
     // Ein Schritt ohne Weltzeit bringt die Szenen auf die Startzeit (Palette, Licht), ohne die Uhr zu verstellen
     clock.advance(0);
     stage.tick(clock);
@@ -534,6 +555,15 @@ int run_headless(const Options& opt) {
         std::printf("sim: nichts zu tun (--frames, --screenshot, --sequence oder --contact-sheet angeben)\n");
     }
 
+    if (g_econ) {
+        econ_flush();
+        const pixelia::EconomyLog::Stats es = econ.stats();
+        std::printf("sim: Wirtschafts-Protokoll %s: %u Zeilen, %u Dateien, %.1f KB, Tage %ld bis %ld%s\n",
+                    opt.econ_dir.c_str(), static_cast<unsigned>(es.written), static_cast<unsigned>(es.files),
+                    es.bytes / 1024.0, static_cast<long>(es.first_day), static_cast<long>(es.last_day),
+                    es.lost ? " (Zeilen verloren!)" : "");
+        g_econ = nullptr;
+    }
     std::printf("sim: Bericht: %llu Logik-Schritte (%.2f µs/Schritt), %llu Bilder (%.1f µs/Bild), Weltzeit jetzt %s\n",
                 static_cast<unsigned long long>(st.ticks), st.ticks ? st.tick_seconds * 1e6 / st.ticks : 0.0,
                 static_cast<unsigned long long>(st.renders), st.renders ? st.render_seconds * 1e6 / st.renders : 0.0,

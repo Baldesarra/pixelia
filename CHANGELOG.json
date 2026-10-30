@@ -17,7 +17,9 @@
         "Vorräte im Bild: Jeder Scheit und jeder Laib liegt einzeln im Lager; tippt man ein Lager an, zeigt die Karte, wie viel drin ist, wie lange es reicht und was heute dazukam",
         "Projekte: Größere Arbeiten bestehen aus Teilaufgaben mit eigenem Material; fehlt etwas, wartet das Projekt, und die Chronik meldet jede fertige Teilaufgabe",
         "Bett: Tagsüber baut in der Kammer jemand mit Tischlern ein Bett, man sieht es in Stufen wachsen; den Strohsack darf jeder füllen; das alte Bett im Testraum ist weg",
-        "Baustelle: Das Material liegt auf einer Bauplane am Bett und wird mit der Arbeit weniger; die Karte zeigt Schritte, Wartegrund und wer arbeitet; Meldung, wenn fertig"
+        "Baustelle: Das Material liegt auf einer Bauplane am Bett und wird mit der Arbeit weniger; die Karte zeigt Schritte, Wartegrund und wer arbeitet; Meldung, wenn fertig",
+        "Säge: Für das Bettgestell holt jemand die Säge aus der Vorratskiste, sie liegt auf der Bauplane und kommt nach dem Bau zurück; fehlt sie, wartet die Arbeit",
+        "Wirtschafts-Protokoll: Jede Bewegung von Waren, jedes fertige Projekt, Bedarf, Lagerbestand und Wetter werden je Tag mitgeschrieben, sicher mit dem Speicherstand"
       ],
       "i": [
         "Nachholen: War Pixelia länger aus, holt die Welt erst das Verpasste nach und lässt die Figuren danach weitermachen"
@@ -39,7 +41,9 @@
       "Dorf: Bett-Projekt in der Kammer (Gestell, Liegefläche, Strohsack; 8 Bretter, 6 Nägel, 4 Stroh), Tischlern nötig (Strohsack jeder), 7–19 Uhr (Platzhalter bis 0.5.11); ort cmd projekte, projekt bett …",
       "Dorf: Bett im Bau in vier Stufen, daneben der Materialstapel (Bretter, Stroh, Nägel je Bereich), der mit der Arbeit schrumpft, Bauplane am Boden; helles Holz, selbst gezeichnet (Wahl des Users)",
       "Display: Karte eines Projekts aus echten Daten (ui::project_card: Schritt-Leiste, Material verbaut/Bedarf, Grund des Wartens, wer arbeitet, Arbeit übrig), Kurzmeldung bei fertigem Projekt; Vorlagen mit echten Daten",
-      "Simulator: --test warenbuch 26 Prüfungen (u. a. Holzkette, Brot über zwei Orte, Bett-Projekt, Neustart im Transport und mitten im Bau, P10 mit Bau, Materialstapel mit Wegen und Laden, alter Stand)"
+      "Engine: Werkzeug am Projekt (ProjectNeed::tool, Wartegrund werkzeug): die Säge wird für Gestell und Liegefläche einmal geholt, nicht verbaut, danach zurück; vergeben wartet ein anderes Projekt",
+      "Engine: Wirtschafts-Protokoll (econ_log.h): bewegungen, projekte, bedarf, bestand_lager_tag, wetter_tag als CSV je Welttag in /data/wirtschaft (≤ 1 MB), angehängt mit dem Speicherstand; Simulator: --wirtschaft DIR",
+      "Simulator: --test warenbuch 31 Prüfungen (u. a. Holzkette, Brot über zwei Orte, Bett-Projekt, Säge, Neustart im Transport und mitten im Bau, P10 mit Bau, Protokoll genau einmal, alter Stand)"
     ],
     "i": [
       "Engine: je Schritt erst die Takt-Grenzen (Warenbuch, Aufgaben, Projekte), dann Kalender und Ortszustände (nie über die letzte Takt-Grenze), dann betretene Orte; über 10 Weltminuten Nachholen warten Tätigkeiten"
@@ -51,7 +55,7 @@
       "Engine: Ortszustand „angefangene Arbeit“ (StateKind::Work, Bett im Bau im Testraum), ersetzt durch Projekte; ein alter Stand damit lädt, das Bett-Projekt beginnt frisch"
     ],
     "g": [
-      "Simulator: alle 134 Prüfungen grün; Bett fertig mit genau 8 Brettern, 6 Nägeln, 4 Stroh und 8 Personenstunden; 48 Figuren in einem Ort: Takt-Grenze im Mittel 10 µs (PC); Firmware 2,07 MB (33 %)"
+      "Simulator: alle 139 Prüfungen grün; Bett fertig mit genau 8 Brettern, 6 Nägeln, 4 Stroh und 8 Personenstunden, Säge zurück; 48 Figuren in einem Ort: Takt-Grenze im Mittel 10 µs (PC); Firmware 2,08 MB (33 %)"
     ],
     "h": [
       "Dorf: Werte im Testdorf (Korb 10, Holzlege 12, Bett 8 Stunden …) sind Testwerte, Balancing ab 0.5.12 bzw. 0.6.x; das Brotregal ist nur Testinhalt; sichtbares Tragen kommt mit 0.6.x (Wahl des Users)",

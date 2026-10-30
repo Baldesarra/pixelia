@@ -526,6 +526,17 @@ void project_card(const ProjectList& pl, const Project& p, const Ledger& l, cons
         if (i != p.step) continue;
         for (int k = 0; k < s.need_count && k < Project::kMaxNeeds && cs.detail_count < CardStep::kMaxDetails; ++k) {
             const int g = l.find_good(s.needs[k].good);
+            if (s.needs[k].tool && g >= 0) {
+                // Werkzeug (seit Teil 4): da, unterwegs (in einer Trage) oder fehlt
+                const int site = pl.site_of(p);
+                const char* state = "fehlt";
+                if (site >= 0 && l.qty(site, g) >= s.needs[k].qty) state = "da";
+                for (int i = 0; i < l.items() && state[0] == 'f'; ++i)
+                    if (l.item_at(i).good == g && l.store_kind(l.item_at(i).store) == StoreKind::Hand) state = "unterwegs";
+                std::snprintf(buf, sizeof(buf), "%s %s", l.good(g).title, state);
+                cs.detail[cs.detail_count++] = buf;
+                continue;
+            }
             std::snprintf(buf, sizeof(buf), "%s %u / %u", g >= 0 ? l.good(g).title : s.needs[k].good,
                           static_cast<unsigned>(p.used[k]), static_cast<unsigned>(s.needs[k].qty));
             cs.detail[cs.detail_count++] = buf;

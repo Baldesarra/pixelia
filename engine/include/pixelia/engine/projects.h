@@ -25,6 +25,11 @@
 //   Zwischenstand ändert nur die Figur, die daran arbeitet, an ihrem Ort (work in Scene::finish); aufhören meldet sie
 //   nur an (leave), frei wird das Projekt an der nächsten Takt-Grenze. Auswahl nur nach festen Schlüsseln, die Liste
 //   ist nach Kennung sortiert. So baut ein Ort sichtbar wie unsichtbar dasselbe (P10).
+// - Werkzeug (seit 0.5.10 Teil 4, Wahl des Users 2026-10-30): ein Bedarf mit ProjectNeed::tool ist ein Einzelstück
+//   (Säge), das geholt, aber nicht verbaut wird. Es zählt je Projekt nur einmal (nicht je Schritt summiert), wird mit
+//   dem Material eines Schritts reserviert und nach dem Projekt mit dem Übrigen zurückgebracht. Fehlt es, wartet der
+//   Schritt (ProjectWait::Tool); liegt es an einer anderen Baustelle, wartet das Projekt, bis es dort fertig ist.
+//   Zustand und Verschleiß (WIRTSCHAFT 10) kommen mit 0.6.x.
 // - Kennungen ab kFirstId (0x8000): Halter im Warenbuch, getrennt von den Aufgaben (1 … TaskList::kMaxId).
 // - Liegt im Grafik-Speicher (auf dem Gerät PSRAM, ~2,5 KB), angelegt beim ersten Mal.
 
@@ -47,14 +52,16 @@ enum class ProjectKind : uint8_t { Small, Furniture, Shelter, Room, Upgrade, Lar
 const char* project_kind_id(ProjectKind k);  // klein, moebel, notunterkunft, raum, ausbaustufe, grossbau, lok
 
 // Warum ein Projekt gerade nicht weitergeht
-enum class ProjectWait : uint8_t { None, Material, Skill, Worker, Weather, Rest, kCount };
+enum class ProjectWait : uint8_t { None, Material, Skill, Worker, Weather, Rest, Tool, kCount };
 inline constexpr int kProjectWaits = static_cast<int>(ProjectWait::kCount);
-const char* project_wait_id(ProjectWait w);  // keiner, material, faehigkeit, arbeitskraft, wetter, feierabend
+// keiner, material, faehigkeit, arbeitskraft, wetter, feierabend, werkzeug
+const char* project_wait_id(ProjectWait w);
 
 // --- Daten der Gebiete ---
 struct ProjectNeed {
     const char* good;  // Kennung der Ware
     uint16_t qty;
+    bool tool = false;  // Werkzeug: wird geholt, nicht verbaut, zählt je Projekt einmal (seit Teil 4)
 };
 
 struct ProjectStepDef {
@@ -121,6 +128,9 @@ struct ProjectRecord {
     uint8_t goods[Project::kMaxNeeds * 4] = {};
     uint16_t qty[Project::kMaxNeeds * 4] = {};
     uint8_t good_count = 0;
+    // benutztes Werkzeug (Nummern der Waren, nicht verbaut)
+    uint8_t tools[Project::kMaxNeeds] = {};
+    uint8_t tool_count = 0;
 };
 
 class ProjectList {
@@ -184,7 +194,8 @@ public:
 
     // Eine Zeile für Log und Konsole („projekte“)
     const char* describe(int i, const Ledger& ledger, char* buf, int n) const;
-    // Warten in einem Satz für die Karte („wartet auf 2 Bretter“, „wartet auf jemanden mit Tischlern“); leer = arbeitet
+    // Warten in einem Satz für die Karte („wartet auf 2 Bretter“, „wartet auf jemanden mit Tischlern“, „wartet auf die
+    // Säge“, „Säge ist an der Baustelle (Kammer)“); leer = arbeitet
     const char* wait_text(const Project& p, const Ledger& ledger, char* buf, int n) const;
     uint32_t version() const { return version_; }  // zählt Schritte, Zuständigkeiten, neue und fertige Projekte
     uint32_t progress() const { return progress_; }  // zählt dazu jeden Arbeitsgang (Darstellung)
@@ -215,7 +226,8 @@ private:
     void tidy(Project& p, int64_t at_us, Ledger& l, TaskList& tasks);  // fertig: Übriges zurückbringen
     bool begin(Project& p, Ledger& l);
     void reset_step(Project& p);
-    ProjectWait wait_of(const Project& p, int64_t at_us, const FigureBook& book, bool bad_weather) const;
+    ProjectWait wait_of(const Project& p, int64_t at_us, const Ledger& l, const FigureBook& book,
+                        bool bad_weather) const;
 
     Storage* s_ = nullptr;
     int n_ = 0;

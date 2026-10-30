@@ -626,6 +626,12 @@ esp_err_t world_get(httpd_req_t* req) {
     j.num("figures", s.figures).num("transit", s.transit).num("chronicle", s.chronicle);
     j.num("caughtUp", s.caught_up).num("skipped", s.skipped).num("catchingUp", s.catching_up);
     j.boolean("test", s.test).boolean("waiting", s.waiting).str("error", s.error).end_obj();
+    // Wirtschafts-Protokoll (seit 0.5.10 Teil 4): Zeilen, Dateien und Dauer des Anhängens beim Speichern
+    j.obj("wirtschaft").num("rows", static_cast<int64_t>(s.econ_rows)).num("written", static_cast<int64_t>(s.econ_written));
+    j.num("lost", static_cast<int64_t>(s.econ_lost)).num("files", static_cast<int64_t>(s.econ_files));
+    j.num("bytes", static_cast<int64_t>(s.econ_bytes)).num("flushMs", static_cast<int64_t>(s.econ_flush_ms));
+    j.num("deleted", static_cast<int64_t>(s.econ_deleted)).num("firstDay", s.econ_first).num("lastDay", s.econ_last);
+    j.boolean("error", s.econ_error).end_obj();
     // Figuren und Chronik nur auf Wunsch (?mehr=1): die Grafik-Task füllt die Ansicht im nächsten Bild
     std::string more;
     if (query_value(req, "mehr", &more) && more == "1") {

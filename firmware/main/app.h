@@ -173,6 +173,10 @@ struct SaveInfo {
     bool test;              // Testuhr oder Zeitraffer: es wird nicht gespeichert
     bool waiting;           // Weltzeit wartet auf die Uhrzeit: es wird noch nicht gespeichert
     char error[48];
+    // Wirtschafts-Protokoll (seit 0.5.10 Teil 4, /data/wirtschaft): angehängt mit dem Speicherstand
+    uint32_t econ_rows, econ_written, econ_lost, econ_files, econ_bytes, econ_flush_ms, econ_deleted;
+    int32_t econ_first, econ_last;  // Welttage im Ordner
+    bool econ_error;
 };
 SaveInfo save_info();
 bool request_save();  // im nächsten Bild packen, danach schreibt die Lade-Task; false = läuft schon

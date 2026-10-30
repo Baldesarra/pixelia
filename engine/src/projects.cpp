@@ -22,7 +22,7 @@ namespace {
 
 const char* const kKindIds[] = {"klein", "moebel", "notunterkunft", "raum", "ausbaustufe", "grossbau", "lok"};
 static_assert(sizeof(kKindIds) / sizeof(kKindIds[0]) == static_cast<int>(ProjectKind::kCount));
-const char* const kWaitIds[] = {"keiner", "material", "faehigkeit", "arbeitskraft", "wetter", "feierabend"};
+const char* const kWaitIds[] = {"keiner", "material", "faehigkeit", "arbeitskraft", "wetter", "feierabend", "werkzeug"};
 static_assert(sizeof(kWaitIds) / sizeof(kWaitIds[0]) == kProjectWaits);
 
 constexpr int kMaxSteps = 16;  // Teilaufgaben je Projekt
@@ -51,6 +51,7 @@ struct ProjectList::DefData {
     int8_t slot[kMaxSteps][Project::kMaxNeeds] = {};   // … als Nummer unter den Waren des Projekts
     int8_t uniq[kMaxGoods] = {};                        // Waren des Projekts in der Reihenfolge der Daten
     uint8_t uniq_n = 0;
+    uint8_t tools = 0;                                  // Bit je Ware des Projekts: Werkzeug (nicht verbaut)
     uint8_t steps = 0;
 };
 struct ProjectList::Storage {
@@ -111,6 +112,7 @@ void ProjectList::build(const EconomyDef* const* defs, int n, const Ledger& l) {
                     while (u < d.uniq_n && d.uniq[u] != g) ++u;
                     if (u == d.uniq_n && u < kMaxGoods) d.uniq[d.uniq_n++] = static_cast<int8_t>(g);
                     if (u < d.uniq_n) d.slot[s][k2] = static_cast<int8_t>(u);
+                    if (u < d.uniq_n && pd.steps[s].needs[k2].tool) d.tools = static_cast<uint8_t>(d.tools | (1u << u));
                 }
         }
     clear();
@@ -253,11 +255,14 @@ void ProjectList::fetch(Project& p, int64_t at_us, Ledger& l, TaskList& tasks) {
     if (d.site < 0) return;
     for (int u = 0; u < d.uniq_n; ++u) {
         const int g = d.uniq[u];
+        const bool tool = d.tools & (1u << u);
         int want = 0, own = 0;
         for (int s = p.step; s < d.steps && s <= p.step + kAheadSteps; ++s)
             for (int k = 0; k < d.def->steps[s].need_count && k < Project::kMaxNeeds; ++k) {
                 if (d.goods[s][k] != g) continue;
-                want += d.def->steps[s].needs[k].qty;
+                // Werkzeug zählt einmal (es bleibt an der Baustelle), Material je Schritt
+                if (tool) want = std::max<int>(want, d.def->steps[s].needs[k].qty);
+                else want += d.def->steps[s].needs[k].qty;
                 if (s == p.step && p.begun) {
                     want -= p.used[k];
                     own += l.reservation_left(p.res[k]);
@@ -336,6 +341,10 @@ void ProjectList::finish_step(Project& p, int64_t at_us, int32_t day, Ledger& l,
     r.wait_s = p.wait_s;
     for (int k = 0; k < s.need_count && k < Project::kMaxNeeds; ++k) {
         if (d.goods[p.step][k] < 0) continue;
+        if (s.needs[k].tool) {
+            r.tools[r.tool_count++] = static_cast<uint8_t>(d.goods[p.step][k]);
+            continue;
+        }
         r.goods[r.good_count] = static_cast<uint8_t>(d.goods[p.step][k]);
         r.qty[r.good_count++] = p.used[k];
     }
@@ -368,6 +377,10 @@ void ProjectList::finish_step(Project& p, int64_t at_us, int32_t day, Ledger& l,
     all.person_s = p.total_person_s;
     all.wait_s = p.total_wait_s;
     for (int u = 0; u < d.uniq_n; ++u) {
+        if (d.tools & (1u << u)) {
+            if (all.tool_count < Project::kMaxNeeds) all.tools[all.tool_count++] = static_cast<uint8_t>(d.uniq[u]);
+            continue;
+        }
         all.goods[all.good_count] = static_cast<uint8_t>(d.uniq[u]);
         all.qty[all.good_count++] = p.built[u];
     }
@@ -383,10 +396,21 @@ void ProjectList::finish_step(Project& p, int64_t at_us, int32_t day, Ledger& l,
     }
 }
 
-ProjectWait ProjectList::wait_of(const Project& p, int64_t at_us, const FigureBook& book, bool bad_weather) const {
+ProjectWait ProjectList::wait_of(const Project& p, int64_t at_us, const Ledger& l, const FigureBook& book,
+                                 bool bad_weather) const {
     const DefData& d = s_->d[p.def];
     if (p.done(d.steps)) return ProjectWait::None;
-    if (!p.begun) return ProjectWait::Material;
+    if (!p.begun) {
+        // fehlt nur Werkzeug (das Material liegt da), wartet der Schritt auf das Werkzeug
+        const ProjectStepDef* s = current(p);
+        for (int k = 0; s && d.site >= 0 && k < s->need_count && k < Project::kMaxNeeds; ++k)
+            if (!s->needs[k].tool && d.goods[p.step][k] >= 0 && l.available(d.site, d.goods[p.step][k]) < s->needs[k].qty)
+                return ProjectWait::Material;
+        for (int k = 0; s && d.site >= 0 && k < s->need_count && k < Project::kMaxNeeds; ++k)
+            if (s->needs[k].tool && d.goods[p.step][k] >= 0 && l.available(d.site, d.goods[p.step][k]) < s->needs[k].qty)
+                return ProjectWait::Tool;
+        return ProjectWait::Material;
+    }
     bool anyone = false;
     for (int k = 0; k < book.count() && !anyone; ++k) anyone = can_work(p, book.at(k));
     if (!anyone) return ProjectWait::Skill;
@@ -454,7 +478,7 @@ void ProjectList::step(int64_t at_us, int32_t day, Ledger& l, TaskList& tasks, c
         }
         if (!p.begun) begin(p, l);
         fetch(p, at_us, l, tasks);
-        p.wait = wait_of(p, at_us, book, bad_weather);
+        p.wait = wait_of(p, at_us, l, book, bad_weather);
     }
 }
 
@@ -489,7 +513,7 @@ int ProjectList::work(uint16_t id, uint16_t who, int seconds, int64_t at_us, int
     info.holder = p->id;
     for (int k = 0; k < s->need_count && k < Project::kMaxNeeds; ++k) {
         const int g = d.goods[p->step][k];
-        if (g < 0) continue;
+        if (g < 0 || s->needs[k].tool) continue;  // Werkzeug wird benutzt, nicht verbaut
         const uint32_t need = s->needs[k].qty;
         const uint32_t target = p->work_s >= total ? need : (need * p->work_s + total - 1) / total;
         if (target <= p->used[k]) continue;
@@ -544,7 +568,7 @@ bool ProjectList::test_jump(int def, int step, int64_t at_us, int32_t day, Ledge
         const ProjectStepDef& s = d.def->steps[p->step];
         for (int k = 0; k < s.need_count && k < Project::kMaxNeeds; ++k) {
             const int g = d.goods[p->step][k];
-            if (g < 0 || s.needs[k].qty <= p->used[k]) continue;
+            if (g < 0 || s.needs[k].tool || s.needs[k].qty <= p->used[k]) continue;
             const int got = l.take(d.site, g, s.needs[k].qty - p->used[k], Booking::Build, info);
             p->used[k] = static_cast<uint16_t>(p->used[k] + got);
             if (d.slot[p->step][k] >= 0) p->built[d.slot[p->step][k]] = static_cast<uint16_t>(p->built[d.slot[p->step][k]] + got);
@@ -569,7 +593,7 @@ const char* ProjectList::wait_text(const Project& p, const Ledger& l, char* buf,
             int shown = 0;
             for (int k = 0; k < s->need_count && k < Project::kMaxNeeds && shown < 2; ++k) {
                 const int g = d.goods[p.step][k];
-                if (g < 0 || d.site < 0) continue;
+                if (g < 0 || d.site < 0 || s->needs[k].tool) continue;
                 const int miss = s->needs[k].qty - l.available(d.site, g);
                 if (miss <= 0) continue;
                 good_count_text(l.good(g), miss, shown == 0 ? a : b, 32);
@@ -583,6 +607,25 @@ const char* ProjectList::wait_text(const Project& p, const Ledger& l, char* buf,
         case ProjectWait::Skill:
             std::snprintf(buf, n, "wartet auf jemanden mit %s", skill_title(s->skill));
             break;
+        case ProjectWait::Tool: {
+            // das erste fehlende Werkzeug: liegt es an einer anderen Baustelle, sagt die Karte, wo
+            int g = -1;
+            for (int k = 0; k < s->need_count && k < Project::kMaxNeeds && g < 0; ++k)
+                if (s->needs[k].tool && d.goods[p.step][k] >= 0 && d.site >= 0 &&
+                    l.available(d.site, d.goods[p.step][k]) < s->needs[k].qty)
+                    g = d.goods[p.step][k];
+            if (g < 0) break;
+            const GoodDef& gd = l.good(g);
+            int other = -1;
+            for (int i = 0; i < l.items() && other < 0; ++i) {
+                const Item& it = l.item_at(i);
+                if (it.good == g && it.store != d.site && l.store_kind(it.store) == StoreKind::Site) other = it.store;
+            }
+            const PlaceDef* pd = other >= 0 ? place_at(l.store_place(other)) : nullptr;
+            if (pd) std::snprintf(buf, n, "%s ist an der Baustelle (%s)", gd.title, pd->title);
+            else std::snprintf(buf, n, "wartet auf %s", gd.the ? gd.the : gd.title);
+            break;
+        }
         case ProjectWait::Worker: std::snprintf(buf, n, "wartet, bis jemand Zeit hat"); break;
         case ProjectWait::Weather: std::snprintf(buf, n, "ruht wegen des Wetters"); break;
         case ProjectWait::Rest: std::snprintf(buf, n, "Feierabend, weiter um %d Uhr", kWorkFrom / 60); break;
@@ -609,8 +652,12 @@ const char* ProjectList::describe(int i, const Ledger& l, char* buf, int n) cons
     for (int k = 0; k < s->need_count && k < Project::kMaxNeeds && len > 0 && len < n; ++k) {
         const int g = d.goods[p.step][k];
         if (g < 0) continue;
-        len += std::snprintf(buf + len, n - len, ", %s %u/%u", l.good(g).id, static_cast<unsigned>(p.used[k]),
-                             static_cast<unsigned>(s->needs[k].qty));
+        if (s->needs[k].tool)
+            len += std::snprintf(buf + len, n - len, ", %s %s", l.good(g).id,
+                                 d.site >= 0 && l.qty(d.site, g) >= s->needs[k].qty ? "da" : "fehlt");
+        else
+            len += std::snprintf(buf + len, n - len, ", %s %u/%u", l.good(g).id, static_cast<unsigned>(p.used[k]),
+                                 static_cast<unsigned>(s->needs[k].qty));
     }
     if (len > 0 && len < n)
         std::snprintf(buf + len, n - len, ", Figur %u, wartet: %s", static_cast<unsigned>(p.who), project_wait_id(p.wait));
@@ -636,7 +683,7 @@ const char* ProjectList::check(const Ledger& l, char* buf, int n) const {
             return buf;
         }
         for (int k = 0; k < s->need_count && k < Project::kMaxNeeds; ++k) {
-            if (p.used[k] > s->needs[k].qty) {
+            if (p.used[k] > s->needs[k].qty || (s->needs[k].tool && p.used[k] != 0)) {
                 std::snprintf(buf, n, "Projekt %u: mehr verbaut als nötig", static_cast<unsigned>(p.id));
                 return buf;
             }

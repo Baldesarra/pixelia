@@ -60,6 +60,7 @@ struct GoodDef {
     bool unique = false;     // Einzelstücke
     const char* one = nullptr;   // Zähleinheit (seit 0.5.10 Teil 2, Karten): „Scheit“, „Laib“; nullptr = title
     const char* many = nullptr;  // Mehrzahl: „Scheite“, „Laibe“
+    const char* the = nullptr;   // mit Artikel (seit Teil 4, Werkzeug auf der Karte): „die Säge“; nullptr = title
 };
 // „1 Scheit“, „8 Scheite“ (ohne Zähleinheit: „8 Brennholz“); out mindestens 32 Zeichen
 const char* good_count_text(const GoodDef& g, int n, char* out, int len);

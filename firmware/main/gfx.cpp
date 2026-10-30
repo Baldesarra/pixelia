@@ -17,6 +17,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "pixelia/engine/color.h"
+#include "pixelia/engine/econ_log.h"
 #include "pixelia/engine/memory.h"
 #include "pixelia/engine/camera.h"
 #include "pixelia/engine/overlay.h"
@@ -451,6 +452,11 @@ constexpr size_t kSaveCap = 96 * 1024;
 constexpr int64_t kSaveEveryUs = 5LL * 60 * 1000000;
 const pixelia::SaveSlots s_slots("/data", "welt");
 constexpr const char* kImportMark = "/data/welt-eingespielt";  // Sicherung eingespielt: Eintrag in die Chronik
+// Wirtschafts-Protokoll (seit 0.5.10 Teil 4, engine/econ_log.h): Zeilen im PSRAM, Schnitt beim Packen (Kern 1),
+// Anhängen nach dem Schreiben des Speicherstands (Lade-Task, Kern 0). So steht jede Buchung genau einmal im Protokoll
+constexpr const char* kEconDir = "/data/wirtschaft";
+constexpr size_t kEconBuffer = 128 * 1024;  // je Puffer (laufend, ausstehend), PSRAM
+pixelia::EconomyLog s_econ;
 std::atomic<bool> s_save_locked{false};  // Sicherung eingespielt: bis zum Neustart nicht speichern
 uint8_t* s_save_buf = nullptr;  // PSRAM
 size_t s_save_len = 0;
@@ -522,6 +528,7 @@ void save_tick(int64_t now) {
     }
     const int64_t t = esp_timer_get_time();
     const size_t n = s_stage.save_state(s_save_buf, kSaveCap, gen);
+    if (n) s_econ.cut();  // was bis jetzt gebucht ist, gehört zu diesem Stand (angehängt nach dem Schreiben)
     const uint32_t us = static_cast<uint32_t>(esp_timer_get_time() - t);
     int figures = 0, transit = 0;
     const pixelia::FigureBook& book = s_stage.environment().figures;
@@ -940,6 +947,15 @@ void gfx_task(void* arg) {
     // Speicherstand (seit 0.5.9) hier statt im Haupt-Task: die Bühne gehört Kern 1, und der Haupt-Task hat nur 3,5 KB Stack
     pixelia::set_figure_art_clock([] { return static_cast<int64_t>(esp_timer_get_time()); });
     load_save();
+    // Wirtschafts-Protokoll an Warenbuch und Projekte hängen (Puffer im PSRAM), Ordner zählen
+    if (s_econ.attach(s_stage.environment(), kEconBuffer, "geraet")) {
+        s_econ.scan(kEconDir);
+        const pixelia::EconomyLog::Stats es = s_econ.stats();
+        ESP_LOGI(TAG, "Wirtschafts-Protokoll %s: %lu Dateien, %.1f KB", kEconDir, static_cast<unsigned long>(es.files),
+                 es.bytes / 1024.0);
+    } else {
+        ESP_LOGW(TAG, "Wirtschafts-Protokoll: kein Puffer im PSRAM");
+    }
 
     pixelia::ui::apply_palette(s_ui_pal);
     for (int i = 0; i < 16; ++i) s_ui_pal565[i] = pixelia::to_rgb565(s_ui_pal[pixelia::ui::kFirstIndex + i]);
@@ -1012,7 +1028,10 @@ void gfx_task(void* arg) {
                          s_stage.transition_step(), was ? "lief" : "aus", s_stage.last_grid_steps(),
                          s_stage.last_prepare());
             s_camera.tick(s_stage);
+            s_econ.step(s_stage);
         }
+        // Puffer des Protokolls zu drei Vierteln voll (Nachholen nach langer Pause): gleich speichern
+        if (s_econ.wants_save()) request_save();
         s_place.store(s_stage.active(), std::memory_order_relaxed);
         update_world_state(ticks);
         save_tick(t0);
@@ -1302,6 +1321,38 @@ void write_save() {
                  static_cast<unsigned long>(s_save.pack_us), static_cast<unsigned long>(ms));
     else
         ESP_LOGW(TAG, "Speicherstand nicht geschrieben (%s)", s_slots.path(slot));
+    // Wirtschafts-Protokoll: erst jetzt anhängen (der Stand mit diesen Buchungen liegt sicher im Flash)
+    if (ok && s_econ.pending()) {
+        const int64_t e0 = esp_timer_get_time();
+        const uint32_t before = s_econ.stats().written;
+        const bool eok = s_econ.flush(kEconDir);
+        const pixelia::EconomyLog::Stats es = s_econ.stats();
+        const uint32_t ems = static_cast<uint32_t>((esp_timer_get_time() - e0) / 1000);
+        {
+            std::lock_guard<std::mutex> g(s_world_lock);
+            s_save.econ_flush_ms = ems;
+        }
+        if (eok)
+            ESP_LOGI(TAG, "Wirtschafts-Protokoll: %lu Zeilen angehängt in %lu ms, %lu Dateien, %.1f KB (Tage %ld–%ld)",
+                     static_cast<unsigned long>(es.written - before), static_cast<unsigned long>(ems),
+                     static_cast<unsigned long>(es.files), es.bytes / 1024.0, static_cast<long>(es.first_day),
+                     static_cast<long>(es.last_day));
+        else
+            ESP_LOGW(TAG, "Wirtschafts-Protokoll nicht angehängt (%s), bleibt im Puffer", kEconDir);
+    }
+    {
+        const pixelia::EconomyLog::Stats es = s_econ.stats();
+        std::lock_guard<std::mutex> g(s_world_lock);
+        s_save.econ_rows = es.rows;
+        s_save.econ_written = es.written;
+        s_save.econ_lost = es.lost;
+        s_save.econ_files = es.files;
+        s_save.econ_bytes = es.bytes;
+        s_save.econ_deleted = es.deleted;
+        s_save.econ_first = es.first_day;
+        s_save.econ_last = es.last_day;
+        s_save.econ_error = es.error;
+    }
     s_save_state.store(0);
 }
 

@@ -82,7 +82,8 @@
         "teil/bauplane": {"datei": "teile/bauplane.png", "bilder": 2, "zustaende": 2},
         "stueck/brett": {"datei": "teile/brett.png"},
         "stueck/stroh": {"datei": "teile/stroh.png", "bilder": 2, "zustaende": 2},
-        "stueck/naegel": {"datei": "teile/naegel.png", "bilder": 2, "zustaende": 2}
+        "stueck/naegel": {"datei": "teile/naegel.png", "bilder": 2, "zustaende": 2},
+        "stueck/saege": {"datei": "teile/saege.png"}
       }
     },
     "wiese": {

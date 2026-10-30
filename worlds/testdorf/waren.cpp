@@ -8,7 +8,7 @@
 // projects.h): drei Teilaufgaben mit Bretter, Nägel und Stroh aus der Vorratskiste, Mengen nach WIRTSCHAFT 7 (Bett 8
 // Bretter, 6 Nägel, Strohsack 4 Stroh, ohne Stoff), Dauer nach SETTING 8 (Bett 1 Tag ≈ 8 Arbeitsstunden); arbeiten darf
 // nur, wer Tischlern kann (Wahl des Users), den Strohsack füllen kann jeder (seit Teil 3b). Die Säge ist ein
-// Einzelstück (Werkzeuge an Projekten: Wahl des Users 2026-10-30, kommt in Teil 4).
+// Einzelstück in der Vorratskiste; Gestell und Liegefläche brauchen sie als Werkzeug (seit Teil 4, projects.h).
 #include "testdorf/testdorf.h"
 
 #include "pixelia/engine/projects.h"
@@ -24,7 +24,7 @@ constexpr GoodDef kGoods[] = {
     {.id = "bretter", .title = "Bretter", .weight = 20},
     {.id = "naegel", .title = "Nägel", .weight = 1},
     {.id = "stroh", .title = "Stroh", .weight = 20, .one = "Bund Stroh", .many = "Bunde Stroh"},
-    {.id = "saege", .title = "Säge", .weight = 20, .unique = true},
+    {.id = "saege", .title = "Säge", .weight = 20, .unique = true, .the = "die Säge"},
 };
 
 constexpr StockRule kWoodpile[] = {{"brennholz", 20, 40}};  // Erzeuger: unter 20 spalten, bis 40
@@ -53,13 +53,14 @@ constexpr StoreDef kStores[] = {
 };
 
 // Bett in der Kammer: Teil 1 der Raumliste (orte/kammer.cpp), Baustelle kammer_baustelle
-constexpr ProjectNeed kFrame[] = {{"bretter", 6}, {"naegel", 4}};
-constexpr ProjectNeed kSlats[] = {{"bretter", 2}, {"naegel", 2}};
+// Säge (seit Teil 4, Wahl des Users 2026-10-30): Werkzeug für Gestell und Liegefläche, geholt, nicht verbaut
+constexpr ProjectNeed kFrame[] = {{"bretter", 6}, {"naegel", 4}, {"saege", 1, true}};
+constexpr ProjectNeed kSlats[] = {{"bretter", 2}, {"naegel", 2}, {"saege", 1, true}};
 constexpr ProjectNeed kSack[] = {{"stroh", 4}};
 constexpr ProjectStepDef kBedSteps[] = {
-    {.id = "gestell", .title = "Gestell zimmern", .label = "Gestell", .needs = kFrame, .need_count = 2,
+    {.id = "gestell", .title = "Gestell zimmern", .label = "Gestell", .needs = kFrame, .need_count = 3,
      .skill = Skill::Joinery, .level = SkillLevel::Beginner, .minutes = 240},
-    {.id = "liegeflaeche", .title = "Liegefläche legen", .label = "Liegefläche", .needs = kSlats, .need_count = 2,
+    {.id = "liegeflaeche", .title = "Liegefläche legen", .label = "Liegefläche", .needs = kSlats, .need_count = 3,
      .skill = Skill::Joinery, .level = SkillLevel::Beginner, .minutes = 150},
     // Strohsack füllen kann jeder (seit Teil 3b, Wahl des Users: Helfer ohne Tischlern)
     {.id = "strohsack", .title = "Strohsack füllen", .label = "Strohsack", .needs = kSack, .need_count = 1,
