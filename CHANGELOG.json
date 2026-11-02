@@ -1,5 +1,48 @@
 [
   {
+    "v": "0.5.11",
+    "d": "",
+    "t": "",
+    "s": "",
+    "k": {
+      "s": "Fester Boden: die Welt rechnet genauer und sicherer",
+      "n": [
+        "Nachschub: Hat ein Vorrat keine feste Quelle, sucht Pixelia selbst das nächste Lager mit genug Vorrat, für Aufgaben wie für Projekte",
+        "Prüfbefehl: „lager“ zeigt, warum ein Lager gerade keinen Nachschub bekommt, zum Beispiel weil die Quelle leer ist"
+      ],
+      "f": [
+        "Meldungen: Bei sehr vielen gleichzeitigen Ereignissen geht keine Nachricht mehr durcheinander, und die Chronik verpasst im Zeitraffer nichts",
+        "Vorräte: Reservierte Ware bleibt sicher beim richtigen Vorhaben, auch nach sehr langer Laufzeit; leere Plätze im Warenbuch werden wieder frei",
+        "Werkzeug: Scheitert das Tragen eines Werkzeugs, bleibt alles, wie es war, auch die Reservierung",
+        "Laden: Ware aus Lagern, die es nicht mehr gibt, kommt ohne Rechenfehler in die Vorratskiste, soweit Platz ist; der eigene Bestand geht vor",
+        "Protokoll: Lager mit sehr vielen Waren stehen vollständig im Tagesprotokoll",
+        "Reisen: Brechen viele Figuren gleichzeitig auf, kommt trotzdem niemand vor der Zeit an",
+        "Wege: Ist der kürzeste Weg gesperrt, nehmen Figuren einen offenen Umweg; gibt es keinen, warten sie, und ihre Karte sagt, warum",
+        "Projekte: Ein Tippfehler im Bauplan sperrt das Projekt und wird gemeldet, statt Material zu verschenken",
+        "Erstes Mal: Das erste eigene Gelingen bleibt für immer gemerkt, auch wenn jemand vorher gezeigt hat, wie es geht"
+      ]
+    },
+    "n": [
+      "Engine: Nachschub ohne Quelle wählt Erzeuger- oder Gemeinschaftslager (genug Vorrat, dann wenige Wege, dann Kennung; Ledger::find_source), auch für Projekte; eingetragene Quelle bleibt verbindlich (V05)",
+      "System: Gründe ohne Nachschub (SupplyWait) je Lager in der Konsole „lager“, Zähler je Grund, Bestandstabelle und Ereignis-Bus unter „nachschub“ in /api/world und im Diagnosepaket (P-F)"
+    ],
+    "f": [
+      "Engine: Ereignis-Bus liefert nichts vor deliver() und nichts doppelt, Verluste je überschriebener Nummer (V01); Ring 32 → 128 Plätze im PSRAM, die Chronik liest an jeder Takt-Grenze",
+      "Engine: Warenbuch: Reservierungen nur mit freier Kennung, doppelte beim Laden abgelehnt, check prüft sie; leere Einträge an Takt-Grenzen frei; gescheiterter Einzelstück-Transport ändert nichts (V02–V04)",
+      "Engine: Laden führt Lager ohne Bilanzfehler zusammen (eigener Bestand zuerst, Rest bis zur Obergrenze, Überschuss gezählt, B13); bestand_lager_tag mit allen Waren statt 24 je Lager (B12)",
+      "Engine: Reiseliste mit einem Platz je Figur (48 statt 16), nie sofortige Ankunft (B14); Wege über die gerade offenen Verbindungen (PlaceGraph::open_hops_to), sonst Wartegrund auf der Karte (B15)",
+      "Engine: Fehlerhafte Projektdaten sperren das Projekt mit Meldung im Log (data_problem, B17); erstes Gelingen und Fehlversuch als dauerhafte Merker je Fähigkeit in FIGS, Gezeigtes als eigene Erinnerung (B18)"
+    ],
+    "g": [
+      "Simulator: --test boden 23/23 (Gegenproben der Code-Prüfung mit richtiger Erwartung), alle 163 Prüfungen grün; Wirtschafts-Protokoll 1 Woche und 3 × 4 Wochen byte-gleich mit 0.5.10",
+      "Gerät: OTA, Stand aus 0.5.10 geladen, Neustart mitten in Reisen; 48 Figuren je Ort, nachts, Regen: 30,0 fps, Zeichnen 11,0 ms, Logik max 7,1 ms (vorher 7,2), RAM 91 KB (vorher 88)"
+    ],
+    "h": [
+      "Doku: Code-Prüfung einer anderen KI (31.10. und 1.11.): Befunde je Nummer in der ROADMAP; Tagesgerüst wird 0.5.12, Gesamtprobe 0.5.13 mit den Geschwindigkeits-Ideen als Messaufträgen"
+    ],
+    "pr": []
+  },
+  {
     "v": "0.5.10",
     "d": "2026-10-30",
     "t": "Holz, Brot und eine Säge",

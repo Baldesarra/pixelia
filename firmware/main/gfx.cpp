@@ -520,6 +520,15 @@ void save_tick(int64_t now) {
         s_save.caught_up = s_stage.caught_up();
         s_save.skipped = s_stage.skipped();
         s_save.catching_up = s_stage.catching_up();
+        // seit 0.5.11: Gründe ohne Nachschub, Bestandstabelle, Ereignis-Bus (Diagnose, /api/world)
+        const pixelia::Environment& env = s_stage.environment();
+        static_assert(sizeof(s_save.supply) / sizeof(s_save.supply[0]) == pixelia::kSupplyWaits);
+        for (int k = 0; k < pixelia::kSupplyWaits; ++k)
+            s_save.supply[k] = env.tasks.supply_waits(static_cast<pixelia::SupplyWait>(k));
+        s_save.stock_entries = env.ledger.entries();
+        s_save.stock_freed = env.ledger.entries_freed();
+        s_save.events_peak = env.events.peak();
+        s_save.events_lost = env.events.lost();
     }
     if (s_save_state.load() != 1) return;
     if (test || waiting || !s_save_buf || app::settings::frozen() || s_save_locked.load()) {
@@ -715,10 +724,10 @@ void log_stock() {
              static_cast<long>(es.rows) - static_cast<long>(es.written) - static_cast<long>(es.lost),
              static_cast<unsigned long>(es.lost));
     for (int s = 0; l.ready() && s < l.stores(); ++s) {
-        uint8_t g[24];
-        uint16_t q[24];
+        uint8_t g[pixelia::Ledger::kMaxGoods];  // seit 0.5.11 alle Waren eines Lagerplatzes (vorher 24, B12)
+        uint16_t q[pixelia::Ledger::kMaxGoods];
         char kb[12];
-        const int k = l.contents(s, g, q, 24);
+        const int k = l.contents(s, g, q, pixelia::Ledger::kMaxGoods);
         const char* key = l.store_key(s, kb, sizeof(kb));
         for (int i = 0; i < k; ++i) ESP_LOGI(TAG, "bestand,%s,%s,%u", key, l.good(g[i]).id, static_cast<unsigned>(q[i]));
     }
@@ -752,6 +761,35 @@ void log_lager() {
         ESP_LOGI(TAG, "  %s (%s): Schritt %u von %u (%s), %u %%, %s", p.title, p.place, p.step, p.steps, p.step_title, p.pct,
                  p.wait[0] ? p.wait : p.who[0] ? p.who : "niemand dran");
     }
+    // seit 0.5.11 (P-F, Wahl des Users): warum kein Nachschub kommt, je Lagerplatz (letzte Takt-Grenze) und Zähler
+    const pixelia::Environment& env = s_stage.environment();
+    const pixelia::Ledger& l = env.ledger;
+    ESP_LOGI(TAG, "Nachschub:");
+    int waiting = 0;
+    for (int s = 0; l.ready() && s < l.stores(); ++s) {
+        int g = -1;
+        const pixelia::SupplyWait w = env.tasks.supply_wait(s, &g);
+        if (w == pixelia::SupplyWait::None || g < 0) continue;
+        ++waiting;
+        const pixelia::StoreDef* d = l.store_def(s);
+        const pixelia::PlaceDef* pl = pixelia::place_at(l.store_place(s));
+        const int src = d && d->source ? l.find_store(d->source) : -1;
+        ESP_LOGI(TAG, "  %s (%s): %s %d/%d, wartet: %s%s%s", l.store_title(s), pl ? pl->title : "?", l.good(g).title,
+                 l.qty(s, g), l.capacity(s), pixelia::supply_wait_text(w), src >= 0 ? " · Quelle " : "",
+                 src >= 0 ? l.store_title(src) : "");
+    }
+    if (!waiting) ESP_LOGI(TAG, "  kein Lager wartet");
+    char line[200];
+    int at = 0;
+    for (int k = 1; k < pixelia::kSupplyWaits && at < static_cast<int>(sizeof(line)) - 1; ++k) {
+        const auto w = static_cast<pixelia::SupplyWait>(k);
+        at += std::snprintf(line + at, sizeof(line) - at, "%s%s %lu", k > 1 ? " · " : "", pixelia::supply_wait_id(w),
+                            static_cast<unsigned long>(env.tasks.supply_waits(w)));
+    }
+    ESP_LOGI(TAG, "Zähler seit Start: %s", line);
+    ESP_LOGI(TAG, "Bestandstabelle: %d von %d Einträgen, %lu wieder frei; Ereignisse: höchstens %lu je Takt-Grenze, %lu verloren",
+             l.entries(), pixelia::Ledger::kMaxStock, static_cast<unsigned long>(l.entries_freed()),
+             static_cast<unsigned long>(env.events.peak()), static_cast<unsigned long>(env.events.lost()));
 }
 
 // Weltzeit fortschreiben (Grafik-Task, nach den Logik-Schritten): Testuhr, Länge, Meldungen, Speichern, Stand
@@ -1319,6 +1357,13 @@ void start(const board::display::Timing& timing) {
     // Weltzeit (seit 0.5.7): erst mit bekannter Uhrzeit; Kalender aus dem NVS, gespeichert alle 10 s auf Kern 0
     s_stage.set_world_time(false);
     load_world();  // seit 0.5.9 gilt danach der Kalender aus dem Speicherstand (Grafik-Task, load_save)
+    {
+        // seit 0.5.11 (B17): Fehler in den Daten der Welt melden (ein fehlerhaftes Projekt beginnt nie)
+        char why[120];
+        const pixelia::Environment& env = s_stage.environment();
+        if (const char* e = env.ledger.data_problem(why, sizeof(why))) ESP_LOGW(TAG, "Daten: %s", e);
+        if (const char* e = env.projects.data_problem(why, sizeof(why))) ESP_LOGW(TAG, "Daten: %s (gesperrt)", e);
+    }
     const esp_timer_create_args_t ta = {.callback = save_world, .arg = nullptr, .dispatch_method = ESP_TIMER_TASK,
                                         .name = "welt", .skip_unhandled_events = true};
     if (esp_timer_create(&ta, &s_world_timer) == ESP_OK) esp_timer_start_periodic(s_world_timer, 10LL * 1000000);

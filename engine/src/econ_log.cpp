@@ -184,13 +184,14 @@ void EconomyLog::on_project(const ProjectRecord& r) {
 }
 
 void EconomyLog::day_rows(int32_t day) {
-    // Bestände je Lagerplatz und Ware am Ende des Tages (nur ungleich null), dann das Wetter des Tages
+    // Bestände je Lagerplatz und Ware am Ende des Tages (nur ungleich null, dafür alle: seit 0.5.11 bis zu jeder Ware
+    // des Warenbuchs, vorher 24 je Lagerplatz, B12), dann das Wetter des Tages
     const Ledger& l = env_->ledger;
     char kb[12], line[120];
     for (int s = 0; l.ready() && s < l.stores(); ++s) {
-        uint8_t g[24];
-        uint16_t q[24];
-        const int k = l.contents(s, g, q, 24);
+        uint8_t g[Ledger::kMaxGoods];
+        uint16_t q[Ledger::kMaxGoods];
+        const int k = l.contents(s, g, q, Ledger::kMaxGoods);
         const char* key = l.store_key(s, kb, sizeof(kb));
         for (int i = 0; i < k; ++i) {
             const int n = std::snprintf(line, sizeof(line), "%ld,%s,%s,%u,%d,%d\n", static_cast<long>(day), key,

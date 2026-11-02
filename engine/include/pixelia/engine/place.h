@@ -126,9 +126,18 @@ public:
     // kürzester Weg (Zahl der Verbindungen) von a nach b, −1 = keiner (seit 0.5.10 Teil 2 aus einer Tabelle, die build
     // einmal ausrechnet: Planer fragen an jeder Takt-Grenze)
     int hops(int a, int b) const;
+    // Wege über die gerade offenen Verbindungen (seit 0.5.11, B15; offen = exit_open: Tag, Bau, Werkzeug, Fahrplan):
+    // Zahl der Verbindungen von jedem Ort bis `to` bzw. von `from` zu jedem Ort, −1 = kein offener Weg. Breitensuche über
+    // die Kanten in fester Reihenfolge; dist hat kMaxPlaces Plätze
+    void open_hops_to(int to, const Environment& env, int8_t* dist) const;
+    void open_hops_from(int from, const Environment& env, int8_t* dist) const;
+    // Grund, warum es von a nach b gerade keinen offenen Weg gibt (Karte einer wartenden Figur): die Bedingung des ersten
+    // gesperrten Ausgangs von a auf einem kürzesten Weg („Nur bei Tag begehbar.“); nullptr = es gibt einen
+    const char* closed_why(int a, int b, const Environment& env) const;
 
 private:
     void build_hops();
+    void open_bfs(int root, bool reverse, const Environment& env, int8_t* dist) const;
     std::array<const PlaceDef*, kMaxPlaces> defs_{};
     std::array<Edge, kMaxEdges> edges_{};
     std::array<std::array<int8_t, kMaxPlaces>, kMaxPlaces> hops_{};

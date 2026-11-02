@@ -21,11 +21,13 @@
 // - Kennungen 1 … kMaxId sind zugleich Halter ihrer Reservierung im Warenbuch (Projekte ab ProjectList::kFirstId).
 // - Liegt im Grafik-Speicher (auf dem Gerät PSRAM, ~1,3 KB), angelegt beim ersten Mal.
 
+#include <array>
 #include <cstdint>
+
+#include "pixelia/engine/ledger.h"
 
 namespace pixelia {
 
-class Ledger;
 class FigureBook;
 class EventBus;
 class SaveWriter;
@@ -64,6 +66,21 @@ struct Task {
     bool active() const { return phase != TaskPhase::Done; }
 };
 
+// Warum ein Lagerplatz unter seinem low keinen Nachschub bekommt (seit 0.5.11, P-F): Grund an der letzten Takt-Grenze
+enum class SupplyWait : uint8_t {
+    None,           // Nachschub kommt (oder ist nicht nötig)
+    NoSource,       // keine Quelle: die eingetragene gibt es nicht, ohne Angabe hat kein Lager freien Vorrat
+    SourceEmpty,    // die eingetragene Quelle ist leer (verbindlich: es wird gewartet)
+    NotWorth,       // weniger als die halbe Ladung frei, der Vorrat ist noch nicht leer
+    Full,           // am Ziel kein Platz
+    NoReservation,  // Reservierungen des Warenbuchs voll
+    ListFull,       // Aufgabenliste voll
+    kCount
+};
+inline constexpr int kSupplyWaits = static_cast<int>(SupplyWait::kCount);
+const char* supply_wait_id(SupplyWait w);    // kommt, keine_quelle, quelle_leer … (Konsole, /api/world)
+const char* supply_wait_text(SupplyWait w);  // „Quelle leer“ … (Konsole)
+
 class TaskList {
 public:
     static constexpr int kMax = 32;
@@ -99,6 +116,10 @@ public:
     const char* describe(int i, const Ledger& ledger, char* buf, int n) const;
     uint32_t version() const { return version_; }  // zählt neue, übernommene und aufgeräumte Aufgaben
     uint32_t created() const { return created_; }  // Aufgaben seit clear() (Messung, Prüfungen)
+    // Kein Nachschub (seit 0.5.11, P-F): Grund je Lagerplatz an der letzten Takt-Grenze (erste betroffene Regel, good =
+    // ihre Ware) und Zähler je Grund seit dem Start (jede Takt-Grenze, an der eine Regel deshalb wartet)
+    SupplyWait supply_wait(int store, int* good = nullptr) const;
+    uint32_t supply_waits(SupplyWait w) const { return waits_[static_cast<int>(w)]; }
 
     // Prüfung: Kennungen steigen, Figuren höchstens einmal, Reservierung nicht größer als die Menge, Getragenes liegt
     // in der Trage; nullptr = alles gut
@@ -111,7 +132,8 @@ public:
 private:
     bool ensure();
     Task* add(TaskKind kind, int good, int from, int to, int qty, int64_t at_us, uint8_t flags);
-    Task* fetch(Ledger& l, int good, int from, int to, int qty, int64_t at_us, uint8_t flags);  // mit Reservierung
+    // mit Reservierung; why (nullptr = egal): woran es scheiterte
+    Task* fetch(Ledger& l, int good, int from, int to, int qty, int64_t at_us, uint8_t flags, SupplyWait* why = nullptr);
     void remove(int i);
     int active(TaskKind kind, int to, int good, int flags_mask, int flags) const;
 
@@ -120,6 +142,9 @@ private:
     uint16_t next_ = 1;
     uint32_t version_ = 0, created_ = 0;
     bool orphans_ = true;  // Reservierungen ohne Aufgabe beim nächsten step freigeben (nach Laden, clear)
+    std::array<uint8_t, Ledger::kMaxStores> why_{};       // SupplyWait je Lagerplatz (Diagnose, nicht im Speicherstand)
+    std::array<uint8_t, Ledger::kMaxStores> why_good_{};  // … und die Ware dazu, 0xFF = keine
+    std::array<uint32_t, kSupplyWaits> waits_{};
 };
 
 }  // namespace pixelia

@@ -391,6 +391,17 @@ size_t Stage::save_state(uint8_t* buf, size_t cap, uint32_t generation) const {
         w.u8(static_cast<uint8_t>(f.look.build.width));
         w.u8(f.look.build.belly);
         w.u8(f.look.build.stoop);
+        // seit 0.5.11 (B18): dauerhafte Erstmalig-Merker hinter der Statur, je Fähigkeit mit Kennung (Bit 0 erstes
+        // Gelingen, Bit 1 erster Fehlversuch); ältere Leser überspringen sie
+        int firsts = 0;
+        for (int s = 0; s < kSkills; ++s) firsts += ((f.first_ok | f.first_fail) >> s) & 1;
+        w.u8(static_cast<uint8_t>(firsts));
+        for (int s = 0; s < kSkills; ++s) {
+            const uint8_t bits = static_cast<uint8_t>(((f.first_ok >> s) & 1) | (((f.first_fail >> s) & 1) << 1));
+            if (!bits) continue;
+            w.str(skill_id(static_cast<Skill>(s)));
+            w.u8(bits);
+        }
         w.record_end(r);
     }
 
@@ -662,6 +673,8 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
                     mem.minute = r.u16();
                     mem.item = r.u16();
                     if (mem.kind >= MemoryKind::kCount) mem.kind = MemoryKind::Event;
+                    // vor 0.5.11 war Gezeigtes ein „erstes Mal“ mit Lehrer (B18)
+                    if (mem.kind == MemoryKind::First && mem.who) mem.kind = MemoryKind::Taught;
                     if (x < FigureRecord::kMemories) f.memories[x] = mem;
                 }
                 const int owns = r.u8();
@@ -682,6 +695,24 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
                         if (x < 4) b[x] = v;
                     }
                     f.look.build = clamp_stature(Stature{static_cast<int8_t>(b[0]), static_cast<int8_t>(b[1]), b[2], b[3]});
+                }
+                if (r.left()) {  // Erstmalig-Merker (seit 0.5.11)
+                    const int n = r.u8();
+                    for (int x = 0; x < n && r.ok(); ++x) {
+                        const std::string_view id = r.view();
+                        const uint8_t bits = r.u8();
+                        Skill sk;
+                        if (!parse_skill(id, &sk)) continue;
+                        if (bits & 1) f.first_ok |= 1u << static_cast<int>(sk);
+                        if (bits & 2) f.first_fail |= 1u << static_cast<int>(sk);
+                    }
+                } else {
+                    // älterer Stand: aus den Erinnerungen ableiten (eigenes erstes Gelingen, erster Fehlversuch)
+                    for (const Memory& m : f.memories) {
+                        if (m.arg >= kSkills) continue;
+                        if (m.kind == MemoryKind::First && !m.who) f.first_ok |= 1u << m.arg;
+                        if (m.kind == MemoryKind::Failure) f.first_fail |= 1u << m.arg;
+                    }
                 }
                 if (f.id == 0) continue;
                 // nie eine Figur verlieren: Ort unbekannt → in den ersten Ort der Welt
@@ -750,6 +781,7 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
     rep.reservations = ls.reservations;
     rep.lost = ls.lost;
     rep.moved = ls.moved;
+    rep.rejected = ls.rejected;
 
     // Figuren in ihre Orte, Verbindungen neu; Weltzeit und Wetter rechnen im nächsten Schritt neu, die Ortszustände
     // holen von state_minute_ aus nach

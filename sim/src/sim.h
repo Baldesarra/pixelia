@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "pixelia/engine/stage.h"
 #include "pixelia/engine/system_ui.h"
@@ -56,6 +57,9 @@ int run_tests(const std::string& which);  // 0 = alle bestanden
 int world_report(const Options& opt);     // Weltjahr im Zeitraffer (world.cpp)
 int run_world_tests();                    // Zahl der Fehler
 int run_ledger_tests();                   // Warenbuch (seit 0.5.10, ledger_tests.cpp), Zahl der Fehler
+int run_boden_tests();                    // Fester Boden (seit 0.5.11, boden_tests.cpp), Zahl der Fehler
+// zwei Speicherstände: erstes abweichendes Byte und der erste Abschnitt, der sich unterscheidet (seit 0.5.11)
+std::string save_diff(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b);
 int run_window(const Options& opt);
 
 // Beispieldaten der Info-Karte: info (im WLAN), info-setup, info-offline

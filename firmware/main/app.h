@@ -177,6 +177,11 @@ struct SaveInfo {
     uint32_t econ_rows, econ_written, econ_lost, econ_files, econ_bytes, econ_flush_ms, econ_deleted;
     int32_t econ_first, econ_last;  // Welttage im Ordner
     bool econ_error;
+    // seit 0.5.11 (P-F, V01, V03): warum kein Nachschub kommt (Zähler je Grund seit dem Start, engine/tasks.h), belegte
+    // Einträge der Bestandstabelle und wieder freie, Ereignis-Bus (höchstens je Takt-Grenze, verloren)
+    uint32_t supply[7];
+    int stock_entries;
+    uint32_t stock_freed, events_peak, events_lost;
 };
 SaveInfo save_info();
 bool request_save();  // im nächsten Bild packen, danach schreibt die Lade-Task; false = läuft schon

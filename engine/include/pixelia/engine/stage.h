@@ -142,8 +142,9 @@ public:
     static constexpr int kPrepareBudget = 6000;
     int last_prepare() const { return last_prepare_; }  // Aufwand im letzten Schritt
     uint32_t reseats() const { return reseats_; }  // Neuansätze nach Sprüngen der Uhr
-    // Unterwegs auf einer Verbindung mit Reisezeit (seit 0.5.8): Figuren, die keinem Ort gehören, bis sie ankommen
-    static constexpr int kMaxTransit = 16;
+    // Unterwegs auf einer Verbindung mit Reisezeit (seit 0.5.8): Figuren, die keinem Ort gehören, bis sie ankommen.
+    // Seit 0.5.11 (B14) ein Platz je Figur: die Liste ist nie voll (vorher 16, die 17. Figur kam sofort an)
+    static constexpr int kMaxTransit = FigureBook::kMax;
     int in_transit() const { return transit_n_; }
     const Travel& transit(int i) const { return transit_[i].t; }
     // Prüfansicht aller Orte (Stellflächen, Benutzungspunkte, Ausgänge)
@@ -189,6 +190,7 @@ public:
         // Warenbuch (seit 0.5.10): im Stand enthalten (sonst Startvorrat), Einträge, verlorene bzw. umgelegte Stück
         bool ledger = false;
         int stock = 0, items = 0, reservations = 0, lost = 0, moved = 0;
+        int rejected = 0;  // seit 0.5.11: Reservierungen mit doppelter Kennung, nicht übernommen
         int tasks = 0;  // Aufgaben übernommen (seit 0.5.10 Teil 2)
         int projects = 0;  // Projekte übernommen (seit 0.5.10 Teil 3)
     };

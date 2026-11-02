@@ -160,6 +160,55 @@ int PlaceGraph::hops(int a, int b) const {
     return hops_[a][b];
 }
 
+void PlaceGraph::open_bfs(int root, bool reverse, const Environment& env, int8_t* dist) const {
+    // seit 0.5.11 (B15): die Tabelle hops_ kennt nur die Daten; ist der kürzeste Weg gesperrt (nachts, vor dem Bau),
+    // zählt hier ein offener Umweg. Jede Kante wird einmal geprüft, gesucht in fester Reihenfolge
+    for (int a = 0; a < kMaxPlaces; ++a) dist[a] = -1;
+    if (root < 0 || root >= n_) return;
+    std::array<bool, kMaxEdges> open{};
+    for (int i = 0; i < e_; ++i) {
+        const Edge& e = edges_[i];
+        const PlaceDef& from = *defs_[e.from];
+        open[i] = e.to != 0xFF && from.room && exit_open(from.room->exits[e.exit], from.id, env);
+    }
+    std::array<uint8_t, kMaxPlaces> queue{};
+    int head = 0, tail = 0;
+    dist[root] = 0;
+    queue[tail++] = static_cast<uint8_t>(root);
+    while (head < tail) {
+        const int c = queue[head++];
+        for (int i = 0; i < e_; ++i) {
+            if (!open[i]) continue;
+            const Edge& e = edges_[i];
+            const int here = reverse ? e.to : e.from, next = reverse ? e.from : e.to;
+            if (here != c || dist[next] >= 0) continue;
+            dist[next] = static_cast<int8_t>(dist[c] + 1);
+            queue[tail++] = static_cast<uint8_t>(next);
+        }
+    }
+}
+
+void PlaceGraph::open_hops_to(int to, const Environment& env, int8_t* dist) const { open_bfs(to, true, env, dist); }
+
+void PlaceGraph::open_hops_from(int from, const Environment& env, int8_t* dist) const {
+    open_bfs(from, false, env, dist);
+}
+
+const char* PlaceGraph::closed_why(int a, int b, const Environment& env) const {
+    if (a < 0 || b < 0 || a >= n_ || b >= n_ || a == b) return nullptr;
+    int8_t dist[kMaxPlaces];
+    open_hops_to(b, env, dist);
+    if (dist[a] >= 0) return nullptr;
+    const int left = hops(a, b);
+    for (int i = 0; i < e_; ++i) {
+        const Edge& e = edges_[i];
+        if (e.from != a || e.to == 0xFF || hops(e.to, b) != left - 1 || !defs_[a]->room) continue;
+        const char* why = nullptr;
+        if (!exit_open(defs_[a]->room->exits[e.exit], defs_[a]->id, env, &why) && why) return why;
+    }
+    return "Kein offener Weg.";
+}
+
 const PlaceGraph& world_graph() {
     static PlaceGraph* g = [] {
         void* p = asset_alloc(sizeof(PlaceGraph));

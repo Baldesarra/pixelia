@@ -53,6 +53,7 @@ struct ProjectList::DefData {
     uint8_t uniq_n = 0;
     uint8_t tools = 0;                                  // Bit je Ware des Projekts: Werkzeug (nicht verbaut)
     uint8_t steps = 0;
+    char bad[96] = {};  // seit 0.5.11 (B17): Fehler in den Daten, leer = gut; ein fehlerhaftes Projekt beginnt nie
 };
 struct ProjectList::Storage {
     Project p[ProjectList::kMax];
@@ -99,18 +100,58 @@ void ProjectList::build(const EconomyDef* const* defs, int n, const Ledger& l) {
             d.place = static_cast<int16_t>(pd.place ? place_index(pd.place) : -1);
             d.site = static_cast<int16_t>(pd.site ? l.find_store(pd.site) : -1);
             d.source = static_cast<int16_t>(pd.source ? l.find_store(pd.source) : -1);
-            d.steps = static_cast<uint8_t>(std::min<int>(pd.step_count, kMaxSteps));
+            d.steps = static_cast<uint8_t>(pd.steps ? std::min<int>(pd.step_count, kMaxSteps) : 0);
+            // seit 0.5.11 (B17): alles muss aufgehen, sonst ist das Projekt gesperrt (unbekanntes Material wäre sonst
+            // „umsonst“ gewesen); die erste Meldung bleibt
+            char why[80];
+            const auto bad = [&] {
+                if (!d.bad[0]) std::snprintf(d.bad, sizeof(d.bad), "Projekt %s%s", pd.id, why);
+            };
+            if (!pd.place || d.place < 0) {
+                std::snprintf(why, sizeof(why), ": Ort „%s“ gibt es nicht", pd.place ? pd.place : "");
+                bad();
+            }
+            if (!pd.site || d.site < 0 || l.store_kind(d.site) != StoreKind::Site) {
+                std::snprintf(why, sizeof(why), ": Baustelle „%s“ fehlt oder ist kein Bauplatz", pd.site ? pd.site : "");
+                bad();
+            }
+            if (pd.source && d.source < 0) {
+                std::snprintf(why, sizeof(why), ": Quelle „%s“ gibt es nicht", pd.source);
+                bad();
+            }
+            if (!pd.steps || pd.step_count == 0 || pd.step_count > kMaxSteps) {
+                std::snprintf(why, sizeof(why), ": %d Teilaufgaben (1 bis %d)", pd.step_count, kMaxSteps);
+                bad();
+            }
+            for (int s = 0; s < d.steps; ++s) {
+                const ProjectStepDef& sd = pd.steps[s];
+                if (sd.need_count > Project::kMaxNeeds || (sd.need_count && !sd.needs)) {
+                    std::snprintf(why, sizeof(why), ", Schritt %s: %d Bedarfe (höchstens %d)", sd.id, sd.need_count,
+                                  Project::kMaxNeeds);
+                    bad();
+                }
+                for (int k2 = 0; sd.needs && k2 < sd.need_count && k2 < Project::kMaxNeeds; ++k2)
+                    if (l.find_good(sd.needs[k2].good) < 0) {
+                        std::snprintf(why, sizeof(why), ", Schritt %s: Ware „%s“ gibt es nicht", sd.id,
+                                      sd.needs[k2].good ? sd.needs[k2].good : "");
+                        bad();
+                    }
+            }
             for (int s = 0; s < d.steps; ++s)
                 for (int k2 = 0; k2 < Project::kMaxNeeds; ++k2) {
                     d.goods[s][k2] = -1;
                     d.slot[s][k2] = -1;
-                    if (k2 >= pd.steps[s].need_count) continue;
+                    if (k2 >= pd.steps[s].need_count || !pd.steps[s].needs) continue;
                     const int g = l.find_good(pd.steps[s].needs[k2].good);
                     if (g < 0) continue;
                     d.goods[s][k2] = static_cast<int8_t>(g);
                     int u = 0;
                     while (u < d.uniq_n && d.uniq[u] != g) ++u;
                     if (u == d.uniq_n && u < kMaxGoods) d.uniq[d.uniq_n++] = static_cast<int8_t>(g);
+                    if (u >= d.uniq_n) {
+                        std::snprintf(why, sizeof(why), ": mehr als %d verschiedene Waren", kMaxGoods);
+                        bad();
+                    }
                     if (u < d.uniq_n) d.slot[s][k2] = static_cast<int8_t>(u);
                     if (u < d.uniq_n && pd.steps[s].needs[k2].tool) d.tools = static_cast<uint8_t>(d.tools | (1u << u));
                 }
@@ -123,6 +164,19 @@ void ProjectList::clear() {
     next_ = kFirstId;
     orphans_ = true;
     ++version_;
+}
+
+const char* ProjectList::data_problem(char* buf, int n) const {
+    for (int d = 0; s_ && d < def_n_; ++d)
+        if (s_->d[d].bad[0]) {
+            std::snprintf(buf, n, "%s", s_->d[d].bad);
+            return buf;
+        }
+    return nullptr;
+}
+
+const char* ProjectList::def_problem(int d) const {
+    return s_ && d >= 0 && d < def_n_ && s_->d[d].bad[0] ? s_->d[d].bad : nullptr;
 }
 
 int ProjectList::find_def(const char* id) const {
@@ -180,7 +234,7 @@ bool ProjectList::can_work(const Project& p, const FigureRecord& f) const {
 }
 
 Project* ProjectList::add(int def, int64_t at_us) {
-    if (!ensure() || n_ >= kMax || def < 0 || def >= def_n_) return nullptr;
+    if (!ensure() || n_ >= kMax || def < 0 || def >= def_n_ || s_->d[def].bad[0]) return nullptr;  // gesperrt (B17)
     // nächste freie Kennung (nach 0xFFFF wieder ab kFirstId); einsortieren, die Liste bleibt nach Kennung sortiert
     uint16_t id = next_;
     for (int guard = 0; guard <= kMax && get(id); ++guard) id = static_cast<uint16_t>(id == 0xFFFF ? kFirstId : id + 1);
@@ -216,12 +270,11 @@ void ProjectList::reset_step(Project& p) {
     p.wait_s.fill(0);
 }
 
-int ProjectList::source_for(const DefData& d, const Ledger& l, int good) const {
-    // die Quelle der Daten, wenn dort etwas frei ist; sonst das erste Gemeinschaftslager mit der Ware
-    if (d.source >= 0 && l.available(d.source, good) > 0) return d.source;
-    for (int s = 0; s < l.stores(); ++s)
-        if (l.store_kind(s) == StoreKind::Community && s != d.site && l.available(s, good) > 0) return s;
-    return -1;
+int ProjectList::source_for(const DefData& d, const Ledger& l, int good, int need) const {
+    // seit 0.5.11 (V05, Wahl des Users): die Quelle der Daten ist verbindlich (leer: warten); ohne Angabe wählt das
+    // Warenbuch nach derselben Regel wie für die Aufgabenliste (vorher: das erste Gemeinschaftslager mit der Ware)
+    if (d.def->source) return d.source >= 0 && l.available(d.source, good) > 0 ? d.source : -1;
+    return l.find_source(d.site, good, need);
 }
 
 bool ProjectList::begin(Project& p, Ledger& l) {
@@ -284,7 +337,7 @@ void ProjectList::fetch(Project& p, int64_t at_us, Ledger& l, TaskList& tasks) {
         }
         const int basket = std::max(1, Ledger::kHandCapacity / std::max<int>(1, l.good(g).weight));
         for (int trip = 0; trip < kMaxTrips && short_by > 0; ++trip) {
-            const int src = source_for(d, l, g);
+            const int src = source_for(d, l, g, std::min(short_by, basket));
             if (src < 0) break;
             const Task* t = tasks.add_fetch(l, g, src, d.site, std::min(short_by, basket), at_us, kTaskProject);
             if (!t) break;
@@ -778,8 +831,9 @@ int ProjectList::load(SaveReader& r, uint16_t /*version*/, const Ledger& l) {
                 p.total_wait_s[w] = b;
             }
         }
-        // Daten gibt es nicht mehr: Projekt fällt weg (seine Reservierungen gibt step frei)
-        if (!x.ok() || def < 0 || p.id < kFirstId || get(p.id) || n_ >= kMax) continue;
+        // Daten gibt es nicht mehr oder sie sind fehlerhaft (seit 0.5.11): Projekt fällt weg (seine Reservierungen gibt
+        // step frei)
+        if (!x.ok() || def < 0 || s_->d[def].bad[0] || p.id < kFirstId || get(p.id) || n_ >= kMax) continue;
         const DefData& d = s_->d[def];
         p.def = static_cast<uint8_t>(def);
         if (p.step > d.steps) p.step = d.steps;

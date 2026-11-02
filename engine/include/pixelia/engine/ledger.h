@@ -90,7 +90,8 @@ struct StoreDef {
     int8_t part = -1;         // Teil der Raumliste: Stellplätze zeigen den Bestand, Benutzungspunkt zum Holen und Bringen
     const StockRule* rules = nullptr;
     uint8_t rule_count = 0;
-    const char* source = nullptr;  // Nachschub von hier (nullptr: Erzeuger- oder Gemeinschaftslager mit der Ware)
+    // Nachschub von hier (verbindlich: ist sie leer, wird gewartet); nullptr: Pixelia wählt selbst (Ledger::find_source)
+    const char* source = nullptr;
     int8_t work_part = -1;         // Erzeugerlager: Arbeitsplatz in der Raumliste (Hackklotz), −1 = am Lager selbst
 };
 
@@ -237,6 +238,14 @@ public:
     int reservations() const;
     int holders(uint16_t* out, int max) const;  // Halter aller Reservierungen, aufsteigend, je einmal; Zahl
 
+    // --- Nachschub-Quelle (seit 0.5.11, V05) ---
+    // Quelle für Nachschub ohne Angabe in den Daten (Aufgabenliste, Projekte): Erzeuger- oder Gemeinschaftslager (nicht
+    // `to`) mit freiem Vorrat der Ware, über die Wege erreichbar; zuerst eines mit mindestens der halben Menge `need`,
+    // dann das nächste (Zahl der Verbindungen), bei Gleichstand die kleinere Kennung; −1 = keines
+    int find_source(int to, int good, int need) const;
+    // Prüfung der Daten (seit 0.5.11): Quellen und Waren in den Regeln der Lagerplätze müssen es geben; nullptr = gut
+    const char* data_problem(char* buf, int n) const;
+
     // --- Reichweite und Soll ---
     void roll(int64_t at_us);  // Stunden-Fächer bis zur Stunde dieser Weltzeit (an jeder Takt-Grenze)
     int out_24h(int store, int good) const;  // Abgang der letzten 24 Weltstunden
@@ -283,8 +292,9 @@ public:
     void save_reservations(SaveWriter& w) const;  // RESV
     struct LoadStats {
         int stock = 0, items = 0, reservations = 0;
-        int lost = 0;   // Stück unbekannter Waren (gibt es nicht mehr)
+        int lost = 0;   // Stück unbekannter Waren (gibt es nicht mehr), seit 0.5.11 auch, was keinen Platz hatte
         int moved = 0;  // Stück unbekannter Lagerplätze, ins erste Gemeinschaftslager gelegt
+        int rejected = 0;  // seit 0.5.11: Reservierungen mit doppelter Kennung (nicht übernommen)
     };
     // Abschnitte in beliebiger Reihenfolge nach clear(); fehlende bleiben leer
     void load_goods(SaveReader& r, uint16_t version, LoadStats* st);
@@ -294,12 +304,25 @@ public:
     // nach dem Laden aller Abschnitte: Reservierungen in den Beständen nachzählen, Bilanz-Anfang aus den Zählern
     void finish_load(LoadStats* st);
 
+    // Bestandstabelle (seit 0.5.11, V03): belegte Einträge (Lagerplatz × Ware, höchstens kMaxStock) und wie viele
+    // bedeutungslose seit dem Start an Takt-Grenzen wieder frei wurden (Diagnose)
+    int entries() const;
+    uint32_t entries_freed() const;
+
 private:
     struct Storage;
     struct Stock;
+    struct Res;
     bool ensure();
     Stock* entry(int store, int good, bool create);
     const Stock* entry(int store, int good) const;
+    void compact();                                   // bedeutungslose Einträge weg (Takt-Grenze)
+    int res_slot(uint16_t id) const;                  // Platz der Reservierung, −1 = gibt es nicht
+    int insert_res(uint16_t id);                      // neuer Platz, nach Kennung einsortiert
+    uint32_t first_item(int store, int good) const;   // Einzelstück mit der kleinsten Kennung, 0 = keins
+    // Einzelstück bewegen bzw. abbuchen, mit Reservierung (nullptr = ohne): alles oder nichts (seit 0.5.11, V04)
+    bool move_unique(uint32_t id, int to, const BookingInfo& info, Res* r);
+    bool take_unique(uint32_t id, Booking kind, const BookingInfo& info, Res* r);
     void bucket(Stock& e, int64_t at_us, int n);
     void used(int good, int64_t at_us, int n);
     void touch(int store);

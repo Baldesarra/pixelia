@@ -57,8 +57,9 @@ const char* bond_title(Bond b) {
     return k[static_cast<int>(b) & 3];
 }
 const char* memory_kind_name(MemoryKind k) {
-    static const char* const n[] = {"keine",     "erstes-mal", "fehlversuch", "stufe", "naeher",
-                                    "entfernt", "besuch",     "gabe",        "ereignis"};
+    static const char* const n[] = {"keine",    "erstes-mal", "fehlversuch", "stufe",   "naeher",
+                                    "entfernt", "besuch",     "gabe",        "ereignis", "gezeigt"};
+    static_assert(sizeof(n) / sizeof(n[0]) == static_cast<int>(MemoryKind::kCount));
     return static_cast<int>(k) < static_cast<int>(MemoryKind::kCount) ? n[static_cast<int>(k)] : "?";
 }
 const char* doing_kind_name(DoingKind k) {
@@ -232,10 +233,15 @@ SkillTry FigureBook::try_skill(uint16_t who, Skill s, int difficulty, Rng& rng, 
     chance = std::clamp(chance, 50, 990);
     const int r = static_cast<int>(rng.below(1000));
     out.outcome = r < chance ? Outcome::Success : r < chance + (1000 - chance) / 2 ? Outcome::Flawed : Outcome::Failed;
-    // erstes Gelingen und erster Fehlversuch bleiben in Erinnerung (Gretas erstes Brot ist zu dunkel)
+    // erstes Gelingen und erster Fehlversuch bleiben in Erinnerung (Gretas erstes Brot ist zu dunkel). Seit 0.5.11
+    // (B18) entscheidet ein dauerhafter Merker, ob es das erste Mal ist: Gezeigtes zählt nicht als eigenes Gelingen, und
+    // eine vergessene Erinnerung macht kein zweites erstes Mal
+    static_assert(kSkills <= 32, "ein Bit je Fähigkeit");
     const MemoryKind kind = out.outcome == Outcome::Success ? MemoryKind::First : MemoryKind::Failure;
-    bool known = false;
-    for (const Memory& m : f->memories) known = known || (m.kind == kind && m.arg == static_cast<uint8_t>(s));
+    uint32_t& seen = out.outcome == Outcome::Success ? f->first_ok : f->first_fail;
+    const uint32_t bit = 1u << static_cast<int>(s);
+    const bool known = seen & bit;
+    seen |= bit;
     if (!known) {
         Memory m;
         m.kind = kind;
@@ -261,10 +267,10 @@ bool FigureBook::teach(uint16_t teacher, uint16_t learner, Skill s, int minutes,
     if (tl < SkillLevel::Practiced || tl <= l->level(s)) return false;  // zeigen kann nur, wer es besser kann
     bool shown = false;
     for (const Memory& m : l->memories)
-        shown = shown || (m.kind == MemoryKind::First && m.arg == static_cast<uint8_t>(s) && m.who == teacher);
+        shown = shown || (m.kind == MemoryKind::Taught && m.arg == static_cast<uint8_t>(s) && m.who == teacher);
     if (!shown) {
         Memory m;
-        m.kind = MemoryKind::First;
+        m.kind = MemoryKind::Taught;  // seit 0.5.11 eigene Art (vorher First mit who, B18)
         m.arg = static_cast<uint8_t>(s);
         m.who = teacher;
         m.weight = 110;

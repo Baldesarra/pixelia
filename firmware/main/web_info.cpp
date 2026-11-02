@@ -37,6 +37,7 @@
 #include "esp_wifi.h"
 #include "json.h"
 #include "pixelia/engine/figure.h"
+#include "pixelia/engine/tasks.h"
 #include "lwip/sockets.h"
 #include "net.h"
 #include "nvs.h"
@@ -632,6 +633,13 @@ esp_err_t world_get(httpd_req_t* req) {
     j.num("bytes", static_cast<int64_t>(s.econ_bytes)).num("flushMs", static_cast<int64_t>(s.econ_flush_ms));
     j.num("deleted", static_cast<int64_t>(s.econ_deleted)).num("firstDay", s.econ_first).num("lastDay", s.econ_last);
     j.boolean("error", s.econ_error).end_obj();
+    // seit 0.5.11 (P-F): Zähler je Grund, warum kein Nachschub kommt; Bestandstabelle; Ereignis-Bus
+    j.obj("nachschub");
+    for (int k = 1; k < pixelia::kSupplyWaits; ++k)
+        j.num(pixelia::supply_wait_id(static_cast<pixelia::SupplyWait>(k)), static_cast<int64_t>(s.supply[k]));
+    j.num("eintraege", s.stock_entries).num("frei", static_cast<int64_t>(s.stock_freed));
+    j.num("ereignisseMax", static_cast<int64_t>(s.events_peak)).num("ereignisseVerloren", static_cast<int64_t>(s.events_lost));
+    j.end_obj();
     // Figuren und Chronik nur auf Wunsch (?mehr=1): die Grafik-Task füllt die Ansicht im nächsten Bild
     std::string more;
     if (query_value(req, "mehr", &more) && more == "1") {

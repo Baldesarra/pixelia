@@ -75,6 +75,13 @@ struct Ledger::Stock {
     uint8_t flags = 0;                 // kSeenEmpty, kSeenFull
     uint16_t out[kHours] = {};         // Abgänge je Weltstunde (Spalte = Stunde % 24)
     uint16_t key() const { return static_cast<uint16_t>(store << 8 | good); }
+    bool meaningless() const;  // seit 0.5.11: darf weg (compact)
+};
+
+struct Ledger::Res {
+    uint16_t id = 0, holder = 0;
+    uint8_t store = 0, good = 0;
+    uint16_t qty = 0;
 };
 
 struct Ledger::Storage {
@@ -93,12 +100,7 @@ struct Ledger::Storage {
     int stock_n = 0;
     Item items[kMaxItems];
     int item_n = 0;
-    struct Res {
-        uint16_t id = 0, holder = 0;
-        uint8_t store = 0, good = 0;
-        uint16_t qty = 0;
-    };
-    Res res[kMaxReservations];
+    Res res[kMaxReservations];  // nach Kennung sortiert (seit 0.5.11)
     int res_n = 0;
     uint16_t next_res = 1;
     GoodTotals totals[kMaxGoods];
@@ -111,6 +113,7 @@ struct Ledger::Storage {
     const EconomyDef* defs[8] = {};
     int def_n = 0;
     uint16_t order[kMaxStock] = {};        // Arbeitsfeld zum Sortieren (Speicherstand)
+    uint32_t freed = 0;                    // seit 0.5.11: wiederverwendete Einträge (Diagnose)
 };
 
 Ledger::~Ledger() {
@@ -436,7 +439,7 @@ int Ledger::take(int store, int good, int n, Booking kind, const BookingInfo& in
     if (!s_ || n <= 0 || !booking_out(kind)) return 0;
     Stock* e = entry(store, good, false);
     if (!e) return 0;
-    Storage::Res* r = nullptr;
+    Res* r = nullptr;
     if (res)
         for (int i = 0; i < s_->res_n; ++i)
             if (s_->res[i].id == res && s_->res[i].store == store && s_->res[i].good == good) r = &s_->res[i];
@@ -444,21 +447,13 @@ int Ledger::take(int store, int good, int n, Booking kind, const BookingInfo& in
     n = std::min(n, free + (r ? r->qty : 0));
     if (n <= 0) return 0;
     if (s_->goods[good]->unique) {
-        // Einzelstücke: die mit der kleinsten Kennung (unabhängig von der Reihenfolge im Speicher)
+        // Einzelstücke: die mit der kleinsten Kennung (unabhängig von der Reihenfolge im Speicher); Reservierung und
+        // Stück zusammen oder gar nicht (seit 0.5.11, V04)
         int got = 0;
         for (int k = 0; k < n; ++k) {
-            uint32_t best = 0;
-            for (int i = 0; i < s_->item_n; ++i) {
-                const Item& it = s_->items[i];
-                if (it.store == store && it.good == good && (!best || it.id < best)) best = it.id;
-            }
-            if (!best) break;
-            // Reservierung zuerst verbrauchen
-            if (r && r->qty > 0) {
-                --r->qty;
-                --e->reserved;
-            }
-            got += take_item(best, kind, info);
+            const uint32_t best = first_item(store, good);
+            if (!best || !take_unique(best, kind, info, r)) break;
+            ++got;
         }
         return got;
     }
@@ -482,7 +477,7 @@ int Ledger::move(int from, int to, int good, int n, const BookingInfo& info, uin
     if (!s_ || n <= 0 || from == to) return 0;
     Stock* e = entry(from, good, false);
     if (!e || to < 0 || to >= s_->store_n) return 0;
-    Storage::Res* r = nullptr;
+    Res* r = nullptr;
     if (res)
         for (int i = 0; i < s_->res_n; ++i)
             if (s_->res[i].id == res && s_->res[i].store == from && s_->res[i].good == good) r = &s_->res[i];
@@ -490,23 +485,17 @@ int Ledger::move(int from, int to, int good, int n, const BookingInfo& info, uin
     n = std::min(n, room(to, good));
     if (n <= 0) return 0;
     if (s_->goods[good]->unique) {
+        // seit 0.5.11 (V04): je Stück erst alles prüfen, was scheitern kann, dann Reservierung und Stück zusammen
         int got = 0;
         for (int k = 0; k < n; ++k) {
-            uint32_t best = 0;
-            for (int i = 0; i < s_->item_n; ++i) {
-                const Item& it = s_->items[i];
-                if (it.store == from && it.good == good && (!best || it.id < best)) best = it.id;
-            }
-            if (!best) break;
-            Stock* src = entry(from, good, false);
-            if (r && r->qty > 0 && src) {
-                --r->qty;
-                --src->reserved;
-            }
-            got += move_item(best, to, info);
+            const uint32_t best = first_item(from, good);
+            if (!best || !move_unique(best, to, info, r)) break;
+            ++got;
         }
         return got;
     }
+    if (const Stock* old = entry(to, good)) n = std::min(n, 0xFFFF - old->qty);  // vor der Reservierung kürzen
+    if (n <= 0) return 0;
     Stock* d = entry(to, good, true);
     if (!d) return 0;
     e = entry(from, good, false);  // nach dem Einfügen kann sich die Lage verschoben haben
@@ -515,7 +504,6 @@ int Ledger::move(int from, int to, int good, int n, const BookingInfo& info, uin
         r->qty = static_cast<uint16_t>(r->qty - from_res);
         e->reserved = static_cast<uint16_t>(e->reserved - from_res);
     }
-    n = std::min(n, 0xFFFF - d->qty);
     e->qty = static_cast<uint16_t>(e->qty - n);
     e->out_day = static_cast<uint16_t>(std::min(0xFFFF, e->out_day + n));
     bucket(*e, info.at_us, n);
@@ -580,17 +568,38 @@ uint32_t Ledger::add_item(int store, int good, uint16_t owner, uint16_t conditio
     return id;
 }
 
-bool Ledger::move_item(uint32_t id, int to, const BookingInfo& info) {
-    if (!s_ || to < 0 || to >= s_->store_n) return false;
+uint32_t Ledger::first_item(int store, int good) const {
+    uint32_t best = 0;
+    for (int i = 0; i < s_->item_n; ++i) {
+        const Item& it = s_->items[i];
+        if (it.store == store && it.good == good && (!best || it.id < best)) best = it.id;
+    }
+    return best;
+}
+
+bool Ledger::move_item(uint32_t id, int to, const BookingInfo& info) { return s_ && move_unique(id, to, info, nullptr); }
+
+bool Ledger::move_unique(uint32_t id, int to, const BookingInfo& info, Res* r) {
+    // seit 0.5.11 (V04): alles, was scheitern kann, vor der ersten Änderung; der Eintrag am Ziel entsteht zuletzt
+    if (to < 0 || to >= s_->store_n) return false;
     int k = -1;
     for (int i = 0; i < s_->item_n; ++i)
         if (s_->items[i].id == id) k = i;
     if (k < 0) return false;
     const int from = s_->items[k].store, good = s_->items[k].good;
     if (from == to || room(to, good) < 1) return false;
+    const Stock* src = entry(from, good);
+    const bool use_res = r && r->qty > 0;
+    // reservierte Stücke nur über die Reservierung
+    if (!src || src->qty - src->reserved + (use_res ? 1 : 0) <= 0) return false;
+    if (const Stock* old = entry(to, good); old && old->qty == 0xFFFF) return false;
     Stock* d = entry(to, good, true);
-    Stock* e = entry(from, good, false);
-    if (!d || !e || e->qty <= e->reserved) return false;  // reservierte Stücke nur über die Reservierung (move)
+    if (!d) return false;
+    Stock* e = entry(from, good, false);  // nach dem Einfügen kann sich die Lage verschoben haben
+    if (use_res) {
+        --r->qty;
+        --e->reserved;
+    }
     --e->qty;
     e->out_day = static_cast<uint16_t>(std::min(0xFFFF, e->out_day + 1));
     bucket(*e, info.at_us, 1);
@@ -605,14 +614,23 @@ bool Ledger::move_item(uint32_t id, int to, const BookingInfo& info) {
 }
 
 bool Ledger::take_item(uint32_t id, Booking kind, const BookingInfo& info) {
-    if (!s_ || !booking_out(kind)) return false;
+    return s_ && booking_out(kind) && take_unique(id, kind, info, nullptr);
+}
+
+bool Ledger::take_unique(uint32_t id, Booking kind, const BookingInfo& info, Res* r) {
     int k = -1;
     for (int i = 0; i < s_->item_n; ++i)
         if (s_->items[i].id == id) k = i;
     if (k < 0) return false;
     const int store = s_->items[k].store, good = s_->items[k].good;
     Stock* e = entry(store, good, false);
-    if (!e || e->qty <= e->reserved) return false;  // reservierte Stücke nur über die Reservierung (take)
+    const bool use_res = r && r->qty > 0;
+    // reservierte Stücke nur über die Reservierung (seit 0.5.11 zusammen mit ihr, V04)
+    if (!e || e->qty - e->reserved + (use_res ? 1 : 0) <= 0) return false;
+    if (use_res) {
+        --r->qty;
+        --e->reserved;
+    }
     --e->qty;
     e->out_day = static_cast<uint16_t>(std::min(0xFFFF, e->out_day + 1));
     bucket(*e, info.at_us, 1);
@@ -659,9 +677,14 @@ uint16_t Ledger::reserve(int store, int good, int n, uint16_t holder) {
     if (!e) return 0;
     n = std::min(n, e->qty - e->reserved);
     if (n <= 0) return 0;
-    Storage::Res& r = s_->res[s_->res_n++];
-    r.id = s_->next_res;
-    s_->next_res = static_cast<uint16_t>(s_->next_res == 0xFFFF ? 1 : s_->next_res + 1);
+    // seit 0.5.11 (V02): nur eine freie Kennung; nach 0xFFFF wieder ab 1, belegte überspringen (höchstens
+    // kMaxReservations − 1 sind belegt, also ist spätestens die kMaxReservations-te frei)
+    uint16_t id = s_->next_res;
+    for (int guard = 0; guard <= kMaxReservations && (id == 0 || res_slot(id) >= 0); ++guard)
+        id = static_cast<uint16_t>(id == 0xFFFF ? 1 : id + 1);
+    s_->next_res = static_cast<uint16_t>(id == 0xFFFF ? 1 : id + 1);
+    Res& r = s_->res[insert_res(id)];
+    r.id = id;
     r.holder = holder;
     r.store = static_cast<uint8_t>(store);
     r.good = static_cast<uint8_t>(good);
@@ -671,21 +694,43 @@ uint16_t Ledger::reserve(int store, int good, int n, uint16_t holder) {
     return r.id;
 }
 
+int Ledger::res_slot(uint16_t id) const {
+    // nach Kennung sortiert (seit 0.5.11): binäre Suche
+    int lo = 0, hi = s_->res_n;
+    while (lo < hi) {
+        const int mid = (lo + hi) / 2;
+        if (s_->res[mid].id < id)
+            lo = mid + 1;
+        else
+            hi = mid;
+    }
+    return lo < s_->res_n && s_->res[lo].id == id ? lo : -1;
+}
+
+int Ledger::insert_res(uint16_t id) {
+    // Platz für eine neue Reservierung, nach Kennung einsortiert: Speicherstand und Neustart sehen dieselbe Liste
+    int at = s_->res_n;
+    while (at > 0 && s_->res[at - 1].id > id) --at;
+    for (int i = s_->res_n; i > at; --i) s_->res[i] = s_->res[i - 1];
+    ++s_->res_n;
+    s_->res[at] = Res{};
+    return at;
+}
+
 int Ledger::reservation_left(uint16_t res) const {
     if (!s_ || !res) return 0;
-    for (int i = 0; i < s_->res_n; ++i)
-        if (s_->res[i].id == res) return s_->res[i].qty;
-    return 0;
+    const int i = res_slot(res);
+    return i >= 0 ? s_->res[i].qty : 0;
 }
 
 void Ledger::release(uint16_t res) {
     if (!s_ || !res) return;
     for (int i = 0; i < s_->res_n; ++i) {
         if (s_->res[i].id != res) continue;
-        const Storage::Res r = s_->res[i];
+        const Res r = s_->res[i];
         if (Stock* e = entry(r.store, r.good, false))
             e->reserved = static_cast<uint16_t>(e->reserved - std::min(e->reserved, r.qty));
-        for (int k = i + 1; k < s_->res_n; ++k) s_->res[k - 1] = s_->res[k];  // Reihenfolge bleibt (Kennungen steigen)
+        for (int k = i + 1; k < s_->res_n; ++k) s_->res[k - 1] = s_->res[k];  // bleibt nach Kennung sortiert
         --s_->res_n;
         touch(r.store);
         return;
@@ -713,6 +758,58 @@ int Ledger::holders(uint16_t* out, int max) const {
         ++n;
     }
     return n;
+}
+
+// --- Nachschub-Quelle ---
+
+int Ledger::find_source(int to, int good, int need) const {
+    // seit 0.5.11 (V05, Wahl des Users): Erzeuger- oder Gemeinschaftslager mit freiem Vorrat, über die Wege erreichbar.
+    // Reihenfolge: hat mindestens die halbe Menge (sonst lohnt der Weg nicht), dann weniger Verbindungen, bei Gleichstand
+    // die kleinere Kennung. Nur feste Schlüssel: hängt nicht von der Reihenfolge der Daten ab
+    if (!s_ || to < 0 || to >= s_->store_n || good < 0 || good >= s_->good_n) return -1;
+    const PlaceGraph& g = world_graph();
+    const int here = s_->stores[to].place;
+    int best = -1, best_rank = 0;
+    for (int s = 0; s < s_->store_n; ++s) {
+        const StoreDef* d = s_->stores[s].def;
+        if (s == to || !d || (d->kind != StoreKind::Producer && d->kind != StoreKind::Community)) continue;
+        const int avail = available(s, good);
+        if (avail <= 0) continue;
+        const int there = s_->stores[s].place;
+        // Orte, die der Orts-Graph nicht kennt (Prüfungen mit eigenen Daten): gelten als erreichbar, ganz hinten
+        int hops = 99;
+        if (here >= 0 && there >= 0 && here < g.places() && there < g.places()) {
+            hops = g.hops(here, there);
+            if (hops < 0) continue;  // kein Weg dorthin
+        }
+        const int rank = (avail * 2 >= need ? 0 : 1000) + hops;
+        if (best >= 0 && (rank > best_rank || (rank == best_rank && std::strcmp(d->id, s_->stores[best].def->id) >= 0)))
+            continue;
+        best = s;
+        best_rank = rank;
+    }
+    return best;
+}
+
+const char* Ledger::data_problem(char* buf, int n) const {
+    // seit 0.5.11: Kennungen in den Daten der Lagerplätze müssen aufgehen (Tippfehler fielen sonst nicht auf: eine
+    // falsche Quelle hieße „kein Nachschub“, eine falsche Ware in einer Regel „keine Regel“)
+    if (!s_) return nullptr;
+    for (int s = 0; s < s_->store_n; ++s) {
+        const StoreDef* d = s_->stores[s].def;
+        if (!d) continue;
+        if (d->source && find_store(d->source) < 0) {
+            std::snprintf(buf, n, "Lagerplatz %s: Quelle „%s“ gibt es nicht", d->id, d->source);
+            return buf;
+        }
+        for (int r = 0; r < d->rule_count; ++r)
+            if (!d->rules || find_good(d->rules[r].good) < 0) {
+                std::snprintf(buf, n, "Lagerplatz %s: Ware „%s“ in der Regel gibt es nicht", d->id,
+                              d->rules ? d->rules[r].good : "?");
+                return buf;
+            }
+    }
+    return nullptr;
 }
 
 // --- Reichweite ---
@@ -861,7 +958,37 @@ void Ledger::step(int64_t at_us, int32_t day, EventBus* bus) {
             s.level_seen[g] = 0;
         }
     }
+    compact();
 }
+
+bool Ledger::Stock::meaningless() const {
+    // nichts da, nichts reserviert, heute nichts bewegt, nichts gemeldet, keine Abgänge in den Stunden-Fächern: so ein
+    // Eintrag sagt nichts, was ein fehlender nicht auch sagt (der Speicherstand lässt ihn ebenfalls weg)
+    if (qty || reserved || in_day || out_day || flags) return false;
+    for (uint16_t v : out)
+        if (v) return false;
+    return true;
+}
+
+void Ledger::compact() {
+    // seit 0.5.11 (V03): bedeutungslose Einträge freigeben, nur an der Takt-Grenze (nach den Meldungen, die einen
+    // leeren Eintrag mit Regel erst markieren). Danach steht dieselbe Tabelle im Speicher, die ein Neustart aus dem
+    // Speicherstand aufbauen würde; die Reihenfolge bleibt sortiert
+    Storage& s = *s_;
+    int w = 0;
+    for (int i = 0; i < s.stock_n; ++i) {
+        if (s.stock[i].meaningless()) continue;
+        if (w != i) s.stock[w] = s.stock[i];
+        ++w;
+    }
+    if (w != s.stock_n) {
+        s.freed += static_cast<uint32_t>(s.stock_n - w);
+        s.stock_n = w;
+    }
+}
+
+int Ledger::entries() const { return s_ ? s_->stock_n : 0; }
+uint32_t Ledger::entries_freed() const { return s_ ? s_->freed : 0; }
 
 // --- Bilanz ---
 
@@ -887,6 +1014,18 @@ const char* Ledger::check(char* buf, int n) const {
         }
     }
     char key[12];
+    for (int r = 0; r < s.res_n; ++r) {
+        // seit 0.5.11 (V02): jede Kennung höchstens einmal (die Liste ist nach Kennung sortiert)
+        const Res& x = s.res[r];
+        if (!x.id || (r > 0 && s.res[r - 1].id >= x.id)) {
+            std::snprintf(buf, n, "Reservierung %u: Kennung doppelt oder nicht sortiert", static_cast<unsigned>(x.id));
+            return buf;
+        }
+        if (x.store >= s.store_n || x.good >= s.good_n) {
+            std::snprintf(buf, n, "Reservierung %u: Lagerplatz oder Ware gibt es nicht", static_cast<unsigned>(x.id));
+            return buf;
+        }
+    }
     for (int i = 0; i < s.stock_n; ++i) {
         const Stock& e = s.stock[i];
         if (i > 0 && s.stock[i - 1].key() >= e.key()) {
@@ -1054,8 +1193,8 @@ void Ledger::save_reservations(SaveWriter& w) const {
     char key[12];
     w.u16(s.next_res);
     w.u16(static_cast<uint16_t>(s.res_n));
-    for (int i = 0; i < s.res_n; ++i) {  // Kennungen steigen (angelegt nur an Takt-Grenzen)
-        const Storage::Res& x = s.res[i];
+    for (int i = 0; i < s.res_n; ++i) {  // nach Kennung sortiert (seit 0.5.11 auch nach dem Umlauf)
+        const Res& x = s.res[i];
         const size_t r = w.record_begin();
         w.u16(x.id);
         w.u16(x.holder);
@@ -1131,39 +1270,58 @@ void Ledger::load_goods(SaveReader& r, uint16_t /*version*/, LoadStats* /*st*/) 
 void Ledger::load_stock(SaveReader& r, uint16_t /*version*/, LoadStats* st) {
     if (!s_) return;
     Storage& s = *s_;
-    const int n = r.u16();
-    for (int k = 0; k < n && r.ok(); ++k) {
-        SaveReader x = r.record();
-        const std::string_view key = x.view();
-        const std::string_view gid = x.view();
-        const uint16_t q = x.u16(), in = x.u16(), out = x.u16();
-        const uint8_t flags = x.u8();
-        uint16_t hours[kHours] = {};
-        read_hours(x, hours, s.hour);
-        if (!x.ok()) continue;
-        const int g = find_good(gid);
-        if (g < 0) {
-            if (st) st->lost += q;
-            continue;
+    // seit 0.5.11 (B13) in zwei Durchgängen: erst die Einträge, deren Lagerplatz (oder Trage) es gibt, dann die
+    // umgelegten; so verdrängt Ware aus nicht mehr vorhandenen Lagern nie den eigenen Bestand eines Lagers
+    const SaveReader begin = r;
+    for (int pass = 0; pass < 2; ++pass) {
+        r = begin;
+        const int n = r.u16();
+        for (int k = 0; k < n && r.ok(); ++k) {
+            SaveReader x = r.record();
+            const std::string_view key = x.view();
+            const std::string_view gid = x.view();
+            const uint16_t q = x.u16(), in = x.u16(), out = x.u16();
+            const uint8_t flags = x.u8();
+            uint16_t hours[kHours] = {};
+            read_hours(x, hours, s.hour);
+            if (!x.ok()) continue;
+            const bool known = find_store(key) >= 0 || (key.size() > 1 && key[0] == '@');
+            if (known != (pass == 0)) continue;
+            const int g = find_good(gid);
+            if (g < 0) {
+                if (st) st->lost += q;
+                continue;
+            }
+            bool moved = false;
+            const int store = store_for(*this, key, &moved);
+            if (store < 0) {
+                if (st) st->lost += q;
+                s.adjust[g] -= q;  // Bilanz: diese Stück gibt es nicht mehr (finish_load)
+                continue;
+            }
+            // seit 0.5.11 (B13): mehrere Einträge auf demselben Platz (Lager gibt es nicht mehr → Gemeinschaftslager, oder
+            // eine fremde Datei) werden zusammengezählt, aber nur so viel, wie Platz hat; der Rest ist verloren und steht
+            // als Korrektur im Bilanz-Anfang. Einzelstücke zählt finish_load nach den Stücken
+            const bool unique = s.goods[g]->unique;
+            Stock* e = entry(store, g, true);  // auch mit Menge 0: Fächer und Tageswerte bleiben
+            const int fit = e ? std::min<int>({static_cast<int>(q), room(store, g), 0xFFFF - e->qty}) : 0;
+            const int put = !e ? 0 : unique ? q : std::max(0, fit);
+            if (put < q && !unique) {
+                if (st) st->lost += q - put;
+                s.adjust[g] -= q - put;
+            }
+            if (moved && st) st->moved += put;
+            if (!e) continue;
+            const bool merge = e->qty || e->in_day || e->out_day || e->flags;
+            e->qty = static_cast<uint16_t>(e->qty + put);
+            e->in_day = merge ? static_cast<uint16_t>(std::min(0xFFFF, e->in_day + in)) : in;
+            e->out_day = merge ? static_cast<uint16_t>(std::min(0xFFFF, e->out_day + out)) : out;
+            e->flags = static_cast<uint8_t>(e->flags | flags);
+            for (int h = 0; h < kHours; ++h) e->out[h] = static_cast<uint16_t>(std::min(0xFFFF, e->out[h] + hours[h]));
+            s.sum[g] += put;
+            ++s.stores[store].version;
+            if (st) ++st->stock;
         }
-        bool moved = false;
-        const int store = store_for(*this, key, &moved);
-        if (store < 0) {
-            if (st) st->lost += q;
-            s.adjust[g] -= q;  // Bilanz: diese Stück gibt es nicht mehr (finish_load)
-            continue;
-        }
-        if (moved && st) st->moved += q;
-        Stock* e = entry(store, g, true);
-        if (!e) continue;
-        e->qty = static_cast<uint16_t>(std::min(0xFFFF, e->qty + q));
-        e->in_day = in;
-        e->out_day = out;
-        e->flags = flags;
-        std::memcpy(e->out, hours, sizeof(hours));
-        s.sum[g] += q;
-        ++s.stores[store].version;
-        if (st) ++st->stock;
     }
     ++version_;
 }
@@ -1201,16 +1359,20 @@ void Ledger::load_reservations(SaveReader& r, uint16_t /*version*/, LoadStats* s
     const int n = r.u16();
     for (int k = 0; k < n && r.ok(); ++k) {
         SaveReader x = r.record();
-        Storage::Res v;
+        Res v;
         v.id = x.u16();
         v.holder = x.u16();
         const int store = find_store(x.view());
         const int g = find_good(x.view());
         v.qty = x.u16();
         if (!x.ok() || store < 0 || g < 0 || !v.id || s.res_n >= kMaxReservations) continue;
+        if (res_slot(v.id) >= 0) {  // doppelte Kennung (seit 0.5.11, V02): die zweite gilt nicht
+            if (st) ++st->rejected;
+            continue;
+        }
         v.store = static_cast<uint8_t>(store);
         v.good = static_cast<uint8_t>(g);
-        s.res[s.res_n++] = v;
+        s.res[insert_res(v.id)] = v;
         if (st) ++st->reservations;
     }
 }
@@ -1239,7 +1401,7 @@ void Ledger::finish_load(LoadStats* st) {
     // Reservierungen nachzählen (nie mehr als da ist)
     for (int i = 0; i < s.stock_n; ++i) s.stock[i].reserved = 0;
     for (int k = 0; k < s.res_n; ++k) {
-        Storage::Res& v = s.res[k];
+        Res& v = s.res[k];
         Stock* e = entry(v.store, v.good, false);
         const int free = e ? e->qty - e->reserved : 0;
         v.qty = static_cast<uint16_t>(std::clamp<int>(v.qty, 0, free));

@@ -8,7 +8,9 @@
 //   Schritt (Stage::tick ruft deliver() zu Beginn), in der Reihenfolge der Meldungen. So hängt nichts davon ab, in
 //   welcher Reihenfolge die Orte rechnen, und unsichtbare Orte lesen dasselbe wie sichtbare.
 // - Leser melden sich mit einer Maske der Arten an und haben je einen Lesezeiger. Wer zu langsam liest, verliert die
-//   ältesten Ereignisse (gezählt in lost()).
+//   ältesten Ereignisse (gezählt in lost()), nie liest er eines vor seiner Zustellung oder zweimal (seit 0.5.11, V01).
+// - Seit 0.5.11 liegt der Ring im Grafik-Speicher (PSRAM) mit 128 Plätzen: 48 Figuren, die an derselben Takt-Grenze
+//   aufbrechen, und das Besondere aus Warenbuch und Projekten passen hinein; die Chronik liest an jeder Takt-Grenze.
 
 #include <array>
 #include <cstdint>
@@ -52,8 +54,13 @@ struct WorldEvent {
 
 class EventBus {
 public:
-    static constexpr int kQueue = 32;  // Ereignisse im Ringpuffer (je Schritt meist keins, selten mehr als zwei)
+    static constexpr int kQueue = 128;  // Ereignisse im Ring (je Takt-Grenze meist keins, bei 48 Figuren bis etwa 50)
     static constexpr int kReaders = 8;
+
+    EventBus() = default;
+    ~EventBus();
+    EventBus(const EventBus&) = delete;
+    EventBus& operator=(const EventBus&) = delete;
 
     // Leser anmelden: Index, −1 = voll. Ein neuer Leser sieht nur, was ab dem nächsten Schritt zugestellt wird
     int subscribe(uint32_t mask);
@@ -61,15 +68,17 @@ public:
     // Melden: sichtbar ab dem nächsten deliver()
     void publish(const WorldEvent& e);
     // Takt-Grenze: alles bisher Gemeldete wird lesbar
-    void deliver() { visible_ = written_; }
+    void deliver();
     // Nächstes zugestelltes Ereignis des Lesers (nach seiner Maske); false = keins mehr
     bool poll(int reader, WorldEvent* out);
     uint32_t published() const { return written_; }
-    uint32_t lost() const { return lost_; }
+    uint32_t lost() const { return lost_; }  // Summe über alle Leser (überschrieben, bevor sie es lasen)
+    uint32_t peak() const { return peak_; }  // höchstens so viele Meldungen zwischen zwei Zustellungen (Diagnose)
     void clear();
 
 private:
-    std::array<WorldEvent, kQueue> q_{};
+    bool ensure();
+    WorldEvent* q_ = nullptr;  // kQueue Plätze im Grafik-Speicher, beim ersten Melden angelegt
     uint32_t written_ = 0;  // fortlaufende Nummer des nächsten Ereignisses
     uint32_t visible_ = 0;  // bis hierhin zugestellt
     struct Reader {
@@ -79,6 +88,7 @@ private:
     };
     std::array<Reader, kReaders> r_{};
     uint32_t lost_ = 0;
+    uint32_t peak_ = 0;
 };
 
 }  // namespace pixelia

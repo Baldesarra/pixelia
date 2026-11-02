@@ -882,11 +882,15 @@ bool TestPlace::claim_task(const FigureRecord& f, int64_t at) {
     const PlaceGraph& g = world_graph();
     const int hand = l.hand(f.id);
     const bool empty = hand < 0 || l.load(hand) == 0;
+    // seit 0.5.11 (B15): Entfernung über die gerade offenen Wege; was jetzt nicht erreichbar ist, nimmt niemand
+    int8_t open[PlaceGraph::kMaxPlaces];
+    g.open_hops_from(index_, *env_, open);
+    const auto reach = [&](int place) { return place >= 0 && place < PlaceGraph::kMaxPlaces ? open[place] : -1; };
     int best = 0, best_key = 1 << 30;
     for (int i = 0; i < tl.count(); ++i) {
         const Task& t = tl.at(i);
         if (t.phase != TaskPhase::Open || (t.kind == TaskKind::Fetch && !empty)) continue;
-        const int hops = g.hops(index_, l.store_place(t.kind == TaskKind::Fetch ? t.from : t.to));
+        const int hops = reach(l.store_place(t.kind == TaskKind::Fetch ? t.from : t.to));
         const bool community = t.flags & kTaskCommunity;
         if (hops < 0 || (!community && hops > kNearHops && at - t.created_us < kFarWaitUs)) continue;
         const int key = (community ? 0 : 1000) + hops;
@@ -901,9 +905,18 @@ bool TestPlace::claim_task(const FigureRecord& f, int64_t at) {
 bool TestPlace::go_place(const FigureRecord& f, int place, DoingAim aim, int64_t at, Rng& rng, Doing* out) {
     // über einen Ausgang, der einen Ort näher ans Ziel führt (offen): meist den kürzesten (Weg samt Reisezeit; gleich:
     // kleinere Nummer), jedes vierte Mal den zweitbesten, wenn er höchstens 40 Weltsekunden länger dauert (Abwechslung,
-    // z. B. der Feldweg bei Tag)
+    // z. B. der Feldweg bei Tag). Seit 0.5.11 (B15, Entscheidung des Users) zählen nur die gerade offenen Wege: ist der
+    // kürzeste gesperrt, geht es über einen offenen Umweg; gibt es keinen, wartet die Figur (die Karte nennt den Grund)
     const PlaceGraph& g = world_graph();
-    const int left = g.hops(index_, place);
+    int8_t dist[PlaceGraph::kMaxPlaces];
+    g.open_hops_to(place, *env_, dist);
+    int left = 0;  // Verbindungen bis zum Ziel über den besten offenen Ausgang, 0 = keiner (oder schon da)
+    for (int e = 0; place != index_ && e < room_.exit_count(); ++e) {
+        const int to = exit_place(e);
+        if (to >= 0 && to < PlaceGraph::kMaxPlaces && dist[to] >= 0 && (!left || dist[to] + 1 < left) &&
+            exit_open(room_.exit(e), name(), *env_))
+            left = dist[to] + 1;
+    }
     Doing d;
     d.sx = d.gx = f.doing.gx;
     d.sy = d.gy = f.doing.gy;
@@ -914,7 +927,7 @@ bool TestPlace::go_place(const FigureRecord& f, int place, DoingAim aim, int64_t
     for (int e = 0; left > 0 && e < room_.exit_count(); ++e) {
         const Exit& x = room_.exit(e);
         const int to = exit_place(e);
-        if (to < 0 || g.hops(to, place) != left - 1 || !exit_open(x, name(), *env_)) continue;
+        if (to < 0 || to >= PlaceGraph::kMaxPlaces || dist[to] != left - 1 || !exit_open(x, name(), *env_)) continue;
         const int steps = room_.path(d.sx, d.sy, x.x, x.y);
         if (steps < 0) continue;
         const int64_t cost = steps * tile_us(f.id) + x.travel * WorldClock::kUsPerSecond;
@@ -1006,13 +1019,15 @@ bool TestPlace::claim_project(const FigureRecord& f, int64_t at) {
     // Takt-Grenze (in der festen Reihenfolge der Orte): das nächste begonnene Projekt ohne Arbeiter, dessen Schritt die
     // Figur kann (bei Gleichstand die kleinere Kennung); weiter als kNearHops Orte erst, wenn es so lange wartet
     ProjectList& pl = env_->projects;
-    const PlaceGraph& g = world_graph();
+    int8_t open[PlaceGraph::kMaxPlaces];  // seit 0.5.11 (B15): nur über gerade offene Wege
+    world_graph().open_hops_from(index_, *env_, open);
     uint16_t best = 0;
     int best_key = 1 << 30;
     for (int i = 0; i < pl.count(); ++i) {
         const Project& p = pl.at(i);
         if (!p.begun || p.who || p.wait == ProjectWait::Weather || !pl.can_work(p, f)) continue;
-        const int hops = g.hops(index_, pl.place_of(p));
+        const int place = pl.place_of(p);
+        const int hops = place >= 0 && place < PlaceGraph::kMaxPlaces ? open[place] : -1;
         if (hops < 0 || (hops > kNearHops && at - p.step_us < kFarWaitUs)) continue;
         if (hops < best_key) {
             best_key = hops;
@@ -2129,6 +2144,18 @@ bool TestPlace::describe(const Hit& hit, ui::Card* card) const {
             } else if (aim == DoingAim::Board) {
                 card->subtitle = "schaut, was zu tun ist";
             }
+            // seit 0.5.11 (B15, Wahl des Users): wartet sie, weil kein offener Weg zum Ziel führt, steht der Grund unter
+            // der Aufgabe („Wartet: Nur bei Tag begehbar.“)
+            int target = -1;
+            if (const Task* t = env_->tasks.of(f->id)) {
+                const bool from = t->phase == TaskPhase::Fetch || t->phase == TaskPhase::Return;
+                target = l.store_place(from ? t->from : t->to);
+            } else if (const Project* p = env_->projects.of(f->id)) {
+                target = env_->projects.place_of(*p);
+            }
+            if (r && r->doing.kind == DoingKind::Idle && target >= 0 && target != index_)
+                if (const char* why = world_graph().closed_why(index_, target, *env_))
+                    card->add_line(std::string("Wartet: ") + why);
             if (const int hand = l.hand(f->id); hand >= 0) {
                 uint8_t g[4];
                 uint16_t q[4];

@@ -20,6 +20,14 @@ namespace {
 const char* const kPhaseIds[] = {"offen", "holen", "bringen", "zurueck", "arbeiten", "fertig"};
 static_assert(sizeof(kPhaseIds) / sizeof(kPhaseIds[0]) == static_cast<int>(TaskPhase::kCount));
 
+const char* const kSupplyIds[] = {"kommt",       "keine_quelle",      "quelle_leer",  "lohnt_nicht",
+                                  "ziel_voll",   "reservierung_voll", "aufgaben_voll"};
+const char* const kSupplyTexts[] = {"Nachschub kommt",        "keine Quelle mit Vorrat", "Quelle leer",
+                                    "lohnt noch nicht",       "kein Platz",              "Reservierungen voll",
+                                    "Aufgabenliste voll"};
+static_assert(sizeof(kSupplyIds) / sizeof(kSupplyIds[0]) == kSupplyWaits);
+static_assert(sizeof(kSupplyTexts) / sizeof(kSupplyTexts[0]) == kSupplyWaits);
+
 // Regel eines Lagerplatzes für eine Ware, nullptr = keine
 const StockRule* rule_of(const Ledger& l, int store, int good) {
     const StoreDef* d = l.store_def(store);
@@ -34,6 +42,16 @@ const StockRule* rule_of(const Ledger& l, int store, int good) {
 const char* task_phase_id(TaskPhase p) {
     const int i = static_cast<int>(p);
     return i >= 0 && i < static_cast<int>(TaskPhase::kCount) ? kPhaseIds[i] : "?";
+}
+
+const char* supply_wait_id(SupplyWait w) {
+    const int i = static_cast<int>(w);
+    return i >= 0 && i < kSupplyWaits ? kSupplyIds[i] : "?";
+}
+
+const char* supply_wait_text(SupplyWait w) {
+    const int i = static_cast<int>(w);
+    return i >= 0 && i < kSupplyWaits ? kSupplyTexts[i] : "?";
 }
 
 TaskList::~TaskList() {
@@ -54,7 +72,15 @@ void TaskList::clear() {
     next_ = 1;
     created_ = 0;
     orphans_ = true;
+    why_.fill(0);
+    why_good_.fill(0xFF);
     ++version_;
+}
+
+SupplyWait TaskList::supply_wait(int store, int* good) const {
+    if (store < 0 || store >= static_cast<int>(why_.size())) return SupplyWait::None;
+    if (good) *good = why_good_[store] == 0xFF ? -1 : why_good_[store];
+    return static_cast<SupplyWait>(why_[store]);
 }
 
 const Task* TaskList::find(uint16_t id) const {
@@ -112,9 +138,10 @@ Task* TaskList::add(TaskKind kind, int good, int from, int to, int qty, int64_t 
     return &t;
 }
 
-Task* TaskList::fetch(Ledger& l, int good, int from, int to, int qty, int64_t at_us, uint8_t flags) {
+Task* TaskList::fetch(Ledger& l, int good, int from, int to, int qty, int64_t at_us, uint8_t flags, SupplyWait* why) {
     // Menge am Quell-Lager reservieren; ist nichts frei, gibt es die Aufgabe nicht
     Task* t = add(TaskKind::Fetch, good, from, to, qty, at_us, flags);
+    if (why) *why = t ? SupplyWait::NoReservation : SupplyWait::ListFull;
     if (!t) return nullptr;
     t->res = l.reserve(from, good, t->qty, t->id);
     t->qty = static_cast<uint16_t>(l.reservation_left(t->res));
@@ -213,14 +240,17 @@ void TaskList::step(int64_t at_us, int32_t day, Ledger& l, const FigureBook& boo
             }
         }
     }
-    // 3. neue Aufgaben aus den Regeln, Lagerplätze und Regeln in der Reihenfolge der Daten
+    // 3. neue Aufgaben aus den Regeln, Lagerplätze und Regeln in der Reihenfolge der Daten. Seit 0.5.11 mit Grund je
+    //    Lagerplatz, wenn kein Nachschub kommt (P-F), und ohne Quelle in den Daten wählt das Warenbuch eine (V05)
+    why_.fill(0);
+    why_good_.fill(0xFF);
     for (int s = 0; s < l.stores(); ++s) {
         const StoreDef* d = l.store_def(s);
         if (!d || !d->rules || d->kind == StoreKind::Site) continue;
         for (int k = 0; k < d->rule_count; ++k) {
             const StockRule& r = d->rules[k];
             const int g = l.find_good(r.good);
-            if (g < 0) continue;
+            if (g < 0) continue;  // Tippfehler in den Daten: Ledger::data_problem
             const int q = l.qty(s, g);
             if (q >= r.low) continue;
             if (d->kind == StoreKind::Producer) {
@@ -228,14 +258,32 @@ void TaskList::step(int64_t at_us, int32_t day, Ledger& l, const FigureBook& boo
                     add(TaskKind::Produce, g, -1, s, r.want, at_us, 0);
                 continue;
             }
-            const int src = d->source ? l.find_store(d->source) : -1;
-            if (src < 0 || src == s || active(TaskKind::Fetch, s, g, 0, 0)) continue;
+            if (active(TaskKind::Fetch, s, g, 0, 0)) continue;  // Nachschub kommt schon
             int need = std::min(static_cast<int>(r.want) - q, l.room(s, g));
             need = std::min(need, Ledger::kHandCapacity / std::max<int>(1, l.good(g).weight));
-            const int avail = l.available(src, g);
+            SupplyWait why = SupplyWait::None;
+            int src = -1;
+            if (need <= 0) {
+                why = SupplyWait::Full;
+            } else if (d->source) {
+                // eingetragene Quelle ist verbindlich: ist sie leer, wird gewartet (Wahl des Users 2026-11-02)
+                src = l.find_store(d->source);
+                if (src < 0 || src == s) why = SupplyWait::NoSource;
+                else if (l.available(src, g) <= 0) why = SupplyWait::SourceEmpty;
+            } else {
+                src = l.find_source(s, g, need);
+                if (src < 0) why = SupplyWait::NoSource;
+            }
             // lohnt der Weg (mindestens die halbe Ladung)? Sonst warten; ist der Vorrat schon leer, holt jemand, was da ist
-            if (need <= 0 || avail <= 0 || (avail * 2 < need && q > 0)) continue;
-            fetch(l, g, src, s, std::min(need, avail), at_us, 0);
+            const int avail = src >= 0 ? l.available(src, g) : 0;
+            if (why == SupplyWait::None && avail * 2 < need && q > 0) why = SupplyWait::NotWorth;
+            // gelingt das Holen nicht, sagt why, woran es lag (Aufgabenliste oder Reservierungen voll)
+            if (why == SupplyWait::None && fetch(l, g, src, s, std::min(need, avail), at_us, 0, &why)) continue;
+            ++waits_[static_cast<int>(why)];
+            if (!why_[s]) {
+                why_[s] = static_cast<uint8_t>(why);
+                why_good_[s] = static_cast<uint8_t>(g);
+            }
         }
     }
     // 4. Notbestand: Herstellen wird Gemeinschaftsaufgabe an jedem Erzeugerlager mit einer Regel für die Ware

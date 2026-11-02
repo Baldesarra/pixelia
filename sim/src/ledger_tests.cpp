@@ -25,6 +25,36 @@
 #include "testdorf/test_place.h"
 
 namespace sim {
+
+std::string save_diff(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) {
+    size_t k = 0;
+    while (k < a.size() && k < b.size() && a[k] == b[k]) ++k;
+    // seit 0.5.11: dazu der erste Abschnitt, der sich unterscheidet (der Kopf enthält die Prüfsumme über alles)
+    std::string chunk;
+    pixelia::SaveChunks ca(a.data(), a.size()), cb(b.data(), b.size());
+    char ta[5], tb[5];
+    uint16_t va = 0, vb = 0;
+    pixelia::SaveReader da(nullptr, 0), db(nullptr, 0);
+    while (chunk.empty() && ca.next(ta, &va, &da)) {
+        if (!cb.next(tb, &vb, &db)) {
+            chunk = std::string(ta) + " fehlt im zweiten";
+            break;
+        }
+        const size_t na = da.left(), nb = db.left();
+        std::vector<uint8_t> xa(na), xb(nb);
+        for (size_t i = 0; i < na; ++i) xa[i] = da.u8();
+        for (size_t i = 0; i < nb; ++i) xb[i] = db.u8();
+        if (std::strcmp(ta, tb) != 0 || xa != xb) {
+            size_t j = 0;
+            while (j < na && j < nb && xa[j] == xb[j]) ++j;
+            chunk = std::string(ta) + "/" + tb + " ab Byte " + std::to_string(j) + " von " + std::to_string(na) + "/" +
+                    std::to_string(nb);
+        }
+    }
+    return "Bytes weichen ab bei " + std::to_string(k) + " von " + std::to_string(a.size()) + "/" +
+           std::to_string(b.size()) + (chunk.empty() ? "" : ", Abschnitt " + chunk);
+}
+
 namespace {
 
 using pixelia::Booking;
@@ -105,12 +135,7 @@ struct Run {
     }
 };
 
-std::string first_byte_diff(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) {
-    size_t k = 0;
-    while (k < a.size() && k < b.size() && a[k] == b[k]) ++k;
-    return "Bytes weichen ab bei " + std::to_string(k) + " von " + std::to_string(a.size()) + "/" +
-           std::to_string(b.size());
-}
+std::string first_byte_diff(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) { return save_diff(a, b); }
 
 // Warenbuch als Text: Bestände je Lagerplatz und Zähler je Ware (Vergleich zweier Abläufe). Die Lagerplätze nach
 // Kennung sortiert: Tragen entstehen in beliebiger Reihenfolge, der Speicherstand legt sie sortiert an

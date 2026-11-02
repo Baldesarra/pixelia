@@ -73,6 +73,9 @@ public:
     // Ordner zählen (Dateien, Bytes, Tage), ohne zu schreiben
     void scan(const char* dir);
     Stats stats() const { return st_; }
+    // Bestände je Lagerplatz und Ware sowie das Wetter des Tages als Zeilen (sonst beim Tageswechsel in step; seit
+    // 0.5.11 öffentlich für die Prüfungen: jede Ware eines Lagerplatzes, B12)
+    void day_rows(int32_t day);
 
 private:
     void row(Table t, int32_t day, const char* text, int len);
@@ -81,7 +84,6 @@ private:
     void on_booking(const BookingRecord& r);
     void on_demand(const DemandRecord& r);
     void on_project(const ProjectRecord& r);
-    void day_rows(int32_t day);
     bool enforce(const char* dir);
 
     Environment* env_ = nullptr;

@@ -81,7 +81,8 @@ struct ProjectDef {
     ProjectKind kind = ProjectKind::Furniture;
     const char* place;       // Ort (Kennung)
     const char* site;        // Baustelle: Lagerplatz der Art Site an diesem Ort
-    const char* source = nullptr;  // Material von hier; nullptr = Gemeinschaftslager mit der Ware
+    // Material von hier (verbindlich: ist sie leer, wird gewartet); nullptr: Pixelia wählt (Ledger::find_source)
+    const char* source = nullptr;
     int8_t part = -1;        // Teil der Raumliste, das entsteht (im Bau: Bau-Bild in Stufen), −1 = keins
     const ProjectStepDef* steps = nullptr;
     uint8_t step_count = 0;
@@ -157,6 +158,11 @@ public:
     int defs() const { return def_n_; }
     const ProjectDef& def(int d) const;
     int find_def(const char* id) const;  // −1 = gibt es nicht
+    // Prüfung der Daten (seit 0.5.11, B17): Ort, Baustelle, Quelle, Waren und Grenzen müssen aufgehen; ein fehlerhaftes
+    // Projekt beginnt nie. Erste Meldung („Projekt kammer_bett, Schritt gestell: Ware „brettt“ gibt es nicht“), nullptr
+    // = alles gut; def_problem: die eines Projekts der Daten
+    const char* data_problem(char* buf, int n) const;
+    const char* def_problem(int def) const;
 
     // An der Takt-Grenze (Bühne, nach TaskList::step): Zuständigkeiten aufräumen, Schritte abschließen und beginnen,
     // Material reservieren, Holen-Aufgaben anlegen (in fester Reihenfolge der Projekte und Bedarfe), Wartezeit zählen.
@@ -220,7 +226,7 @@ private:
     bool ensure();
     Project* add(int def, int64_t at_us);
     Project* get(uint16_t id);
-    int source_for(const DefData& d, const Ledger& l, int good) const;  // Quelle einer Ware, −1 = keine
+    int source_for(const DefData& d, const Ledger& l, int good, int need) const;  // Quelle einer Ware, −1 = keine
     void finish_step(Project& p, int64_t at_us, int32_t day, Ledger& l, EventBus* bus);
     void fetch(Project& p, int64_t at_us, Ledger& l, TaskList& tasks);
     void tidy(Project& p, int64_t at_us, Ledger& l, TaskList& tasks);  // fertig: Übriges zurückbringen
