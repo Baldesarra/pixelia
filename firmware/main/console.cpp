@@ -486,7 +486,7 @@ bool handle(char* line) {
         if (!gfx::place_command("lager")) ESP_LOGW(TAG, "Befehl nicht angenommen");
     } else if (is("wirtschaft")) {
         // Wirtschafts-Protokoll prüfen (seit 0.5.10 Teil 4c): Dateien, eine Datei ins Log, Bestand aller Lagerplätze.
-        // Abholen und Bericht kommen mit 0.5.12
+        // Abholen und Bericht kommen mit 0.5.13
         static constexpr const char* kDir = "/data/wirtschaft";
         static char line[256], path[96];
         if (argc >= 2 && std::strcmp(argv[1], "bestand") == 0) {

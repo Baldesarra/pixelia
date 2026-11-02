@@ -1943,7 +1943,7 @@ std::vector<Case> state_cases() {
 }
 
 
-// --- Weltzustand, Figuren und Speicherstand (seit 0.5.9): Prüfgrößen aus dem Systemplan, Grundlage für 0.5.12 ---
+// --- Weltzustand, Figuren und Speicherstand (seit 0.5.9): Prüfgrößen aus dem Systemplan, Grundlage für 0.5.13 ---
 
 using pixelia::FigureBook;
 using pixelia::FigureRecord;

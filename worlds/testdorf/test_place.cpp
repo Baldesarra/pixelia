@@ -723,7 +723,7 @@ constexpr int kLookChance = 30;                                   // % der Entsc
 constexpr int kNearHops = 2;                                      // so weit übernimmt jeder sofort
 constexpr int64_t kFarWaitUs = 120 * WorldClock::kUsPerSecond;    // weiter weg erst, wenn die Aufgabe so lange wartet
 constexpr int kSplitPerSession = 2;                               // Stück je Arbeitsgang (Testwert)
-// Platzhalter bis 0.5.11 (Bedürfnisse, Hunger): zwei Mahlzeiten am Tag, je Figur zu festen Zeiten
+// Platzhalter bis 0.5.12 (Bedürfnisse, Hunger): zwei Mahlzeiten am Tag, je Figur zu festen Zeiten
 constexpr int64_t kMealUs = 12 * 60 * WorldClock::kUsPerMinute;
 
 int64_t floor_div(int64_t a, int64_t b) { return a >= 0 ? a / b : (a - b + 1) / b; }
@@ -1002,7 +1002,7 @@ bool TestPlace::go_store(const FigureRecord& f, int store, DoingAim aim, int pie
 }
 
 bool TestPlace::claim_project(const FigureRecord& f, int64_t at) {
-    // PLATZHALTER bis 0.5.11 (Blockwahl des Tagesgerüsts): wer an einem Projekt arbeitet. Nur genau an einer
+    // PLATZHALTER bis 0.5.12 (Blockwahl des Tagesgerüsts): wer an einem Projekt arbeitet. Nur genau an einer
     // Takt-Grenze (in der festen Reihenfolge der Orte): das nächste begonnene Projekt ohne Arbeiter, dessen Schritt die
     // Figur kann (bei Gleichstand die kleinere Kennung); weiter als kNearHops Orte erst, wenn es so lange wartet
     ProjectList& pl = env_->projects;
@@ -1081,7 +1081,7 @@ bool TestPlace::plan_work(const FigureRecord& f, int64_t at, Rng& rng, Doing* ou
     Ledger& l = env_->ledger;
     const Task* t = tl.of(f.id);
     const Project* pj = t ? nullptr : env_->projects.of(f.id);
-    // PLATZHALTER bis 0.5.11 (Blockwahl): wer nichts hat, nimmt an einer Takt-Grenze zuerst ein Projekt, das er kann
+    // PLATZHALTER bis 0.5.12 (Blockwahl): wer nichts hat, nimmt an einer Takt-Grenze zuerst ein Projekt, das er kann
     // (seit 0.5.10 Teil 3), sonst eine Aufgabe
     if (!t && !pj && on_grid(at)) {
         if (claim_project(f, at))
@@ -1105,7 +1105,7 @@ bool TestPlace::plan_work(const FigureRecord& f, int64_t at, Rng& rng, Doing* ou
         if (l.contents(hand, g, q, 4) > 0)
             if (const int s = stow_here(g[0]); s >= 0) return go_store(f, s, DoingAim::Stow, q[0], at, rng, out);
     }
-    // Platzhalter bis 0.5.11 (Hunger): Mahlzeit zur festen Zeit, wenn hier Brot liegt
+    // Platzhalter bis 0.5.12 (Hunger): Mahlzeit zur festen Zeit, wenn hier Brot liegt
     if (meal_due(f, at))
         if (const int shelf = food_here(); shelf >= 0) return go_store(f, shelf, DoingAim::Eat, 1, at, rng, out);
     if (pj && build_work(f, *pj, at, rng, out)) return true;

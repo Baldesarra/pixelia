@@ -24,10 +24,10 @@
     { icon: 'museum', title: 'Museum', text: 'Alle gefundenen Stücke mit ihrer Geschichte', chapter: 2 },
   ];
 
-  // Fortschritt der Engine-Phase (0.5.0 bis 0.5.12), solange sie läuft
+  // Fortschritt der Engine-Phase (0.5.0 bis 0.5.13), solange sie läuft
   const engine = $derived.by(() => {
     const m = /^0\.5\.(\d+)/.exec(device.data?.v ?? '');
-    return m ? Math.min(+m[1], 12) : -1;
+    return m ? Math.min(+m[1], 13) : -1;
   });
 </script>
 
@@ -44,8 +44,8 @@
       </div>
     </div>
     {#if engine >= 0}
-      <p class="small">Gerade entsteht die Bühne dafür: Baustein {engine} von 12 der Engine.</p>
-      <WavyProgress value={engine / 12} label="Fortschritt der Engine" />
+      <p class="small">Gerade entsteht die Bühne dafür: Baustein {engine} von 13 der Engine.</p>
+      <WavyProgress value={engine / 13} label="Fortschritt der Engine" />
     {/if}
   </Card>
 

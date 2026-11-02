@@ -9,7 +9,7 @@
 // - Der Kalender ist eine reine Rechnung aus dem Zustand (CalendarState) und dem heutigen Datum: Zeitraffer und
 //   Testuhr dürfen vor- und zurückspringen, ohne etwas kaputt zu machen. Gespeichert wird nur der Zustand (Start,
 //   Länge, Anker nach einer Längenänderung, Erstlinge); bis zum Speicherstand (0.5.9) als kleiner Block im NVS.
-// - Zeitfenster (morgens … nachts) und Schlafenszeiten als Schnittstelle fürs Tagesgerüst (0.5.11).
+// - Zeitfenster (morgens … nachts) und Schlafenszeiten als Schnittstelle fürs Tagesgerüst (0.5.12).
 // - Sonnenauf- und -untergang nach der Weltjahreszeit (Dämmerung, light.h Daylight).
 // - Ereignisse (Jahreszeitenabend, Jahreszeitenwechsel, Erstlinge) gehen seit 0.5.8 auf den Ereignis-Bus
 //   (events.h, set_bus); die Anzeige macht daraus Kurzmeldungen. Ohne Bus zählen nur die Erstlinge.

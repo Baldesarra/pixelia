@@ -48,7 +48,7 @@ Spätestens bis 1.0.0, die meisten früher. In Klammern, wann es spätestens nö
 - [ ] **Lichtsensor** BH1750 nachrüsten (lernende Helligkeit) oder bei Helligkeitskurve und Nachtmodus (0.5.7) bleiben?
 - [ ] **SD-Karte:** Ab wann zieht die Welt auf die Karte um, und braucht das Gerät dann eine Karte?
 - [ ] **Browser-Simulator auf GitHub Pages** (früher 0.5.7): die Welt im Browser ansehen, ohne Gerät. Bericht und
-      Kontaktbogen im PR kommen schon aus dem kopflosen Simulator (0.5.12). Noch gewünscht?
+      Kontaktbogen im PR kommen schon aus dem kopflosen Simulator (0.5.13). Noch gewünscht?
 - [ ] **Sprache:** Oberfläche und Texte nur auf Deutsch?
 
 ## Zusatzinhalte und Updates (nach 1.0 bzw. DLC)
