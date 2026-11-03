@@ -19,7 +19,12 @@
         "Reisen: Brechen viele Figuren gleichzeitig auf, kommt trotzdem niemand vor der Zeit an",
         "Wege: Ist der kürzeste Weg gesperrt, nehmen Figuren einen offenen Umweg; gibt es keinen, warten sie, und ihre Karte sagt, warum",
         "Projekte: Ein Tippfehler im Bauplan sperrt das Projekt und wird gemeldet, statt Material zu verschenken",
-        "Erstes Mal: Das erste eigene Gelingen bleibt für immer gemerkt, auch wenn jemand vorher gezeigt hat, wie es geht"
+        "Erstes Mal: Das erste eigene Gelingen bleibt für immer gemerkt, auch wenn jemand vorher gezeigt hat, wie es geht",
+        "Speicherstand: Ein kaputter Stand wird vor dem Laden erkannt; die Welt bleibt dann, wie sie war, und Pixelia nimmt den letzten guten Stand",
+        "Protokoll: Bei Schreibfehler oder Stromausfall fehlt keine Buchung und keine steht doppelt; ein übervoller Tag wird gezählt statt geschrieben",
+        "Sicherung einspielen: Das Protokoll der alten Entwicklung wird beiseitegelegt statt vermischt",
+        "Tagesbestände: Der Bestand am Tagesende stimmt jetzt genau, auch im Zeitraffer",
+        "Grafik-Pakete: Ein fehlerhaftes Paket wird sicher abgelehnt"
       ]
     },
     "n": [
@@ -31,11 +36,19 @@
       "Engine: Warenbuch: Reservierungen nur mit freier Kennung, doppelte beim Laden abgelehnt, check prüft sie; leere Einträge an Takt-Grenzen frei; gescheiterter Einzelstück-Transport ändert nichts (V02–V04)",
       "Engine: Laden führt Lager ohne Bilanzfehler zusammen (eigener Bestand zuerst, Rest bis zur Obergrenze, Überschuss gezählt, B13); bestand_lager_tag mit allen Waren statt 24 je Lager (B12)",
       "Engine: Reiseliste mit einem Platz je Figur (48 statt 16), nie sofortige Ankunft (B14); Wege über die gerade offenen Verbindungen (PlaceGraph::open_hops_to), sonst Wartegrund auf der Karte (B15)",
-      "Engine: Fehlerhafte Projektdaten sperren das Projekt mit Meldung im Log (data_problem, B17); erstes Gelingen und Fehlversuch als dauerhafte Merker je Fähigkeit in FIGS, Gezeigtes als eigene Erinnerung (B18)"
+      "Engine: Fehlerhafte Projektdaten sperren das Projekt mit Meldung im Log (data_problem, B17); erstes Gelingen und Fehlversuch als dauerhafte Merker je Fähigkeit in FIGS, Gezeigtes als eigene Erinnerung (B18)",
+      "Engine: Speicherstand in zwei Phasen (B01): `Stage::check_state` prüft alles (abgeschnitten, Reste, doppelt, neuere Version, Figuren doppelt, zu viele), erst dann wird übernommen; abgelehnt bleibt die Welt byte-gleich",
+      "Engine: `Stage::load_slots` nimmt bei inhaltlich kaputtem neuestem Platz den älteren, beginnt eine neue Zeitlinie und überschreibt beim nächsten Speichern den kaputten Platz (B01)",
+      "Engine: Wirtschafts-Protokoll mit Journal `journal.pxj` vor dem Speicherstand und Größenprüfung je Datei: Schreibfehler und Stromausfall kosten keine Zeile und doppeln keine (B04)",
+      "Engine: Protokoll schon vor dem Anhängen hart ≤ 1 MB, ein Welttag ≤ 256 KB (darüber gezählt statt geschrieben, Vermerk `tNNNNN-verluste.csv`); Pfade nicht mehr auf 100 Zeichen gekürzt (B08)",
+      "Engine: Kennung von Welt und Zeitlinie im neuen Abschnitt KENN; `Stage::prepare_import` gibt einer Sicherung eine neue Zeitlinie, das Protokoll der alten wandert nach `wirtschaft-alt/<n>` (B09)",
+      "Engine: Tagesaufnahme `bestand_lager_tag` genau um Mitternacht (Buchungen danach im selben Schritt herausgerechnet): Zeitraffer 1 Woche und 3 × 4 Wochen ohne Abweichung, vorher 4/12/2/2",
+      "Engine: Grafik-Pakete prüfen Grenzen mit Abzug statt Summe, Bildgrößen in 64 Bit: kein Zugriff außerhalb bei Versatz nahe 2³² oder Bild 65535³ (B02)"
     ],
     "g": [
       "Simulator: --test boden 23/23 (Gegenproben der Code-Prüfung mit richtiger Erwartung), alle 163 Prüfungen grün; Wirtschafts-Protokoll 1 Woche und 3 × 4 Wochen byte-gleich mit 0.5.10",
-      "Gerät: OTA, Stand aus 0.5.10 geladen, Neustart mitten in Reisen; 48 Figuren je Ort, nachts, Regen: 30,0 fps, Zeichnen 11,0 ms, Logik max 7,1 ms (vorher 7,2), RAM 91 KB (vorher 88)"
+      "Gerät: OTA, Stand aus 0.5.10 geladen, Neustart mitten in Reisen; 48 Figuren je Ort, nachts, Regen: 30,0 fps, Zeichnen 11,0 ms, Logik max 7,1 ms (vorher 7,2), RAM 91 KB (vorher 88)",
+      "Simulator: `--test boden` 35/35 (12 neu, u. a. 400 zufällige Bytefehler, Schreibfehler, Journal), alle 175 grün; Protokoll byte-gleich mit Teil a bis auf die korrigierten Tagesbestände; `tools/wirtschaft_bilanz.py`"
     ],
     "h": [
       "Doku: Code-Prüfung einer anderen KI (31.10. und 1.11.): Befunde je Nummer in der ROADMAP; Tagesgerüst wird 0.5.12, Gesamtprobe 0.5.13 mit den Geschwindigkeits-Ideen als Messaufträgen"
@@ -108,7 +121,9 @@
       "Dorf: Werte im Testdorf (Korb 10, Holzlege 12, Bett 8 Stunden …) sind Testwerte, Balancing ab 0.5.12 bzw. 0.6.x; das Brotregal ist nur Testinhalt; sichtbares Tragen kommt mit 0.6.x (Wahl des Users)",
       "Chronik: nur Besonderes (Lager leer, Notbestand, Teilaufgabe und Projekt fertig; Wahl des Users); nach über 10 Weltminuten Pause rechnen nur die Ortszustände nach, Figuren holen danach Nachschub"
     ],
-    "pr": [47]
+    "pr": [
+      47
+    ]
   },
   {
     "v": "0.5.9",

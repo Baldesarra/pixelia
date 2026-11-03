@@ -101,7 +101,8 @@ bool decode_pack(const uint8_t* f, size_t size, Decoded* out) {
     const size_t dir = kPackHeaderBytes;
     const size_t name_at = dir + static_cast<size_t>(count) * kPackEntryBytes;
     const size_t data_at = name_at + names;
-    if (data_at + data != size) return false;
+    // Grenzen mit Abzug statt Summe (seit 0.5.11, B02): auf dem Gerät ist size_t 32 Bit breit
+    if (data_at > size || data != size - data_at) return false;
     if (crc32(f + kPackHeaderBytes, size - kPackHeaderBytes) != rd32(f + 16)) return false;
     if (unpacked > (64u << 20)) return false;
 
@@ -119,7 +120,8 @@ bool decode_pack(const uint8_t* f, size_t size, Decoded* out) {
         const uint8_t* e = f + dir + static_cast<size_t>(i) * kPackEntryBytes;
         const uint8_t codec = e[5];
         const uint32_t name = rd16(e + 6), off = rd32(e + 8), packed = rd32(e + 12), size_out = rd32(e + 16);
-        if (off + packed > data || at + size_out > total || name >= std::max<uint32_t>(names, 1)) {
+        if (off > data || packed > data - off || at > total || size_out > total - at ||
+            name >= std::max<uint32_t>(names, 1)) {
             asset_free(mem);
             return false;
         }
@@ -403,7 +405,8 @@ bool AssetStore::image(AssetId id, ImageAsset* out) const {
     if (!e || e->type != AssetType::Image || e->size < kImageHeader) return false;
     const uint8_t* d = e->data;
     const int w = rd16(d), h = rd16(d + 2), frames = rd16(d + 4), states = d[6], own = d[7];
-    const size_t need = kImageHeader + static_cast<size_t>(own) * 3 + static_cast<size_t>(w) * h * frames;
+    // in 64 Bit (seit 0.5.11, B02): 65535 × 65535 × 65535 passt nicht in size_t des Geräts
+    const uint64_t need = kImageHeader + static_cast<uint64_t>(own) * 3 + static_cast<uint64_t>(w) * h * frames;
     if (need > e->size || states < 1 || frames % states != 0 || own > kMaxOwnColors) return false;
     out->sheet = SpriteSheet{d + kImageHeader + own * 3, w, h, frames,
                              static_cast<int16_t>(rd16(d + 8)), static_cast<int16_t>(rd16(d + 10)), states};

@@ -101,6 +101,8 @@ public:
     SaveChunks(const uint8_t* data, size_t n) : r_(data + kSaveHeader, n > kSaveHeader ? n - kSaveHeader : 0) {}
     // nächster Abschnitt: Kennung (4 Zeichen + Null), Version, Leser über die Daten; false = keiner mehr
     bool next(char tag[5], uint16_t* version, SaveReader* data);
+    // nach dem letzten next(): Datei sauber zu Ende (seit 0.5.11, B01); false = abgeschnittener Abschnitt oder Reste
+    bool clean() const { return r_.ok() && r_.at_end(); }
 
 private:
     SaveReader r_;
@@ -117,9 +119,13 @@ public:
     // höchste gültige Generation, 0 = keine (die nächste Speicherung nimmt + 1)
     uint32_t generation() const;
     const char* path(int slot) const { return slot ? b_ : a_; }
+    // einen Platz lesen und Kopf und CRC prüfen (seit 0.5.11 öffentlich: Rückfall auf den anderen Platz, B01)
+    bool read(int slot, std::vector<uint8_t>* out, SaveHeader* h) const;
+    // Dieser Platz gilt als neuester (seit 0.5.11): Das nächste write() nimmt den anderen. Nach dem Rückfall auf den
+    // älteren Platz überschreibt so das nächste Speichern den abgelehnten neueren, nie den geladenen
+    void set_newest(int slot) const { newest_ = slot; }
 
 private:
-    bool read(int slot, std::vector<uint8_t>* out, SaveHeader* h) const;
     char a_[96] = {}, b_[96] = {};
     mutable int newest_ = -1;  // Platz mit dem neuesten gültigen Stand, −1 = unbekannt
 };

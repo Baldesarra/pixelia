@@ -265,6 +265,8 @@ void Stage::prefetch_neighbors() {
 
 void Stage::init(uint64_t seed) {
     seed_ = seed;
+    world_id_ = derive_world_id(seed);  // seit 0.5.11 (B09): das Gerät setzt einer frischen Welt Zufallswerte
+    line_id_ = derive_line_id(seed);
     env_.weather.init(seed);
     env_.weather_sim.init(seed ^ 0x57E77E5157ULL);
     world_minute_ = INT64_MIN;

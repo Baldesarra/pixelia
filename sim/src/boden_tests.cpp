@@ -1,6 +1,7 @@
 // Prüfungen zu 0.5.11 „Fester Boden“ (--test boden): die Befunde der Code-Prüfungen vom 31.10. und 1.11.2026 (andere
 // KI, Berichte außerhalb des Repos) als normale Tests mit der richtigen Erwartung. Die Gegenproben der Prüfung zeigten
-// den Fehler; hier muss er weg sein. Teil a: Simulation und Warenbuch (V01–V05, B12–B15, B17, B18, P-F).
+// den Fehler; hier muss er weg sein. Teil a: Simulation und Warenbuch (V01–V05, B12–B15, B17, B18, P-F). Teil b:
+// Speichern und Protokoll (B01, B02, B04, B08, B09, Tagesaufnahme).
 
 #include <algorithm>
 #include <array>
@@ -9,18 +10,23 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <iterator>
+#include <map>
 #include <string>
 #include <vector>
 
+#include "pixelia/engine/assets.h"
 #include "pixelia/engine/econ_log.h"
 #include "pixelia/engine/events.h"
 #include "pixelia/engine/figure.h"
 #include "pixelia/engine/ledger.h"
 #include "pixelia/engine/place.h"
+#include "pixelia/engine/png.h"
 #include "pixelia/engine/projects.h"
 #include "pixelia/engine/save.h"
 #include "pixelia/engine/stage.h"
 #include "pixelia/engine/tasks.h"
+#include "pixelia/engine/world_clock.h"
 #include "sim.h"
 
 namespace sim {
@@ -258,6 +264,230 @@ std::string fill_figures(Run& a, const char* place) {
     if (!a.stage.load_state(s.data(), s.size())) return "Laden";
     return book.count() == pixelia::FigureBook::kMax ? std::string() : std::string("keine 48 Figuren");
 }
+
+// --- Teil b: Speichern und Protokoll ---
+
+using pixelia::EconomyLog;
+using pixelia::Stage;
+namespace fs = std::filesystem;
+
+// Speicherstand als Abschnitte (roh), zum gezielten Verändern; build setzt Länge und Prüfsumme neu
+struct RawChunk {
+    std::string tag;
+    uint16_t version;
+    std::vector<uint8_t> data;
+};
+std::vector<RawChunk> raw_chunks(const std::vector<uint8_t>& s) {
+    std::vector<RawChunk> out;
+    for (size_t at = pixelia::kSaveHeader; at + 10 <= s.size();) {
+        RawChunk c;
+        c.tag.assign(reinterpret_cast<const char*>(s.data() + at), 4);
+        c.version = static_cast<uint16_t>(s[at + 4] | s[at + 5] << 8);
+        const uint32_t len = SaveReader(s.data() + at + 6, 4).u32();
+        c.data.assign(s.begin() + static_cast<long>(at + 10), s.begin() + static_cast<long>(at + 10 + len));
+        out.push_back(c);
+        at += 10 + len;
+    }
+    return out;
+}
+void put_u32(std::vector<uint8_t>& b, size_t at, uint32_t v) {
+    for (int k = 0; k < 4; ++k) b[at + k] = static_cast<uint8_t>(v >> (8 * k));
+}
+std::vector<uint8_t> build_save(const std::vector<uint8_t>& orig, const std::vector<RawChunk>& cs,
+                                const std::vector<uint8_t>& tail = {}) {
+    std::vector<uint8_t> b(orig.begin(), orig.begin() + pixelia::kSaveHeader);
+    for (const RawChunk& c : cs) {
+        b.insert(b.end(), c.tag.begin(), c.tag.end());
+        b.push_back(static_cast<uint8_t>(c.version));
+        b.push_back(static_cast<uint8_t>(c.version >> 8));
+        const size_t at = b.size();
+        b.resize(at + 4);
+        put_u32(b, at, static_cast<uint32_t>(c.data.size()));
+        b.insert(b.end(), c.data.begin(), c.data.end());
+    }
+    b.insert(b.end(), tail.begin(), tail.end());
+    put_u32(b, 24, static_cast<uint32_t>(b.size()));
+    put_u32(b, 4, pixelia::crc32(b.data() + 8, b.size() - 8));
+    return b;
+}
+RawChunk* chunk_of(std::vector<RawChunk>& cs, const char* tag) {
+    for (RawChunk& c : cs)
+        if (c.tag == tag) return &c;
+    return nullptr;
+}
+// Datensätze eines Abschnitts mit Anzahl (u16) und Datensätzen mit Länge (FIGS)
+std::vector<std::vector<uint8_t>> records_of(const std::vector<uint8_t>& d) {
+    std::vector<std::vector<uint8_t>> out;
+    size_t at = 2;
+    const int n = d[0] | d[1] << 8;
+    for (int k = 0; k < n && at + 2 <= d.size(); ++k) {
+        const size_t len = d[at] | d[at + 1] << 8;
+        out.emplace_back(d.begin() + static_cast<long>(at + 2), d.begin() + static_cast<long>(at + 2 + len));
+        at += 2 + len;
+    }
+    return out;
+}
+std::vector<uint8_t> records_data(const std::vector<std::vector<uint8_t>>& rs, int count = -1) {
+    const int n = count < 0 ? static_cast<int>(rs.size()) : count;
+    std::vector<uint8_t> d = {static_cast<uint8_t>(n), static_cast<uint8_t>(n >> 8)};
+    for (const auto& r : rs) {
+        d.push_back(static_cast<uint8_t>(r.size()));
+        d.push_back(static_cast<uint8_t>(r.size() >> 8));
+        d.insert(d.end(), r.begin(), r.end());
+    }
+    return d;
+}
+
+std::vector<uint8_t> read_all(const fs::path& p) {
+    std::ifstream in(p, std::ios::binary);
+    return std::vector<uint8_t>((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+}
+fs::path fresh_dir(const char* name) {
+    const fs::path d = fs::path(".logs") / name;
+    std::error_code ec;
+    fs::remove_all(d, ec);
+    fs::remove_all(d.string() + "-alt", ec);
+    fs::create_directories(d, ec);
+    return d;
+}
+// Inhalt aller CSV-Dateien eines Ordners (Name → Bytes), zum Vergleich zweier Läufe
+std::map<std::string, std::vector<uint8_t>> csv_files(const fs::path& d) {
+    std::map<std::string, std::vector<uint8_t>> m;
+    std::error_code ec;
+    for (const auto& e : fs::directory_iterator(d, ec))
+        if (e.path().extension() == ".csv") m[e.path().filename().string()] = read_all(e.path());
+    return m;
+}
+uint64_t dir_bytes(const fs::path& d) {
+    uint64_t n = 0;
+    std::error_code ec;
+    for (const auto& e : fs::recursive_directory_iterator(d, ec))
+        if (e.is_regular_file()) n += e.file_size();
+    return n;
+}
+
+// kleines Warenbuch für das Protokoll: ein Lager, zwei Waren; Buchungen an zwei Tagen (Bewegungen und Bedarf)
+struct LogBench {
+    GoodDef goods[2] = {{"holz", "Holz"}, {"brot", "Brot"}};
+    StoreDef stores[1] = {{"kiste", "Kiste", "testort-platz", StoreKind::Community, 60000}};
+    EconomyDef def{goods, 2, stores, 1};
+    pixelia::Environment env;
+    EconomyLog log;
+    explicit LogBench(size_t buffer = 64 * 1024) {
+        const EconomyDef* defs[] = {&def};
+        env.ledger.build(defs, 1);
+        log.attach(env, buffer, "simulator");
+    }
+    // n Buchungen am Welttag day (ab 1), abwechselnd Holz und Brot, dazu je fünfte ein Bedarf
+    void book(int day, int n, int from = 0) {
+        for (int k = from; k < from + n; ++k) {
+            const int64_t us = (day - 1) * pixelia::WorldClock::kUsPerDay + (k + 1) * pixelia::WorldClock::kUsPerSecond;
+            env.ledger.add(0, k % 2, 1 + k % 3, Booking::Produce, at(us));
+            if (k % 5 == 0) env.ledger.demand(1, 0, 2, 1, at(us));
+        }
+    }
+};
+
+// Bilanz eines Protokoll-Ordners wie tools/wirtschaft_bilanz.py: Bestand am Vortag + Buchungen = Bestand; "" = gut
+std::string balance(const fs::path& d, int* checked = nullptr) {
+    auto lines = [&](const fs::path& p) {
+        std::vector<std::vector<std::string>> out;
+        std::ifstream in(p);
+        bool head = true;
+        for (std::string line; std::getline(in, line);) {
+            if (line.empty() || line[0] == '#') continue;
+            if (head) {
+                head = false;
+                continue;
+            }
+            std::vector<std::string> f;
+            size_t a = 0;
+            for (size_t b; (b = line.find(',', a)) != std::string::npos; a = b + 1) f.push_back(line.substr(a, b - a));
+            f.push_back(line.substr(a));
+            out.push_back(f);
+        }
+        return out;
+    };
+    std::map<int, std::map<std::string, int>> stock, delta;
+    std::error_code ec;
+    for (const auto& e : fs::directory_iterator(d, ec)) {
+        const std::string n = e.path().filename().string();
+        if (n.size() < 7 || n[0] != 't') continue;
+        const int day = std::atoi(n.c_str() + 1);
+        if (n.find("bestand_lager_tag") != std::string::npos) {
+            auto& s = stock[day];
+            for (const auto& f : lines(e.path())) s[f[1] + "/" + f[2]] = std::atoi(f[3].c_str());
+        } else if (n.find("bewegungen") != std::string::npos) {
+            for (const auto& f : lines(e.path())) {
+                const int q = std::atoi(f[5].c_str());
+                if (!f[6].empty()) delta[day][f[6] + "/" + f[4]] -= q;
+                if (!f[7].empty()) delta[day][f[7] + "/" + f[4]] += q;
+            }
+        }
+    }
+    int prev = -1, n = 0;
+    for (const auto& [day, s] : stock) {
+        if (prev >= 0) {
+            std::map<std::string, int> want = stock[prev];
+            for (int k = prev + 1; k <= day; ++k)
+                for (const auto& [key, q] : delta[k]) want[key] += q;
+            for (const auto& [key, q] : s) want.try_emplace(key, 0);
+            for (const auto& [key, q] : want) {
+                ++n;
+                const auto it = s.find(key);
+                const int got = it == s.end() ? 0 : it->second;
+                if (got != q)
+                    return "Tag " + std::to_string(day) + " " + key + ": erwartet " + std::to_string(q) + ", Bestand " +
+                           std::to_string(got);
+            }
+        }
+        prev = day;
+    }
+    if (checked) *checked = n;
+    return std::string();
+}
+
+// Speicherstand im Format 0.5.10 (ohne Erstmalig-Merker hinter der Statur, ohne KENN): so schrieb ihn 0.5.10
+std::vector<uint8_t> as_0510(Run& r) {
+    for (int k = 0; k < r.env().figures.count(); ++k) r.env().figures.at(k).first_ok = r.env().figures.at(k).first_fail = 0;
+    const std::vector<uint8_t> s = r.save();
+    std::vector<RawChunk> cs = raw_chunks(s);
+    RawChunk* figs = chunk_of(cs, "FIGS");
+    auto recs = records_of(figs->data);
+    for (auto& rec : recs) rec.pop_back();  // Anzahl der Merker (0)
+    figs->data = records_data(recs);
+    cs.erase(std::remove_if(cs.begin(), cs.end(), [](const RawChunk& c) { return c.tag == "KENN"; }), cs.end());
+    return build_save(s, cs);
+}
+
+// Ein PXA1-Paket mit einem Eintrag (für B02): Kopf, Eintrag, Daten; crc stimmt immer
+std::vector<uint8_t> pack_bytes(uint32_t data_field, uint32_t off, uint32_t packed, uint32_t size_out,
+                                const std::vector<uint8_t>& payload, uint8_t type = 2) {
+    std::vector<uint8_t> b(pixelia::kPackHeaderBytes + pixelia::kPackEntryBytes, 0);
+    std::memcpy(b.data(), "PXA1", 4);
+    b[4] = 1;  // ein Eintrag, keine Namen
+    put_u32(b, 8, data_field);
+    put_u32(b, 12, size_out);
+    uint8_t* e = b.data() + pixelia::kPackHeaderBytes;
+    const uint32_t id = pixelia::asset_id("b02");
+    std::memcpy(e, &id, 4);
+    e[4] = type;
+    e[5] = 0;  // ungepackt
+    put_u32(b, pixelia::kPackHeaderBytes + 8, off);
+    put_u32(b, pixelia::kPackHeaderBytes + 12, packed);
+    put_u32(b, pixelia::kPackHeaderBytes + 16, size_out);
+    b.insert(b.end(), payload.begin(), payload.end());
+    put_u32(b, 16, pixelia::crc32(b.data() + pixelia::kPackHeaderBytes, b.size() - pixelia::kPackHeaderBytes));
+    return b;
+}
+struct MemSource : pixelia::AssetSource {
+    std::vector<uint8_t> data;
+    const char* name() const override { return "speicher"; }
+    bool load(const char*, pixelia::AssetBlob* out) override {
+        *out = pixelia::AssetBlob{data.data(), data.size(), nullptr};
+        return true;
+    }
+};
 
 std::vector<Case> cases() {
     return {
@@ -914,6 +1144,470 @@ std::vector<Case> cases() {
                  }
                  if (x.first_ok != ok || x.first_fail != fail) return std::string("aus dem alten Stand falsch abgeleitet");
              }
+             return std::string();
+         }},
+        // --- Teil b: Speichern und Protokoll ---
+        {"B01 Gegenprobe: FIGS kündigt eine Figur an, ohne Datensatz (Prüfsumme stimmt): abgelehnt, die Welt bleibt byte-gleich",
+         [] {
+             Run a(91);
+             const std::vector<uint8_t> before = a.save();
+             std::vector<uint8_t> data(1024);
+             SaveWriter w(data.data(), data.size());
+             w.begin(10, 0);
+             w.chunk("WELT", 1);
+             w.u64(91);
+             w.i64(0);
+             w.u16(1);
+             w.chunk("FIGS", 1);
+             w.u16(1);  // verspricht eine Figur
+             data.resize(w.finish());
+             Stage::LoadReport rep;
+             if (!pixelia::save_check(data.data(), data.size(), nullptr)) return std::string("Kopf oder CRC falsch gebaut");
+             if (a.stage.load_state(data.data(), data.size(), &rep)) return std::string("geladen");
+             if (a.save() != before) return std::string("Welt verändert");
+             if (std::strcmp(rep.chunk, "FIGS") != 0) return std::string("Grund ohne Abschnitt: ") + rep.why;
+             return std::string();
+         }},
+        {"B01 Abgeschnitten, zu lang, Reste, doppelt, neuere Version, Figur doppelt, ohne WELT: jedes abgelehnt mit Grund, die Welt bleibt",
+         [] {
+             Run a(92);
+             a.run(300);
+             const std::vector<uint8_t> s = a.save();
+             const std::vector<uint8_t> before = a.save();
+             using Mut = std::function<std::vector<uint8_t>()>;
+             const std::vector<std::pair<const char*, Mut>> muts = {
+                 {"Datensatz abgeschnitten", [&] { auto cs = raw_chunks(s); chunk_of(cs, "FIGS")->data.pop_back(); return build_save(s, cs); }},
+                 {"Abschnitt länger als die Datei", [&] { auto b = s; put_u32(b, b.size() - 4, 0); auto cs = raw_chunks(s);
+                     b = build_save(s, cs, {'X', 'X', 'X', 'X', 1, 0, 200, 0, 0, 0, 1, 2}); return b; }},
+                 {"Reste hinter dem letzten Abschnitt", [&] { return build_save(s, raw_chunks(s), {1, 2, 3}); }},
+                 {"Reste in einem Abschnitt", [&] { auto cs = raw_chunks(s); chunk_of(cs, "WELT")->data.push_back(0); return build_save(s, cs); }},
+                 {"Abschnitt doppelt", [&] { auto cs = raw_chunks(s); cs.push_back(*chunk_of(cs, "FIGS")); return build_save(s, cs); }},
+                 {"neuere Version", [&] { auto cs = raw_chunks(s); chunk_of(cs, "LAGR")->version = 2; return build_save(s, cs); }},
+                 {"Figur doppelt", [&] { auto cs = raw_chunks(s); auto recs = records_of(chunk_of(cs, "FIGS")->data);
+                     recs[1][0] = recs[0][0]; recs[1][1] = recs[0][1]; chunk_of(cs, "FIGS")->data = records_data(recs); return build_save(s, cs); }},
+                 {"Figur ohne Kennung", [&] { auto cs = raw_chunks(s); auto recs = records_of(chunk_of(cs, "FIGS")->data);
+                     recs[2][0] = recs[2][1] = 0; chunk_of(cs, "FIGS")->data = records_data(recs); return build_save(s, cs); }},
+                 {"mehr Figuren als Platz", [&] { auto cs = raw_chunks(s); auto recs = records_of(chunk_of(cs, "FIGS")->data);
+                     const auto one = recs[0]; recs.clear();
+                     for (int k = 1; k <= pixelia::FigureBook::kMax + 1; ++k) { auto r = one; r[0] = static_cast<uint8_t>(k); r[1] = 0; recs.push_back(r); }
+                     chunk_of(cs, "FIGS")->data = records_data(recs); return build_save(s, cs); }},
+                 {"ohne WELT", [&] { auto cs = raw_chunks(s); cs.erase(cs.begin()); return build_save(s, cs); }},
+             };
+             for (const auto& [what, make] : muts) {
+                 const std::vector<uint8_t> bad = make();
+                 Stage::LoadReport rep;
+                 if (a.stage.load_state(bad.data(), bad.size(), &rep)) return std::string(what) + ": geladen";
+                 if (!rep.why || !rep.why[0]) return std::string(what) + ": ohne Grund";
+                 if (Stage::check_state(bad.data(), bad.size())) return std::string(what) + ": Prüfung allein nimmt ihn an";
+                 if (a.save() != before) return std::string(what) + ": Welt verändert";
+             }
+             return std::string();
+         }},
+        {"B01 Erlaubt bleibt: unbekannter Abschnitt, fehlende Abschnitte (alte Stände), längere Datensätze (neue Felder hinten), Stand 0.5.9 und 0.5.10",
+         [] {
+             Run a(93);
+             a.run(300);
+             const std::vector<uint8_t> s = a.save();
+             auto loads = [&](const std::vector<uint8_t>& b, const char* what) -> std::string {
+                 Run c(94);
+                 Stage::LoadReport rep;
+                 if (!c.stage.load_state(b.data(), b.size(), &rep))
+                     return std::string(what) + ": abgelehnt (" + rep.why + " " + rep.chunk + ")";
+                 return std::string();
+             };
+             std::string e;
+             {
+                 auto cs = raw_chunks(s);
+                 cs.insert(cs.begin() + 2, RawChunk{"XTRA", 7, {1, 2, 3, 4, 5}});
+                 if (!(e = loads(build_save(s, cs), "unbekannter Abschnitt")).empty()) return e;
+             }
+             for (const char* drop : {"TAET", "AUFG", "PROJ", "KENN", "WARE", "LAGR", "STCK", "RESV", "CHRO", "KAL "}) {
+                 auto cs = raw_chunks(s);
+                 cs.erase(std::remove_if(cs.begin(), cs.end(), [&](const RawChunk& c) { return c.tag == drop; }), cs.end());
+                 if (!(e = loads(build_save(s, cs), drop)).empty()) return e;
+             }
+             {
+                 auto cs = raw_chunks(s);
+                 for (const char* tag : {"FIGS", "TAET", "LAGR"}) {
+                     auto recs = records_of(chunk_of(cs, tag)->data);
+                     if (std::string(tag) == "TAET") {
+                         auto& d = chunk_of(cs, tag)->data;  // TAET: erst die Takt-Grenze (8 Byte), dann die Liste
+                         std::vector<uint8_t> list(d.begin() + 8, d.end());
+                         recs = records_of(list);
+                         for (auto& r : recs) r.insert(r.end(), {9, 9});
+                         auto nd = records_data(recs);
+                         d.resize(8);
+                         d.insert(d.end(), nd.begin(), nd.end());
+                         continue;
+                     }
+                     for (auto& r : recs) r.insert(r.end(), {9, 9, 9});
+                     chunk_of(cs, tag)->data = records_data(recs);
+                 }
+                 if (!(e = loads(build_save(s, cs), "längere Datensätze")).empty()) return e;
+             }
+             Run b(95);
+             const std::vector<uint8_t> old = as_0510(b);
+             if (!(e = loads(old, "Stand 0.5.10")).empty()) return e;
+             Run c(96), d(97);
+             Stage::LoadReport rc;
+             c.stage.load_state(old.data(), old.size(), &rc);
+             d.stage.load_state(old.data(), old.size());
+             if (rc.identity || c.stage.world_id() != d.stage.world_id() || c.stage.line_id() != d.stage.line_id() ||
+                 c.stage.world_id() != pixelia::derive_world_id(c.stage.seed()))
+                 return std::string("Stand 0.5.10: Kennung nicht stabil aus dem Startwert");
+             const std::vector<uint8_t> v059 = read_all("sim/testdata/welt-0.5.9.pxw");
+             if (v059.empty()) return std::string("Vorlage welt-0.5.9.pxw fehlt");
+             return loads(v059, "Stand 0.5.9");
+         }},
+        {"B01 Zufällige Bytefehler mit neu gerechneter Prüfsumme (400 Fälle): nie ein Absturz; abgelehnt = Welt byte-gleich, angenommen = neuer Stand gültig",
+         [] {
+             Run a(98);
+             a.run(300);
+             const std::vector<uint8_t> s = a.save();
+             uint32_t x = 0x9E3779B9u;
+             auto rnd = [&]() { return x = x * 1664525u + 1013904223u; };
+             int accepted = 0, rejected = 0;
+             for (int k = 0; k < 400; ++k) {
+                 std::vector<uint8_t> b = s;
+                 const int flips = 1 + static_cast<int>(rnd() % 3);
+                 for (int f = 0; f < flips; ++f) b[pixelia::kSaveHeader + rnd() % (b.size() - pixelia::kSaveHeader)] ^= static_cast<uint8_t>(1u << (rnd() % 8));
+                 put_u32(b, 4, pixelia::crc32(b.data() + 8, b.size() - 8));
+                 Run c(99);
+                 const std::vector<uint8_t> before = c.save();
+                 if (!c.stage.load_state(b.data(), b.size())) {
+                     ++rejected;
+                     if (c.save() != before) return "Fall " + std::to_string(k) + ": abgelehnt, aber Welt verändert";
+                     continue;
+                 }
+                 ++accepted;
+                 const std::vector<uint8_t> again = c.save();
+                 Stage::LoadReport rep;
+                 if (!Stage::check_state(again.data(), again.size(), &rep))
+                     return "Fall " + std::to_string(k) + ": neuer Stand ungültig (" + rep.why + ")";
+                 c.run(30);  // weiterlaufen ohne Absturz
+             }
+             if (!accepted || !rejected) return "angenommen " + std::to_string(accepted) + ", abgelehnt " + std::to_string(rejected);
+             return std::string();
+         }},
+        {"B01 Zwei Plätze: ist der neueste inhaltlich kaputt, lädt der ältere, neue Zeitlinie; das nächste Speichern überschreibt den kaputten",
+         [] {
+             const fs::path dir = fresh_dir("test-boden-b01-plaetze");
+             const pixelia::SaveSlots slots(dir.string().c_str(), "welt");
+             Run a(101);
+             a.run(200);
+             const std::vector<uint8_t> good = a.save(5);
+             a.run(200);
+             auto cs = raw_chunks(a.save(6));
+             chunk_of(cs, "FIGS")->data.pop_back();  // CRC stimmt, Inhalt nicht
+             const std::vector<uint8_t> bad = build_save(a.save(6), cs);
+             int sa = -1, sb = -1;
+             if (!slots.write(good.data(), good.size(), &sa) || !slots.write(bad.data(), bad.size(), &sb) || sa == sb)
+                 return std::string("Plätze nicht geschrieben");
+             Run b(102);
+             const std::vector<uint8_t> fresh = b.save();
+             const uint32_t line = b.stage.line_id();
+             Stage::LoadReport rep;
+             if (!b.stage.load_slots(slots, &rep)) return std::string("nichts geladen: ") + rep.why;
+             if (rep.slot != sa || !rep.fallback || rep.rejected_gen != 6 || rep.next_generation != 6)
+                 return "Platz " + std::to_string(rep.slot) + ", Rückfall " + std::to_string(rep.fallback);
+             Run ref(103);
+             ref.stage.load_state(good.data(), good.size());
+             if (b.stage.line_id() == ref.stage.line_id() || b.stage.world_id() != ref.stage.world_id())
+                 return std::string("Rückfall ohne neue Zeitlinie");
+             (void)fresh;
+             (void)line;
+             const std::vector<uint8_t> next = b.save(7);
+             int sn = -1;
+             if (!slots.write(next.data(), next.size(), &sn) || sn != sb) return std::string("überschreibt den geladenen Platz");
+             Run c(104);
+             if (!c.stage.load_slots(slots, &rep) || rep.fallback || rep.generation != 7)
+                 return std::string("danach nicht der neue Stand");
+             // beide kaputt: nichts geladen, Welt bleibt
+             std::vector<uint8_t> broken = next;
+             broken[40] ^= 0xFF;
+             const pixelia::SaveSlots two((dir / "zwei").string().c_str(), "welt");
+             fs::create_directories(dir / "zwei");
+             two.write(broken.data(), broken.size());
+             two.write(bad.data(), bad.size());
+             Run d(105);
+             const std::vector<uint8_t> was = d.save();
+             if (d.stage.load_slots(two, &rep) || d.save() != was) return std::string("kaputte Plätze geladen");
+             return std::string();
+         }},
+        {"B09 Sicherung einspielen: neue Zeitlinie im Stand (KENN ersetzt bzw. beim Stand 0.5.9 angehängt), Generation neu, gültig",
+         [] {
+             Run a(111);
+             std::vector<uint8_t> s = a.save(3);
+             const size_t n0 = s.size();
+             s.resize(n0 + 64);
+             Stage::LoadReport rep;
+             size_t n = Stage::prepare_import(s.data(), n0, s.size(), 20, 0xABCD1234u, &rep);
+             if (n != n0) return std::string("mit KENN: Länge ") + std::to_string(n) + " " + rep.why;
+             Run b(112);
+             if (!b.stage.load_state(s.data(), n, &rep) || rep.generation != 20 || b.stage.line_id() != 0xABCD1234u ||
+                 b.stage.world_id() != a.stage.world_id())
+                 return std::string("mit KENN: nicht übernommen");
+             std::vector<uint8_t> old = read_all("sim/testdata/welt-0.5.9.pxw");
+             const size_t o0 = old.size();
+             old.resize(o0 + 64);
+             n = Stage::prepare_import(old.data(), o0, old.size(), 21, 0x5555AAAAu, &rep);
+             if (n != o0 + 18) return std::string("0.5.9: nicht angehängt ") + rep.why;
+             Run c(113);
+             if (!c.stage.load_state(old.data(), n, &rep) || !rep.identity || c.stage.line_id() != 0x5555AAAAu ||
+                 c.stage.world_id() != pixelia::derive_world_id(c.stage.seed()))
+                 return std::string("0.5.9: Kennung falsch");
+             std::vector<uint8_t> old2 = read_all("sim/testdata/welt-0.5.9.pxw");
+             if (Stage::prepare_import(old2.data(), old2.size(), old2.size(), 22, 1, &rep)) return std::string("ohne Platz angehängt");
+             auto cs = raw_chunks(a.save(3));
+             chunk_of(cs, "CHRO")->data.push_back(1);
+             std::vector<uint8_t> bad = build_save(a.save(3), cs);
+             const size_t b0 = bad.size();
+             bad.resize(b0 + 64);
+             if (Stage::prepare_import(bad.data(), b0, bad.size(), 23, 1, &rep)) return std::string("kaputten Stand vorbereitet");
+             return std::string();
+         }},
+        {"B04 Schreibfehler beim Öffnen, mitten in einer Zeile, nach mehreren Zeilen, beim Schließen: nichts geht verloren, nichts doppelt, keine halbe Zeile",
+         [] {
+             const fs::path ref = fresh_dir("test-boden-b04-ref");
+             {
+                 LogBench r;
+                 r.book(1, 40);
+                 r.book(2, 25);
+                 r.log.cut();
+                 if (!r.log.flush(ref.string().c_str())) return std::string("Vergleich nicht geschrieben");
+             }
+             const auto want = csv_files(ref);
+             struct F {
+                 const char* what;
+                 EconomyLog::Fault f;
+             };
+             const F faults[] = {{"Öffnen", {0, -1, -1}},       {"zweite Datei öffnen", {1, -1, -1}},
+                                 {"mitten in der Kopfzeile", {-1, 30, -1}}, {"mitten in einer Zeile", {-1, 900, -1}},
+                                 {"nach mehreren Zeilen", {-1, 2500, -1}},  {"Schließen", {-1, -1, 0}},
+                                 {"drittes Schließen", {-1, -1, 2}}};
+             for (const F& f : faults) {
+                 const fs::path dir = fresh_dir("test-boden-b04");
+                 LogBench b;
+                 b.book(1, 40);
+                 b.book(2, 25);
+                 b.log.cut();
+                 EconomyLog::set_fault(f.f);
+                 const bool ok1 = b.log.flush(dir.string().c_str());
+                 EconomyLog::set_fault({});
+                 const EconomyLog::Stats s1 = b.log.stats();
+                 if (ok1) return std::string(f.what) + ": Fehler nicht gemeldet";
+                 if (!b.log.pending()) return std::string(f.what) + ": Zeilen nicht mehr im Puffer";
+                 // „geschrieben“ zählt nur bestätigte Zeilen: so viele, wie in vollständigen Dateien stehen
+                 uint32_t whole = 0;
+                 for (const auto& [name, bytes] : csv_files(dir)) {
+                     if (want.at(name) != bytes) return std::string(f.what) + ": " + name + " halb geschrieben";
+                     whole += static_cast<uint32_t>(std::count(bytes.begin(), bytes.end(), '\n')) - 2;
+                 }
+                 if (s1.written != whole) return std::string(f.what) + ": geschrieben " + std::to_string(s1.written) + " statt " + std::to_string(whole);
+                 b.book(2, 5, 25);  // weiter gebucht, dann der nächste Stand
+                 b.log.cut();
+                 if (!b.log.flush(dir.string().c_str())) return std::string(f.what) + ": zweites Anhängen";
+                 LogBench r2;
+                 r2.book(1, 40);
+                 r2.book(2, 30);
+                 r2.log.cut();
+                 const fs::path ref2 = fresh_dir("test-boden-b04-ref2");
+                 r2.log.flush(ref2.string().c_str());
+                 if (csv_files(dir) != csv_files(ref2)) return std::string(f.what) + ": Dateien danach nicht wie ohne Fehler";
+             }
+             return std::string();
+         }},
+        {"B04 Journal: Strom weg nach dem Speicherstand (auch mitten im Anhängen) → beim Start genau einmal nachgetragen; vor dem Speicherstand → verworfen",
+         [] {
+             const fs::path ref = fresh_dir("test-boden-b04j-ref");
+             {
+                 LogBench r;
+                 r.book(1, 30);
+                 r.book(2, 20);
+                 r.log.cut();
+                 r.log.flush(ref.string().c_str());
+             }
+             const auto want = csv_files(ref);
+             for (int mode = 0; mode < 3; ++mode) {  // 0 nach dem Stand, 1 mitten im Anhängen, 2 vor dem Stand
+                 const fs::path dir = fresh_dir("test-boden-b04j");
+                 {
+                     LogBench b;
+                     b.log.open(dir.string().c_str(), 7, 8, 0);
+                     b.book(1, 30);
+                     b.book(2, 20);
+                     b.log.cut();
+                     if (!b.log.prepare(dir.string().c_str(), 5)) return std::string("kein Journal");
+                     if (mode == 1) {  // Strom weg mitten im Anhängen: eine Datei halb, eine ganz
+                         const auto half = want.at("t00001-bewegungen.csv");
+                         std::ofstream(dir / "t00001-bewegungen.csv", std::ios::binary)
+                             .write(reinterpret_cast<const char*>(half.data()), static_cast<std::streamsize>(half.size() / 2));
+                         const auto whole = want.at("t00001-bedarf.csv");
+                         std::ofstream(dir / "t00001-bedarf.csv", std::ios::binary)
+                             .write(reinterpret_cast<const char*>(whole.data()), static_cast<std::streamsize>(whole.size()));
+                     }
+                 }  // Strom weg: Puffer verloren
+                 LogBench boot;
+                 boot.log.open(dir.string().c_str(), 7, 8, mode == 2 ? 4 : 5);
+                 const EconomyLog::Stats st = boot.log.stats();
+                 if (fs::exists(dir / "journal.pxj")) return std::string("Journal bleibt liegen");
+                 if (mode == 2) {
+                     if (!csv_files(dir).empty() || st.discarded == 0) return std::string("vor dem Stand: nicht verworfen");
+                     continue;
+                 }
+                 if (csv_files(dir) != want) return "Fall " + std::to_string(mode) + ": nicht genau einmal nachgetragen";
+                 if (!st.recovered) return std::string("nichts als nachgetragen gezählt");
+                 // zweiter Start mit demselben (gelöschten) Journal ändert nichts
+                 LogBench again;
+                 again.log.open(dir.string().c_str(), 7, 8, 5);
+                 if (csv_files(dir) != want) return std::string("zweiter Start verändert");
+             }
+             // Journal einer anderen Zeitlinie: verworfen
+             const fs::path dir = fresh_dir("test-boden-b04j");
+             {
+                 LogBench b;
+                 b.log.open(dir.string().c_str(), 7, 8, 0);
+                 b.book(1, 10);
+                 b.log.cut();
+                 b.log.prepare(dir.string().c_str(), 5);
+             }
+             LogBench other;
+             other.log.open(dir.string().c_str(), 7, 9, 5);
+             if (other.log.stats().discarded == 0 || other.log.stats().archives != 1) return std::string("fremde Zeitlinie nachgetragen");
+             return std::string();
+         }},
+        {"B08 Ein Tag über 256 KB: weitere Zeilen gezählt statt geschrieben, Vermerk im Tag; insgesamt nie über 1 MB, auch mitten im Anhängen",
+         [] {
+             const fs::path dir = fresh_dir("test-boden-b08");
+             LogBench b(256 * 1024);
+             b.log.open(dir.string().c_str(), 1, 1, 0);
+             uint64_t peak = 0;
+             for (int round = 0; round < 6; ++round) {
+                 b.book(3, 2000, round * 2000);
+                 b.log.cut();
+                 b.log.flush(dir.string().c_str());
+                 peak = std::max<uint64_t>(peak, dir_bytes(dir));
+             }
+             const EconomyLog::Stats s = b.log.stats();
+             uint64_t day3 = 0;
+             for (const char* t : {"bewegungen", "projekte", "bedarf"}) {
+                 std::error_code ec;
+                 const auto sz = fs::file_size(dir / ("t00003-" + std::string(t) + ".csv"), ec);
+                 if (!ec) day3 += sz;
+             }
+             if (!s.dropped || day3 > EconomyLog::kMaxDayBytes || !fs::exists(dir / "t00003-verluste.csv"))
+                 return "Tag 3: " + std::to_string(day3) + " Byte, verworfen " + std::to_string(s.dropped);
+             // viele Tage: die ältesten gehen, die Grenze hält jederzeit
+             for (int day = 4; day < 40; ++day) {
+                 b.book(day, 1200);
+                 b.log.cut();
+                 if (!b.log.flush(dir.string().c_str())) return "Tag " + std::to_string(day) + ": Anhängen";
+                 peak = std::max<uint64_t>(peak, dir_bytes(dir));
+             }
+             if (peak > EconomyLog::kMaxBytes) return "über 1 MB: " + std::to_string(peak);
+             if (b.log.stats().first_day <= 3) return std::string("älteste Tage nicht gelöscht");
+             // Gegenprobe der Prüfung: ein fremder Tag knapp über 1 MB liegt schon im Ordner
+             const fs::path q = fresh_dir("test-boden-b08q");
+             {
+                 std::ofstream big(q / "t00001-bewegungen.csv", std::ios::binary);
+                 std::string x(EconomyLog::kMaxBytes + 1, 'x');
+                 big << x;
+             }
+             LogBench c;
+             c.book(2, 5);
+             c.log.cut();
+             c.log.flush(q.string().c_str());
+             if (dir_bytes(q) > EconomyLog::kMaxBytes) return "Gegenprobe: " + std::to_string(dir_bytes(q));
+             return std::string();
+         }},
+        {"B09 Zeitlinien: anderer Stand → alter Ordner nach wirtschaft-alt/1, neue Marke; alte Zeitlinien zählen zur Grenze und gehen zuerst",
+         [] {
+             const fs::path dir = fresh_dir("test-boden-b09");
+             {
+                 LogBench a(256 * 1024);
+                 a.log.open(dir.string().c_str(), 1, 10, 0);
+                 for (int day = 1; day < 25; ++day) {
+                     a.book(day, 1000);
+                     a.log.cut();
+                     a.log.flush(dir.string().c_str());
+                 }
+             }
+             const uint64_t old_bytes = dir_bytes(dir);
+             LogBench same;
+             same.log.open(dir.string().c_str(), 1, 10, 0);
+             if (same.log.stats().archives != 0) return std::string("gleiche Zeitlinie archiviert");
+             LogBench b(256 * 1024);
+             b.log.open(dir.string().c_str(), 1, 11, 0);
+             if (b.log.stats().archives != 1 || !fs::exists(dir.string() + "-alt/1/zeitlinie.txt") ||
+                 !csv_files(dir).empty())
+                 return std::string("nicht archiviert");
+             if (b.log.stats().archive_bytes < old_bytes - 100) return std::string("Archiv nicht gezählt");
+             std::ifstream m(dir / "zeitlinie.txt");
+             std::string mark;
+             std::getline(m, mark);
+             if (mark.find("linie=0000000b") == std::string::npos) return "Marke: " + mark;
+             uint64_t peak = 0;
+             for (int day = 1; day < 15; ++day) {
+                 b.book(day, 1000);
+                 b.log.cut();
+                 b.log.flush(dir.string().c_str());
+                 peak = std::max<uint64_t>(peak, dir_bytes(dir) + dir_bytes(dir.string() + "-alt"));
+             }
+             if (peak > EconomyLog::kMaxBytes) return "zusammen über 1 MB: " + std::to_string(peak);
+             if (b.log.stats().first_day != 1) return std::string("neue Zeitlinie verlor Tage, bevor das Archiv weg war");
+             if (b.log.stats().archive_bytes >= old_bytes) return std::string("Archiv nicht zuerst gelöscht");
+             return std::string();
+         }},
+        {"Tagesaufnahme: Bestand am Vortag + Buchungen = Bestand am Tagesende, im Zeitraffer über 3 Mitternächte (Buchungen im Schritt nach 0 Uhr)",
+         [] {
+             const fs::path dir = fresh_dir("test-boden-tag");
+             Run a(121, "testort-platz", 20, 0, 600.0);
+             EconomyLog log;
+             if (!log.attach(a.env(), 256 * 1024, "simulator")) return std::string("Puffer");
+             for (int i = 0; i < 3 * 4320 + 500; ++i) {
+                 a.run(1);
+                 log.step(a.stage);
+             }
+             log.cut();
+             log.flush(dir.string().c_str());
+             int checked = 0;
+             const std::string e = balance(dir, &checked);
+             if (!e.empty()) return e;
+             if (checked < 20) return "nur " + std::to_string(checked) + " Posten";
+             if (log.stats().late) return "Buchungen für einen schon aufgenommenen Tag: " + std::to_string(log.stats().late);
+             return std::string();
+         }},
+        {"B02 Grafik-Paket: Versatz nahe 2³², riesige Länge, Größe hinter dem Ende, Bild 65535³: abgelehnt ohne Zugriff außerhalb",
+         [] {
+             const std::vector<uint8_t> payload(16, 7);
+             const struct {
+                 const char* what;
+                 std::vector<uint8_t> pack;
+             } bad[] = {
+                 {"Versatz 0xFFFFFFF0 + 32", pack_bytes(16, 0xFFFFFFF0u, 32, 32, payload)},
+                 {"Länge 0xFFFFFFFF", pack_bytes(16, 0, 0xFFFFFFFFu, 16, payload)},
+                 {"Datenlänge falsch", pack_bytes(0xFFFFFFF0u, 0, 16, 16, payload)},
+                 {"Ausgabe größer als angegeben", pack_bytes(16, 0, 16, 32, payload)},
+             };
+             for (const auto& b : bad) {
+                 MemSource src;
+                 src.data = b.pack;
+                 pixelia::AssetStore store;
+                 store.set_sources(&src, nullptr);
+                 store.want("b02", true);
+                 if (store.loaded("b02")) return std::string(b.what) + ": geladen";
+             }
+             // gültiges Paket mit einem Bild, dessen Kopf 65535 × 65535 × 65535 verspricht
+             std::vector<uint8_t> img(16, 0);
+             img[0] = img[1] = img[2] = img[3] = img[4] = img[5] = 0xFF;
+             img[6] = 1;
+             MemSource src;
+             src.data = pack_bytes(16, 0, 16, 16, img, static_cast<uint8_t>(pixelia::AssetType::Image));
+             pixelia::AssetStore store;
+             store.set_sources(&src, nullptr);
+             store.want("b02", true);
+             if (!store.loaded("b02")) return std::string("gültiges Paket nicht geladen");
+             pixelia::ImageAsset out;
+             if (store.image(pixelia::asset_id("b02"), &out)) return std::string("riesiges Bild angenommen");
              return std::string();
          }},
     };

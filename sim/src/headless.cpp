@@ -507,6 +507,7 @@ int run_headless(const Options& opt) {
     if (!opt.econ_dir.empty() && econ.attach(stage.environment(), 256 * 1024, "simulator")) {
         g_econ = &econ;
         g_econ_dir = opt.econ_dir;
+        econ.open(opt.econ_dir.c_str(), stage.world_id(), stage.line_id(), 0);  // seit 0.5.11: Zeitlinie des Ordners
     }
     // Ein Schritt ohne Weltzeit bringt die Szenen auf die Startzeit (Palette, Licht), ohne die Uhr zu verstellen
     clock.advance(0);

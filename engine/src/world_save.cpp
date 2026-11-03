@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "pixelia/engine/place.h"
+#include "pixelia/engine/png.h"
 #include "pixelia/engine/save.h"
 #include "pixelia/engine/stage.h"
 #include "pixelia/engine/tiles.h"
@@ -46,7 +47,305 @@ constexpr char kWorld[] = "WELT", kCal[] = "KAL ", kPlaces[] = "ORTE", kStates[]
                // seit 0.5.10: Warenbuch (Waren mit Zählern, Bestände, Einzelstücke, Reservierungen)
                kGoods[] = "WARE", kStock[] = "LAGR", kItems[] = "STCK", kReserve[] = "RESV",
                kTasks[] = "AUFG",  // seit 0.5.10 Teil 2: Aufgabenliste der Gemeinschaft
-               kProjects[] = "PROJ";  // seit 0.5.10 Teil 3: Projekte mit Teilaufgaben
+               kProjects[] = "PROJ",  // seit 0.5.10 Teil 3: Projekte mit Teilaufgaben
+               kIdent[] = "KENN";     // seit 0.5.11 (B09): Kennung der Welt und der Zeitlinie
+
+// Ein Figuren-Datensatz (FIGS), gemeinsam für Prüfen und Übernehmen (seit 0.5.11, B01): place bildet die Nummer
+// eines Ortes im Stand auf die Welt ab
+template <class Place>
+void read_figure(SaveReader& r, FigureRecord& f, Place place) {
+    f.id = r.u16();
+    f.flags = r.u8();
+    f.age = r.u8();
+    r.str(f.name.data(), f.name.size());
+    r.str(f.role.data(), f.role.size());
+    r.str(f.origin.data(), f.origin.size());
+    r.str(f.goal.data(), f.goal.size());
+    r.str(f.home.data(), f.home.size());
+    f.chrono = static_cast<Chronotype>(std::min<int>(r.u8(), 2));
+    const int traits = r.u8();
+    for (int t = 0; t < traits; ++t) {
+        char tmp[16];
+        r.str(tmp, sizeof(tmp));
+        if (t < FigureRecord::kTraits) set_text(f.traits[t], tmp);
+    }
+    const int interests = r.u8();
+    for (int t = 0; t < interests; ++t) {
+        char tmp[16];
+        r.str(tmp, sizeof(tmp));
+        const uint8_t wgt = r.u8();
+        if (t >= FigureRecord::kInterests) continue;
+        set_text(f.interests[t].key, tmp);
+        f.interests[t].weight = wgt;
+    }
+    const int layers = r.u8();
+    for (int l = 0; l < layers; ++l) {
+        const uint8_t part = r.u8(), row = r.u8();
+        if (l >= kLookLayers) continue;
+        f.look.part[l] = part;
+        f.look.row[l] = row;
+    }
+    f.where.kind = static_cast<Whereabouts::Kind>(std::min<int>(r.u8(), 2));
+    f.where.place = place(r.u8());
+    f.where.from = place(r.u8());
+    f.where.entry = r.u8();
+    f.where.from_exit = r.u8();
+    f.where.transition = r.u8();
+    f.where.depart_us = r.i64();
+    f.where.arrive_us = r.i64();
+    const int skills = r.u8();
+    for (int s = 0; s < skills; ++s) {
+        const std::string_view id = r.view();
+        const uint8_t level = r.u8();
+        const uint16_t xp = r.u16();
+        Skill sk;
+        if (!parse_skill(id, &sk)) continue;
+        f.skills[static_cast<int>(sk)].level = static_cast<SkillLevel>(std::min<int>(level, 3));
+        f.skills[static_cast<int>(sk)].xp = xp;
+    }
+    const int rels = r.u8();
+    for (int x = 0; x < rels; ++x) {
+        Relation rel;
+        rel.other = r.u16();
+        rel.bond = static_cast<Bond>(std::min<int>(r.u8(), 3));
+        rel.flags = r.u8();
+        rel.points = r.u16();
+        if (x < FigureRecord::kRelations) f.relations[x] = rel;
+    }
+    const int mems = r.u8();
+    for (int x = 0; x < mems; ++x) {
+        Memory mem;
+        mem.kind = static_cast<MemoryKind>(r.u8());
+        mem.weight = r.u8();
+        mem.arg = r.u8();
+        mem.b = r.u8();
+        mem.who = r.u16();
+        mem.place = place(r.u8());
+        mem.day = r.i32();
+        mem.minute = r.u16();
+        mem.item = r.u16();
+        if (mem.kind >= MemoryKind::kCount) mem.kind = MemoryKind::Event;
+        // vor 0.5.11 war Gezeigtes ein „erstes Mal“ mit Lehrer (B18)
+        if (mem.kind == MemoryKind::First && mem.who) mem.kind = MemoryKind::Taught;
+        if (x < FigureRecord::kMemories) f.memories[x] = mem;
+    }
+    const int owns = r.u8();
+    for (int x = 0; x < owns; ++x) {
+        char tmp[16];
+        r.str(tmp, sizeof(tmp));
+        const uint8_t count = r.u8(), state = r.u8();
+        if (x >= FigureRecord::kPossessions) continue;
+        set_text(f.owns[x].key, tmp);
+        f.owns[x].count = count;
+        f.owns[x].state = state;
+    }
+    if (r.left()) {  // Statur (seit Teil 5); fehlt sie, bleibt die Standard-Statur
+        const int n = r.u8();
+        uint8_t b[4] = {};
+        for (int x = 0; x < n; ++x) {
+            const uint8_t v = r.u8();
+            if (x < 4) b[x] = v;
+        }
+        f.look.build = clamp_stature(Stature{static_cast<int8_t>(b[0]), static_cast<int8_t>(b[1]), b[2], b[3]});
+    }
+    if (r.left()) {  // Erstmalig-Merker (seit 0.5.11)
+        const int n = r.u8();
+        for (int x = 0; x < n && r.ok(); ++x) {
+            const std::string_view id = r.view();
+            const uint8_t bits = r.u8();
+            Skill sk;
+            if (!parse_skill(id, &sk)) continue;
+            if (bits & 1) f.first_ok |= 1u << static_cast<int>(sk);
+            if (bits & 2) f.first_fail |= 1u << static_cast<int>(sk);
+        }
+    } else {
+        // älterer Stand: aus den Erinnerungen ableiten (eigenes erstes Gelingen, erster Fehlversuch)
+        for (const Memory& m : f.memories) {
+            if (m.arg >= kSkills) continue;
+            if (m.kind == MemoryKind::First && !m.who) f.first_ok |= 1u << m.arg;
+            if (m.kind == MemoryKind::Failure) f.first_fail |= 1u << m.arg;
+        }
+    }
+}
+
+// --- Prüfen ohne Wirkung (seit 0.5.11, B01: Phase A von load_state) ---
+// Abgelehnt wird, was der Schreiber nie erzeugt: abgeschnittene Abschnitte und Datensätze, Reste hinter dem letzten
+// Abschnitt oder hinter den Daten eines Abschnitts, ein bekannter Abschnitt doppelt oder in einer unbekannten Version,
+// Figuren mit Kennung 0, doppelt oder mehr als Platz. Erlaubt bleibt, was nur alt oder neuer ist: fehlende Abschnitte
+// (ältere Stände), unbekannte Abschnitte (neuere Firmware), längere Datensätze (neue Felder hinten), Bezüge auf Orte,
+// Waren und Lager, die es nicht mehr gibt (das Übernehmen behandelt sie wie bisher). Liest nur die Daten und feste
+// Tabellen, nie den Weltzustand.
+constexpr const char* kKnownChunks[] = {kWorld,  kCal,   kPlaces, kStates, kFlags,   kFigs,  kChron,    kVisits,
+                                        kDoings, kGoods, kStock,  kItems,  kReserve, kTasks, kProjects, kIdent};
+constexpr int kKnownCount = sizeof(kKnownChunks) / sizeof(kKnownChunks[0]);
+
+// n Datensätze mit Länge, je Datensatz die bekannten Felder (body liest sie); false = abgeschnitten
+template <class Body>
+bool check_records(SaveReader& d, int n, Body body) {
+    for (int k = 0; k < n; ++k) {
+        SaveReader x = d.record();
+        if (!d.ok()) return false;
+        body(x);
+        if (!x.ok()) return false;
+    }
+    return true;
+}
+
+void skip_hours(SaveReader& x) { x.sub(3u * x.u8()); }
+
+// Daten eines bekannten Abschnitts (Version 1); false = abgeschnitten bzw. Grund in why
+bool check_chunk(const char* tag, SaveReader& d, FigureRecord& scratch, std::vector<uint16_t>& ids, const char** why) {
+    if (tag == kWorld) {
+        d.sub(8 + 8 + 2);
+    } else if (tag == kCal) {
+        d.sub(1 + 2 + 5 * 4);
+    } else if (tag == kPlaces || tag == kFlags) {
+        const int n = tag == kPlaces ? d.u16() : d.u8();
+        for (int i = 0; i < n && d.ok(); ++i) d.view();
+    } else if (tag == kStates) {
+        return check_records(d, d.u16(), [](SaveReader& x) {
+            x.u8();
+            x.view();
+            x.sub(8);
+        });
+    } else if (tag == kFigs) {
+        const int n = d.u16();
+        if (n > FigureBook::kMax) {
+            *why = "mehr Figuren als Platz";
+            return false;
+        }
+        bool ok = true;
+        ids.clear();
+        if (!check_records(d, n, [&](SaveReader& x) {
+                FigureRecord& f = *new (&scratch) FigureRecord();
+                read_figure(x, f, [](uint8_t i) { return i; });
+                if (f.id == 0 || std::find(ids.begin(), ids.end(), f.id) != ids.end()) ok = false;
+                ids.push_back(f.id);
+            }))
+            return false;
+        if (!ok) *why = "Figur doppelt oder ohne Kennung";
+        return ok;
+    } else if (tag == kChron) {
+        d.u32();
+        return check_records(d, d.u16(), [](SaveReader& x) {
+            x.sub(4 + 2 + 4 + 2 + 2);
+            x.view();
+        });
+    } else if (tag == kVisits) {
+        d.sub(11u * d.u16());
+    } else if (tag == kDoings) {
+        d.i64();
+        return check_records(d, d.u16(), [](SaveReader& x) { x.sub(2 + 8 + 2 + 4 + 4 * 8); });
+    } else if (tag == kGoods) {
+        d.sub(8 + 4);
+        if (!check_records(d, d.u16(), [](SaveReader& x) {
+                x.view();
+                x.i64();
+                x.sub(8u * x.u8());
+                x.sub(8 + 8 + 1);
+                skip_hours(x);
+            }))
+            return false;
+        const int m = d.u16();
+        for (int i = 0; i < m && d.ok(); ++i) {
+            d.view();
+            d.u8();
+        }
+    } else if (tag == kStock) {
+        return check_records(d, d.u16(), [](SaveReader& x) {
+            x.view();
+            x.view();
+            x.sub(7);
+            skip_hours(x);
+        });
+    } else if (tag == kItems) {
+        return check_records(d, d.u16(), [](SaveReader& x) {
+            x.u32();
+            x.view();
+            x.view();
+            x.sub(10);
+        });
+    } else if (tag == kReserve) {
+        d.u16();
+        return check_records(d, d.u16(), [](SaveReader& x) {
+            x.sub(4);
+            x.view();
+            x.view();
+            x.u16();
+        });
+    } else if (tag == kTasks) {
+        d.u16();
+        return check_records(d, d.u16(), [](SaveReader& x) {
+            x.sub(5);
+            x.view();
+            x.view();
+            x.view();
+            x.sub(8 + 16);
+        });
+    } else if (tag == kProjects) {
+        d.u16();
+        return check_records(d, d.u16(), [](SaveReader& x) {
+            x.u16();
+            x.view();
+            x.sub(3 + 2 + 4 + 32 + 8);
+            x.sub(8u * x.u8());
+            const int needs = x.u8();
+            for (int i = 0; i < needs && x.ok(); ++i) {
+                x.view();
+                x.sub(4);
+            }
+            const int uniq = x.u8();
+            for (int i = 0; i < uniq && x.ok(); ++i) {
+                x.view();
+                x.u16();
+            }
+        });
+    } else if (tag == kIdent) {
+        d.sub(8);
+    }
+    return d.ok();
+}
+
+bool check_chunks(const uint8_t* data, size_t n, Stage::LoadReport* rep) {
+    auto fail = [&](const char* why, const char* tag) {
+        rep->why = why;
+        std::snprintf(rep->chunk, sizeof(rep->chunk), "%s", tag);
+        return false;
+    };
+    // Große Teile auf dem Heap (Start: Haupt-Task mit 3,5 KB Stack), wie beim Übernehmen
+    auto scratch = std::make_unique<FigureRecord>();
+    std::vector<uint16_t> ids;
+    ids.reserve(FigureBook::kMax);
+    uint32_t seen = 0;
+    SaveChunks c(data, n);
+    char tag[5] = "";
+    uint16_t version = 0;
+    SaveReader d;
+    while (c.next(tag, &version, &d)) {
+        int k = 0;
+        while (k < kKnownCount && std::strcmp(tag, kKnownChunks[k]) != 0) ++k;
+        if (k == kKnownCount) continue;  // neuere Firmware: beim Übernehmen übersprungen
+        if (seen & (1u << k)) return fail("Abschnitt doppelt", tag);
+        seen |= 1u << k;
+        if (version != 1) return fail("Abschnitt in unbekannter Version", tag);
+        const char* why = "Abschnitt abgeschnitten";
+        if (!check_chunk(kKnownChunks[k], d, *scratch, ids, &why)) return fail(why, tag);
+        if (!d.at_end()) return fail("Reste hinter den Daten des Abschnitts", tag);
+    }
+    if (!c.clean()) return fail("Datei endet mitten in einem Abschnitt", tag);
+    if (!(seen & 1u)) return fail("Abschnitt WELT fehlt", kWorld);
+    return true;
+}
+
+uint32_t mix32(uint64_t x) {
+    x ^= x >> 33;
+    x *= 0xFF51AFD7ED558CCDULL;
+    x ^= x >> 33;
+    x *= 0xC4CEB9FE1A85EC53ULL;
+    x ^= x >> 33;
+    const uint32_t v = static_cast<uint32_t>(x);
+    return v ? v : 1;  // 0 heißt „keine“
+}
 
 bool ledger_chunk(const char* tag) {
     return std::strcmp(tag, kGoods) == 0 || std::strcmp(tag, kStock) == 0 || std::strcmp(tag, kItems) == 0 ||
@@ -54,6 +353,9 @@ bool ledger_chunk(const char* tag) {
 }
 
 }  // namespace
+
+uint32_t derive_world_id(uint64_t seed) { return mix32(seed ^ 0x57E17E1DULL); }
+uint32_t derive_line_id(uint64_t seed) { return mix32(seed ^ 0x2E171E00ULL); }
 
 int Stage::scene_of(int place) const {
     if (place < 0) return -1;
@@ -267,6 +569,10 @@ size_t Stage::save_state(uint8_t* buf, size_t cap, uint32_t generation) const {
     w.u64(seed_);
     w.i64(state_minute_);
     w.u16(env_.figures.next_id());
+    // seit 0.5.11 (B09): Kennung der Welt und der Zeitlinie (ältere Leser überspringen den Abschnitt)
+    w.chunk(kIdent, 1);
+    w.u32(world_id_);
+    w.u32(line_id_);
 
     const CalendarState& cs = env_.calendar.state();
     w.chunk(kCal, 1);
@@ -491,6 +797,11 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
     }
     rep.generation = h.generation;
     rep.saved_us = h.world_us;
+    // Phase A (seit 0.5.11, B01): erst den ganzen Stand prüfen, dann übernehmen; abgelehnt bleibt die Welt, wie sie war
+    if (!check_chunks(data, n, &rep)) {
+        if (report) *report = rep;
+        return false;
+    }
 
     // Ortsliste zuerst: Nummer im Speicherstand → Nummer in der Welt (−1 = gibt es nicht mehr). Große Teile auf dem
     // Heap: Geladen wird beim Start im Haupt-Task mit 3,5 KB Stack (ein Figuren-Datensatz allein hat 1,1 KB)
@@ -552,6 +863,14 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
             state_minute_ = d.i64();
             const uint16_t next = d.u16();
             env_.figures.set_next_id(next);
+            if (!rep.identity) {  // Stand vor 0.5.11: Kennung aus dem Startwert, immer dieselbe für denselben Stand
+                world_id_ = derive_world_id(seed);
+                line_id_ = derive_line_id(seed);
+            }
+        } else if (std::strcmp(tag, kIdent) == 0) {
+            world_id_ = d.u32();
+            line_id_ = d.u32();
+            rep.identity = true;
         } else if (std::strcmp(tag, kCal) == 0) {
             CalendarState cs;
             cs.season_len = d.u8();
@@ -602,118 +921,7 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
             for (int k = 0; k < m && d.ok(); ++k) {
                 SaveReader r = d.record();
                 FigureRecord& f = *new (fp.get()) FigureRecord();  // an Ort und Stelle: kein Zwischenstück auf dem Stack
-                f.id = r.u16();
-                f.flags = r.u8();
-                f.age = r.u8();
-                r.str(f.name.data(), f.name.size());
-                r.str(f.role.data(), f.role.size());
-                r.str(f.origin.data(), f.origin.size());
-                r.str(f.goal.data(), f.goal.size());
-                r.str(f.home.data(), f.home.size());
-                f.chrono = static_cast<Chronotype>(std::min<int>(r.u8(), 2));
-                const int traits = r.u8();
-                for (int t = 0; t < traits; ++t) {
-                    char tmp[16];
-                    r.str(tmp, sizeof(tmp));
-                    if (t < FigureRecord::kTraits) set_text(f.traits[t], tmp);
-                }
-                const int interests = r.u8();
-                for (int t = 0; t < interests; ++t) {
-                    char tmp[16];
-                    r.str(tmp, sizeof(tmp));
-                    const uint8_t wgt = r.u8();
-                    if (t >= FigureRecord::kInterests) continue;
-                    set_text(f.interests[t].key, tmp);
-                    f.interests[t].weight = wgt;
-                }
-                const int layers = r.u8();
-                for (int l = 0; l < layers; ++l) {
-                    const uint8_t part = r.u8(), row = r.u8();
-                    if (l >= kLookLayers) continue;
-                    f.look.part[l] = part;
-                    f.look.row[l] = row;
-                }
-                f.where.kind = static_cast<Whereabouts::Kind>(std::min<int>(r.u8(), 2));
-                f.where.place = place(r.u8());
-                f.where.from = place(r.u8());
-                f.where.entry = r.u8();
-                f.where.from_exit = r.u8();
-                f.where.transition = r.u8();
-                f.where.depart_us = r.i64();
-                f.where.arrive_us = r.i64();
-                const int skills = r.u8();
-                for (int s = 0; s < skills; ++s) {
-                    const std::string_view id = r.view();
-                    const uint8_t level = r.u8();
-                    const uint16_t xp = r.u16();
-                    Skill sk;
-                    if (!parse_skill(id, &sk)) continue;
-                    f.skills[static_cast<int>(sk)].level = static_cast<SkillLevel>(std::min<int>(level, 3));
-                    f.skills[static_cast<int>(sk)].xp = xp;
-                }
-                const int rels = r.u8();
-                for (int x = 0; x < rels; ++x) {
-                    Relation rel;
-                    rel.other = r.u16();
-                    rel.bond = static_cast<Bond>(std::min<int>(r.u8(), 3));
-                    rel.flags = r.u8();
-                    rel.points = r.u16();
-                    if (x < FigureRecord::kRelations) f.relations[x] = rel;
-                }
-                const int mems = r.u8();
-                for (int x = 0; x < mems; ++x) {
-                    Memory mem;
-                    mem.kind = static_cast<MemoryKind>(r.u8());
-                    mem.weight = r.u8();
-                    mem.arg = r.u8();
-                    mem.b = r.u8();
-                    mem.who = r.u16();
-                    mem.place = place(r.u8());
-                    mem.day = r.i32();
-                    mem.minute = r.u16();
-                    mem.item = r.u16();
-                    if (mem.kind >= MemoryKind::kCount) mem.kind = MemoryKind::Event;
-                    // vor 0.5.11 war Gezeigtes ein „erstes Mal“ mit Lehrer (B18)
-                    if (mem.kind == MemoryKind::First && mem.who) mem.kind = MemoryKind::Taught;
-                    if (x < FigureRecord::kMemories) f.memories[x] = mem;
-                }
-                const int owns = r.u8();
-                for (int x = 0; x < owns; ++x) {
-                    char tmp[16];
-                    r.str(tmp, sizeof(tmp));
-                    const uint8_t count = r.u8(), state = r.u8();
-                    if (x >= FigureRecord::kPossessions) continue;
-                    set_text(f.owns[x].key, tmp);
-                    f.owns[x].count = count;
-                    f.owns[x].state = state;
-                }
-                if (r.left()) {  // Statur (seit Teil 5); fehlt sie, bleibt die Standard-Statur
-                    const int n = r.u8();
-                    uint8_t b[4] = {};
-                    for (int x = 0; x < n; ++x) {
-                        const uint8_t v = r.u8();
-                        if (x < 4) b[x] = v;
-                    }
-                    f.look.build = clamp_stature(Stature{static_cast<int8_t>(b[0]), static_cast<int8_t>(b[1]), b[2], b[3]});
-                }
-                if (r.left()) {  // Erstmalig-Merker (seit 0.5.11)
-                    const int n = r.u8();
-                    for (int x = 0; x < n && r.ok(); ++x) {
-                        const std::string_view id = r.view();
-                        const uint8_t bits = r.u8();
-                        Skill sk;
-                        if (!parse_skill(id, &sk)) continue;
-                        if (bits & 1) f.first_ok |= 1u << static_cast<int>(sk);
-                        if (bits & 2) f.first_fail |= 1u << static_cast<int>(sk);
-                    }
-                } else {
-                    // älterer Stand: aus den Erinnerungen ableiten (eigenes erstes Gelingen, erster Fehlversuch)
-                    for (const Memory& m : f.memories) {
-                        if (m.arg >= kSkills) continue;
-                        if (m.kind == MemoryKind::First && !m.who) f.first_ok |= 1u << m.arg;
-                        if (m.kind == MemoryKind::Failure) f.first_fail |= 1u << m.arg;
-                    }
-                }
+                read_figure(r, f, place);
                 if (f.id == 0) continue;
                 // nie eine Figur verlieren: Ort unbekannt → in den ersten Ort der Welt
                 if (f.where.kind == Whereabouts::Kind::Nowhere || f.where.place == 0xFF ||
@@ -853,6 +1061,111 @@ bool Stage::load_state(const uint8_t* data, size_t n, LoadReport* report) {
     rep.ok = true;
     if (report) *report = rep;
     return true;
+}
+
+bool Stage::check_state(const uint8_t* data, size_t n, LoadReport* report) {
+    LoadReport rep;
+    SaveHeader h;
+    const bool ok = save_check(data, n, &h, &rep.why) && check_chunks(data, n, &rep);
+    rep.generation = h.generation;
+    rep.saved_us = h.world_us;
+    rep.ok = ok;
+    if (report) *report = rep;
+    return ok;
+}
+
+bool Stage::load_slots(const SaveSlots& slots, LoadReport* report) {
+    std::vector<uint8_t> d[2];
+    SaveHeader h[2];
+    const bool v[2] = {slots.read(0, &d[0], &h[0]), slots.read(1, &d[1], &h[1])};
+    LoadReport rep;
+    if (!v[0] && !v[1]) {
+        rep.why = "kein gültiger Speicherstand";
+        if (report) *report = rep;
+        return false;
+    }
+    // neuester zuerst (wie SaveSlots::load: bei gleicher Generation Platz a)
+    const int first = !v[0] ? 1 : !v[1] ? 0 : h[1].generation > h[0].generation ? 1 : 0;
+    const uint32_t top = std::max(v[0] ? h[0].generation : 0u, v[1] ? h[1].generation : 0u);
+    LoadReport rejected;
+    for (int pass = 0; pass < 2; ++pass) {
+        const int s = pass ? 1 - first : first;
+        if (!v[s]) continue;
+        if (!load_state(d[s].data(), d[s].size(), &rep)) {
+            if (pass == 0) rejected = rep;
+            continue;
+        }
+        rep.slot = s;
+        rep.next_generation = top;
+        slots.set_newest(s);
+        if (pass == 1) {
+            // der neuere stand vielleicht schon im Protokoll: ab hier eine neue Zeitlinie (B09), das nächste Speichern
+            // überschreibt den abgelehnten Platz
+            rep.fallback = true;
+            rep.rejected_gen = h[first].generation;
+            rep.why = rejected.why;
+            std::snprintf(rep.chunk, sizeof(rep.chunk), "%s", rejected.chunk);
+            line_id_ = mix32((static_cast<uint64_t>(line_id_) << 32) ^ h[first].generation ^ 0xFA11BACCULL);
+        }
+        if (report) *report = rep;
+        return true;
+    }
+    rep = rejected;
+    rep.ok = false;
+    if (report) *report = rep;
+    return false;
+}
+
+size_t Stage::prepare_import(uint8_t* data, size_t n, size_t cap, uint32_t generation, uint32_t line,
+                             LoadReport* report) {
+    LoadReport rep;
+    if (!check_state(data, n, &rep)) {
+        if (report) *report = rep;
+        return 0;
+    }
+    // Abschnitt KENN suchen: vorhanden → Zeitlinie an Ort und Stelle ersetzen, sonst (Stand vor 0.5.11) anhängen, mit
+    // der Kennung der Welt, die das Laden aus dem Startwert ableiten würde
+    uint64_t seed = 0;
+    uint8_t* line_at = nullptr;
+    for (size_t at = kSaveHeader; at + 10 <= n;) {  // Aufbau ist geprüft
+        SaveReader head(data + at, 10);
+        char tag[5] = {static_cast<char>(head.u8()), static_cast<char>(head.u8()), static_cast<char>(head.u8()),
+                       static_cast<char>(head.u8()), 0};
+        head.u16();
+        const uint32_t len = head.u32();
+        if (std::strcmp(tag, kWorld) == 0 && len >= 8) seed = SaveReader(data + at + 10, 8).u64();
+        if (std::strcmp(tag, kIdent) == 0 && len >= 8) line_at = data + at + 14;
+        at += 10 + static_cast<size_t>(len);
+    }
+    auto put32 = [](uint8_t* p, uint32_t v) {
+        for (int k = 0; k < 4; ++k) p[k] = static_cast<uint8_t>(v >> (8 * k));
+    };
+    if (line_at) {
+        put32(line_at, line);
+    } else {
+        if (n + 18 > cap) {
+            rep.why = "kein Platz für die Kennung";
+            if (report) *report = rep;
+            return 0;
+        }
+        uint8_t* p = data + n;
+        std::memcpy(p, kIdent, 4);
+        p[4] = 1;
+        p[5] = 0;
+        put32(p + 6, 8);
+        put32(p + 10, derive_world_id(seed));
+        put32(p + 14, line);
+        n += 18;
+        put32(data + 24, static_cast<uint32_t>(n));
+    }
+    put32(data + 12, generation);  // Generation und Prüfsumme neu (der Inhalt hat sich schon geändert)
+    put32(data + 4, crc32(data + 8, n - 8));
+    if (!check_state(data, n, &rep)) {
+        if (report) *report = rep;
+        return 0;
+    }
+    if (report) *report = rep;
+    return n;
 }
 
 }  // namespace pixelia
