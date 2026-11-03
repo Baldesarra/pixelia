@@ -2,7 +2,7 @@
   // Speicherstand und Chronik (seit 0.5.9, Seite Welt): wann zuletzt gespeichert, „Jetzt speichern“ und was in der
   // Welt passiert ist (neueste zuerst, nach Welttag). Stand aus /api/world?mehr=1 alle 30 s.
   import { onDestroy } from 'svelte';
-  import { Button, Card, Icon, type IconName } from './m3';
+  import { Button, Card, confirmDialog, Icon, type IconName } from './m3';
   import { post } from './api';
   import { agoText, loadWorld, minutesText, type ChronicleRow, type WorldState } from './world';
   import { num } from './format';
@@ -23,8 +23,39 @@
     setTimeout(() => void load().finally(() => (saving = false)), 1500);
   }
 
+  // Gesperrt (seit 0.5.11, Wahl des Users: Banner, ein Knopf): Datenbereich nicht lesbar (B03) bzw. Stände da, aber
+  // nicht ladbar. Die Welt läuft ohne Speichern; „Neu anlegen“ löscht alle Weltstände und das Protokoll, „Neu
+  // beginnen“ überschreibt die alten Stände (Rückfrage, PIN über api.ts)
+  async function unblock() {
+    const disk = s?.block === 'datenbereich';
+    const ok = await confirmDialog(
+      disk
+        ? {
+            title: 'Datenbereich neu anlegen?',
+            text: 'Alle Weltstände und das Protokoll werden gelöscht. Die laufende Welt wird danach wieder gesichert. Wirklich?',
+            ok: 'Neu anlegen',
+            icon: 'delete_forever',
+            danger: true,
+          }
+        : {
+            title: 'Neu beginnen?',
+            text: 'Die alten Weltstände werden beim nächsten Speichern überschrieben, ihr Protokoll wandert ins Archiv. Die laufende Welt wird danach gesichert. Wirklich?',
+            ok: 'Neu beginnen',
+            icon: 'delete_forever',
+            danger: true,
+          },
+    );
+    if (!ok) return;
+    saving = true;
+    msg = null;
+    const r = await post('/api/world', { a: disk ? 'datenbereich' : 'neu', confirm: 1 }).catch(() => null);
+    msg = { ok: !!r?.ok, text: r?.msg ?? 'Keine Antwort vom Gerät' };
+    setTimeout(() => void load().finally(() => (saving = false)), 1500);
+  }
+
   const s = $derived(w?.save);
-  const blocked = $derived(!!s && (s.test || s.waiting));
+  const lock = $derived(s?.block ?? '');
+  const blocked = $derived(!!s && (s.test || s.waiting || !!lock));
   const status = $derived(
     !s ? '' : s.error ? s.error : s.waiting ? 'Wartet auf die Uhrzeit' : s.test ? 'Testuhr: es wird nicht gespeichert' : s.ago < 0 ? (s.loaded ? 'Beim Start geladen' : 'Noch nicht gespeichert') : `Gespeichert ${agoText(s.ago)}`,
   );
@@ -52,6 +83,33 @@
   <h2 class="card-title"><Icon name="save" size={20} />Speicherstand</h2>
   {#if !s}
     <p class="muted">Lade …</p>
+  {:else if lock}
+    <!-- Gesperrt: Banner statt Kopfzeile, ein Knopf über die ganze Breite (Wahl des Users 2026-11-03) -->
+    <div class="banner err">
+      <Icon name="warning" size={28} />
+      <div>
+        <span class="label">Wird nicht gesichert</span>
+        <span class="big">{lock === 'datenbereich' ? 'Datenbereich nicht lesbar' : 'Speicherstand nicht ladbar'}</span>
+        <span class="meta">
+          {lock === 'datenbereich'
+            ? 'Die Welt läuft weiter. Ein Neustart versucht es erneut.'
+            : 'Die Welt hat neu begonnen. Die alten Stände bleiben, bis du neu beginnst.'}
+        </span>
+        {#if lock === 'stand' && s.why}<span class="meta">Grund: {s.why}</span>{/if}
+        {#if s.probe}<span class="meta">Prüfmodus: nur vorgetäuscht, es wird nichts gelöscht.</span>{/if}
+      </div>
+    </div>
+    <div class="full">
+      <Button variant="outlined" class="danger" icon="delete_forever" disabled={saving} onclick={unblock}>
+        {lock === 'datenbereich' ? 'Datenbereich neu anlegen …' : 'Neu beginnen …'}
+      </Button>
+    </div>
+    <p class="muted small">
+      {lock === 'datenbereich'
+        ? 'Löscht alle Weltstände und das Protokoll.'
+        : 'Überschreibt die alten Stände. Lieber zurück? Eine ältere Version installieren oder unter Sicherung einen Stand einspielen.'}
+    </p>
+    {#if msg}<p class={msg.ok ? 'ok-text' : 'err-text'}>{msg.text}</p>{/if}
   {:else}
     <div class="hero">
       <span class="badge" class:warn={blocked || !!s.error}><Icon name={blocked || s.error ? 'warning' : 'save'} size={26} /></span>
@@ -131,6 +189,45 @@
   .badge.warn {
     background: var(--md-sys-color-error-container);
     color: var(--md-sys-color-on-error-container);
+  }
+  /* Datenbereich nicht lesbar (seit 0.5.11): Banner wie auf der Update-Seite, Knöpfe über die ganze Breite */
+  .banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin: 0 0 12px;
+    padding: 16px;
+    border-radius: var(--md-sys-shape-corner-large-increased);
+  }
+  .banner > div {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+  .banner .label {
+    font: var(--md-sys-typescale-label-large);
+    font-weight: 750;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .banner .big {
+    font: var(--md-sys-typescale-title-large);
+    font-weight: 750;
+  }
+  .banner .meta {
+    font: var(--md-sys-typescale-body-medium);
+    opacity: 0.85;
+  }
+  .banner.err {
+    background: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
+  }
+  .full {
+    display: grid;
+    margin-top: 12px;
+  }
+  .small {
+    font: var(--md-sys-typescale-body-small);
   }
   /* Zeitleiste (Wahl des Users 2026-10-28): Tag als farbiger Chip, Einträge mit Punkt an einer Linie */
   .timeline {

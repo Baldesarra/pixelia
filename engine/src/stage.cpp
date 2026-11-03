@@ -817,6 +817,16 @@ void Stage::update_world(const WorldClock& clock) {
         std::snprintf(c.text, sizeof(c.text), "Speicherstand aus einer Sicherung eingespielt");
         env_.chronicle.add(c);
     }
+    if (fallback_pending_) {
+        // seit 0.5.11 (B01, Wahl des Users): der neueste Stand war kaputt, der vorige wurde geladen
+        fallback_pending_ = false;
+        ChronicleEntry c;
+        c.kind = ChronicleKind::Restored;
+        c.day = static_cast<int32_t>(cal.date().day);
+        c.minute = static_cast<uint16_t>(minute);
+        std::snprintf(c.text, sizeof(c.text), "Vorigen Speicherstand geladen (neuester beschädigt)");
+        env_.chronicle.add(c);
+    }
     const int64_t key = weather_slot_key(day, minute);
     if (override_key_ == kPendingOverride) override_key_ = key;  // vor dem ersten Schritt übersteuert
     if (override_key_ != kNoOverride && key != override_key_) {

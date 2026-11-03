@@ -411,13 +411,29 @@ std::string world_json() {
     j.boolean("loaded", s.loaded).num("packUs", static_cast<int64_t>(s.pack_us)).num("writeMs", static_cast<int64_t>(s.write_ms));
     j.num("figures", s.figures).num("transit", s.transit).num("chronicle", s.chronicle);
     j.num("caughtUp", s.caught_up).num("skipped", s.skipped).boolean("test", s.test).boolean("waiting", s.waiting);
-    j.str("error", s.error).end_obj();
+    j.str("error", s.error);
+    // seit 0.5.11 (B01, B03, B09): Sperre, Rückfall, Kennung, Laden beim Start mit Tiefstwerten und Stack
+    char ids[2][12];
+    std::snprintf(ids[0], sizeof(ids[0]), "%08lx", static_cast<unsigned long>(s.world_id));
+    std::snprintf(ids[1], sizeof(ids[1]), "%08lx", static_cast<unsigned long>(s.line_id));
+    j.num("block", s.block).num("storage", static_cast<int>(assets::storage()));
+    j.boolean("probe", assets::storage_test() || gfx::save_probe());
+    j.boolean("fallback", s.fallback).num("rejectedGen", static_cast<int64_t>(s.rejected_gen)).str("why", s.load_why);
+    j.str("welt", ids[0]).str("linie", ids[1]).num("loadMs", static_cast<int64_t>(s.load_ms));
+    j.num("loadRamKb", static_cast<int64_t>(s.load_ram_kb)).num("loadPsramKb", static_cast<int64_t>(s.load_psram_kb));
+    j.num("loadStack", static_cast<int64_t>(s.load_stack)).num("journalMs", static_cast<int64_t>(s.journal_ms));
+    j.end_obj();
     // Wirtschafts-Protokoll (seit 0.5.10 Teil 4): Zeilen, Dateien und Dauer des Anhängens beim Speichern
     j.obj("wirtschaft").num("rows", static_cast<int64_t>(s.econ_rows)).num("written", static_cast<int64_t>(s.econ_written));
     j.num("lost", static_cast<int64_t>(s.econ_lost)).num("files", static_cast<int64_t>(s.econ_files));
     j.num("bytes", static_cast<int64_t>(s.econ_bytes)).num("flushMs", static_cast<int64_t>(s.econ_flush_ms));
     j.num("deleted", static_cast<int64_t>(s.econ_deleted)).num("firstDay", s.econ_first).num("lastDay", s.econ_last);
-    j.boolean("error", s.econ_error).end_obj();
+    j.boolean("error", s.econ_error);
+    j.num("dropped", static_cast<int64_t>(s.econ_dropped)).num("late", static_cast<int64_t>(s.econ_late));
+    j.num("recovered", static_cast<int64_t>(s.econ_recovered)).num("discarded", static_cast<int64_t>(s.econ_discarded));
+    j.num("archives", static_cast<int64_t>(s.econ_archives)).num("archiveBytes", static_cast<int64_t>(s.econ_archive_bytes));
+    j.num("journalBytes", static_cast<int64_t>(s.econ_journal)).boolean("full", s.econ_full);
+    j.boolean("cleanupError", s.econ_cleanup_error).end_obj();
     // seit 0.5.11 (P-F): Zähler je Grund, warum kein Nachschub kommt; Bestandstabelle; Ereignis-Bus
     j.obj("nachschub");
     for (int k = 1; k < pixelia::kSupplyWaits; ++k)

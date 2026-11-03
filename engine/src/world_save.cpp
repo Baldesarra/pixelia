@@ -1106,6 +1106,7 @@ bool Stage::load_slots(const SaveSlots& slots, LoadReport* report) {
             rep.why = rejected.why;
             std::snprintf(rep.chunk, sizeof(rep.chunk), "%s", rejected.chunk);
             line_id_ = mix32((static_cast<uint64_t>(line_id_) << 32) ^ h[first].generation ^ 0xFA11BACCULL);
+            fallback_pending_ = true;  // Chronik, sobald die Weltzeit läuft (Wahl des Users 2026-11-03)
         }
         if (report) *report = rep;
         return true;

@@ -8,28 +8,29 @@
       "s": "Fester Boden: die Welt rechnet genauer und sicherer",
       "n": [
         "Nachschub: Hat ein Vorrat keine feste Quelle, sucht Pixelia selbst das nächste Lager mit genug Vorrat, für Aufgaben wie für Projekte",
-        "Prüfbefehl: „lager“ zeigt, warum ein Lager gerade keinen Nachschub bekommt, zum Beispiel weil die Quelle leer ist"
+        "Prüfbefehl: „lager“ zeigt, warum ein Lager gerade keinen Nachschub bekommt, zum Beispiel weil die Quelle leer ist",
+        "Speicher: Pixelia löscht oder überschreibt Weltstände nie still. Ist der Speicher nicht lesbar oder kein Stand ladbar, sagen es Display und Web, ein Knopf hilft weiter"
       ],
       "f": [
         "Meldungen: Bei sehr vielen gleichzeitigen Ereignissen geht keine Nachricht mehr durcheinander, und die Chronik verpasst im Zeitraffer nichts",
         "Vorräte: Reservierte Ware bleibt sicher beim richtigen Vorhaben, auch nach sehr langer Laufzeit; leere Plätze im Warenbuch werden wieder frei",
         "Werkzeug: Scheitert das Tragen eines Werkzeugs, bleibt alles, wie es war, auch die Reservierung",
         "Laden: Ware aus Lagern, die es nicht mehr gibt, kommt ohne Rechenfehler in die Vorratskiste, soweit Platz ist; der eigene Bestand geht vor",
-        "Protokoll: Lager mit sehr vielen Waren stehen vollständig im Tagesprotokoll",
         "Reisen: Brechen viele Figuren gleichzeitig auf, kommt trotzdem niemand vor der Zeit an",
         "Wege: Ist der kürzeste Weg gesperrt, nehmen Figuren einen offenen Umweg; gibt es keinen, warten sie, und ihre Karte sagt, warum",
         "Projekte: Ein Tippfehler im Bauplan sperrt das Projekt und wird gemeldet, statt Material zu verschenken",
         "Erstes Mal: Das erste eigene Gelingen bleibt für immer gemerkt, auch wenn jemand vorher gezeigt hat, wie es geht",
-        "Speicherstand: Ein kaputter Stand wird vor dem Laden erkannt; die Welt bleibt dann, wie sie war, und Pixelia nimmt den letzten guten Stand",
-        "Protokoll: Bei Schreibfehler oder Stromausfall fehlt keine Buchung und keine steht doppelt; ein übervoller Tag wird gezählt statt geschrieben",
-        "Sicherung einspielen: Das Protokoll der alten Entwicklung wird beiseitegelegt statt vermischt",
+        "Speicherstand: Ein kaputter Stand wird vor dem Laden erkannt, die Welt bleibt, wie sie war, und Pixelia nimmt den letzten guten Stand; das steht dann in der Chronik",
+        "Protokoll: Bei Schreibfehler oder Stromausfall fehlt keine Buchung und keine steht doppelt; ein übervoller Tag wird gezählt; Lager mit vielen Waren stehen ganz drin",
+        "Sicherung einspielen: Währenddessen speichert sonst nichts, und das Protokoll der alten Entwicklung wird beiseitegelegt statt vermischt",
         "Tagesbestände: Der Bestand am Tagesende stimmt jetzt genau, auch im Zeitraffer",
         "Grafik-Pakete: Ein fehlerhaftes Paket wird sicher abgelehnt"
       ]
     },
     "n": [
       "Engine: Nachschub ohne Quelle wählt Erzeuger- oder Gemeinschaftslager (genug Vorrat, dann wenige Wege, dann Kennung; Ledger::find_source), auch für Projekte; eingetragene Quelle bleibt verbindlich (V05)",
-      "System: Gründe ohne Nachschub (SupplyWait) je Lager in der Konsole „lager“, Zähler je Grund, Bestandstabelle und Ereignis-Bus unter „nachschub“ in /api/world und im Diagnosepaket (P-F)"
+      "System: Gründe ohne Nachschub (SupplyWait) je Lager in der Konsole „lager“, Zähler je Grund, Bestandstabelle und Ereignis-Bus unter „nachschub“ in /api/world und im Diagnosepaket (P-F)",
+      "Web: Karte Speicherstand zeigt gesperrtes Speichern als Banner mit Knopf „Datenbereich neu anlegen …“ bzw. „Neu beginnen …“ (Rückfrage, PIN, POST /api/world a=datenbereich|neu); Display: rote Kurzmeldung"
     ],
     "f": [
       "Engine: Ereignis-Bus liefert nichts vor deliver() und nichts doppelt, Verluste je überschriebener Nummer (V01); Ring 32 → 128 Plätze im PSRAM, die Chronik liest an jeder Takt-Grenze",
@@ -43,17 +44,24 @@
       "Engine: Protokoll schon vor dem Anhängen hart ≤ 1 MB, ein Welttag ≤ 256 KB (darüber gezählt statt geschrieben, Vermerk `tNNNNN-verluste.csv`); Pfade nicht mehr auf 100 Zeichen gekürzt (B08)",
       "Engine: Kennung von Welt und Zeitlinie im neuen Abschnitt KENN; `Stage::prepare_import` gibt einer Sicherung eine neue Zeitlinie, das Protokoll der alten wandert nach `wirtschaft-alt/<n>` (B09)",
       "Engine: Tagesaufnahme `bestand_lager_tag` genau um Mitternacht (Buchungen danach im selben Schritt herausgerechnet): Zeitraffer 1 Woche und 3 × 4 Wochen ohne Abweichung, vorher 4/12/2/2",
-      "Engine: Grafik-Pakete prüfen Grenzen mit Abzug statt Summe, Bildgrößen in 64 Bit: kein Zugriff außerhalb bei Versatz nahe 2³² oder Bild 65535³ (B02)"
+      "Engine: Grafik-Pakete prüfen Grenzen mit Abzug statt Summe, Bildgrößen in 64 Bit: kein Zugriff außerhalb bei Versatz nahe 2³² oder Bild 65535³ (B02)",
+      "System: Datenbereich nie automatisch formatiert (B03): nur ein völlig leerer (roh geprüft) wird angelegt, sonst zweiter Versuch, dann Welt ohne Speichern; nicht ladbare Stände nie still überschrieben",
+      "System: Einspielen ist ein exklusiver Auftrag der Lade-Task (B06): laufendes Speichern wird abgeschlossen, neues gesperrt, Erfolg erst nach dem Schreiben; neue Zeitlinie über `Stage::prepare_import`",
+      "Engine: Pfad-Puffer des Protokolls im PSRAM statt auf dem Stack (am Gerät lief die Grafik-Task beim Öffnen über, Probelauf fiel sauber zurück); Rückfall auf den älteren Platz steht in der Chronik (Wahl des Users)"
     ],
     "g": [
       "Simulator: --test boden 23/23 (Gegenproben der Code-Prüfung mit richtiger Erwartung), alle 163 Prüfungen grün; Wirtschafts-Protokoll 1 Woche und 3 × 4 Wochen byte-gleich mit 0.5.10",
       "Gerät: OTA, Stand aus 0.5.10 geladen, Neustart mitten in Reisen; 48 Figuren je Ort, nachts, Regen: 30,0 fps, Zeichnen 11,0 ms, Logik max 7,1 ms (vorher 7,2), RAM 91 KB (vorher 88)",
-      "Simulator: `--test boden` 35/35 (12 neu, u. a. 400 zufällige Bytefehler, Schreibfehler, Journal), alle 175 grün; Protokoll byte-gleich mit Teil a bis auf die korrigierten Tagesbestände; `tools/wirtschaft_bilanz.py`"
+      "Simulator: `--test boden` 35/35 (12 neu, u. a. 400 zufällige Bytefehler, Schreibfehler, Journal), alle 175 grün; Protokoll byte-gleich mit Teil a bis auf die korrigierten Tagesbestände; `tools/wirtschaft_bilanz.py`",
+      "Gerät: 48 Figuren je Ort, nachts, Regen: 30,0 fps, Zeichnen 9,6 ms, Logik max 7,1 ms, RAM 91 KB; Einspielen (wirtschaft-alt/1); Stecker nach dem Stand (Journal: 2 Zeilen nachgetragen) und davor: Bilanz genau"
     ],
     "h": [
       "Doku: Code-Prüfung einer anderen KI (31.10. und 1.11.): Befunde je Nummer in der ROADMAP; Tagesgerüst wird 0.5.12, Gesamtprobe 0.5.13 mit den Geschwindigkeits-Ideen als Messaufträgen"
     ],
-    "pr": []
+    "pr": [],
+    "i": [
+      "System: Start über `Stage::load_slots`, frische Welt mit Zufallskennung, Protokoll mit open/prepare/abandon und set_free_space, Generation nie doppelt; neue Zahlen unter save/wirtschaft in /api/world und Diagnose"
+    ]
   },
   {
     "v": "0.5.10",

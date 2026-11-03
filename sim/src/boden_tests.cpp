@@ -1316,6 +1316,13 @@ std::vector<Case> cases() {
                  return std::string("Rückfall ohne neue Zeitlinie");
              (void)fresh;
              (void)line;
+             // Chronik (Wahl des Users 2026-11-03): sobald die Weltzeit läuft, steht der Rückfall drin
+             b.run(60);
+             const pixelia::Chronicle& ch = b.stage.environment().chronicle;
+             bool noted = false;
+             for (int k = 0; k < ch.count(); ++k)
+                 noted = noted || std::strstr(ch.at(k).text, "Vorigen Speicherstand geladen") != nullptr;
+             if (!noted) return std::string("Rückfall nicht in der Chronik");
              const std::vector<uint8_t> next = b.save(7);
              int sn = -1;
              if (!slots.write(next.data(), next.size(), &sn) || sn != sb) return std::string("überschreibt den geladenen Platz");

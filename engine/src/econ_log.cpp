@@ -81,6 +81,22 @@ uint32_t get32(const uint8_t* p) {
            static_cast<uint32_t>(p[3]) << 24;
 }
 
+// Pfade und Kopfzeilen im Grafik-Speicher statt auf dem Stack (seit 0.5.11 Teil b2): Am Gerät haben Grafik- und
+// Lade-Task je 6 KB Stack, und littlefs braucht beim Lesen selbst einiges. Mit bis zu 2,6 KB Puffern ineinander lief
+// die Grafik-Task beim Öffnen des Protokolls über und zerstörte den Heap (Absturz im Probelauf). Ohne Speicher bleibt
+// der Puffer leer (n = 0): jede Funktion bricht dann wie bei einem Dateifehler ab
+struct Buf {
+    explicit Buf(size_t bytes) : p(static_cast<char*>(asset_alloc(bytes))), n(p ? bytes : 0) {
+        if (p) p[0] = 0;
+    }
+    ~Buf() { asset_free(p); }
+    Buf(const Buf&) = delete;
+    Buf& operator=(const Buf&) = delete;
+    explicit operator bool() const { return p != nullptr; }
+    char* p;
+    size_t n;
+};
+
 long file_size(const char* path) {
     struct stat sb;
     return stat(path, &sb) == 0 ? static_cast<long>(sb.st_size) : -1;
@@ -115,11 +131,15 @@ template <class F>
 void for_each_file(const char* dir, F f) {
     DIR* d = opendir(dir);
     if (!d) return;
-    char path[640];
+    Buf path(640);
+    if (!path) {
+        closedir(d);
+        return;
+    }
     while (dirent* e = readdir(d)) {
-        std::snprintf(path, sizeof(path), "%.320s/%.200s", dir, e->d_name);
+        std::snprintf(path.p, path.n, "%.320s/%.200s", dir, e->d_name);
         struct stat sb;
-        if (stat(path, &sb) == 0 && S_ISREG(sb.st_mode)) f(e->d_name, static_cast<long>(sb.st_size));
+        if (stat(path.p, &sb) == 0 && S_ISREG(sb.st_mode)) f(e->d_name, static_cast<long>(sb.st_size));
     }
     closedir(d);
 }
@@ -127,12 +147,16 @@ template <class F>
 void for_each_dir(const char* dir, F f) {
     DIR* d = opendir(dir);
     if (!d) return;
-    char path[640];
+    Buf path(640);
+    if (!path) {
+        closedir(d);
+        return;
+    }
     while (dirent* e = readdir(d)) {
         if (e->d_name[0] == '.') continue;
-        std::snprintf(path, sizeof(path), "%.320s/%.200s", dir, e->d_name);
+        std::snprintf(path.p, path.n, "%.320s/%.200s", dir, e->d_name);
         struct stat sb;
-        if (stat(path, &sb) == 0 && S_ISDIR(sb.st_mode)) f(e->d_name);
+        if (stat(path.p, &sb) == 0 && S_ISDIR(sb.st_mode)) f(e->d_name);
     }
     closedir(d);
 }
@@ -153,11 +177,12 @@ bool delete_day(const char* dir, int32_t day, uint32_t* deleted) {
     for_each_file(dir, [&](const char* name, long) {
         if (file_day(name) == day && n < EconomyLog::kTables + 3) std::snprintf(names[n++], sizeof(names[0]), "%.39s", name);
     });
-    bool ok = n > 0;
-    char path[360];
+    Buf path(360);
+    bool ok = n > 0 && path;
+    if (!path) n = 0;
     for (int i = 0; i < n; ++i) {
-        std::snprintf(path, sizeof(path), "%.300s/%.39s", dir, names[i]);
-        if (std::remove(path) == 0) ++*deleted;
+        std::snprintf(path.p, path.n, "%.300s/%.39s", dir, names[i]);
+        if (std::remove(path.p) == 0) ++*deleted;
         else ok = false;
     }
     return ok;
@@ -170,12 +195,12 @@ void remove_all(const char* dir) {
         for_each_file(dir, [&](const char* name, long) {
             if (n < 16) std::snprintf(names[n++], sizeof(names[0]), "%.63s", name);
         });
-        if (!n) return;
-        char path[400];
+        Buf path(400);
+        if (!n || !path) return;
         int gone = 0;
         for (int i = 0; i < n; ++i) {
-            std::snprintf(path, sizeof(path), "%.320s/%.63s", dir, names[i]);
-            gone += std::remove(path) == 0;
+            std::snprintf(path.p, path.n, "%.320s/%.63s", dir, names[i]);
+            gone += std::remove(path.p) == 0;
         }
         if (!gone) return;
     }
@@ -527,7 +552,8 @@ int EconomyLog::plan(const char* dir) {
     //    passt, wird gezählt statt geschrieben (Tagesbestände, Wetter und Vermerke zählen nicht mit)
     DayUse* use = use_;
     int days = 0;
-    char path[320];
+    Buf path(320);
+    if (!path) return 0;
     for (size_t k = 0; k + kHead <= pend_len_;) {
         const size_t len = pend_[k + 5] | (pend_[k + 6] << 8);
         const uint8_t t = pend_[k];
@@ -539,9 +565,9 @@ int EconomyLog::plan(const char* dir) {
             if (i == days && days < kMaxDays) {
                 use[i] = DayUse{day, 0, {0, 0, 0}, {0, 0, 0}};
                 for (int c = Moves; c <= Demand; ++c) {  // neue Dateien mit ihrer Kopfzeile
-                    day_path(path, sizeof(path), dir, day, c);
-                    const long size = file_size(path);
-                    use[i].used += static_cast<uint32_t>(size >= 0 ? size : header_text(c, source_, path, sizeof(path)));
+                    day_path(path.p, path.n, dir, day, c);
+                    const long size = file_size(path.p);
+                    use[i].used += static_cast<uint32_t>(size >= 0 ? size : header_text(c, source_, path.p, path.n));
                 }
                 ++days;
             }
@@ -596,12 +622,13 @@ int EconomyLog::plan(const char* dir) {
         groups_[g].bytes += static_cast<uint32_t>(len);
         last = g;
     }
-    char head[400];
+    Buf head(400);
+    if (!head) return planned_ = 0;
     for (int g = 0; g < planned_; ++g) {
-        day_path(path, sizeof(path), dir, groups_[g].day, groups_[g].table);
-        const long size = file_size(path);
+        day_path(path.p, path.n, dir, groups_[g].day, groups_[g].table);
+        const long size = file_size(path.p);
         groups_[g].before = size < 0 ? kFresh : static_cast<uint32_t>(size);
-        if (size < 0) groups_[g].bytes += static_cast<uint32_t>(header_text(groups_[g].table, source_, head, sizeof(head)));
+        if (size < 0) groups_[g].bytes += static_cast<uint32_t>(header_text(groups_[g].table, source_, head.p, head.n));
     }
     return planned_;
 }
@@ -609,8 +636,10 @@ int EconomyLog::plan(const char* dir) {
 bool EconomyLog::make_room(const char* dir, uint32_t need, int groups) {
     // Grenze vor dem Anhängen (B08): älteste Tage löschen, alte Zeitlinien zuerst, nie einen Tag, an den gerade
     // angehängt wird; mit set_free_space bleibt kReserveBytes frei für die Weltstände
-    char alt[320], sub[340];
-    std::snprintf(alt, sizeof(alt), "%.300s-alt", dir);
+    Buf alt(320);
+    Buf sub(340);
+    if (!alt || !sub) return false;
+    std::snprintf(alt.p, alt.n, "%.300s-alt", dir);
     for (int guard = 0; guard < 2000; ++guard) {
         scan(dir);
         const uint64_t total = static_cast<uint64_t>(st_.bytes) + st_.archive_bytes + need;
@@ -619,16 +648,16 @@ bool EconomyLog::make_room(const char* dir, uint32_t need, int groups) {
         if (st_.archives) {
             // älteste alte Zeitlinie: ihr ältester Tag, ist sie leer, der Ordner selbst
             int oldest = 0;
-            for_each_dir(alt, [&](const char* name) {
+            for_each_dir(alt.p, [&](const char* name) {
                 const int n = std::atoi(name);
                 if (n > 0 && (!oldest || n < oldest)) oldest = n;
             });
-            std::snprintf(sub, sizeof(sub), "%s/%d", alt, oldest);
-            const int32_t day = oldest_day(sub);
+            std::snprintf(sub.p, sub.n, "%s/%d", alt.p, oldest);
+            const int32_t day = oldest_day(sub.p);
             if (day < 0) {
-                remove_all(sub);
-                if (rmdir(sub) != 0) st_.cleanup_error = true;
-            } else if (!delete_day(sub, day, &st_.deleted)) {
+                remove_all(sub.p);
+                if (rmdir(sub.p) != 0) st_.cleanup_error = true;
+            } else if (!delete_day(sub.p, day, &st_.deleted)) {
                 st_.cleanup_error = true;
                 return false;
             }
@@ -647,14 +676,16 @@ bool EconomyLog::make_room(const char* dir, uint32_t need, int groups) {
 }
 
 bool EconomyLog::write_journal(const char* dir, uint32_t generation, int groups) {
-    char path[320], head[400];
-    std::snprintf(path, sizeof(path), "%.300s/%s", dir, kJournal);
+    Buf path(320);
+    Buf head(400);
+    if (!path || !head) return false;
+    std::snprintf(path.p, path.n, "%.300s/%s", dir, kJournal);
     // zweimal durch den Plan: erst die Prüfsumme, dann schreiben
     uint32_t crc = 0, payload = 0;
     for (int pass = 0; pass < 2; ++pass) {
         FILE* f = nullptr;
         if (pass == 1) {
-            f = f_open(path, "wb");
+            f = f_open(path.p, "wb");
             if (!f) return false;
         }
         bool ok = true;
@@ -686,12 +717,12 @@ bool EconomyLog::write_journal(const char* dir, uint32_t generation, int groups)
             put32(gh + 8, gr.before);
             put32(gh + 12, gr.bytes);
             put(gh, sizeof(gh));
-            if (gr.before == kFresh) put(head, header_text(gr.table, source_, head, sizeof(head)));
+            if (gr.before == kFresh) put(head.p, header_text(gr.table, source_, head.p, head.n));
             each_row(pend_, pend_len_, gr.table, gr.day, [&](const uint8_t* p, size_t n) { put(p, n); });
         }
         if (pass == 1) {
             ok = f_close(f) && ok;
-            if (!ok) std::remove(path);
+            if (!ok) std::remove(path.p);
             st_.journal_bytes = ok ? payload + 28 : 0;
             return ok;
         }
@@ -736,15 +767,17 @@ bool EconomyLog::flush(const char* dir) {
             planned_ = 0;
         }
     }
+    Buf path(320);
+    Buf head(400);
+    if (!path || !head) return false;  // Plan und Zeilen bleiben für das nächste Mal
     bool ok = !st_.full;
     uint32_t written = 0;
-    char path[320], head[400];
     for (int g = 0; g < planned_; ++g) {
         Group& gr = groups_[g];
-        day_path(path, sizeof(path), dir, gr.day, gr.table);
-        const Put r = put_file(path, gr.before, gr.bytes, [&](FILE* f) {
+        day_path(path.p, path.n, dir, gr.day, gr.table);
+        const Put r = put_file(path.p, gr.before, gr.bytes, [&](FILE* f) {
             bool w = true;
-            if (gr.before == kFresh) w = f_write(f, head, header_text(gr.table, source_, head, sizeof(head)));
+            if (gr.before == kFresh) w = f_write(f, head.p, header_text(gr.table, source_, head.p, head.n));
             each_row(pend_, pend_len_, gr.table, gr.day, [&](const uint8_t* p, size_t n) { w = w && f_write(f, p, n); });
             return w;
         });
@@ -772,8 +805,8 @@ bool EconomyLog::flush(const char* dir) {
     }
     pend_len_ = w;
     if (ok && journal_) {
-        std::snprintf(path, sizeof(path), "%.300s/%s", dir, kJournal);
-        std::remove(path);  // bleibt es (Fehler), stimmt es noch: open() fände alles schon da
+        std::snprintf(path.p, path.n, "%.300s/%s", dir, kJournal);
+        std::remove(path.p);  // bleibt es (Fehler), stimmt es noch: open() fände alles schon da
     }
     planned_ = -1;
     journal_ = false;
@@ -786,14 +819,16 @@ bool EconomyLog::flush(const char* dir) {
 }
 
 void EconomyLog::recover(const char* dir, uint32_t loaded_gen) {
-    char path[320];
-    std::snprintf(path, sizeof(path), "%.300s/%s", dir, kJournal);
-    const long size = file_size(path);
+    Buf path(320);
+    Buf file(320);
+    if (!path || !file) return;  // das Journal bleibt für den nächsten Start
+    std::snprintf(path.p, path.n, "%.300s/%s", dir, kJournal);
+    const long size = file_size(path.p);
     if (size < 0) return;
     uint8_t* buf = size >= 28 && size < 8 * 1024 * 1024 ? static_cast<uint8_t*>(asset_alloc(static_cast<size_t>(size))) : nullptr;
     bool ok = false;
     if (buf) {
-        if (FILE* f = std::fopen(path, "rb")) {
+        if (FILE* f = std::fopen(path.p, "rb")) {
             ok = std::fread(buf, 1, static_cast<size_t>(size), f) == static_cast<size_t>(size);
             std::fclose(f);
         }
@@ -806,7 +841,6 @@ void EconomyLog::recover(const char* dir, uint32_t loaded_gen) {
     const bool mine = ok && get32(buf + 8) == world_ && get32(buf + 12) == line_ && get32(buf + 16) != 0 &&
                       get32(buf + 16) <= loaded_gen;
     const int groups = ok ? static_cast<int>(get32(buf + 20)) : 0;
-    char file[320];
     for (size_t at = 28, g = 0; ok && g < static_cast<size_t>(groups) && at + 16 <= static_cast<size_t>(size); ++g) {
         const uint8_t* gh = buf + at;
         const int table = gh[0];
@@ -817,16 +851,16 @@ void EconomyLog::recover(const char* dir, uint32_t loaded_gen) {
         if (!mine) {
             st_.discarded += rows;
         } else {
-            day_path(file, sizeof(file), dir, static_cast<int32_t>(get32(gh + 4)), table);
+            day_path(file.p, file.n, dir, static_cast<int32_t>(get32(gh + 4)), table);
             const uint8_t* body = buf + at;
-            const Put r = put_file(file, before, bytes, [&](FILE* f) { return f_write(f, body, bytes); });
+            const Put r = put_file(file.p, before, bytes, [&](FILE* f) { return f_write(f, body, bytes); });
             if (r == Put::Written) st_.recovered += rows;
             if (r == Put::Fail || r == Put::Skipped) st_.lost += rows;
         }
         at += bytes;
     }
     if (buf) asset_free(buf);
-    std::remove(path);
+    std::remove(path.p);
 }
 
 void EconomyLog::open(const char* dir, uint32_t world, uint32_t line, uint32_t loaded_gen) {
@@ -835,21 +869,24 @@ void EconomyLog::open(const char* dir, uint32_t world, uint32_t line, uint32_t l
     line_ = line;
     recover(dir, loaded_gen);
     // Zeitlinie des Ordners (B09): passt sie nicht, wandert er nach <dir>-alt/<n> (n = nächste freie Nummer)
-    char path[320], alt[320], to[340];
-    std::snprintf(path, sizeof(path), "%.300s/%s", dir, kMarker);
+    Buf path(320);
+    Buf alt(320);
+    Buf to(340);
+    if (!path || !alt || !to) return;
+    std::snprintf(path.p, path.n, "%.300s/%s", dir, kMarker);
     unsigned long w = 0, l = 0;
     bool marked = false;
-    if (FILE* f = std::fopen(path, "rb")) {
+    if (FILE* f = std::fopen(path.p, "rb")) {
         marked = std::fscanf(f, "#pixelia-zeitlinie,welt=%lx,linie=%lx", &w, &l) == 2;
         std::fclose(f);
     }
     if (marked && (w != world || l != line)) {
-        std::snprintf(alt, sizeof(alt), "%.300s-alt", dir);
-        make_dir(alt);
+        std::snprintf(alt.p, alt.n, "%.300s-alt", dir);
+        make_dir(alt.p);
         int n = 0;
-        for_each_dir(alt, [&](const char* name) { n = std::max(n, std::atoi(name)); });
-        std::snprintf(to, sizeof(to), "%s/%d", alt, n + 1);
-        if (std::rename(dir, to) == 0) {
+        for_each_dir(alt.p, [&](const char* name) { n = std::max(n, std::atoi(name)); });
+        std::snprintf(to.p, to.n, "%s/%d", alt.p, n + 1);
+        if (std::rename(dir, to.p) == 0) {
             make_dir(dir);
             marked = false;
         } else {
@@ -857,7 +894,7 @@ void EconomyLog::open(const char* dir, uint32_t world, uint32_t line, uint32_t l
         }
     }
     if (!marked)
-        if (FILE* f = std::fopen(path, "wb")) {
+        if (FILE* f = std::fopen(path.p, "wb")) {
             std::fprintf(f, "#pixelia-zeitlinie,welt=%08lx,linie=%08lx\n", static_cast<unsigned long>(world),
                          static_cast<unsigned long>(line));
             std::fclose(f);
@@ -868,7 +905,8 @@ void EconomyLog::open(const char* dir, uint32_t world, uint32_t line, uint32_t l
 void EconomyLog::scan(const char* dir) {
     st_.files = st_.bytes = 0;
     st_.first_day = st_.last_day = 0;
-    char path[640];
+    Buf path(640);
+    if (!path) return;
     for_each_file(dir, [&](const char* name, long size) {
         st_.bytes += static_cast<uint32_t>(size);  // alles zählt zur Grenze (auch Marke und Journal)
         const int32_t day = file_day(name);
@@ -879,13 +917,13 @@ void EconomyLog::scan(const char* dir) {
     });
     // alte Zeitlinien (B09): Ordner <dir>-alt/<n>
     st_.archives = st_.archive_bytes = 0;
-    char alt[320];
-    std::snprintf(alt, sizeof(alt), "%.300s-alt", dir);
-    for_each_dir(alt, [&](const char* name) {
+    Buf alt(320);
+    std::snprintf(alt.p, alt.n, "%.300s-alt", dir);
+    for_each_dir(alt.p, [&](const char* name) {
         if (std::atoi(name) <= 0) return;
         ++st_.archives;
-        std::snprintf(path, sizeof(path), "%s/%s", alt, name);
-        for_each_file(path, [&](const char*, long size) { st_.archive_bytes += static_cast<uint32_t>(size); });
+        std::snprintf(path.p, path.n, "%s/%s", alt.p, name);
+        for_each_file(path.p, [&](const char*, long size) { st_.archive_bytes += static_cast<uint32_t>(size); });
     });
 }
 

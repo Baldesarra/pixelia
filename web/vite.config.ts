@@ -456,6 +456,10 @@ function mockDevice(): Plugin {
           }
           const f = await form(req);
           if (!authorized(req, f)) return deny(res);
+          if (f.get('a') === 'datenbereich' || f.get('a') === 'neu') {
+            if (f.get('confirm') !== '1') return json(res, { ok: false, msg: 'Bestätigung fehlt (confirm=1)' });
+            return json(res, { ok: true, msg: f.get('a') === 'neu' ? 'Neu begonnen, die Welt wird wieder gesichert' : 'Datenbereich neu angelegt, die Welt wird wieder gesichert' });
+          }
           saveAt = Date.now();
           saveGen++;
           return json(res, { ok: true, msg: 'Speicherstand wird geschrieben' });
@@ -472,8 +476,14 @@ function mockDevice(): Plugin {
         const save = {
           gen: saveGen, bytes: 2214, ago, next: Math.max(0, 300 - ago), loaded: true, packUs: 820, writeMs: 14,
           figures: mockFigures.length, transit: 1, chronicle: mockChronicle.length, caughtUp: 134, skipped: 0, catchingUp: 0,
-          test: false, waiting: false, error: '',
+          test: false, waiting: false, error: '', block: '', probe: false, fallback: false, rejectedGen: 0, why: '',
+          welt: '5f3a91c2', linie: '0b77e104',
         };
+        // seit 0.5.11: ?datenbereich=1 (nicht lesbar, B03), ?stand=1 (Stände nicht ladbar), ?probe=1 dazu Prüfmodus
+        if (q.get('datenbereich') === '1')
+          Object.assign(save, { block: 'datenbereich', probe: q.get('probe') === '1', error: 'Datenbereich nicht lesbar', gen: 0, ago: -1, loaded: false, caughtUp: 0 });
+        if (q.get('stand') === '1')
+          Object.assign(save, { block: 'stand', probe: q.get('probe') === '1', error: 'Speicherstand nicht ladbar', why: 'Abschnitt in unbekannter Version in LAGR', ago: -1, loaded: false, caughtUp: 0 });
         const more = q.get('mehr') === '1' ? { figures: mockFigures, chronicle: mockChronicle, visits: 9, visitsOpen: 2 } : {};
         // Lager (seit 0.5.10 Teil 4b, ?lager=1): Testdorf mittags; ?leer=1 zeigt die leeren Zustände
         const lager = q.get('lager') !== '1' ? {} : q.get('leer') === '1' ? { lager: { stores: [], projects: [] } } : { lager: q.get('viele') === '1' ? mockLagerViele : mockLager };

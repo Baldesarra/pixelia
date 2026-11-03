@@ -134,7 +134,8 @@ void print_help() {
     ESP_LOGI(TAG, "  ort cmd aufgaben   Aufgabenliste ins Log (holen, bringen, herstellen; wer, von wo nach wo)");
     ESP_LOGI(TAG, "  ort cmd projekte   Projekte ins Log; ort cmd projekt bett start|stufe <n>|fertig (Prüfbefehl)");
     ESP_LOGI(TAG, "  lager              Lagerplätze (Stand, Reichweite), Waren im Dorf und Projekte ins Log (wie die Lager-Karte)");
-    ESP_LOGI(TAG, "  wirtschaft [<Datei> | bestand]   Protokoll-Dateien, eine Datei ins Log, Bestand aller Lagerplätze (Bilanz prüfen)");
+    ESP_LOGI(TAG, "  wirtschaft [<Datei> | bestand | test]   Protokoll-Dateien, eine Datei ins Log, Bestand aller Lagerplätze; test = nächstes Speichern wartet 30 s vor dem Anhängen");
+    ESP_LOGI(TAG, "  datenbereich [test [stand]]   Zustand von /data; test = beim nächsten Start „nicht lesbar“ bzw. „Stand nicht ladbar“ vortäuschen (nichts gelöscht)");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
     ESP_LOGI(TAG, "  assets [quelle eingebettet|littlefs|sd | kopieren littlefs|sd | messen | leeren | budget <KB>]   Grafik-Pakete");
     ESP_LOGI(TAG, "  sd | sd neu                                    microSD-Karte: Zustand, neu einhängen");
@@ -491,6 +492,10 @@ bool handle(char* line) {
         static char line[256], path[96];
         if (argc >= 2 && std::strcmp(argv[1], "bestand") == 0) {
             if (!gfx::place_command("bestand")) ESP_LOGW(TAG, "Befehl nicht angenommen");
+        } else if (argc >= 2 && std::strcmp(argv[1], "test") == 0) {
+            // seit 0.5.11 (Stecker-Test B04): das nächste Speichern wartet 30 s zwischen Stand und Anhängen
+            gfx::journal_test();
+            ESP_LOGW(TAG, "Prüfmodus: das nächste Speichern wartet 30 s vor dem Anhängen (Stecker ziehen, Journal prüfen)");
         } else if (argc >= 2) {
             std::snprintf(path, sizeof(path), "%s/%.60s", kDir, argv[1]);
             FILE* f = std::fopen(path, "rb");
@@ -687,7 +692,7 @@ bool handle(char* line) {
         bool psram = std::strcmp(argv[1], "psram") == 0;
         gfx::request_buffers(psram);
         ESP_LOGI(TAG, "Engine-Puffer: %s", psram ? "PSRAM" : "intern");
-    } else if (is("assets") || is("sd")) {
+    } else if (is("assets") || is("sd") || is("datenbereich")) {
         assets::console(argc, argv);
     } else if (is("bench") && argc >= 2 && std::strcmp(argv[1], "licht") == 0) {
         bench_light();

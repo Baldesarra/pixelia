@@ -349,6 +349,7 @@ private:
     int chron_reader_ = -1;
     std::array<int16_t, kMaxScenes> place_of_{};
     bool restored_pending_ = false;
+    bool fallback_pending_ = false;        // seit 0.5.11: älterer Platz geladen, Eintrag in die Chronik (Wahl des Users)
     bool wake_pending_ = false;            // nach dem Laden: Pause in die Chronik, sobald die Weltzeit läuft
     int64_t saved_minute_ = INT64_MIN;     // Weltminute im geladenen Speicherstand
     int64_t caught_up_ = 0, skipped_ = 0;

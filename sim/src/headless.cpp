@@ -250,6 +250,14 @@ bool render_screen(const std::string& name, std::vector<uint8_t>& frame, const p
         ui::draw_hold_indicator(canvas, 0.55f);
     } else if (name == "toast-ip") {
         ui::draw_toast(canvas, "Verbunden mit „Heimnetz“ · 192.168.178.42", ui::Tone::Success);
+    } else if (name == "datenbereich" || name == "stand-gesperrt") {
+        // seit 0.5.11 (B03, Wahl des Users: rot, zwei Zeilen): Speichern gesperrt, wie gfx.cpp save_tick
+        ui::Toast t;
+        t.tone = ui::Tone::Error;
+        t.text = name == "datenbereich" ? "Datenbereich nicht lesbar\nWelt wird nicht gesichert · Weboberfläche → Welt"
+                                        : "Speicherstand nicht ladbar\nWelt wird nicht gesichert · Weboberfläche → Welt";
+        ui::draw_toast(canvas, t, ui::ToastPlace::Top);
+        ui::draw_clock(canvas, 14, 5, 32, ui::ClockStyle{}, true);
     } else {
         return false;
     }
@@ -532,7 +540,8 @@ int run_headless(const Options& opt) {
         pixelia::Palette palette = display_palette(stage);
         if (!opt.screen.empty() && !render_screen(opt.screen, frame, stage)) {
             std::printf("FEHLER: Systemanzeige \"%s\" gibt es nicht (setup, setup-leer, setup-fehler, update, "
-                        "update-fertig, failed, message, toast, toast-lang, toast-ip, info, info-setup, "
+                        "update-fertig, failed, message, toast, toast-lang, toast-ip, datenbereich, stand-gesperrt, "
+                        "info, info-setup, "
                         "info-offline, hold, reset, reset-ohne-pin, reset-halten, karte-seite, karte-mitte, "
                         "karte-leiste, karte-tuer, karte-teil, karte-lager, karte-vorrat, karte-schritte, "
                         "schrift-fett, schrift-klein, schrift-normal, uhr, "
