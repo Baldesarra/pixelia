@@ -58,7 +58,9 @@
     "h": [
       "Doku: Code-Prüfung einer anderen KI (31.10. und 1.11.): Befunde je Nummer in der ROADMAP; Tagesgerüst wird 0.5.12, Gesamtprobe 0.5.13 mit den Geschwindigkeits-Ideen als Messaufträgen"
     ],
-    "pr": [],
+    "pr": [
+      49
+    ],
     "i": [
       "System: Start über `Stage::load_slots`, frische Welt mit Zufallskennung, Protokoll mit open/prepare/abandon und set_free_space, Generation nie doppelt; neue Zahlen unter save/wirtschaft in /api/world und Diagnose"
     ]
