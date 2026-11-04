@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <array>
+#include <thread>
+#include <atomic>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -896,6 +898,64 @@ std::vector<Case> cases() {
                      return std::to_string(n) + " Waren: " + std::to_string(rows) + " Zeilen, Summe " + std::to_string(sum);
              }
              return std::string();
+         }},
+        // --- B10 (Teil c) ---
+        {"B10 Zähler des Protokolls: Erzeugen und Anhängen in zwei Threads, ein dritter liest; nichts läuft rückwärts",
+         [] {
+             Wide f(false, 1000, 8);
+             pixelia::Environment env;
+             const EconomyDef* defs[] = {&f.def};
+             env.ledger.build(defs, 1);
+             pixelia::EconomyLog log;
+             if (!log.attach(env, 128 * 1024, "simulator")) return std::string("Puffer");
+             const std::filesystem::path dir = std::filesystem::path(".logs") / "test-boden-b10";
+             std::error_code ec;
+             std::filesystem::remove_all(dir, ec);
+             std::filesystem::create_directories(dir, ec);
+             const std::string d = dir.string();
+             // Übergabe wie am Gerät: 0 frei, 1 gepackt (cut), 2 hängt an (flush)
+             std::atomic<int> state{0};
+             std::atomic<bool> done{false};
+             std::string err;
+             std::thread prod([&] {
+                 for (int day = 1; day <= 40; ++day) {
+                     for (int k = 0; k < 50; ++k) env.ledger.add(0, k % 8, 1, Booking::Produce, {});
+                     log.day_rows(day);
+                     while (state.load() != 0) std::this_thread::yield();
+                     log.cut();
+                     state = 1;
+                 }
+                 done = true;
+             });
+             std::thread cons([&] {
+                 while (!done || state.load() == 1) {
+                     if (state.load() != 1) {
+                         std::this_thread::yield();
+                         continue;
+                     }
+                     state = 2;
+                     log.flush(d.c_str());
+                     state = 0;
+                 }
+             });
+             uint32_t rows = 0, written = 0;
+             int reads = 0;
+             while (!done && err.empty()) {
+                 const pixelia::EconomyLog::Stats st = log.stats();
+                 if (st.rows < rows || st.written < written) err = "Zähler rückwärts";
+                 if (st.written > st.rows) err = "mehr geschrieben als erzeugt";
+                 rows = st.rows, written = st.written;
+                 ++reads;
+             }
+             prod.join();
+             cons.join();
+             if (!err.empty()) return err;
+             while (state.load() != 0) {
+             }
+             const pixelia::EconomyLog::Stats st = log.stats();
+             if (st.written != st.rows || st.lost) return "am Ende " + std::to_string(st.written) + " von " +
+                                                          std::to_string(st.rows) + " geschrieben, verloren " + std::to_string(st.lost);
+             return reads > 10 ? std::string() : std::string("zu wenige Lesungen");
          }},
         {"B13 Laden: Lager, die es nicht mehr gibt, landen im Gemeinschaftslager nur, soweit Platz ist; der eigene Bestand zuerst; Bilanz exakt",
          [] {

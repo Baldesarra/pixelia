@@ -2,6 +2,7 @@
 // mit ihren Orten laufen (gleicher Code wie im Simulator, siehe engine/stage.h und sim/).
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
@@ -42,14 +43,39 @@ constexpr uint64_t kSeed = 0x5049584C4941ULL;  // „PIXLIA“
 
 enum class Request : uint8_t { None, Reconfigure, Buffers };
 
-volatile Request s_request = Request::None;
+// Steuerwerte aus anderen Tasks (B11, seit 0.5.11): einzelne Werte atomar; Timing unter s_req_lock, die Anforderung
+// danach (release), der Grafik-Task liest sie (acquire) und kopiert das Timing unter derselben Sperre
+std::atomic<Request> s_request{Request::None};
+std::mutex s_req_lock;
 board::display::Timing s_req_timing;
 // Standard: Engine-Puffer im PSRAM (spart 192 KB internen RAM, Messung siehe docs/HARDWARE.md)
-volatile bool s_req_psram = true;
-volatile int s_sprites = 48;
-volatile int s_marks = 0;
-volatile int s_req_minute_of_day = -1;  // Uhrzeit stellen (vom Konsolen-Task, angewendet im Grafik-Task)
-volatile float s_speed = 1.0f;
+std::atomic<bool> s_req_psram{true};
+std::atomic<int> s_sprites{48};
+std::atomic<int> s_marks{0};
+
+// Uhr stellen, Zeitraffer, Echtzeit (B11): zusammengehörige Wechsel als Befehle an den Grafik-Task, dort der Reihe
+// nach und jeweils ganz angewendet. Zum Ablesen aus anderen Tasks gibt es die zuletzt angeforderten Werte.
+struct ClockCmd {
+    enum class Kind : uint8_t { Time, Speed, Real } kind;
+    int minute;  // Time: Minute des Tages
+    float speed;  // Speed
+    bool on;      // Real
+};
+std::mutex s_clk_lock;
+std::array<ClockCmd, 16> s_clk_cmds{};
+size_t s_clk_head = 0, s_clk_count = 0;
+std::atomic<float> s_speed_pub{1.0f};
+std::atomic<bool> s_follow_pub{true};
+
+void push_clock_cmd(const ClockCmd& c) {
+    std::lock_guard<std::mutex> g(s_clk_lock);
+    if (s_clk_count == s_clk_cmds.size()) {  // voll: ältesten verwerfen, der neueste gewinnt
+        s_clk_head = (s_clk_head + 1) % s_clk_cmds.size();
+        --s_clk_count;
+    }
+    s_clk_cmds[(s_clk_head + s_clk_count) % s_clk_cmds.size()] = c;
+    ++s_clk_count;
+}
 
 uint8_t* s_buf[2] = {nullptr, nullptr};
 bool s_buf_psram = false;
@@ -131,8 +157,9 @@ portMUX_TYPE s_stats_lock = portMUX_INITIALIZER_UNLOCKED;
 EngineStats s_stats{};
 
 // Weltzeit folgt der echten Uhrzeit (NTP), bis jemand per Befehl Uhrzeit oder Zeitraffer verstellt
-volatile bool s_follow_real = true;
-int64_t s_next_real_sync = 0;
+bool s_follow_real = true;      // gehört dem Grafik-Task (B11)
+int64_t s_next_real_sync = 0;   // gehört dem Grafik-Task
+float s_speed = 1.0f;           // gehört dem Grafik-Task
 bool s_real_synced = false;  // echte Uhrzeit einmal übernommen (dann läuft die Weltzeit)
 
 // Weltzeit (seit 0.5.7): Kalender im NVS (Blob „welt“, gespeichert auf Kern 0), Stand für die Weboberfläche
@@ -225,6 +252,42 @@ uint32_t current_picture(int64_t now) {
         ESP_LOGI(TAG, "Testbild abgelaufen, zurück zur Welt");
     }
     return id;
+}
+
+// Befehle für Uhr, Zeitraffer und Echtzeit der Reihe nach anwenden (Grafik-Task, B11)
+void apply_clock_cmds() {
+    std::array<ClockCmd, 16> cmds;
+    size_t n = 0;
+    {
+        std::lock_guard<std::mutex> g(s_clk_lock);
+        for (; n < s_clk_count; ++n) cmds[n] = s_clk_cmds[(s_clk_head + n) % s_clk_cmds.size()];
+        s_clk_head = s_clk_count = 0;
+    }
+    for (size_t i = 0; i < n; ++i) {
+        const ClockCmd& c = cmds[i];
+        switch (c.kind) {
+            case ClockCmd::Kind::Time:
+                s_follow_real = false;
+                s_clock.set_time_of_day(c.minute / 60, c.minute % 60);
+                break;
+            case ClockCmd::Kind::Speed:
+                s_speed = c.speed;
+                if (s_speed != 1.0f) s_follow_real = false;
+                break;
+            case ClockCmd::Kind::Real:
+                if (c.on) {
+                    s_speed = 1.0f;
+                    s_next_real_sync = 0;
+                }
+                s_follow_real = c.on;
+                break;
+        }
+    }
+    s_clock.set_speed(s_speed);
+    if (n) {
+        s_speed_pub.store(s_speed);
+        s_follow_pub.store(s_follow_real);
+    }
 }
 
 // Echte Uhrzeit in die Weltzeit übernehmen: große Abweichung (erster Abgleich, Sommerzeit) springt,
@@ -422,12 +485,19 @@ void save_world(void* = nullptr) {
         std::lock_guard<std::mutex> g(s_world_lock);
         st = s_cal_save;
     }
+    // B23: scheitert das Schreiben, bleibt der Kalender als geändert markiert (nächster Versuch beim nächsten Lauf
+    // des Zeitgebers); eine neuere Änderung dazwischen macht ihn ohnehin wieder geändert
     nvs_handle_t h;
-    if (nvs_open("pixelia", NVS_READWRITE, &h) != ESP_OK) return;
-    esp_err_t err = nvs_set_blob(h, kWorldKey, &st, sizeof(st));
-    if (err == ESP_OK) err = nvs_commit(h);
-    nvs_close(h);
-    if (err != ESP_OK) ESP_LOGW(TAG, "Weltkalender nicht gespeichert: %s", esp_err_to_name(err));
+    esp_err_t err = app::settings::take_fault() ? ESP_FAIL : nvs_open("pixelia", NVS_READWRITE, &h);
+    if (err == ESP_OK) {
+        err = nvs_set_blob(h, kWorldKey, &st, sizeof(st));
+        if (err == ESP_OK) err = nvs_commit(h);
+        nvs_close(h);
+    }
+    if (err != ESP_OK) {
+        s_cal_dirty.store(true);
+        ESP_LOGW(TAG, "Weltkalender nicht gespeichert (%s), neuer Versuch folgt", esp_err_to_name(err));
+    }
 }
 
 void load_world() {
@@ -1325,28 +1395,31 @@ void gfx_task(void* arg) {
     uint32_t last_frames = board::display::frame_count();
     uint32_t frame_rem = 0;
     for (;;) {
-        Request req = s_request;
+        Request req = s_request.load(std::memory_order_acquire);
         if (req == Request::Reconfigure) {
             bool had = s_buf[0] != nullptr;
             if (had) free_buffers();
-            board::display::reconfigure(s_req_timing);
-            s_request = Request::None;
+            board::display::Timing timing;
+            {
+                std::lock_guard<std::mutex> g(s_req_lock);
+                timing = s_req_timing;
+                s_request.store(Request::None, std::memory_order_relaxed);  // neuere Anforderung kommt danach
+            }
+            board::display::reconfigure(timing);
             if (had && board::display::mode() == board::display::Mode::Engine) ensure_engine_ready(s_buf_psram);
             continue;
         }
         if (req == Request::Buffers) {
             if (s_buf[0]) free_buffers();
-            s_request = Request::None;
+            {
+                std::lock_guard<std::mutex> g(s_req_lock);
+                s_request.store(Request::None, std::memory_order_relaxed);
+            }
             if (board::display::mode() == board::display::Mode::Engine) ensure_engine_ready(s_req_psram);
             continue;
         }
         if (const int where = s_req_coarse.exchange(-1); where >= 0) move_coarse(where == 1);
-        int minute = s_req_minute_of_day;
-        if (minute >= 0) {
-            s_clock.set_time_of_day(minute / 60, minute % 60);
-            s_req_minute_of_day = -1;
-        }
-        s_clock.set_speed(s_speed);
+        apply_clock_cmds();
 
         if (board::display::mode() != board::display::Mode::Engine) {
             vTaskDelay(pdMS_TO_TICKS(20));
@@ -1532,13 +1605,15 @@ void start(const board::display::Timing& timing) {
 }
 
 void request_reconfigure(const board::display::Timing& timing) {
+    std::lock_guard<std::mutex> g(s_req_lock);
     s_req_timing = timing;
-    s_request = Request::Reconfigure;
+    s_request.store(Request::Reconfigure, std::memory_order_release);
 }
 
 void request_buffers(bool psram) {
-    s_req_psram = psram;
-    s_request = Request::Buffers;
+    std::lock_guard<std::mutex> g(s_req_lock);
+    s_req_psram.store(psram);
+    s_request.store(Request::Buffers, std::memory_order_release);
 }
 
 void set_sprites(int n) { s_sprites = n; }
@@ -1628,22 +1703,22 @@ int figure_list(pixelia::FigureInfo* out, int* place, int max) {
     return n;
 }
 void set_time_of_day(int hour, int minute) {
-    s_follow_real = false;
-    s_req_minute_of_day = (hour % 24) * 60 + minute % 60;
+    push_clock_cmd({ClockCmd::Kind::Time, ((hour % 24 + 24) % 24) * 60 + (minute % 60 + 60) % 60, 0, false});
+    s_follow_pub.store(false);
 }
 void set_speed(float factor) {
-    s_speed = factor > 0 ? factor : 1.0f;
-    if (s_speed != 1.0f) s_follow_real = false;
+    const float f = factor > 0 ? factor : 1.0f;
+    push_clock_cmd({ClockCmd::Kind::Speed, 0, f, false});
+    s_speed_pub.store(f);
+    if (f != 1.0f) s_follow_pub.store(false);
 }
-float speed() { return s_speed; }
+float speed() { return s_speed_pub.load(); }
 void set_real_time(bool on) {
-    if (on) {
-        s_speed = 1.0f;
-        s_next_real_sync = 0;
-    }
-    s_follow_real = on;
+    push_clock_cmd({ClockCmd::Kind::Real, 0, 0, on});
+    if (on) s_speed_pub.store(1.0f);
+    s_follow_pub.store(on);
 }
-bool real_time() { return s_follow_real; }
+bool real_time() { return s_follow_pub.load(); }
 
 WorldInfo world_info() {
     std::lock_guard<std::mutex> g(s_world_lock);

@@ -33,6 +33,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 
 namespace pixelia {
 
@@ -110,7 +111,8 @@ public:
     }
     // Ordner zählen (Dateien, Bytes, Tage, alte Zeitlinien), ohne zu schreiben
     void scan(const char* dir);
-    Stats stats() const { return st_; }
+    // Kopie der Zähler, aus jeder Task lesbar (seit 0.5.11 ohne Datenrennen, B10)
+    Stats stats() const;
     // Bestände je Lagerplatz und Ware sowie das Wetter des Tages als Zeilen (sonst beim Tageswechsel in step; seit
     // 0.5.11 öffentlich für die Prüfungen: jede Ware eines Lagerplatzes, B12)
     void day_rows(int32_t day);
@@ -167,7 +169,17 @@ private:
     uint32_t world_ = 0, line_ = 0;    // Zeitlinie der Dateien (open)
     int64_t (*free_fn_)(void*) = nullptr;
     void* free_ctx_ = nullptr;
-    Stats st_{};
+    Stats st_{};   // Verbraucher (Kern 0)
+    Stats pst_{};  // Erzeuger (Kern 1): rows, lost, late, buffered
+    mutable std::mutex stats_m_;
+    Stats pub_cons_{}, pub_prod_{};
+    uint32_t pub_seq_ = 0, prod_seq_ = 0, cons_seq_ = 0;
+    void publish(bool producer);
+    struct Publisher {
+        EconomyLog& log;
+        explicit Publisher(EconomyLog& l) : log(l) {}
+        ~Publisher() { log.publish(false); }
+    };
 };
 
 }  // namespace pixelia

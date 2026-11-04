@@ -43,7 +43,8 @@ inline constexpr int kLongPressMax = 10000;
 void init();
 Values get();
 
-// Ändern, sofort anwenden und speichern
+// Ändern, sofort anwenden und speichern. Scheitert das Speichern (B23), gilt der Wert trotzdem; ein neuer Versuch
+// folgt alle 30 s, bis er dauerhaft gespeichert ist (pending()).
 void set_rotation180(bool on);
 void set_brightness(int percent);
 void set_long_press_ms(int ms);
@@ -58,6 +59,12 @@ void set_backlight_min(int duty);
 void factory_reset(const char* why);
 // true, sobald der Werksreset läuft: Module schreiben dann nichts mehr ins NVS
 bool frozen();
+// true, solange eine Änderung noch nicht dauerhaft gespeichert ist (seit 0.5.11, B23)
+bool pending();
+// Prüfschalter (Konsole „nvs fehler <n>“): die nächsten n Speichervorgänge von Einstellungen, PIN und Weltkalender
+// scheitern, nur im RAM
+void fail_next(int n);
+bool take_fault();  // für die anderen Module: true = diesen Speichervorgang scheitern lassen
 
 void log_all();
 

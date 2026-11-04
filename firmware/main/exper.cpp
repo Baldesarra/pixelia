@@ -255,6 +255,13 @@ int boot_swap() {
     return swap_for(effective(s_active));
 }
 
+void active_rate(double& hz, int& swap) {
+    std::lock_guard<std::mutex> g(s_lock);
+    const Timing t = effective(s_active);
+    hz = hz_of(t);
+    swap = swap_for(t);
+}
+
 bool try_panel(const Panel& p, char* error, size_t error_len) {
     std::lock_guard<std::mutex> g(s_lock);
     const char* why = !s_enabled ? "Experimentell ist aus" : validate(p);

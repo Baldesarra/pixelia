@@ -3,8 +3,9 @@
 //
 // - Vor dem Schreiben: gültiges ESP-App-Image, Chip ESP32-S3, passende Chip-Revision, Projektname „pixelia“.
 // - Nach dem Schreiben prüft esp_ota_end() Prüfsumme und SHA-256, erst dann wird die neue Partition aktiv.
-// - Die neue Version startet im Probelauf. Der Selbsttest verlangt ~60 s lang: Display liefert Bilder (Panel und
-//   Engine), WLAN verbunden oder Setup-Modus aktiv, kein Absturz. Erst dann gilt sie dauerhaft.
+// - Die neue Version startet im Probelauf. Der Selbsttest verlangt ~60 s lang: Display liefert Bilder (Panel mit der
+//   Rate des aktiven Timings, seit 0.5.11 auch 30 Hz im Stromsparmodus; Engine), WLAN verbunden oder Setup-Modus
+//   aktiv, kein Absturz. Erst wenn das Bestätigen klappt, gilt sie dauerhaft (pixelia::TrialMachine).
 // - Absturz, Hänger (Watchdog) oder Neustart im Probelauf: Der Bootloader startet die alte Version, die das
 //   beim Start erkennt und meldet („Update auf X wurde zurückgerollt“ samt Grund und Absturzbericht).
 
@@ -33,8 +34,11 @@ struct Status {
     bool trial;
     int trial_elapsed_s;
     int trial_ok_s;
-    char trial_note[64];
-    bool trial_passed;  // in diesem Start bestanden
+    char trial_note[96];
+    bool trial_passed;  // in diesem Start bestanden (erst nach bestätigtem Markieren als gültig, V08)
+    uint8_t trial_phase;   // pixelia::TrialMachine::Phase
+    float trial_panel_hz;  // erwartete Panelrate aus dem aktiven Timing (V07)
+    bool reboot_pending;   // Update installiert, Neustart folgt (B05)
     // Rückfall auf die alte Version
     bool rollback;
     bool rollback_new;  // in diesem Start erkannt (für die Reset-Historie)
@@ -51,13 +55,15 @@ void ack_rollback();    // Hinweis auf den Rückfall gelesen
 inline constexpr size_t kHeaderBytes = 24 + 8 + sizeof(esp_app_desc_t);
 bool check_header(const uint8_t* head, size_t len, esp_app_desc_t* desc, char* error, size_t error_len);
 
-// Update in Stücken (Upload vom Webserver oder Download von GitHub); begin() bekommt die ersten kHeaderBytes
-esp_err_t begin(const uint8_t* head, size_t len, size_t total, char* error, size_t error_len,
-                const char* source = "upload");
-esp_err_t write(const uint8_t* data, size_t len);
-esp_err_t finish(char* error, size_t error_len);
+// Update in Stücken (Upload vom Webserver oder Download von GitHub); begin() bekommt die ersten kHeaderBytes.
+// Seit 0.5.11 (B05) reserviert begin() vor dem Löschen und gibt eine Besitzer-Nummer zurück; nur damit darf
+// geschrieben, abgeschlossen und abgebrochen werden. Nach finish() bleibt bis zum Neustart alles gesperrt.
+esp_err_t begin(const uint8_t* head, size_t len, size_t total, char* error, size_t error_len, const char* source,
+                uint32_t& owner);
+esp_err_t write(uint32_t owner, const uint8_t* data, size_t len);
+esp_err_t finish(uint32_t owner, char* error, size_t error_len);
 // by_user: abgebrochen auf Wunsch (Knopf „Abbrechen“): kurze Meldung statt Fehleranzeige auf dem Display
-void cancel(const char* why, bool by_user = false);
+void cancel(uint32_t owner, const char* why, bool by_user = false);
 
 // Neustart nach ms Millisekunden (Antwort an den Browser kann noch raus)
 void restart_soon(int ms);

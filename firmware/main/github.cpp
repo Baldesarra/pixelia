@@ -649,6 +649,7 @@ void install_job(Target target) {
     if (!buf) return set_error("Kein Speicher frei");
     size_t got = 0, filled = 0;
     bool started = false;
+    uint32_t owner = 0;  // Besitzer-Nummer des Updates (B05)
     int64_t last_sample = 0;
     // seit 0.5.7: Ohne Fortschritt (WLAN-Aussetzer) nach kStallUs neu verbinden und per HTTP-Range ab dem letzten
     // Byte weitermachen, höchstens kResumes Mal (0.4.1 → 0.4.2 hing einmal vier Minuten bei 432 KB)
@@ -721,11 +722,11 @@ void install_job(Target target) {
                 std::snprintf(error, sizeof(error), "Datei enthält Version %.31s statt %.31s", ad.version, target.v);
                 break;
             }
-            if (ota::begin(buf, filled, target.size, error, sizeof(error), "github") != ESP_OK) break;
+            if (ota::begin(buf, filled, target.size, error, sizeof(error), "github", owner) != ESP_OK) break;
             started = true;
         }
         if (filled == kChunk || got == target.size) {
-            esp_err_t err = ota::write(buf, filled);
+            esp_err_t err = ota::write(owner, buf, filled);
             if (err != ESP_OK) {
                 std::snprintf(error, sizeof(error), "Schreiben fehlgeschlagen: %s", esp_err_to_name(err));
                 break;
@@ -743,18 +744,18 @@ void install_job(Target target) {
     }
     heap_caps_free(buf);
     if (s_cancel) {
-        if (started) ota::cancel(error, true);
+        if (started) ota::cancel(owner, error, true);
         ESP_LOGW(TAG, "Update von GitHub %s, die laufende Version bleibt (%.1f s)", error, (esp_timer_get_time() - t0) / 1e6);
         s_cancelled = true;
         return set_error("");
     }
     if (error[0] || !started) {
-        if (started) ota::cancel(error[0] ? error : "Download unvollständig");
+        if (started) ota::cancel(owner, error[0] ? error : "Download unvollständig");
         set_error(error[0] ? error : "Download unvollständig");
         ESP_LOGE(TAG, "Update von GitHub fehlgeschlagen: %s", error);
         return;
     }
-    if (ota::finish(error, sizeof(error)) != ESP_OK) return set_error(error);
+    if (ota::finish(owner, error, sizeof(error)) != ESP_OK) return set_error(error);
     const double secs = (esp_timer_get_time() - t0) / 1e6;
     ESP_LOGW(TAG, "Update von GitHub: %u KB in %.1f s (Verbindung %.1f s, %.0f KB/s), RAM-Tiefstwert %u KB, PSRAM %u KB, "
              "fps min %.1f, Stack frei %u Byte, %d× weitergemacht; Neustart",
@@ -919,8 +920,11 @@ bool start_install(const char* version, bool older, char* error, size_t error_le
     }
     if (older) ESP_LOGW(TAG, "Ältere Version %s angefordert (Seite Experimentell)", version);
     const ota::Status o = ota::status();
-    if (o.busy || o.trial) {
-        std::snprintf(error, error_len, "%s", o.busy ? "Es läuft bereits ein Update" : "Der Probelauf der aktuellen Version läuft noch, bitte kurz warten");
+    if (o.busy || o.trial || o.reboot_pending) {
+        std::snprintf(error, error_len, "%s",
+                      o.busy             ? "Es läuft bereits ein Update"
+                      : o.reboot_pending ? "Ein Update ist installiert, Neustart folgt"
+                                         : "Der Probelauf der aktuellen Version läuft noch, bitte kurz warten");
         return false;
     }
     return launch(Job::Install, error, error_len);

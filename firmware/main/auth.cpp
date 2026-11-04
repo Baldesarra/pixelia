@@ -12,6 +12,7 @@
 #include "esp_random.h"
 #include "esp_timer.h"
 #include "nvs.h"
+#include "settings.h"
 #include "psa/crypto.h"
 
 namespace app::auth {
@@ -95,17 +96,28 @@ int lock_seconds_locked() {
     return left > 0 ? static_cast<int>((left + 999999) / 1000000) : 0;
 }
 
-esp_err_t store(bool on) {
+// Speichert die Kandidaten, nicht den aktiven Zustand (B22). Salz und Hash als ein Eintrag „cred“: Ein NVS-Eintrag
+// wird ganz oder gar nicht geschrieben, ein halber Wechsel (neues Salz, alter Hash) kann so nicht entstehen.
+esp_err_t store(bool on, const uint8_t* salt, const uint8_t* hash) {
+    if (settings::take_fault()) return ESP_FAIL;  // Prüfschalter „nvs fehler“
     nvs_handle_t h;
     esp_err_t err = nvs_open(kNamespace, NVS_READWRITE, &h);
     if (err != ESP_OK) return err;
     if (on) {
-        err = nvs_set_blob(h, "salt", s_salt, kSaltLen);
-        if (err == ESP_OK) err = nvs_set_blob(h, "hash", s_hash, kHashLen);
+        uint8_t cred[kSaltLen + kHashLen];
+        std::memcpy(cred, salt, kSaltLen);
+        std::memcpy(cred + kSaltLen, hash, kHashLen);
+        err = nvs_set_blob(h, "cred", cred, sizeof(cred));
+        if (err == ESP_OK) err = nvs_commit(h);
+        if (err == ESP_OK) {  // alte Einzel-Einträge (bis 0.5.10) aufräumen, Fehler dabei sind harmlos
+            nvs_erase_key(h, "salt");
+            nvs_erase_key(h, "hash");
+            nvs_commit(h);
+        }
     } else {
         err = nvs_erase_all(h);
+        if (err == ESP_OK) err = nvs_commit(h);
     }
-    if (err == ESP_OK) err = nvs_commit(h);
     nvs_close(h);
     return err;
 }
@@ -119,9 +131,16 @@ void init() {
         ESP_LOGI(TAG, "PIN aus");
         return;
     }
-    size_t sl = kSaltLen, hl = kHashLen;
-    s_enabled = nvs_get_blob(h, "salt", s_salt, &sl) == ESP_OK && sl == kSaltLen &&
-                nvs_get_blob(h, "hash", s_hash, &hl) == ESP_OK && hl == kHashLen;
+    uint8_t cred[kSaltLen + kHashLen];
+    size_t cl = sizeof(cred), sl = kSaltLen, hl = kHashLen;
+    if (nvs_get_blob(h, "cred", cred, &cl) == ESP_OK && cl == sizeof(cred)) {
+        std::memcpy(s_salt, cred, kSaltLen);
+        std::memcpy(s_hash, cred + kSaltLen, kHashLen);
+        s_enabled = true;
+    } else {  // Stand bis 0.5.10
+        s_enabled = nvs_get_blob(h, "salt", s_salt, &sl) == ESP_OK && sl == kSaltLen &&
+                    nvs_get_blob(h, "hash", s_hash, &hl) == ESP_OK && hl == kHashLen;
+    }
     nvs_close(h);
     ESP_LOGI(TAG, "PIN %s", s_enabled ? "an" : "aus");
 }
@@ -214,6 +233,13 @@ esp_err_t set(const char* pin, char* token) {
         derive(salt, pin, hash);
     }
     std::lock_guard<std::mutex> g(s_lock);
+    // B22: erst dauerhaft speichern, dann den neuen Zustand gelten lassen; bei Fehler bleiben alter PIN und Sitzungen
+    const esp_err_t err = store(len > 0, salt, hash);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "PIN nicht gespeichert (%s), es gilt weiter der bisherige Zustand (PIN %s)", esp_err_to_name(err),
+                 s_enabled ? "an" : "aus");
+        return err;
+    }
     if (len) {
         std::memcpy(s_salt, salt, kSaltLen);
         std::memcpy(s_hash, hash, kHashLen);
@@ -222,9 +248,7 @@ esp_err_t set(const char* pin, char* token) {
     s_fails = 0;
     s_locked_until = 0;
     clear_tokens_locked();
-    const esp_err_t err = store(s_enabled);
-    if (err != ESP_OK) ESP_LOGE(TAG, "PIN nicht gespeichert: %s", esp_err_to_name(err));
-    else ESP_LOGW(TAG, "PIN %s", s_enabled ? "gesetzt, alle Sitzungen abgemeldet" : "ausgeschaltet");
+    ESP_LOGW(TAG, "PIN %s", s_enabled ? "gesetzt, alle Sitzungen abgemeldet" : "ausgeschaltet");
     if (token && s_enabled) new_token_locked(token);
     return err;
 }

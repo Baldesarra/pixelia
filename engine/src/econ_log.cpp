@@ -318,6 +318,31 @@ bool EconomyLog::attach(Environment& env, size_t buffer_bytes, const char* sourc
     return true;
 }
 
+// B10 (seit 0.5.11): Zähler nach Besitzer getrennt. Der Erzeuger (Kern 1: row, Buchungen, cut) zählt in pst_, der
+// Verbraucher (Kern 0: prepare, flush, open, scan) in st_. Jeder veröffentlicht seine Kopie kurz unter stats_m_,
+// stats() liest nur die Kopien. Keine Dateizugriffe unter der Sperre.
+void EconomyLog::publish(bool producer) {
+    std::lock_guard<std::mutex> g(stats_m_);
+    ++pub_seq_;
+    if (producer) {
+        pub_prod_ = pst_;
+        prod_seq_ = pub_seq_;
+    } else {
+        pub_cons_ = st_;
+        cons_seq_ = pub_seq_;
+    }
+}
+
+EconomyLog::Stats EconomyLog::stats() const {
+    std::lock_guard<std::mutex> g(stats_m_);
+    Stats r = pub_cons_;
+    r.rows = pub_prod_.rows;
+    r.late = pub_prod_.late;
+    r.lost = pub_prod_.lost + pub_cons_.lost;
+    r.buffered = prod_seq_ > cons_seq_ ? pub_prod_.buffered : pub_cons_.buffered;  // wer zuletzt den Puffer änderte
+    return r;
+}
+
 void EconomyLog::detach() {
     if (env_) {
         env_->ledger.set_listener(nullptr, nullptr, nullptr);
@@ -351,11 +376,11 @@ void EconomyLog::minute_text(int64_t at_us, char* out) const {
 }
 
 void EconomyLog::row(Table t, int32_t day, const char* text, int len) {
-    ++st_.rows;
+    ++pst_.rows;
     if (len <= 0 || !cur_) return;
     len = std::min(len, 0xFFFF);
     if (cur_len_ + kHead + len > cap_) {
-        ++st_.lost;  // Puffer voll (wants_save hätte vorher gespeichert)
+        ++pst_.lost;  // Puffer voll (wants_save hätte vorher gespeichert)
         return;
     }
     uint8_t* p = cur_ + cur_len_;
@@ -394,7 +419,7 @@ void EconomyLog::on_booking(const BookingRecord& r) {
         if (r.from >= 0) note_delta(r.from, r.good, day, -static_cast<int>(r.qty));
         if (r.to >= 0) note_delta(r.to, r.good, day, r.qty);
     } else if (day_ != INT32_MIN && day < day_) {
-        ++st_.late;
+        ++pst_.late;
     }
 }
 
@@ -405,7 +430,7 @@ void EconomyLog::note_delta(int store, int good, int32_t day, int qty) {
             return;
         }
     if (!deltas_ || delta_n_ >= kMaxDeltas) {
-        ++st_.late;  // Tagesaufnahme kann abweichen
+        ++pst_.late;  // Tagesaufnahme kann abweichen
         return;
     }
     deltas_[delta_n_++] = Delta{static_cast<int16_t>(store), static_cast<uint8_t>(good), day, qty};
@@ -476,7 +501,7 @@ void EconomyLog::day_rows(int32_t day) {
             for (int d = 0; d < delta_n_; ++d)
                 if (deltas_[d].store == s && deltas_[d].good == good && deltas_[d].day > day) qty -= deltas_[d].qty;
             if (qty <= 0) {
-                if (qty < 0) ++st_.late;
+                if (qty < 0) ++pst_.late;
                 continue;
             }
             const int n = std::snprintf(line, sizeof(line), "%ld,%s,%s,%u,%d,%d\n", static_cast<long>(day), key,
@@ -515,6 +540,7 @@ void EconomyLog::step(const Stage& stage) {
     for (int d = 0; d < delta_n_; ++d)
         if (deltas_[d].day > day_) deltas_[w++] = deltas_[d];
     delta_n_ = w;
+    publish(true);
 }
 
 void EconomyLog::cut() {
@@ -528,7 +554,7 @@ void EconomyLog::cut() {
         while (k + kHead <= cur_len_) {
             const size_t len = kHead + (cur_[k + 5] | (cur_[k + 6] << 8));
             if (pend_len_ + len > cap_) {
-                for (size_t j = k; j + kHead <= cur_len_; j += kHead + (cur_[j + 5] | (cur_[j + 6] << 8))) ++st_.lost;
+                for (size_t j = k; j + kHead <= cur_len_; j += kHead + (cur_[j + 5] | (cur_[j + 6] << 8))) ++pst_.lost;
                 break;
             }
             std::memcpy(pend_ + pend_len_, cur_ + k, len);
@@ -537,7 +563,8 @@ void EconomyLog::cut() {
         }
     }
     cur_len_ = 0;
-    st_.buffered = static_cast<uint32_t>(pend_len_);
+    pst_.buffered = static_cast<uint32_t>(pend_len_);
+    publish(true);
 }
 
 // --- Anhängen (seit 0.5.11: Plan, Journal, Größenprüfung je Datei) ---
@@ -731,6 +758,7 @@ bool EconomyLog::write_journal(const char* dir, uint32_t generation, int groups)
 }
 
 bool EconomyLog::prepare(const char* dir, uint32_t generation) {
+    const Publisher pub(*this);  // B10: Zähler des Verbrauchers am Ende veröffentlichen
     if (!pend_len_) return false;
     make_dir(dir);
     const int groups = plan(dir);
@@ -755,6 +783,7 @@ void EconomyLog::abandon() {
 }
 
 bool EconomyLog::flush(const char* dir) {
+    const Publisher pub(*this);  // B10: Zähler des Verbrauchers am Ende veröffentlichen
     if (!pend_len_) return true;
     const int64_t t0 = now_ms();
     make_dir(dir);
@@ -864,6 +893,7 @@ void EconomyLog::recover(const char* dir, uint32_t loaded_gen) {
 }
 
 void EconomyLog::open(const char* dir, uint32_t world, uint32_t line, uint32_t loaded_gen) {
+    const Publisher pub(*this);  // B10: Zähler des Verbrauchers am Ende veröffentlichen
     make_dir(dir);
     world_ = world;
     line_ = line;
@@ -903,6 +933,7 @@ void EconomyLog::open(const char* dir, uint32_t world, uint32_t line, uint32_t l
 }
 
 void EconomyLog::scan(const char* dir) {
+    const Publisher pub(*this);  // B10: Zähler des Verbrauchers am Ende veröffentlichen
     st_.files = st_.bytes = 0;
     st_.first_day = st_.last_day = 0;
     Buf path(640);

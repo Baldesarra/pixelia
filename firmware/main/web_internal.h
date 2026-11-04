@@ -32,6 +32,8 @@ std::string status_json();
 bool authorized(httpd_req_t* req, const std::string* body = nullptr);
 // Antwort 401 (bzw. 429 während der Sperre) mit {ok:false, auth:true, msg, lockS, left}
 esp_err_t deny(httpd_req_t* req);
+// Zu große WebSocket-Nachricht: mit Code 1009 schließen (V10)
+esp_err_t ws_reject_oversize(httpd_req_t* req, size_t len);
 
 // WebSocket-Sitzungen von /ws/log (alle anderen WebSocket-Sitzungen bekommen den Status)
 bool is_log_client(int fd);
