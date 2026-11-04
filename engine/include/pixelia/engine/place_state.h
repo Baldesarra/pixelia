@@ -10,7 +10,7 @@
 // - Orte melden ihre Zustände mit Daten an (StateDef in PlaceDef::states) und zeigen sie: Zustandsbild eines Teils,
 //   Lichtkreis, Farben. Ändern dürfen Orte sie nur über Handlungen (anzünden, löschen, abdecken, schöpfen,
 //   weiterarbeiten), wie später die Figuren.
-// - Bis zum Tagesgerüst (0.5.11) entscheiden Hausregeln (StateRule) über Licht und Feuer, nach Weltzeit und
+// - Bis zum Tagesgerüst (0.5.12) entscheiden Hausregeln (StateRule) über Licht und Feuer, nach Weltzeit und
 //   Sonnenzeiten. Brennstoff war bis 0.5.9 unbegrenzt vorrätig (wer anzündet, füllt auf); seit 0.5.10 holt ein Zustand
 //   mit StateDef::fuel jede Füllung aus dem Warenbuch (ledger.h, verbrauchen) und meldet dort seinen Bedarf. Ist nichts
 //   da, bleibt das Feuer aus bzw. brennt herunter. Ohne fuel bleibt es unbegrenzt.
@@ -53,7 +53,7 @@ inline constexpr int kMaxOutsideStrength = 6;  // Obergrenze der Summe eines Ort
 // Lichtkreis einer Quelle der Stärke 1 … 4 um (x, y): Stärke 4 = 60 × 40 grobe Bildpunkte bis zur obersten Stufe
 LightCircle light_circle(int x, int y, int strength);
 
-// Hausregeln bis zum Tagesgerüst (0.5.11)
+// Hausregeln bis zum Tagesgerüst (0.5.12)
 enum class StateRule : uint8_t {
     None,
     Evening,    // Abendlicht: brennt, wenn es dunkel ist und man wach ist (5:30–23 Uhr); Laterne genauso

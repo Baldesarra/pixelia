@@ -7,6 +7,8 @@
   import { onMount } from 'svelte';
   import { get, post, type GhState } from '../lib/api';
   import { HEADER_BYTES, parseHeader, upload } from '../lib/firmware';
+  import UpdateSteps, { type StepState } from '../lib/UpdateSteps.svelte';
+  import type { Status } from '../lib/status.svelte';
   import { cmpVersion, dateDe, entryFromNotes, installedEntry, logFromBin, parseFw, type ChangeEntry as Entry } from '../lib/changelog';
   import ChangeEntry from '../lib/ChangeEntry.svelte';
   import { duration, num } from '../lib/format';
@@ -24,6 +26,61 @@
   let waitingFor = $state('');
   let cancel = $state<(() => void) | null>(null);
   let via = $state<'file' | 'github'>('file'); // woher das laufende Update kommt (Fortschritt im passenden Abschnitt)
+  let fileV = ''; // Version laut Kopf der gewählten Datei
+
+  // Ablauf (B20, seit 0.5.11): senden → prüfen → neustart → selbsttest. „unklar“: Der Browser weiß nicht, ob
+  // installiert wurde (Verbindung weg, Antwort aus, abgebrochen); dann entscheidet erst ein frischer Status
+  type Phase = '' | 'senden' | 'pruefen' | 'unklar' | 'neustart' | 'selbsttest';
+  let phase = $state<Phase>('');
+  let unclearStep = $state(1); // Schritt, an dem es unklar wurde (0 = noch beim Senden)
+  let oldV = '';
+  let oldBoot = -1; // Startnummer vor dem Update: eine neue heißt, Pixelia hat neu gestartet
+  let since = 0; // performance.now() beim Wechsel nach „unklar“ bzw. „neustart“
+  function enter(p: Phase) {
+    phase = p;
+    since = performance.now();
+  }
+  function endUpdate() {
+    sending = false;
+    waitingFor = '';
+    phase = '';
+    cancel = null;
+  }
+
+  const tState = $derived(s?.ota.trialState);
+  // Selbsttest zu Ende, aber die Version läuft weiter im Probelauf (V08): eigene Karte statt Fortschritt
+  const trialEnded = $derived(!!s?.ota.trial && (tState === 'nicht bestätigt' || tState === 'Rückfall gescheitert'));
+  const trialRunning = $derived(!!s?.ota.trial && !trialEnded);
+  function trialText(st: Status): { ok: boolean | null; text: string } {
+    // Notiz der Firmware (device_flow.cpp): „läuft (Panel 60 Hz, Engine 30/s)“, „gesund, Bestätigen fehlgeschlagen
+    // (Fehler 0x103), neuer Versuch in 5 s“, beim Rückfall der Grund
+    const n = st.ota.trialNote ?? '';
+    switch (st.ota.trialState) {
+      case 'bestätigen':
+        return { ok: null, text: `Selbsttest bestanden, ${st.v} wird dauerhaft bestätigt …` };
+      case 'unbestätigt': {
+        const err = /Fehler 0x[0-9a-f]+/.exec(n)?.[0];
+        const next = /neuer Versuch in \d+ s/.exec(n)?.[0];
+        return { ok: null, text: `Selbsttest bestanden. Bestätigen hat noch nicht geklappt${err ? ` (${err})` : ''}, ${next ?? 'neuer Versuch folgt'}.` };
+      }
+      case 'Rückfall':
+        return { ok: false, text: `Selbsttest nicht bestanden${n ? `: ${n}` : ''}. Pixelia startet die vorige Version …` };
+      default: {
+        const detail = /^läuft \((.*)\)$/.exec(n)?.[1] ?? (n === 'läuft' ? '' : n);
+        return { ok: null, text: `Pixelia ${st.v} läuft. Selbsttest: ${st.ota.trialS} von ${st.ota.trialNeed} s${detail ? ` · ${detail}` : ''} …` };
+      }
+    }
+  }
+  const stepStates = $derived.by((): StepState[] => {
+    const at = phase === 'unklar' ? unclearStep : { '': 0, senden: 0, pruefen: 1, neustart: 2, selbsttest: 3 }[phase];
+    const mark: StepState =
+      phase === 'unklar' || (phase === 'selbsttest' && tState === 'unbestätigt')
+        ? 'warn'
+        : phase === 'selbsttest' && tState === 'Rückfall'
+          ? 'fehler'
+          : 'jetzt';
+    return [0, 1, 2, 3].map((i) => (i < at ? 'fertig' : i === at ? mark : 'offen'));
+  });
 
   async function pickFile() {
     const f = fileInput?.files?.[0] ?? null;
@@ -34,6 +91,7 @@
     const h = parseHeader(await f.slice(0, HEADER_BYTES).arrayBuffer());
     if ('err' in h) return (fileInfo = { ok: false, text: h.err });
     file = f;
+    fileV = h.v;
     fileInfo = { ok: true, text: `Pixelia ${h.v} · gebaut ${h.date} ${h.time} · ${num(f.size / 1024)} KB` };
     preview = await makePreview(f, h.v);
   }
@@ -76,46 +134,89 @@
     sending = true;
     sent = 0;
     total = file.size;
+    oldV = s?.v ?? '';
+    oldBoot = s?.diag.boot ?? -1;
+    waitingFor = fileV;
+    enter('senden');
     upMsg = { ok: null, text: 'Übertrage …' };
     cancel = upload(file, {
       progress: (a, b) => {
         sent = a;
         total = b;
-        upMsg = { ok: null, text: `Übertragen: ${Math.round((a * 100) / b)} % (${num(a / 1024)} von ${num(b / 1024)} KB)` };
+        if (phase === 'senden') upMsg = { ok: null, text: `Übertragen: ${Math.round((a * 100) / b)} % (${num(a / 1024)} von ${num(b / 1024)} KB)` };
       },
-      done: (ok, msg, v) => {
+      sent: () => {
+        enter('pruefen');
+        upMsg = { ok: null, text: 'Die Datei ist angekommen, Pixelia prüft sie …' };
+      },
+      done: (r) => {
         cancel = null;
-        if (ok) {
-          waitingFor = v ?? '';
-          upMsg = { ok: true, text: 'Installiert und geprüft. Pixelia startet neu, danach folgt der Probelauf mit Selbsttest (etwa eine Minute) …' };
+        // Der Status ist schon weiter (Neustart gesehen): ein verspäteter Fehler des Browsers sagt nichts mehr
+        if (r.kind !== 'ok' && (phase === 'neustart' || phase === 'selbsttest' || !waitingFor)) return;
+        if (r.kind === 'ok') {
+          if (r.v) waitingFor = r.v;
+          if (phase !== 'selbsttest') enter('neustart');
+          upMsg = { ok: true, text: 'Installiert und geprüft. Pixelia startet neu, danach folgt der Selbsttest (etwa eine Minute) …' };
+        } else if (r.kind === 'abgelehnt') {
+          endUpdate();
+          upMsg = { ok: false, text: `Nicht installiert: ${r.msg}` };
         } else {
-          sending = false;
-          upMsg = { ok: false, text: msg };
+          unclearStep = r.sent ? 1 : 0;
+          enter('unklar');
+          upMsg = { ok: null, text: `${r.msg} Pixelia wird gefragt, ob das Update installiert ist …` };
         }
       },
     });
   }
 
-  // Nach dem Neustart: neue Version im Probelauf, bestanden oder zurückgenommen
+  function finishUpdate() {
+    endUpdate();
+    void loadGh(); // nach dem Neustart: Ergebnis der alten Prüfung ist weg
+    file = null;
+    fileInfo = null;
+    preview = null;
+    if (fileInput) fileInput.value = '';
+  }
+
+  // Stand des Geräts entscheidet: Neustart steht an, neue Version im Selbsttest, bestanden oder zurückgenommen; bei
+  // „unklar“ sagt erst ein Status nach dem Fehler, dass nichts installiert wurde (alte Version, frei, kein Neustart)
   $effect(() => {
     if (!waitingFor || !s) return;
-    if (s.v === waitingFor) {
-      if (s.ota.trial) upMsg = { ok: null, text: `Neue Version ${s.v} läuft. Selbsttest: ${s.ota.trialS} von ${s.ota.trialNeed} s …` };
-      else {
+    if (s.v === waitingFor && s.diag.boot !== oldBoot) {
+      const t = s.ota.trialState;
+      if (trialRunning && t !== 'bestanden') {
+        phase = 'selbsttest';
+        upMsg = trialText(s);
+      } else if (trialEnded) {
+        upMsg = { ok: false, text: t === 'nicht bestätigt' ? `${s.v} läuft, ist aber nicht dauerhaft bestätigt.` : `Selbsttest von ${s.v} nicht bestanden, Rückfall nicht möglich.` };
+        finishUpdate();
+      } else {
         upMsg = { ok: true, text: `Update auf ${s.v} erfolgreich.` };
-        waitingFor = '';
-        void loadGh(); // nach dem Neustart: Ergebnis der alten Prüfung ist weg
-        sending = false;
-        file = null;
-        fileInfo = null;
-        preview = null;
-        if (fileInput) fileInput.value = '';
+        finishUpdate();
       }
     } else if (s.rollback?.v === waitingFor) {
       upMsg = { ok: false, text: `Update auf ${waitingFor} wurde zurückgenommen: ${s.rollback.why}` };
-      waitingFor = '';
-      sending = false;
+      endUpdate();
+    } else if (s.ota.reboot) {
+      if (phase !== 'neustart') enter('neustart');
+    } else if (via === 'github' && phase === 'senden' && s.ota.busy && s.ota.total > 0 && s.ota.bytes >= s.ota.total) {
+      enter('pruefen');
+    } else if (phase === 'unklar' && device.seen > since + 1500 && !s.ota.busy && s.diag.boot === oldBoot && s.v === oldV) {
+      upMsg = { ok: false, text: `Nicht installiert: Pixelia läuft weiter mit ${s.v} (gerade nachgefragt). Bitte noch einmal versuchen.` };
+      endUpdate();
     }
+  });
+
+  // Frist für „unklar“ und „Neustart“: nach 3 Minuten ohne Ergebnis lieber ehrlich aufhören als ewig warten
+  $effect(() => {
+    if (phase !== 'unklar' && phase !== 'neustart') return;
+    const p = phase;
+    const id = setTimeout(() => {
+      if (phase !== p) return;
+      upMsg = { ok: false, text: 'Ergebnis unklar: Pixelia meldet sich seit 3 Minuten nicht wie erwartet. Bitte am Display nachsehen und diese Seite neu laden.' };
+      endUpdate();
+    }, 180_000);
+    return () => clearTimeout(id);
   });
   const offline = $derived(device.link === 'getrennt');
 
@@ -221,7 +322,10 @@
     if (!r?.ok) return (ghMsg = r?.msg ?? 'Pixelia antwortet nicht');
     via = 'github';
     sending = true;
+    oldV = s?.v ?? '';
+    oldBoot = s?.diag.boot ?? -1;
     waitingFor = t.v;
+    enter('senden');
     upMsg = { ok: null, text: 'Verbinde mit GitHub …' };
     // Fehler vor dem Neustart (Download, Prüfung) meldet /api/update; startet Pixelia neu, antwortet es kurz nicht
     for (let i = 0; i < 600; i++) {
@@ -232,16 +336,14 @@
         [gh, ghAt] = [st, Date.now()];
         upMsg = null;
         ghNote = `Download abgebrochen. Es läuft weiter ${s?.v}, nichts wurde geändert.`;
-        waitingFor = '';
-        sending = false;
+        endUpdate();
         cancelling = false;
         break;
       }
       if (st.err) {
         [gh, ghAt] = [st, Date.now()];
         upMsg = { ok: false, text: st.err };
-        waitingFor = '';
-        sending = false;
+        endUpdate();
       }
       if (st.err || s?.v === t.v || !waitingFor) break;
     }
@@ -249,7 +351,7 @@
 
   // Download-Fortschritt (Status jede Sekunde)
   $effect(() => {
-    if (!s || !waitingFor || !(s.ota.busy && s.ota.src === 'github')) return;
+    if (!s || !waitingFor || phase !== 'senden' || !(s.ota.busy && s.ota.src === 'github')) return;
     const pct = s.ota.total ? Math.round((s.ota.bytes * 100) / s.ota.total) : 0;
     upMsg = { ok: null, text: `Lade von GitHub: ${pct} % (${num(s.ota.bytes / 1024)} von ${num(s.ota.total / 1024)} KB)` };
   });
@@ -258,19 +360,26 @@
 </script>
 
 {#snippet progress()}
-  {#if sending && !waitingFor}
-    <WavyProgress value={total ? sent / total : undefined} label="Übertragung" />
-  {:else if waitingFor}
-    {#if s?.ota.busy && s.ota.src === 'github'}
-      <WavyProgress value={s.ota.total ? s.ota.bytes / s.ota.total : undefined} label="Download von GitHub" />
+  {#if phase}
+    <UpdateSteps first={via === 'github' ? 'Laden' : 'Übertragen'} states={stepStates} />
+    {#if phase === 'senden' && via === 'github'}
+      <WavyProgress value={s?.ota.total ? s.ota.bytes / s.ota.total : undefined} label="Download von GitHub" />
       <div class="actions"><Button variant="text" icon="close" disabled={cancelling} onclick={cancelGh}>Abbrechen</Button></div>
+    {:else if phase === 'senden'}
+      <WavyProgress value={total ? sent / total : undefined} label="Übertragung" />
+    {:else if phase === 'selbsttest'}
+      <WavyProgress
+        value={!tState || tState === 'läuft' ? (s?.ota.trialS ?? 0) / (s?.ota.trialNeed || 60) : undefined}
+        tone={tState === 'Rückfall' ? 'error' : 'tertiary'}
+        label="Selbsttest"
+      />
     {:else}
-      <WavyProgress value={s?.v === waitingFor && s.ota.trial ? s.ota.trialS / s.ota.trialNeed : undefined} tone="tertiary" label="Neustart und Probelauf" />
+      <WavyProgress tone="tertiary" label={phase === 'pruefen' ? 'Prüfen' : phase === 'neustart' ? 'Neustart' : 'Warte auf Pixelia'} />
     {/if}
   {/if}
   {#if upMsg}
     <p class={upMsg.ok === false ? 'err-text' : upMsg.ok ? 'ok-text' : ''}>
-      {offline && waitingFor ? 'Pixelia startet neu …' : upMsg.text}
+      {offline && phase === 'neustart' ? 'Pixelia startet neu …' : upMsg.text}
     </p>
   {/if}
 {/snippet}
@@ -290,6 +399,27 @@
       </div>
     </Card>
 
+    <!-- V08 (seit 0.5.11, Wahl des Users): Selbsttest zu Ende, aber nicht dauerhaft bestätigt (orange) bzw. Rückfall
+         gescheitert (rot); die Version läuft weiter im Probelauf -->
+    {#if trialEnded}
+      <Card class="wide">
+        <div class="endbox" class:bad={tState === 'Rückfall gescheitert'}>
+          <Icon name={tState === 'Rückfall gescheitert' ? 'error' : 'warning'} />
+          <div>
+            {#if tState === 'nicht bestätigt'}
+              <strong>{s.v} läuft, ist aber nicht dauerhaft bestätigt</strong>
+              <p>Der Selbsttest war gut, nur das Bestätigen klappte nicht. Nach dem nächsten Neustart startet wieder die vorige Version.</p>
+            {:else}
+              <strong>Selbsttest von {s.v} nicht bestanden</strong>
+              <p>Die vorige Version ließ sich nicht starten, deshalb läuft {s.v} weiter.</p>
+            {/if}
+            {#if s.ota.trialNote}<p class="small">Pixelia meldet: {s.ota.trialNote}</p>{/if}
+          </div>
+        </div>
+        <div class="actions"><Button variant="tonal" icon="monitor_heart" href="#/diagnose">Diagnose</Button></div>
+      </Card>
+    {/if}
+
     {#if s.rollback}
       <Card variant="error" class="wide">
         <div class="alert">
@@ -307,9 +437,12 @@
       <h2 class="card-title">
         <Icon name="system_update_alt" size={20} />Update
       </h2>
-      {#if s.ota.trial && !waitingFor}
-        <p>Probelauf von {s.v}: Selbsttest läuft ({s.ota.trialS} von {s.ota.trialNeed} s{s.ota.trialNote ? `, ${s.ota.trialNote}` : ''}).</p>
-        <WavyProgress value={s.ota.trialS / s.ota.trialNeed} tone="tertiary" label="Probelauf" />
+      {#if trialRunning && !waitingFor}
+        <p>Probelauf von {s.v}: {trialText(s).text}</p>
+        <WavyProgress value={!tState || tState === 'läuft' ? s.ota.trialS / s.ota.trialNeed : undefined} tone="tertiary" label="Probelauf" />
+      {:else if s.ota.reboot && !sending}
+        <p>Ein Update auf {s.ota.newV || 'eine neue Version'} ist installiert. Pixelia startet gleich neu …</p>
+        <WavyProgress tone="tertiary" label="Neustart" />
       {:else if s.ota.busy && !sending}
         <p>Ein Update auf {s.ota.newV} wird gerade {s.ota.src === 'github' ? 'von GitHub geladen' : 'von einem anderen Browser installiert'} …</p>
         <WavyProgress value={s.ota.total ? s.ota.bytes / s.ota.total : undefined} label="Update" />
@@ -332,7 +465,7 @@
             {ghChecking ? 'Suche …' : 'Nach Updates suchen'}
           </Button>
         </div>
-        {#if via === 'github' && (sending || waitingFor)}
+        {#if via === 'github' && (sending || waitingFor || upMsg?.ok === false)}
           {@render progress()}
         {:else if noNet}
           <p class="muted">{noNet}</p>
@@ -361,7 +494,7 @@
               {/each}
             </div>
           {/if}
-        {:else if ghFresh}
+        {:else if ghFresh && !trialEnded}
           <div class="banner ok">
             <Icon name="check_circle" size={28} />
             <div>
@@ -371,8 +504,8 @@
                 {!gh?.latest
                   ? 'In diesem Kanal gibt es auf GitHub noch keine Version'
                   : cmpVersion(parseFw(s.v).base, gh.latest) > 0
-                    ? `Neuer als die neueste ${ghCh === 'stable' ? 'stabile' : 'Vorschau-'}Version auf GitHub (${gh.latest})`
-                    : `Neueste ${ghCh === 'stable' ? 'stabile' : 'Vorschau-'}Version auf GitHub`}
+                    ? `Neuer als die neueste ${ghCh === 'stable' ? 'stabile ' : 'Vorschau-'}Version auf GitHub (${gh.latest})`
+                    : `Neueste ${ghCh === 'stable' ? 'stabile ' : 'Vorschau-'}Version auf GitHub`}
               </span>
             </div>
           </div>
@@ -395,7 +528,7 @@
     </Card>
 
     <!-- Aus Datei (seit 0.5.4 eigene Karte unten, Wunsch des Users): selten gebraucht -->
-    {#if !(s.ota.trial && !waitingFor) && !(s.ota.busy && !sending)}
+    {#if !(trialRunning && !waitingFor) && !((s.ota.busy || s.ota.reboot) && !sending)}
       <Card class="wide">
         <h2 class="card-title"><Icon name="upload_file" size={20} />Aus Datei</h2>
         <p class="muted">
@@ -547,6 +680,29 @@
   }
   .grow {
     flex: 1;
+  }
+  .endbox {
+    display: flex;
+    gap: 14px;
+    padding: 16px;
+    border-radius: var(--md-sys-shape-corner-large-increased);
+    background: #ffdbc8;
+    color: #341100;
+  }
+  :global([data-theme='dark']) .endbox {
+    background: #723600;
+    color: #ffdbc8;
+  }
+  .endbox.bad {
+    background: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
+  }
+  .endbox p {
+    margin: 4px 0 0;
+  }
+  .endbox strong {
+    font: var(--md-sys-typescale-title-medium);
+    font-weight: 700;
   }
   /* Versionskarte: Pixel-Zeichen wie das Symbol im Browser-Tab */
   .brand {

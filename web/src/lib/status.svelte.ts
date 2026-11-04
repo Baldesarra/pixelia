@@ -50,6 +50,10 @@ export type Status = {
     trialNeed: number;
     trialNote: string;
     passed: boolean;
+    // seit 0.5.11 (V08): Zustand des Selbsttests, erwartete Panelrate, Neustart steht bevor (Update geschrieben)
+    trialState?: TrialState;
+    trialHz?: number;
+    reboot?: boolean;
     avail?: string; // seit 0.4.2: neuere Version auf GitHub (Prüfung im Hintergrund), leer = keine
     ghSeq?: number; // seit 0.4.2: ändert sich mit jedem neuen Stand von /api/update
   };
@@ -73,6 +77,7 @@ export type Status = {
     nightNow?: boolean;
     nightFrom?: number;
     nightTo?: number;
+    pend?: boolean;    // seit 0.5.11: übernommen, aber noch nicht dauerhaft gespeichert (neuer Versuch alle 30 s)
   };
   auth?: { pin: boolean; lockS: number };
   diag: {
@@ -85,7 +90,10 @@ export type Status = {
   };
 };
 
-export type Link = 'verbinde' | 'live' | 'abfrage' | 'getrennt';
+// Selbsttest nach einem Update (firmware: trial_phase_name in engine/src/device_flow.cpp)
+export type TrialState = 'läuft' | 'bestätigen' | 'unbestätigt' | 'bestanden' | 'nicht bestätigt' | 'Rückfall' | 'Rückfall gescheitert';
+
+export type Link ='verbinde' | 'live' | 'abfrage' | 'getrennt';
 
 class Device {
   data = $state<Status | null>(null);
@@ -97,21 +105,30 @@ class Device {
   #fails = 0;
   #retry = 0;
   #poll = 0;
+  #req: AbortController | null = null;
   #hidden = 0;
   #page = '';
 
   start() {
     this.#connect();
-    void this.#watch(); // erste Werte sofort, nicht erst mit der ersten WebSocket-Nachricht
-    this.#poll = window.setInterval(() => this.#watch(), 2000);
+    this.#schedule(0); // erste Werte sofort, nicht erst mit der ersten WebSocket-Nachricht
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         this.#hidden = window.setTimeout(() => this.#close(), 60_000);
+        clearTimeout(this.#poll);
+        this.#req?.abort();
       } else {
         clearTimeout(this.#hidden);
         if (!this.#ws) this.#connect();
+        this.#schedule(0);
       }
     });
+  }
+
+  // B21 (seit 0.5.11): höchstens eine Abfrage zur Zeit, die nächste erst 2 s nach dem Ende der vorigen
+  #schedule(ms: number) {
+    clearTimeout(this.#poll);
+    this.#poll = window.setTimeout(() => void this.#watch(), ms);
   }
 
   #connect() {
@@ -167,15 +184,26 @@ class Device {
     this.seen = performance.now();
   }
 
-  // Keine Live-Daten seit 3,5 s: einmal abfragen (z. B. Captive-Portal-Fenster ohne WebSocket)
+  // Keine Live-Daten seit 3,5 s: einmal abfragen (z. B. Captive-Portal-Fenster ohne WebSocket). Frist 5 s; eine
+  // Antwort, die erst nach neueren Live-Daten ankommt, wird verworfen (sonst spränge die Anzeige zurück)
   async #watch() {
-    if (document.hidden || (this.data && performance.now() - this.seen < 3500)) return;
+    if (document.hidden || this.#req) return;
+    if (this.data && performance.now() - this.seen < 3500) return this.#schedule(2000);
+    const ctl = new AbortController();
+    this.#req = ctl;
+    const timer = window.setTimeout(() => ctl.abort(), 5000);
+    const asked = performance.now();
     try {
-      const r = await fetch('/api/status', { cache: 'no-store' });
+      const r = await fetch('/api/status', { cache: 'no-store', signal: ctl.signal });
       if (!r.ok) throw new Error(String(r.status));
-      this.#take(await r.json(), this.#ws?.readyState === WebSocket.OPEN ? 'live' : 'abfrage');
+      const d = (await r.json()) as Status;
+      if (this.seen <= asked) this.#take(d, this.#ws?.readyState === WebSocket.OPEN ? 'live' : 'abfrage');
     } catch {
-      this.link = this.data ? 'getrennt' : 'verbinde';
+      if (!document.hidden && this.seen <= asked) this.link = this.data ? 'getrennt' : 'verbinde';
+    } finally {
+      clearTimeout(timer);
+      this.#req = null;
+      if (!document.hidden) this.#schedule(2000);
     }
   }
 }

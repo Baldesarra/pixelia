@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "app.h"
+#include "auth.h"
 #include "diag.h"
 #include "esp_heap_caps.h"
 #include "esp_http_server.h"
@@ -41,6 +42,7 @@
 #include "logbuf.h"
 #include "net.h"
 #include "pixelia/engine/redact.h"
+#include "pixelia/engine/tasks.h"
 #include "settings.h"
 #include "web_internal.h"
 
@@ -276,7 +278,10 @@ esp_err_t ws_log_handler(httpd_req_t* req) {
     httpd_ws_frame_t frame{};
     uint8_t buf[64];
     if (httpd_ws_recv_frame(req, &frame, 0) != ESP_OK) return ESP_FAIL;
-    if (frame.len >= sizeof(buf)) return ESP_OK;
+    if (frame.len >= sizeof(buf)) return ws_reject_oversize(req, frame, "/ws/log");
+    // leere Rahmen (z. B. Keep-Alive-PONG von .NET alle 20 s): nichts mehr zu lesen. Ein zweiter Aufruf mit Länge 0
+    // läse sonst den Kopf des nächsten Rahmens und schlösse die Verbindung nach der Wartezeit (seit 0.5.11 behoben)
+    if (frame.len == 0) return ESP_OK;
     frame.payload = buf;
     return httpd_ws_recv_frame(req, &frame, frame.len);
 }
@@ -363,7 +368,9 @@ bool read_coredump(const diag::Crash& c, size_t chunk, Fn&& fn) {
     return true;
 }
 
+// Rohspeicher kann vertrauliche Daten aus den Task-Stacks enthalten (V06): nur mit PIN, nicht im Diagnosepaket
 esp_err_t coredump_get(httpd_req_t* req) {
+    if (!authorized(req)) return deny(req);
     diag::Crash c;
     if (!diag::crash(&c)) return reply(req, false, "Kein Absturzbericht vorhanden", "404 Not Found");
     char disp[96];
@@ -410,13 +417,36 @@ std::string world_json() {
     j.boolean("loaded", s.loaded).num("packUs", static_cast<int64_t>(s.pack_us)).num("writeMs", static_cast<int64_t>(s.write_ms));
     j.num("figures", s.figures).num("transit", s.transit).num("chronicle", s.chronicle);
     j.num("caughtUp", s.caught_up).num("skipped", s.skipped).boolean("test", s.test).boolean("waiting", s.waiting);
-    j.str("error", s.error).end_obj();
+    j.str("error", s.error);
+    // seit 0.5.11 (B01, B03, B09): Sperre, Rückfall, Kennung, Laden beim Start mit Tiefstwerten und Stack
+    char ids[2][12];
+    std::snprintf(ids[0], sizeof(ids[0]), "%08lx", static_cast<unsigned long>(s.world_id));
+    std::snprintf(ids[1], sizeof(ids[1]), "%08lx", static_cast<unsigned long>(s.line_id));
+    j.num("block", s.block).num("storage", static_cast<int>(assets::storage()));
+    j.boolean("probe", assets::storage_test() || gfx::save_probe());
+    j.boolean("fallback", s.fallback).num("rejectedGen", static_cast<int64_t>(s.rejected_gen)).str("why", s.load_why);
+    j.str("welt", ids[0]).str("linie", ids[1]).num("loadMs", static_cast<int64_t>(s.load_ms));
+    j.num("loadRamKb", static_cast<int64_t>(s.load_ram_kb)).num("loadPsramKb", static_cast<int64_t>(s.load_psram_kb));
+    j.num("loadStack", static_cast<int64_t>(s.load_stack)).num("journalMs", static_cast<int64_t>(s.journal_ms));
+    j.end_obj();
     // Wirtschafts-Protokoll (seit 0.5.10 Teil 4): Zeilen, Dateien und Dauer des Anhängens beim Speichern
     j.obj("wirtschaft").num("rows", static_cast<int64_t>(s.econ_rows)).num("written", static_cast<int64_t>(s.econ_written));
     j.num("lost", static_cast<int64_t>(s.econ_lost)).num("files", static_cast<int64_t>(s.econ_files));
     j.num("bytes", static_cast<int64_t>(s.econ_bytes)).num("flushMs", static_cast<int64_t>(s.econ_flush_ms));
     j.num("deleted", static_cast<int64_t>(s.econ_deleted)).num("firstDay", s.econ_first).num("lastDay", s.econ_last);
-    j.boolean("error", s.econ_error).end_obj();
+    j.boolean("error", s.econ_error);
+    j.num("dropped", static_cast<int64_t>(s.econ_dropped)).num("late", static_cast<int64_t>(s.econ_late));
+    j.num("recovered", static_cast<int64_t>(s.econ_recovered)).num("discarded", static_cast<int64_t>(s.econ_discarded));
+    j.num("archives", static_cast<int64_t>(s.econ_archives)).num("archiveBytes", static_cast<int64_t>(s.econ_archive_bytes));
+    j.num("journalBytes", static_cast<int64_t>(s.econ_journal)).boolean("full", s.econ_full);
+    j.boolean("cleanupError", s.econ_cleanup_error).end_obj();
+    // seit 0.5.11 (P-F): Zähler je Grund, warum kein Nachschub kommt; Bestandstabelle; Ereignis-Bus
+    j.obj("nachschub");
+    for (int k = 1; k < pixelia::kSupplyWaits; ++k)
+        j.num(pixelia::supply_wait_id(static_cast<pixelia::SupplyWait>(k)), static_cast<int64_t>(s.supply[k]));
+    j.num("eintraege", s.stock_entries).num("frei", static_cast<int64_t>(s.stock_freed));
+    j.num("ereignisseMax", static_cast<int64_t>(s.events_peak)).num("ereignisseVerloren", static_cast<int64_t>(s.events_lost));
+    j.end_obj();
     auto* v = static_cast<gfx::WorldView*>(heap_caps_malloc(sizeof(gfx::WorldView), MALLOC_CAP_SPIRAM));
     if (v && gfx::world_view(v)) {
         j.arr("chronicle");
@@ -461,7 +491,9 @@ esp_err_t diag_get(httpd_req_t* req) {
         j.obj().num("pixeliaDiag", 1).str("created", created).num("epoch", now > 1735689600 ? now : 0);
         j.str("host", wifi::kMdnsHost);
         j.str("hinweis", "Diagnosepaket von Pixelia: Status, Versionen, Einstellungen, Reset-Historie, Leistung, "
-                         "Log-Puffer, Absturzbericht, Weltzustand und Speicherstand. Enthält keine Passwörter (siehe secretCheck am Ende).");
+                         "Log-Puffer, Zusammenfassung des Absturzberichts, Weltzustand und Speicherstand. Alle Texte sind auf die "
+                         "gespeicherten WLAN-Passwörter geprüft (secretCheck am Ende). Den Rohspeicher des Absturzberichts "
+                         "enthält das Paket nicht; er ist ein eigener Download mit PIN (/api/coredump).");
         j.raw("status", status_json());
         j.raw("system", diag::system_json());
         const settings::Values set = settings::get();
@@ -470,30 +502,17 @@ esp_err_t diag_get(httpd_req_t* req) {
         j.obj("settings").num("rot", set.rotate180 ? 180 : 0).num("bright", set.brightness).num("lp", set.long_press_ms);
         j.arr("wifiSaved");
         for (int i = 0; i < ns; ++i) j.str(nullptr, names[i]);
-        j.end_arr().boolean("pinSet", false).end_obj();
+        j.end_arr().boolean("pinSet", auth::enabled()).end_obj();  // V09: tatsächlicher Zustand, ohne PIN oder Hash
         j.raw("perf", diag::perf_json(true));
         j.raw("resets", diag::resets_json());
         s = std::move(j.text());  // Objekt bleibt offen, Rest folgt gestreamt
     }
     bool ok = f.write(s);
 
-    // Absturzbericht: Zusammenfassung und Rohdaten (Base64, für tools/crash.ps1 -File)
-    diag::Crash c;
-    const bool crashed = diag::crash(&c);
-    s = ",\"coredump\":{\"summary\":" + diag::crash_json() + ",\"raw\":";
+    // Absturzbericht: nur die Zusammenfassung (seit 0.5.11, V06): Der Rohspeicher enthält Task-Stacks, die der
+    // Passwort-Filter als Binärdaten nicht sicher prüfen kann; er ist ein eigener Download mit PIN (/api/coredump)
+    s = ",\"coredump\":{\"summary\":" + diag::crash_json() + ",\"raw\":null,\"rawSeparate\":true";
     ok = ok && f.write(s);
-    if (crashed) {
-        ok = ok && f.write("\"", 1);
-        std::string b64;
-        ok = ok && read_coredump(c, 3 * 1024, [&](const uint8_t* d, size_t n) {
-                 b64.clear();
-                 base64(d, n, b64);
-                 return f.write(b64);
-             });
-        ok = ok && f.write("\"", 1);
-    } else {
-        ok = ok && f.write("null", 4);
-    }
 
     // Weltzustand und Speicherstand als Datei (Base64, seit 0.5.9)
     s = "},\"world\":" + world_json() + ",\"worldSave\":";
@@ -521,7 +540,8 @@ esp_err_t diag_get(httpd_req_t* req) {
     ok = ok && f.write("]}", 2);
     ok = ok && f.finish();
 
-    // Prüfergebnis ganz am Ende (enthält nur Zahlen, läuft nicht mehr durch den Filter)
+    // Prüfergebnis ganz am Ende (enthält nur Zahlen, läuft nicht mehr durch den Filter): geprüft sind alle Texte des
+    // Pakets; der Speicherstand liegt als Base64 darin, enthält aber keine Zugangsdaten
     char tail[160];
     std::snprintf(tail, sizeof(tail),
                   ",\"secretCheck\":{\"secrets\":%u,\"redacted\":%u},\"logLines\":%" PRIu32 ",\"ms\":%.0f}",

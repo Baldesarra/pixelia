@@ -13,10 +13,10 @@
 //   Arbeit), aus der Reservierung; am Ende des Schritts ist alles genau einmal verbaut. Was nach dem Ende übrig ist,
 //   bringt jemand zur Quelle zurück.
 // - Fähigkeit: Arbeiten darf nur, wer die Fähigkeit des Schritts mindestens in der Mindeststufe kann (Wahl des Users:
-//   nur wer Tischlern kann); er lernt dabei. Wer arbeitet, wählt bis 0.5.11 ein PLATZHALTER im Planer der Orte
+//   nur wer Tischlern kann); er lernt dabei. Wer arbeitet, wählt bis 0.5.12 ein PLATZHALTER im Planer der Orte
 //   (claim, worlds/testdorf/test_place.cpp), danach die Blockwahl des Tagesgerüsts.
 // - Warten mit Grund (Karte, Protokoll): Material, Fähigkeit (niemand kann es), Arbeitskraft (niemand ist dran), Wetter
-//   (draußen bei Regen und Schnee), Feierabend (Arbeitszeit 7–19 Uhr, PLATZHALTER bis 0.5.11, Wahl des Users). Die
+//   (draußen bei Regen und Schnee), Feierabend (Arbeitszeit 7–19 Uhr, PLATZHALTER bis 0.5.12, Wahl des Users). Die
 //   Zeit zählt je Grund mit, ebenso Personensekunden und verbautes Material: projekte.csv (WIRTSCHAFT 15) schreibt
 //   0.5.10 Teil 4 aus ProjectRecord (set_listener), je Teilaufgabe bei ihrem Abschluss.
 // - Stufen der Simulation (world_sim.cpp, Regeln wie im Warenbuch): Schritte beginnen und enden, Material wird
@@ -81,7 +81,8 @@ struct ProjectDef {
     ProjectKind kind = ProjectKind::Furniture;
     const char* place;       // Ort (Kennung)
     const char* site;        // Baustelle: Lagerplatz der Art Site an diesem Ort
-    const char* source = nullptr;  // Material von hier; nullptr = Gemeinschaftslager mit der Ware
+    // Material von hier (verbindlich: ist sie leer, wird gewartet); nullptr: Pixelia wählt (Ledger::find_source)
+    const char* source = nullptr;
     int8_t part = -1;        // Teil der Raumliste, das entsteht (im Bau: Bau-Bild in Stufen), −1 = keins
     const ProjectStepDef* steps = nullptr;
     uint8_t step_count = 0;
@@ -140,7 +141,7 @@ public:
     static constexpr uint16_t kFirstId = 0x8000;  // Halter im Warenbuch: 0x8000 … 0xFFFF
     static constexpr int kAheadSteps = 1;         // Material so viele Schritte voraus holen (Wahl des Users)
     static constexpr int kMaxTrips = 4;           // neue Holen-Aufgaben je Bedarf und Takt-Grenze
-    // PLATZHALTER bis 0.5.11 (Tagesgerüst): gearbeitet wird von 7 bis 19 Uhr (Wahl des Users 2026-10-29)
+    // PLATZHALTER bis 0.5.12 (Tagesgerüst): gearbeitet wird von 7 bis 19 Uhr (Wahl des Users 2026-10-29)
     static constexpr int kWorkFrom = 7 * 60, kWorkTo = 19 * 60;
     static bool work_time(int64_t at_us);  // Arbeitszeit zu dieser Weltzeit?
 
@@ -157,6 +158,11 @@ public:
     int defs() const { return def_n_; }
     const ProjectDef& def(int d) const;
     int find_def(const char* id) const;  // −1 = gibt es nicht
+    // Prüfung der Daten (seit 0.5.11, B17): Ort, Baustelle, Quelle, Waren und Grenzen müssen aufgehen; ein fehlerhaftes
+    // Projekt beginnt nie. Erste Meldung („Projekt kammer_bett, Schritt gestell: Ware „brettt“ gibt es nicht“), nullptr
+    // = alles gut; def_problem: die eines Projekts der Daten
+    const char* data_problem(char* buf, int n) const;
+    const char* def_problem(int def) const;
 
     // An der Takt-Grenze (Bühne, nach TaskList::step): Zuständigkeiten aufräumen, Schritte abschließen und beginnen,
     // Material reservieren, Holen-Aufgaben anlegen (in fester Reihenfolge der Projekte und Bedarfe), Wartezeit zählen.
@@ -220,7 +226,7 @@ private:
     bool ensure();
     Project* add(int def, int64_t at_us);
     Project* get(uint16_t id);
-    int source_for(const DefData& d, const Ledger& l, int good) const;  // Quelle einer Ware, −1 = keine
+    int source_for(const DefData& d, const Ledger& l, int good, int need) const;  // Quelle einer Ware, −1 = keine
     void finish_step(Project& p, int64_t at_us, int32_t day, Ledger& l, EventBus* bus);
     void fetch(Project& p, int64_t at_us, Ledger& l, TaskList& tasks);
     void tidy(Project& p, int64_t at_us, Ledger& l, TaskList& tasks);  // fertig: Übriges zurückbringen

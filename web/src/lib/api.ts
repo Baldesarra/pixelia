@@ -5,8 +5,9 @@ import { auth } from './auth.svelte';
 
 export type Reply = { ok: boolean; msg?: string; auth?: boolean; lockS?: number; [k: string]: unknown };
 
-export async function get<T>(path: string): Promise<T> {
-  const r = await fetch(path, { cache: 'no-store' });
+/** Frist 8 s (B21, seit 0.5.11): hängende Abfragen stauen sich nicht am kleinen Webserver des Geräts */
+export async function get<T>(path: string, ms = 8000): Promise<T> {
+  const r = await fetch(path, { cache: 'no-store', signal: AbortSignal.timeout(ms) });
   if (!r.ok) throw new Error(`${path}: ${r.status}`);
   return (await r.json()) as T;
 }

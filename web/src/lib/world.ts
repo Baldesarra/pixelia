@@ -1,6 +1,9 @@
 // Weltzustand für die Oberfläche (seit 0.5.9): Speicherstand, Figuren und Chronik aus /api/world (?mehr=1)
 import { get } from './api';
 
+// Entwicklung: Parameter der Seite gehen an den Mock (?leer=1, ?viele=1, ?datenbereich=1)
+const devQuery = import.meta.env.DEV ? location.search.replace(/^\?/, '&') : '';
+
 export type SaveInfo = {
   gen: number;
   bytes: number;
@@ -18,6 +21,15 @@ export type SaveInfo = {
   test: boolean;
   waiting: boolean;
   error: string;
+  // seit 0.5.11: gesperrt, es wird nicht gespeichert: „datenbereich“ = nicht lesbar (B03), „stand“ = Stände da, aber
+  // nicht ladbar (why = Grund); probe = nur vorgetäuscht (Prüfschalter)
+  block?: '' | 'datenbereich' | 'stand';
+  probe?: boolean;
+  fallback?: boolean; // älterer Platz geladen, der neueste (rejectedGen) war abgelehnt
+  rejectedGen?: number;
+  why?: string;
+  welt?: string; // Kennung der Welt und der Zeitlinie (hex)
+  linie?: string;
 };
 
 export type FigureRow = {
@@ -45,7 +57,7 @@ export type WorldState = {
   visitsOpen?: number;
 };
 
-export const loadWorld = (more = false) => get<WorldState>(more ? '/api/world?mehr=1' : '/api/world');
+export const loadWorld = (more = false) => get<WorldState>(`/api/world?mehr=${more ? 1 : 0}${devQuery}`);
 
 // Lager (seit 0.5.10 Teil 4b, /api/world?lager=1): Lagerplätze mit Füllstand und Reichweite, Waren im Dorf, laufende
 // Projekte. lv: 0 ohne Verbrauch, 1 leer bzw. reicht keinen Tag, 2 knapp, 3 gut, 4 reichlich; h: Reichweite in Stunden
@@ -69,8 +81,6 @@ export type GoodRow = {
 export type ProjectRow = { t: string; place: string; step: number; steps: number; stepT: string; pct: number; stepPct: number; shares: number[]; wait: string; who: string };
 export type LagerState = { lager?: { stores: StoreRow[]; goods: GoodRow[]; projects: ProjectRow[] } };
 
-// Entwicklung: Parameter der Seite gehen an den Mock (?leer=1, ?viele=1)
-const devQuery = import.meta.env.DEV ? location.search.replace(/^\?/, '&') : '';
 export const loadLager = () => get<LagerState>(`/api/world?lager=1${devQuery}`);
 
 // knapp oder leer: braucht Nachschub

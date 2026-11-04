@@ -23,8 +23,10 @@
 #include "esp_heap_caps.h"
 #include "esp_littlefs.h"
 #include "esp_log.h"
+#include "esp_partition.h"
 #include "esp_timer.h"
 #include "esp_vfs_fat.h"
+#include "nvs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
@@ -57,23 +59,99 @@ TaskHandle_t s_loader = nullptr;
 
 uint64_t now_us() { return static_cast<uint64_t>(esp_timer_get_time()); }
 
-void mount_littlefs() {
+// Datenbereich (seit 0.5.11, B03, Wahl des Users 2026-11-03): nie automatisch formatieren. Nur ein völlig leerer
+// Bereich (Erstinstallation, roh geprüft: jedes Byte 0xFF) wird angelegt. Sonst einmal neu versuchen, dann gilt er als
+// nicht lesbar: die Welt läuft ohne Speichern, bis der User ihn in der Weboberfläche neu anlegt (Rückfrage und PIN).
+// Ein vielleicht rettbarer Stand ist wichtiger als ein laufender Speicherstand
+constexpr const char* kLfsLabel = "storage";
+std::atomic<int> s_lfs_state{static_cast<int>(Storage::Missing)};
+bool s_lfs_test = false;  // Prüfschalter „datenbereich test“: Fehler beim Einhängen nur vorgetäuscht, nichts gelöscht
+
+bool register_littlefs() {
     esp_vfs_littlefs_conf_t conf{};
     conf.base_path = kLfsMount;
-    conf.partition_label = "storage";
-    conf.format_if_mount_failed = true;  // leer oder nach dem alten Flash-Test: neu anlegen
-    const int64_t t0 = esp_timer_get_time();
+    conf.partition_label = kLfsLabel;
+    conf.format_if_mount_failed = false;
     const esp_err_t err = esp_vfs_littlefs_register(&conf);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "LittleFS: %s", esp_err_to_name(err));
-        return;
+    if (err != ESP_OK) ESP_LOGW(TAG, "LittleFS: Einhängen fehlgeschlagen (%s)", esp_err_to_name(err));
+    return err == ESP_OK;
+}
+
+// ganzer Bereich roh gelesen: nur 0xFF? (bricht beim ersten anderen Byte ab; leer dauert 3,8 MB lesen)
+bool storage_blank() {
+    const esp_partition_t* p = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, kLfsLabel);
+    if (!p) return false;
+    constexpr size_t kChunk = 4096;
+    auto* buf = static_cast<uint32_t*>(heap_caps_malloc(kChunk, MALLOC_CAP_INTERNAL));  // Haupt-Task: wenig Stack
+    if (!buf) return false;
+    bool blank = true;
+    for (size_t at = 0; blank && at < p->size; at += kChunk) {
+        if (esp_partition_read(p, at, buf, kChunk) != ESP_OK) blank = false;
+        for (size_t k = 0; blank && k < kChunk / 4; ++k) blank = buf[k] == 0xFFFFFFFFu;
     }
+    heap_caps_free(buf);
+    return blank;
+}
+
+void littlefs_ready_log(int64_t t0, const char* how) {
     size_t total = 0, used = 0;
-    esp_littlefs_info("storage", &total, &used);
+    esp_littlefs_info(kLfsLabel, &total, &used);
     mkdir(kLfsDir, 0775);
     s_lfs = true;
-    ESP_LOGI(TAG, "LittleFS: %u von %u KB belegt (%" PRId64 " ms)", static_cast<unsigned>(used >> 10),
+    ESP_LOGI(TAG, "LittleFS%s: %u von %u KB belegt (%" PRId64 " ms)", how, static_cast<unsigned>(used >> 10),
              static_cast<unsigned>(total >> 10), (esp_timer_get_time() - t0) / 1000);
+}
+
+void mount_littlefs() {
+    const int64_t t0 = esp_timer_get_time();
+    // Prüfschalter (einmalig, vom Befehl „datenbereich test“): so tun, als ginge das Einhängen nicht
+    nvs_handle_t h;
+    if (nvs_open("pixelia", NVS_READWRITE, &h) == ESP_OK) {
+        uint8_t v = 0;
+        if (nvs_get_u8(h, "lfs_test", &v) == ESP_OK) {
+            s_lfs_test = v != 0;
+            nvs_erase_key(h, "lfs_test");
+            nvs_commit(h);
+        }
+        nvs_close(h);
+    }
+    if (s_lfs_test) {
+        s_lfs_state = static_cast<int>(Storage::Unreadable);
+        ESP_LOGW(TAG, "LittleFS: Prüfmodus, Einhängen vorgetäuscht fehlgeschlagen (nichts gelöscht, Neustart hebt ihn auf)");
+        return;
+    }
+    if (register_littlefs()) {
+        s_lfs_state = static_cast<int>(Storage::Ok);
+        return littlefs_ready_log(t0, "");
+    }
+    vTaskDelay(pdMS_TO_TICKS(200));  // einmal neu versuchen (Spannung beim Einschalten)
+    if (register_littlefs()) {
+        s_lfs_state = static_cast<int>(Storage::Ok);
+        return littlefs_ready_log(t0, " (zweiter Versuch)");
+    }
+    if (storage_blank()) {
+        // Erstinstallation: völlig leer, nichts kann verloren gehen
+        if (esp_littlefs_format(kLfsLabel) == ESP_OK && register_littlefs()) {
+            s_lfs_state = static_cast<int>(Storage::Created);
+            return littlefs_ready_log(t0, " leer angelegt (Erstinstallation)");
+        }
+    }
+    s_lfs_state = static_cast<int>(Storage::Unreadable);
+    ESP_LOGE(TAG, "LittleFS: Datenbereich nicht lesbar und nicht leer: nicht formatiert, die Welt läuft ohne Speichern "
+             "(Weboberfläche → Welt → Speicherstand, %" PRId64 " ms)", (esp_timer_get_time() - t0) / 1000);
+}
+
+// Auftrag der Lade-Task (Knopf „Datenbereich neu anlegen“): formatieren und einhängen. Nie im Prüfmodus: dort liegen
+// die echten Weltstände, und die frisch begonnene Welt würde sie überschreiben (der Knopf startet dann nur neu)
+bool recreate_littlefs() {
+    if (s_lfs) return true;
+    if (s_lfs_test) return false;
+    const int64_t t0 = esp_timer_get_time();
+    ESP_LOGW(TAG, "LittleFS: Datenbereich wird neu angelegt (Weboberfläche, mit Rückfrage)");
+    if (esp_littlefs_format(kLfsLabel) != ESP_OK || !register_littlefs()) return false;
+    s_lfs_state = static_cast<int>(Storage::Created);
+    littlefs_ready_log(t0, " neu angelegt");
+    return true;
 }
 
 void mount_sd() {
@@ -136,7 +214,7 @@ void unmount_sd() {
 }
 
 // Aufträge an die Lade-Task (Dateisystem-Arbeit braucht Stack; Konsole und Testläufe haben nur 3–4 KB)
-enum class Job : uint8_t { CopyLfs, CopySd, Measure, FlashLoad, SdRetry, SaveWorld };
+enum class Job : uint8_t { CopyLfs, CopySd, Measure, FlashLoad, SdRetry, SaveWorld, ImportWorld, Recreate };
 struct JobReq {
     Job job;
     int arg;
@@ -171,6 +249,10 @@ void run_job(const JobReq& r) {
             mount_sd();
             break;
         case Job::SaveWorld: app::gfx::write_save(); break;
+        case Job::ImportWorld: app::gfx::import_job(); break;
+        case Job::Recreate:
+            if (recreate_littlefs()) app::gfx::storage_ready();
+            break;
     }
     if (r.done) xSemaphoreGive(r.done);
 }
@@ -400,6 +482,22 @@ void start() {
 
 bool flash_load(int seconds) { return post(Job::FlashLoad, seconds, seconds + 30); }
 bool save_world() { return post(Job::SaveWorld); }
+bool import_world() { return post(Job::ImportWorld); }
+
+bool recreate_storage() {
+    if (s_lfs) return true;
+    post(Job::Recreate, 0, 20);
+    return s_lfs;
+}
+
+Storage storage() { return static_cast<Storage>(s_lfs_state.load()); }
+bool storage_test() { return s_lfs_test; }
+
+int64_t littlefs_free(void*) {
+    size_t total = 0, used = 0;
+    if (!s_lfs || esp_littlefs_info(kLfsLabel, &total, &used) != ESP_OK) return 0;
+    return static_cast<int64_t>(total) - static_cast<int64_t>(used);
+}
 
 bool littlefs_ready() { return s_lfs; }
 bool sd_ready() { return s_sd; }
@@ -434,6 +532,28 @@ Summary summary() {
 void console(int argc, char** argv) {
     pixelia::AssetStore& store = pixelia::asset_store();
     const char* sub = argc >= 2 ? argv[1] : "";
+    if (std::strcmp(argv[0], "datenbereich") == 0) {
+        // seit 0.5.11 (B03): Prüfschalter für „nicht lesbar“ bzw. „Stand nicht ladbar“, ohne echte Daten anzufassen
+        if (std::strcmp(sub, "test") == 0) {
+            const bool stand = argc >= 3 && std::strcmp(argv[2], "stand") == 0;
+            nvs_handle_t h;
+            bool ok = nvs_open("pixelia", NVS_READWRITE, &h) == ESP_OK;
+            if (ok) {
+                ok = nvs_set_u8(h, stand ? "save_test" : "lfs_test", 1) == ESP_OK && nvs_commit(h) == ESP_OK;
+                nvs_close(h);
+            }
+            ESP_LOGW(TAG, "%s", !ok    ? "Prüfschalter nicht gespeichert"
+                                : stand ? "Prüfmodus: beim nächsten Start gilt der Speicherstand als nicht ladbar (nur "
+                                          "vorgetäuscht, „Neu beginnen“ überschreibt dann nichts und startet neu)"
+                                        : "Prüfmodus: beim nächsten Start gilt der Datenbereich als nicht lesbar (nur "
+                                          "vorgetäuscht, „Neu anlegen“ löscht dann nichts und startet neu)");
+            return;
+        }
+        static constexpr const char* kStates[] = {"nicht versucht", "eingehängt", "leer angelegt", "nicht lesbar"};
+        ESP_LOGI(TAG, "Datenbereich: %s%s, frei %lld KB", kStates[s_lfs_state.load() & 3], s_lfs_test ? " (Prüfmodus)" : "",
+                 static_cast<long long>(littlefs_free(nullptr) >> 10));
+        return;
+    }
     if (std::strcmp(argv[0], "sd") == 0) {
         if (std::strcmp(sub, "neu") == 0) {
             ESP_LOGI(TAG, "SD wird neu eingehängt (Lade-Task)");

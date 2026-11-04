@@ -77,7 +77,7 @@ struct Relation {
 // --- Erinnerungen (LEBENDIGKEIT.md Regel 10) ---
 enum class MemoryKind : uint8_t {
     None,
-    First,      // ein erstes Mal (arg = Fähigkeit bzw. Erstling)
+    First,      // ein erstes Mal (arg = Fähigkeit bzw. Erstling); seit 0.5.11 nur noch das eigene erste Gelingen
     Failure,    // Fehlversuch, der hängen bleibt (Gretas erstes Brot)
     SkillUp,    // neue Stufe einer Fähigkeit (arg = Fähigkeit, b = Stufe)
     BondUp,     // Beziehung eine Stufe weiter (who, b = Stufe)
@@ -85,6 +85,7 @@ enum class MemoryKind : uint8_t {
     Visit,      // zu Besuch gewesen bzw. Besuch gehabt (who, place)
     Gift,       // etwas bekommen oder gebracht (who, item)
     Event,      // Ereignis der Welt (arg = Art)
+    Taught,     // seit 0.5.11 (B18): jemand hat es gezeigt (who = wer, arg = Fähigkeit); vorher First mit who
     kCount
 };
 const char* memory_kind_name(MemoryKind k);
@@ -188,6 +189,10 @@ struct FigureRecord {
     std::array<SkillState, kSkills> skills{};
     std::array<Relation, kRelations> relations{};
     std::array<Memory, kMemories> memories{};
+    // Seit 0.5.11 (B18): dauerhafte Merker je Fähigkeit (Bit = Skill), getrennt von den Erinnerungen, die vergessen werden
+    // dürfen: erstes eigenes Gelingen bzw. erster Fehlversuch schon erlebt. Speicherstand hinten im Datensatz (FIGS);
+    // ältere Stände leiten sie beim Laden aus den Erinnerungen ab
+    uint32_t first_ok = 0, first_fail = 0;
     struct Possession {
         std::array<char, 14> key{};  // Kennung des Gegenstands (Erkennungsstück, Werkzeug), leer = frei
         uint8_t count = 0;

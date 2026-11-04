@@ -32,11 +32,13 @@
 #include "esp_netif.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
+#include "lwip/sockets.h"
 #include "esp_psram.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
 #include "json.h"
 #include "pixelia/engine/figure.h"
+#include "pixelia/engine/tasks.h"
 #include "lwip/sockets.h"
 #include "net.h"
 #include "nvs.h"
@@ -625,13 +627,35 @@ esp_err_t world_get(httpd_req_t* req) {
     j.boolean("loaded", s.loaded).num("packUs", static_cast<int64_t>(s.pack_us)).num("writeMs", static_cast<int64_t>(s.write_ms));
     j.num("figures", s.figures).num("transit", s.transit).num("chronicle", s.chronicle);
     j.num("caughtUp", s.caught_up).num("skipped", s.skipped).num("catchingUp", s.catching_up);
-    j.boolean("test", s.test).boolean("waiting", s.waiting).str("error", s.error).end_obj();
+    j.boolean("test", s.test).boolean("waiting", s.waiting).str("error", s.error);
+    // seit 0.5.11 (B01, B03, B09): Sperre („datenbereich“ = nicht lesbar), Rückfall auf den älteren Platz, Kennung
+    char ids[2][12];
+    std::snprintf(ids[0], sizeof(ids[0]), "%08lx", static_cast<unsigned long>(s.world_id));
+    std::snprintf(ids[1], sizeof(ids[1]), "%08lx", static_cast<unsigned long>(s.line_id));
+    j.str("block", s.block == 1 ? "datenbereich" : s.block == 2 ? "stand" : "");
+    j.boolean("probe", s.block == 1 ? assets::storage_test() : s.block == 2 && gfx::save_probe());
+    j.boolean("fallback", s.fallback).num("rejectedGen", static_cast<int64_t>(s.rejected_gen)).str("why", s.load_why);
+    j.str("welt", ids[0]).str("linie", ids[1]).num("loadMs", static_cast<int64_t>(s.load_ms));
+    j.num("journalMs", static_cast<int64_t>(s.journal_ms)).end_obj();
     // Wirtschafts-Protokoll (seit 0.5.10 Teil 4): Zeilen, Dateien und Dauer des Anhängens beim Speichern
     j.obj("wirtschaft").num("rows", static_cast<int64_t>(s.econ_rows)).num("written", static_cast<int64_t>(s.econ_written));
     j.num("lost", static_cast<int64_t>(s.econ_lost)).num("files", static_cast<int64_t>(s.econ_files));
     j.num("bytes", static_cast<int64_t>(s.econ_bytes)).num("flushMs", static_cast<int64_t>(s.econ_flush_ms));
     j.num("deleted", static_cast<int64_t>(s.econ_deleted)).num("firstDay", s.econ_first).num("lastDay", s.econ_last);
-    j.boolean("error", s.econ_error).end_obj();
+    j.boolean("error", s.econ_error);
+    // seit 0.5.11 (B04, B08, B09): Tag zu voll, verspätet, Journal nachgetragen/verworfen, alte Zeitlinien, Grenzen
+    j.num("dropped", static_cast<int64_t>(s.econ_dropped)).num("late", static_cast<int64_t>(s.econ_late));
+    j.num("recovered", static_cast<int64_t>(s.econ_recovered)).num("discarded", static_cast<int64_t>(s.econ_discarded));
+    j.num("archives", static_cast<int64_t>(s.econ_archives)).num("archiveBytes", static_cast<int64_t>(s.econ_archive_bytes));
+    j.num("journalBytes", static_cast<int64_t>(s.econ_journal)).boolean("full", s.econ_full);
+    j.boolean("cleanupError", s.econ_cleanup_error).end_obj();
+    // seit 0.5.11 (P-F): Zähler je Grund, warum kein Nachschub kommt; Bestandstabelle; Ereignis-Bus
+    j.obj("nachschub");
+    for (int k = 1; k < pixelia::kSupplyWaits; ++k)
+        j.num(pixelia::supply_wait_id(static_cast<pixelia::SupplyWait>(k)), static_cast<int64_t>(s.supply[k]));
+    j.num("eintraege", s.stock_entries).num("frei", static_cast<int64_t>(s.stock_freed));
+    j.num("ereignisseMax", static_cast<int64_t>(s.events_peak)).num("ereignisseVerloren", static_cast<int64_t>(s.events_lost));
+    j.end_obj();
     // Figuren und Chronik nur auf Wunsch (?mehr=1): die Grafik-Task füllt die Ansicht im nächsten Bild
     std::string more;
     if (query_value(req, "mehr", &more) && more == "1") {
@@ -701,19 +725,40 @@ esp_err_t world_load(httpd_req_t* req) {
     constexpr size_t kMax = 96 * 1024;
     if (req->content_len < 32 || req->content_len > kMax) return reply(req, false, "Das ist kein Pixelia-Speicherstand (.pxw)");
     const size_t n = req->content_len;
-    auto* buf = static_cast<uint8_t*>(heap_caps_malloc(n, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+    const size_t cap = n + 32;  // Reserve für die Kennung älterer Stände (seit 0.5.11, B09)
+    auto* buf = static_cast<uint8_t*>(heap_caps_malloc(cap, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
     if (!buf) return reply(req, false, "Kein Speicher", "503 Service Unavailable");
+    // B07: Fristen statt endlosem Warten. Ohne Daten höchstens 20 s, insgesamt 60 s (96 KB brauchen im WLAN unter
+    // 1 s); gemessen an der Zeit seit den letzten Daten, nicht an der Zahl der Empfangsfristen (am Gerät gezählt kamen
+    // so 40 s heraus). Bei Abbruch die Verbindung schließen, statt den Rest abzuwarten (der Server bedient sonst
+    // niemanden).
+    constexpr int64_t kIdleUs = 20 * 1000000LL;
+    constexpr int64_t kTotalUs = 60 * 1000000LL;
+    // Empfangsfrist dieses Sockets für die Dauer des Hochladens 2 s statt der Server-Frist (10 s): httpd_req_recv gibt
+    // schon gepufferte Bytes erst nach einer ganzen Frist zurück, die 20 s begännen sonst zu spät
+    const int fd = httpd_req_to_sockfd(req);
+    timeval tv{2, 0};
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    const int64_t t0 = esp_timer_get_time();
+    int64_t last = t0;
     for (size_t got = 0; got < n;) {
         const int r = httpd_req_recv(req, reinterpret_cast<char*>(buf) + got, n - got);
-        if (r == HTTPD_SOCK_ERR_TIMEOUT) continue;
-        if (r <= 0) {
+        const int64_t now = esp_timer_get_time();
+        const bool late = now - t0 > kTotalUs;
+        if (r == HTTPD_SOCK_ERR_TIMEOUT && now - last < kIdleUs && !late) continue;
+        if (r <= 0 || late) {
             heap_caps_free(buf);
-            return reply(req, false, "Übertragung abgebrochen");
+            ESP_LOGW(TAG, "Speicherstand: Übertragung nach %u von %u Byte abgebrochen (%s)", static_cast<unsigned>(got),
+                     static_cast<unsigned>(n), late ? "Gesamtfrist 60 s" : r == HTTPD_SOCK_ERR_TIMEOUT ? "20 s ohne Daten" : "Verbindung weg");
+            return ESP_FAIL;
         }
+        last = now;
         got += static_cast<size_t>(r);
     }
     const char* why = "";
-    const bool ok = gfx::import_save(buf, n, &why);
+    tv = {10, 0};  // wieder die Frist des Servers (cfg.recv_wait_timeout in web.cpp)
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    const bool ok = gfx::import_save(buf, n, cap, &why);
     heap_caps_free(buf);
     if (!ok) {
         char msg[96];
@@ -748,16 +793,41 @@ esp_err_t world_file(httpd_req_t* req) {
     return httpd_resp_send(req, reinterpret_cast<const char*>(d.data()), static_cast<ssize_t>(d.size()));
 }
 
-// Speicherstand jetzt schreiben (seit 0.5.9, Knopf auf der Seite Welt)
+// Speicherstand jetzt schreiben (seit 0.5.9, Knopf auf der Seite Welt); seit 0.5.11 (B03) „Datenbereich neu anlegen“
+// (a=datenbereich, confirm=1, mit PIN): nur wenn er nicht lesbar ist; löscht alle Weltstände und das Protokoll.
+// „Neu beginnen“ (a=neu, confirm=1, mit PIN): nur wenn die Stände nicht ladbar sind; das nächste Speichern
+// überschreibt sie, das Protokoll wandert ins Archiv (Prüfmodus: nichts überschrieben, Neustart)
 esp_err_t world_post(httpd_req_t* req) {
     std::string q;
     if (query_value(req, "a", &q) && q == "load") return world_load(req);
-    std::string body, a;
+    std::string body, a, confirm;
     if (!read_body(req, &body, 128)) return reply(req, false, "Ungültige Anfrage");
     if (!authorized(req, &body)) return deny(req);
     form_value(body, "a", &a);
+    if (a == "datenbereich") {
+        if (!form_value(body, "confirm", &confirm) || confirm != "1") return reply(req, false, "Bestätigung fehlt (confirm=1)");
+        if (assets::storage() != assets::Storage::Unreadable) return reply(req, false, "Der Datenbereich ist in Ordnung");
+        if (assets::storage_test()) {
+            // Prüfmodus: die echten Weltstände bleiben; der Neustart hängt den Datenbereich wieder normal ein
+            reply(req, true, "Prüfmodus: nichts gelöscht, Pixelia startet neu");
+            ota::restart_soon(800);
+            return ESP_OK;
+        }
+        if (!assets::recreate_storage()) return reply(req, false, "Neu anlegen fehlgeschlagen, bitte neu starten");
+        return reply(req, true, "Datenbereich neu angelegt, die Welt wird wieder gesichert");
+    }
+    if (a == "neu") {
+        if (!form_value(body, "confirm", &confirm) || confirm != "1") return reply(req, false, "Bestätigung fehlt (confirm=1)");
+        const gfx::FreshResult r = gfx::start_fresh();
+        if (r == gfx::FreshResult::NotBlocked) return reply(req, false, "Der Speicherstand ist in Ordnung");
+        if (r == gfx::FreshResult::Started) return reply(req, true, "Neu begonnen, die Welt wird wieder gesichert");
+        reply(req, true, "Prüfmodus: nichts überschrieben, Pixelia startet neu");
+        ota::restart_soon(800);
+        return ESP_OK;
+    }
     if (a != "save") return reply(req, false, "Unbekannte Aktion");
     const gfx::SaveInfo s = gfx::save_info();
+    if (s.block) return reply(req, false, "Es wird nicht gespeichert, siehe Hinweis");
     if (s.test) return reply(req, false, "Testuhr läuft: es wird nicht gespeichert");
     if (s.waiting) return reply(req, false, "Die Uhrzeit fehlt noch: es wird noch nicht gespeichert");
     return reply(req, gfx::request_save(), "Speicherstand wird geschrieben");

@@ -23,19 +23,60 @@
     return parts.join(', ');
   }
 
+  // B19 (seit 0.5.11): Datei als unknown lesen und Feld für Feld prüfen; ein Fehler ergibt einen Satz statt einer
+  // halben Übernahme. Format 1 seit 0.3.2; fehlt „format“, ist es eine Sicherung vor 0.4 (gleicher Aufbau)
+  const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
+  const isInt = (x: unknown, lo: number, hi: number): x is number => Number.isInteger(x) && (x as number) >= lo && (x as number) <= hi;
+  function parseBackup(x: unknown): Backup | string {
+    if (!isObj(x) || x.pixelia !== 'settings') return 'Das ist keine Pixelia-Sicherung (.json aus „Sicherung herunterladen“).';
+    const format = x.format ?? 1;
+    if (format !== 1) return `Diese Sicherung hat ein neueres Format (${String(format)}). Bitte zuerst Pixelia aktualisieren.`;
+    const set = x.set;
+    if (!isObj(set)) return 'Die Sicherung enthält keine Einstellungen.';
+    if (set.rot !== 0 && set.rot !== 180) return 'Bilddrehung in der Sicherung ist ungültig (erlaubt: 0 oder 180).';
+    if (!isInt(set.bright, 1, 100)) return 'Helligkeit in der Sicherung ist ungültig (erlaubt: 1 bis 100 %).';
+    if (!isInt(set.lp, 1000, 10000)) return 'Dauer des langen Drucks in der Sicherung ist ungültig (erlaubt: 1 bis 10 s).';
+    if (set.ui !== undefined && typeof set.ui !== 'string') return 'Farbwahl in der Sicherung ist ungültig.';
+    const str = (v: unknown) => (typeof v === 'string' ? v : '');
+    const names = (Array.isArray(x.names) ? x.names : [])
+      .filter((n): n is { id: string; name: string } => isObj(n) && typeof n.id === 'string' && typeof n.name === 'string')
+      .map((n) => ({ id: n.id, name: n.name }));
+    return {
+      pixelia: 'settings',
+      format: 1,
+      v: str(x.v),
+      date: str(x.date),
+      host: str(x.host),
+      set: { rot: set.rot, bright: set.bright, lp: set.lp, ui: str(set.ui) },
+      names,
+      wifi: (Array.isArray(x.wifi) ? x.wifi : []).filter((w): w is string => typeof w === 'string'),
+      pin: x.pin === true,
+    };
+  }
+
   async function importFile() {
     const f = importInput?.files?.[0];
     if (importInput) importInput.value = '';
     if (!f) return;
     backupMsg = null;
-    let b: Backup;
     try {
-      b = JSON.parse(await f.text()) as Backup;
-      if (b.pixelia !== 'settings' || typeof b.set !== 'object') throw new Error();
-      b.names = Array.isArray(b.names) ? b.names.filter((n) => typeof n?.id === 'string' && typeof n?.name === 'string') : [];
-      b.wifi = Array.isArray(b.wifi) ? b.wifi : [];
+      await importBackup(f);
+    } catch (e) {
+      importing = false;
+      backupMsg = { ok: false, text: `Einspielen nicht möglich: ${(e as Error).message || 'unbekannter Fehler'}` };
+    }
+  }
+
+  async function importBackup(f: File) {
+    let raw: unknown;
+    try {
+      raw = JSON.parse(await f.text());
     } catch {
-      backupMsg = { ok: false, text: 'Das ist keine Pixelia-Sicherung (.json aus „Sicherung herunterladen“).' };
+      raw = null;
+    }
+    const b = parseBackup(raw);
+    if (typeof b === 'string') {
+      backupMsg = { ok: false, text: b };
       return;
     }
     const extra = [
@@ -61,9 +102,13 @@
       }
     }
     importing = false;
+    // Antwort „noch nicht dauerhaft gespeichert“ (B23) mit anzeigen; Namen zählen, falls einer scheitert
     backupMsg = r?.ok
-      ? { ok: true, text: `Übernommen: ${describe(b)}${b.names.length ? ` (${names} von ${b.names.length} Namen)` : ''}.` }
-      : { ok: false, text: r?.msg ?? 'Keine Antwort vom Gerät' };
+      ? {
+          ok: true,
+          text: `Übernommen: ${describe(b)}${b.names.length ? ` (${names} von ${b.names.length} Namen)` : ''}.${r.msg && r.msg !== 'Gespeichert' ? ` ${r.msg}.` : ''}`,
+        }
+      : { ok: false, text: `Nichts übernommen: ${r?.msg ?? 'keine Antwort vom Gerät'}` };
   }
 
   // Speicherstand der Welt (seit 0.5.9): Kopf der Datei lesen (PXW1, Generation, Weltzeit), dann einspielen
@@ -85,7 +130,7 @@
     const at = `${when.getUTCDate()}.${when.getUTCMonth() + 1}.${when.getUTCFullYear()}, ${String(when.getUTCHours()).padStart(2, '0')}:${String(when.getUTCMinutes()).padStart(2, '0')}`;
     const ok = await confirmDialog({
       title: 'Speicherstand einspielen?',
-      text: `Stand vom ${at} (Nr. ${head.getUint32(12, true)}, ${num(f.size / 1024, 1)} KB). Die Welt auf dem Gerät wird ersetzt, Pixelia startet neu und holt die Zeit seitdem nach (höchstens einen Tag).`,
+      text: `Stand vom ${at} (Nr. ${head.getUint32(12, true)}, ${num(f.size / 1024, 1)} KB). Die Welt auf dem Gerät wird ersetzt, Pixelia startet neu und holt die Zeit seitdem nach (höchstens drei Tage).`, // Stage::kCatchUpMinutes
       ok: 'Einspielen',
       icon: 'upload',
     });

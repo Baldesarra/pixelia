@@ -161,12 +161,15 @@
   onMount(() => {
     let alive = true;
     void previewLoop(() => alive);
-    const load = () =>
-      document.hidden
-        ? undefined
-        : get<PerfData>('/api/perf')
-            .then((p) => ((perf = p), (perfFailed = false), push(p)))
-            .catch(() => (perfFailed = true));
+    let asking = false; // eine Abfrage zur Zeit (B21)
+    const load = () => {
+      if (document.hidden || asking) return;
+      asking = true;
+      get<PerfData>('/api/perf')
+        .then((p) => ((perf = p), (perfFailed = false), push(p)))
+        .catch(() => (perfFailed = true))
+        .finally(() => (asking = false));
+    };
     void load();
     const t = setInterval(load, 2000);
     return () => {

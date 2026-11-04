@@ -5,6 +5,7 @@
   import { Button, Card, Chip, confirmDialog, Icon, IconButton, LoadingIndicator, type IconName } from '../lib/m3';
   import { device } from '../lib/status.svelte';
   import { get, post, type CrashSummary, type ResetList } from '../lib/api';
+  import { auth } from '../lib/auth.svelte';
   import { duration, num } from '../lib/format';
 
   type Reset = ResetList['entries'][number];
@@ -48,7 +49,7 @@
   async function eraseCrash() {
     const ok = await confirmDialog({
       title: 'Absturzbericht löschen?',
-      text: 'Vorher am besten das Diagnosepaket oder die Rohdaten herunterladen: Sie enthalten den Bericht zum Auswerten.',
+      text: 'Vorher am besten die Rohdaten herunterladen: Nur sie enthalten den ganzen Bericht zum Auswerten (das Diagnosepaket nur die Zusammenfassung).',
       ok: 'Löschen',
       icon: 'delete',
       danger: true,
@@ -57,6 +58,38 @@
     const r = await post('/api/coredump/erase').catch(() => null);
     eraseMsg = { ok: !!r?.ok, text: r?.msg ?? 'Keine Antwort vom Gerät' };
     void load();
+  }
+
+  // V06 (seit 0.5.11, Wahl des Users: Rückfrage beim Antippen): Der Rohspeicher ist ungeprüft und kommt nur mit PIN,
+  // deshalb per fetch mit Token statt als einfacher Link
+  let rawBusy = $state(false);
+  async function downloadRaw() {
+    const ok = await confirmDialog({
+      title: 'Rohdaten herunterladen?',
+      text: 'Der Rohspeicher des Absturzes ist ungeprüft und kann Vertrauliches enthalten, z. B. das WLAN-Passwort. Nur selbst auswerten (tools/crash.ps1), nicht weitergeben. Zum Weitergeben ist das Diagnosepaket da.',
+      ok: 'Herunterladen',
+      icon: 'warning',
+    });
+    if (!ok || !(await auth.ensure('Die Rohdaten sind mit dem PIN geschützt.'))) return;
+    rawBusy = true;
+    eraseMsg = null;
+    try {
+      const r = await fetch('/api/coredump', { cache: 'no-store', headers: auth.headers() });
+      if (!r.ok) {
+        const j = (await r.json().catch(() => ({}))) as { msg?: string };
+        throw new Error(j.msg ?? `Fehler ${r.status}`);
+      }
+      const name = /filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') ?? '')?.[1] ?? 'pixelia-coredump.bin';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(await r.blob());
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+    } catch (e) {
+      eraseMsg = { ok: false, text: `Rohdaten nicht abrufbar: ${(e as Error).message}` };
+    } finally {
+      rawBusy = false;
+    }
   }
 
   async function copyBacktrace() {
@@ -167,7 +200,7 @@
           {#if crash.btCorrupted}<p class="err-text small">Der Backtrace ist beschädigt und endet vorzeitig.</p>{/if}
         {/if}
         <div class="actions">
-          <Button icon="download" href="/api/coredump" download>Rohdaten (.bin)</Button>
+          <Button variant="tonal" icon="lock" disabled={rawBusy} onclick={downloadRaw}>Rohdaten (.bin)</Button>
           <Button variant="text" class="danger" icon="delete" onclick={eraseCrash}>Bericht löschen</Button>
         </div>
         <p class="muted small">
@@ -196,7 +229,8 @@
         <Button variant="tonal" icon="terminal" href="#/log">Live-Log</Button>
       </div>
       <p class="muted small">
-        Status, Versionen, Einstellungen, Neustarts, Log und Absturzbericht in einer Datei, ohne Passwörter.
+        Status, Versionen, Einstellungen, Neustarts, Log und Zusammenfassung des Absturzes in einer Datei. Alle Texte
+        sind auf die WLAN-Passwörter geprüft, den Rohspeicher des Absturzes enthält sie nicht.
         {#if s.wifi.ap}Im Setup-Fenster des Handys klappt das Herunterladen oft nicht; dann im normalen Browser
           <a href="http://192.168.4.1/">http://192.168.4.1</a> öffnen.{/if}
       </p>

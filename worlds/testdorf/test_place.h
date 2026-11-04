@@ -32,7 +32,7 @@
 // Takt-Grenze, ob es etwas zu tun gibt, und übernimmt dort eine (Gemeinschaftsaufgabe zuerst, dann die nächste; weiter
 // als zwei Orte erst, wenn sie zwei Minuten wartet). Holen: über die Ausgänge Richtung Quell-Lager (Orts-Graph), dort
 // in die Trage (mit Reservierung), dann ins Ziel. Herstellen: am Arbeitsplatz des Erzeugerlagers, je Arbeitsgang zwei
-// Stück. Platzhalter bis 0.5.11 (Hunger): Jede Figur isst zweimal am Tag zu festen Zeiten einen Laib, wenn sie dann an
+// Stück. Platzhalter bis 0.5.12 (Hunger): Jede Figur isst zweimal am Tag zu festen Zeiten einen Laib, wenn sie dann an
 // einem Ort mit Brotvorrat ist.
 
 #include <array>
@@ -171,10 +171,10 @@ private:
     FigureImage figure_image(const Figure& f, Facing facing, int frame) const;
     FigureImage figure_image(const Figure& f) const { return figure_image(f, f.facing, f.frame); }
     // Aufgaben (seit 0.5.10 Teil 2, tasks.h): eigene Aufgabe weiterführen, an einer Takt-Grenze eine übernehmen, ablegen,
-    // Mahlzeit (Platzhalter bis 0.5.11), auf die nächste Takt-Grenze warten; false = gewohnter Planer
+    // Mahlzeit (Platzhalter bis 0.5.12), auf die nächste Takt-Grenze warten; false = gewohnter Planer
     bool plan_work(const FigureRecord& f, int64_t at, Rng& rng, Doing* out);
     bool claim_task(const FigureRecord& f, int64_t at);
-    // Projekte (seit 0.5.10 Teil 3, projects.h): PLATZHALTER bis 0.5.11 für die Wahl, wer daran arbeitet; hingehen und
+    // Projekte (seit 0.5.10 Teil 3, projects.h): PLATZHALTER bis 0.5.12 für die Wahl, wer daran arbeitet; hingehen und
     // Arbeitsgänge am Teil im Bau
     bool claim_project(const FigureRecord& f, int64_t at);
     bool build_work(const FigureRecord& f, const Project& p, int64_t at, Rng& rng, Doing* out);

@@ -15,11 +15,13 @@
 #include "esp_ota_ops.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "exper.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "logbuf.h"
 #include "net.h"
 #include "nvs.h"
+#include "pixelia/engine/device_flow.h"
 #include "ui.h"
 
 namespace app::ota {
@@ -30,6 +32,7 @@ constexpr const char* kNvs = "ota";
 
 std::mutex s_lock;
 Status s_status{};
+pixelia::UpdateGate s_gate;  // B05: genau ein Update zur Zeit, nur der Besitzer schreibt
 esp_ota_handle_t s_handle = 0;
 const esp_partition_t* s_target = nullptr;
 uint32_t s_ui_bytes = 0;  // Stand der letzten Display-Aktualisierung
@@ -136,74 +139,129 @@ void test_misbehave(int elapsed_s) {
 #endif
 }
 
-void selftest_task(void*) {
-    const esp_app_desc_t* me = esp_app_get_description();
-    char text[96];
-    std::snprintf(text, sizeof(text), "Probelauf von %s: Selbsttest läuft (%d s)", me->version, kTrialSeconds);
-    ui::toast(text, pixelia::ui::Tone::Info, 10);
-    ESP_LOGW(TAG, "Probelauf: Selbsttest läuft (mindestens %d s, höchstens %d s)", kTrialSeconds, kTrialMaxSeconds);
-
-    uint32_t vs_prev = board::display::stats(false).vsyncs;
-    uint32_t fr_prev = gfx::engine_stats(false).frames;
-    int ok_s = 0;
-    for (int elapsed = 1;; ++elapsed) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        test_misbehave(elapsed);
-        uint32_t vs = board::display::stats(false).vsyncs;
-        uint32_t fr = gfx::engine_stats(false).frames;
-        bool panel_ok = vs - vs_prev >= 50;  // 60 Hz
-        bool engine_ok = fr - fr_prev >= 20;  // 30 fps
-        vs_prev = vs;
-        fr_prev = fr;
-        wifi::Status ws = wifi::status();
-        bool net_ok = ws.state == wifi::State::Connected || ws.ap_active;
-#if defined(PIXELIA_TEST_SELFTEST_FAIL)
-        engine_ok = false;
-#endif
-        if (panel_ok && engine_ok) ++ok_s;
-        const char* note = !panel_ok ? "Display liefert keine Bilder" : !engine_ok ? "Engine liefert keine Bilder"
-                           : !net_ok ? "weder WLAN noch Setup-Modus" : "läuft";
-        {
-            std::lock_guard<std::mutex> g(s_lock);
-            s_status.trial_elapsed_s = elapsed;
-            s_status.trial_ok_s = ok_s;
-            std::snprintf(s_status.trial_note, sizeof(s_status.trial_note), "%s", note);
-        }
-        if (elapsed >= kTrialSeconds && ok_s >= kTrialSeconds - 5 && net_ok) {
-            esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();
-            ESP_LOGW(TAG, "Selbsttest bestanden nach %d s: Version %s gilt jetzt dauerhaft (%s)", elapsed, me->version,
-                     esp_err_to_name(err));
-            {
-                std::lock_guard<std::mutex> g(s_lock);
-                s_status.trial = false;
-                s_status.trial_passed = true;
-            }
-            log::set_mirror(false);
-            std::snprintf(text, sizeof(text), "Update auf %s erfolgreich", me->version);
-            ui::toast(text, pixelia::ui::Tone::Success, 8);
-            break;
-        }
-        if (elapsed >= kTrialMaxSeconds) {
-            char why[96];
-            std::snprintf(why, sizeof(why), "Selbsttest nicht bestanden: %s", note);
-            ESP_LOGE(TAG, "%s, zurück zur vorherigen Version", why);
-            char sha[17];
-            sha_hex(me->app_elf_sha256, sha);
-            store_reason(sha, why);
-            ui::show_message({"Selbsttest fehlgeschlagen", std::string(why) + "\nPixelia startet die vorherige Version.",
-                              pixelia::ui::Tone::Error},
-                             10);
-            vTaskDelay(pdMS_TO_TICKS(3000));
-            esp_ota_mark_app_invalid_rollback_and_reboot();
-            break;
-        }
-    }
-    vTaskDelete(nullptr);
-}
-
 void set_error(const char* text) {
     std::lock_guard<std::mutex> g(s_lock);
     std::snprintf(s_status.last_error, sizeof(s_status.last_error), "%s", text);
+}
+
+// Selbsttest im Probelauf: Messen und Entscheiden in pixelia::TrialMachine (im Simulator geprüft, --test geraet),
+// hier nur die SDK-Aufrufe. Erwartete Panelrate aus dem gerade aktiven Timing (Stromsparmodus 30 Hz, V07).
+pixelia::TrialSample trial_sample() {
+    pixelia::TrialSample s;
+    s.now_us = esp_timer_get_time();
+    s.vsyncs = board::display::stats(false).vsyncs;
+    s.frames = gfx::engine_stats(false).frames;
+    exper::active_rate(s.panel_hz, s.swap);
+    const wifi::Status ws = wifi::status();
+    s.net_ok = ws.state == wifi::State::Connected || ws.ap_active;
+#if defined(PIXELIA_TEST_SELFTEST_FAIL)
+    s.engine_fail = true;
+#endif
+    return s;
+}
+
+void publish_trial(const pixelia::TrialMachine& m) {
+    std::lock_guard<std::mutex> g(s_lock);
+    s_status.trial_elapsed_s = m.elapsed_s();
+    s_status.trial_ok_s = m.ok_s();
+    s_status.trial_phase = static_cast<uint8_t>(m.phase());
+    s_status.trial_panel_hz = static_cast<float>(m.expected_panel());
+    std::snprintf(s_status.trial_note, sizeof(s_status.trial_note), "%s", m.note());
+}
+
+void selftest_task(void*) {
+    using pixelia::TrialMachine;
+    const esp_app_desc_t* me = esp_app_get_description();
+    char text[128];
+    std::snprintf(text, sizeof(text), "Probelauf von %s: Selbsttest läuft (%d s)", me->version, kTrialSeconds);
+    ui::toast(text, pixelia::ui::Tone::Info, 10);
+
+    TrialMachine::Config cfg;
+    cfg.need_s = kTrialSeconds;
+    cfg.max_s = kTrialMaxSeconds;
+    TrialMachine m(cfg);
+    const pixelia::TrialSample first = trial_sample();
+    m.start(first);
+    const int64_t t0 = first.now_us;
+    const uint32_t vs0 = first.vsyncs, fr0 = first.frames;
+    ESP_LOGW(TAG, "Probelauf: Selbsttest läuft (mindestens %d s, höchstens %d s), Panel erwartet %.1f Hz, Engine-Bild %d×",
+             kTrialSeconds, kTrialMaxSeconds, first.panel_hz, first.swap);
+    // Messwerte des ganzen Tests fürs Log (V07: Panelrate, Engine-Bilder, Dauer)
+    auto summary = [&](const char* what) {
+        const pixelia::TrialSample s = trial_sample();
+        const double sec = (s.now_us - t0) / 1e6;
+        ESP_LOGW(TAG, "Selbsttest %s nach %.1f s: Panel %.1f Hz (erwartet %.1f, %lu Bilder), Engine %.1f/s (%lu Bilder), "
+                      "gut %d s",
+                 what, sec, (s.vsyncs - vs0) / sec, s.panel_hz, static_cast<unsigned long>(s.vsyncs - vs0),
+                 (s.frames - fr0) / sec, static_cast<unsigned long>(s.frames - fr0), m.ok_s());
+    };
+
+    int elapsed = 0;
+    while (!m.finished()) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        test_misbehave(++elapsed);
+        const pixelia::TrialSample s = trial_sample();
+        const TrialMachine::Action a = m.step(s);
+        publish_trial(m);
+        if (a == TrialMachine::Action::MarkValid) {
+            const esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();
+            m.confirm_result(err == ESP_OK, esp_timer_get_time(), err);
+            publish_trial(m);
+            if (m.phase() == TrialMachine::Phase::Passed) {
+                summary("bestanden");
+                ESP_LOGW(TAG, "Version %s gilt jetzt dauerhaft", me->version);
+                {
+                    std::lock_guard<std::mutex> g(s_lock);
+                    s_status.trial = false;
+                    s_status.trial_passed = true;
+                }
+                log::set_mirror(false);
+                std::snprintf(text, sizeof(text), "Update auf %s erfolgreich", me->version);
+                ui::toast(text, pixelia::ui::Tone::Success, 8);
+            } else {
+                // V08: gesund, aber nicht dauerhaft bestätigt – kein „erfolgreich“, neuer Versuch oder Hinweis
+                ESP_LOGE(TAG, "Bestätigen fehlgeschlagen (%s, Versuch %d): %s", esp_err_to_name(err),
+                         m.confirm_attempts(), m.note());
+                if (m.phase() == TrialMachine::Phase::ConfirmFailed) {
+                    summary("gesund, nicht bestätigt");
+                    set_error("Nicht dauerhaft bestätigt: nach einem Neustart startet die vorige Version");
+                    ui::show_message({"Update nicht bestätigt",
+                                      std::string("Die neue Version läuft, ließ sich aber nicht dauerhaft bestätigen (") +
+                                          esp_err_to_name(err) + ").\nNach einem Neustart startet die vorige Version.",
+                                      pixelia::ui::Tone::Warning},
+                                     20);
+                }
+            }
+        } else if (a == TrialMachine::Action::Rollback) {
+            char why[96];
+            std::snprintf(why, sizeof(why), "Selbsttest nicht bestanden: %s", m.note());
+            if (m.rollback_attempts() == 1) {
+                summary("nicht bestanden");
+                ESP_LOGE(TAG, "%s, zurück zur vorherigen Version", why);
+                char sha[17];
+                sha_hex(me->app_elf_sha256, sha);
+                store_reason(sha, why);
+                ui::show_message({"Selbsttest fehlgeschlagen", std::string(why) + "\nPixelia startet die vorherige Version.",
+                                  pixelia::ui::Tone::Error},
+                                 10);
+                vTaskDelay(pdMS_TO_TICKS(3000));
+            }
+            const esp_err_t err = esp_ota_mark_app_invalid_rollback_and_reboot();  // kehrt nur bei Fehler zurück
+            m.rollback_failed(esp_timer_get_time(), err);
+            publish_trial(m);
+            ESP_LOGE(TAG, "Rückfall fehlgeschlagen (%s, Versuch %d): %s", esp_err_to_name(err), m.rollback_attempts(),
+                     m.note());
+            if (m.phase() == TrialMachine::Phase::RollbackFailed) {
+                set_error("Selbsttest nicht bestanden, Rückfall nicht möglich");
+                ui::show_message({"Rückfall nicht möglich",
+                                  std::string("Selbsttest nicht bestanden, die vorige Version lässt sich nicht starten (") +
+                                      esp_err_to_name(err) + ").\nDiagnose auf der Seite System.",
+                                  pixelia::ui::Tone::Error},
+                                 30);
+            }
+        }
+    }
+    vTaskDelete(nullptr);
 }
 
 void show_progress(UpdateInfo::Phase phase, const char* message = "") {
@@ -313,7 +371,9 @@ bool check_header(const uint8_t* head, size_t len, esp_app_desc_t* desc, char* e
     return true;
 }
 
-esp_err_t begin(const uint8_t* head, size_t len, size_t total, char* error, size_t error_len, const char* source) {
+esp_err_t begin(const uint8_t* head, size_t len, size_t total, char* error, size_t error_len, const char* source,
+                uint32_t& owner) {
+    owner = 0;
     esp_app_desc_t ad;
     if (!check_header(head, len, &ad, error, error_len)) {
         set_error(error);
@@ -321,21 +381,42 @@ esp_err_t begin(const uint8_t* head, size_t len, size_t total, char* error, size
     }
     {
         std::lock_guard<std::mutex> g(s_lock);
-        if (s_status.busy) {
-            std::snprintf(error, error_len, "Es läuft bereits ein Update");
-            return ESP_ERR_INVALID_STATE;
-        }
         if (s_status.trial) {
             std::snprintf(error, error_len, "Der Probelauf der aktuellen Version läuft noch, bitte kurz warten");
             return ESP_ERR_INVALID_STATE;
         }
     }
+    // B05: vor dem Löschen reservieren (kurze Sperre), damit kein zweites Update dieselbe Partition beschreibt
+    const uint32_t id = s_gate.reserve();
+    if (!id) {
+        std::snprintf(error, error_len, "%s", s_gate.phase() == pixelia::UpdateGate::Phase::RebootPending
+                                                  ? "Ein Update ist installiert, Neustart folgt"
+                                                  : "Es läuft bereits ein Update");
+        return ESP_ERR_INVALID_STATE;
+    }
+    {
+        std::lock_guard<std::mutex> g(s_lock);
+        s_status.busy = true;  // ab hier für Status und GitHub belegt, auch während des Löschens
+        std::snprintf(s_status.source, sizeof(s_status.source), "%s", source);
+        s_status.bytes = 0;
+        s_status.total = static_cast<uint32_t>(total);
+        std::snprintf(s_status.new_version, sizeof(s_status.new_version), "%s", ad.version);
+        s_status.last_error[0] = 0;
+    }
+    auto fail = [&](esp_err_t err) {
+        set_error(error);
+        {
+            std::lock_guard<std::mutex> g(s_lock);
+            s_status.busy = false;
+        }
+        s_gate.release(id);
+        return err;
+    };
     s_target = esp_ota_get_next_update_partition(nullptr);
     if (!s_target || total > s_target->size) {
         std::snprintf(error, error_len, "Firmware zu groß für die App-Partition (%lu KB)",
                       static_cast<unsigned long>(s_target ? s_target->size / 1024 : 0));
-        set_error(error);
-        return ESP_ERR_INVALID_SIZE;
+        return fail(ESP_ERR_INVALID_SIZE);
     }
     // Nur den Bereich der neuen Firmware vorab löschen (in 64-KB-Blöcken, deutlich schneller als 4-KB-Sektoren
     // während des Schreibens). Das Display läuft dabei weiter, weil Programm und Daten im PSRAM liegen.
@@ -343,19 +424,12 @@ esp_err_t begin(const uint8_t* head, size_t len, size_t total, char* error, size
     esp_err_t err = esp_ota_begin(s_target, total, &s_handle);
     ESP_LOGI(TAG, "%u KB gelöscht in %lld ms", static_cast<unsigned>(total / 1024), (esp_timer_get_time() - t_erase) / 1000);
     if (err != ESP_OK) {
+        s_handle = 0;
         std::snprintf(error, error_len, "Update kann nicht starten: %s", esp_err_to_name(err));
-        set_error(error);
-        return err;
+        return fail(err);
     }
-    {
-        std::lock_guard<std::mutex> g(s_lock);
-        s_status.busy = true;
-        std::snprintf(s_status.source, sizeof(s_status.source), "%s", source);
-        s_status.bytes = 0;
-        s_status.total = static_cast<uint32_t>(total);
-        std::snprintf(s_status.new_version, sizeof(s_status.new_version), "%s", ad.version);
-        s_status.last_error[0] = 0;
-    }
+    s_gate.start_writing(id);
+    owner = id;
     s_ui_bytes = 0;
     ESP_LOGW(TAG, "Update auf %s (%u KB, gebaut %s %s, Quelle %s) nach %s", ad.version,
              static_cast<unsigned>(total / 1024), ad.date, ad.time, source, s_target->label);
@@ -363,7 +437,8 @@ esp_err_t begin(const uint8_t* head, size_t len, size_t total, char* error, size
     return ESP_OK;
 }
 
-esp_err_t write(const uint8_t* data, size_t len) {
+esp_err_t write(uint32_t owner, const uint8_t* data, size_t len) {
+    if (!s_gate.owns(owner)) return ESP_ERR_INVALID_STATE;
     esp_err_t err = esp_ota_write(s_handle, data, len);
     if (err != ESP_OK) return err;
     uint32_t bytes;
@@ -379,7 +454,11 @@ esp_err_t write(const uint8_t* data, size_t len) {
     return ESP_OK;
 }
 
-esp_err_t finish(char* error, size_t error_len) {
+esp_err_t finish(uint32_t owner, char* error, size_t error_len) {
+    if (!s_gate.owns(owner)) {
+        std::snprintf(error, error_len, "Update gehört zu einem anderen Vorgang");
+        return ESP_ERR_INVALID_STATE;
+    }
     show_progress(UpdateInfo::Phase::Verifying);
     esp_err_t err = esp_ota_end(s_handle);  // prüft Prüfsumme und SHA-256 des Images
     s_handle = 0;
@@ -393,28 +472,32 @@ esp_err_t finish(char* error, size_t error_len) {
             std::lock_guard<std::mutex> g(s_lock);
             s_status.busy = false;
         }
+        s_gate.release(owner);
         show_progress(UpdateInfo::Phase::Failed, error);
         ESP_LOGE(TAG, "Update fehlgeschlagen: %s", error);
         return err;
     }
+    s_gate.done(owner);  // bis zum Neustart kein weiteres Update
     {
         std::lock_guard<std::mutex> g(s_lock);
         s_status.busy = false;
+        s_status.reboot_pending = true;
     }
     show_progress(UpdateInfo::Phase::Done);
     ESP_LOGW(TAG, "Update geprüft und als Startpartition gesetzt (%s), Neustart folgt", s_target->label);
     return ESP_OK;
 }
 
-void cancel(const char* why, bool by_user) {
+void cancel(uint32_t owner, const char* why, bool by_user) {
+    if (!s_gate.owns(owner)) return;  // nur der eigene Vorgang (B05)
     if (s_handle) esp_ota_abort(s_handle);
     s_handle = 0;
     set_error(why);
     {
         std::lock_guard<std::mutex> g(s_lock);
-        if (!s_status.busy) return;
         s_status.busy = false;
     }
+    s_gate.release(owner);
     ESP_LOGE(TAG, "Update abgebrochen: %s", why);
     if (by_user) {
         ui::hide_update();

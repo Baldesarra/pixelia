@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <vector>
 
 #include "pixelia/engine/assets.h"
@@ -36,6 +37,60 @@ bool write_file(const std::string& path, const std::vector<uint8_t>& data) {
     std::ofstream f(p, std::ios::binary);
     f.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
     return f.good();
+}
+
+// Speicherstand als Datei (--welt, seit 0.5.11): vor dem Lauf laden, danach mit der nächsten Generation speichern wie
+// das Gerät. Für den Rückfall-Test mit einer älteren Version; der Bericht nennt Figuren (mit Prüfsumme über Kennung,
+// Name und Aufenthalt), Warenbuch, Aufgaben und Projekte
+uint32_t g_world_gen = 0;
+
+uint32_t figure_sum(const pixelia::Stage& stage) {
+    const pixelia::FigureBook& book = stage.environment().figures;
+    uint32_t h = 2166136261u;
+    auto mix = [&](uint32_t v) { h = (h ^ v) * 16777619u; };
+    for (int i = 0; i < book.count(); ++i) {
+        const pixelia::FigureRecord& f = book.at(i);
+        mix(f.id);
+        for (char c : f.name) mix(static_cast<uint8_t>(c));
+        mix(f.where.place);
+    }
+    return h;
+}
+
+bool load_world_file(const std::string& path, pixelia::Stage& stage) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) {
+        std::printf("sim: Speicherstand %s gibt es noch nicht, neue Welt\n", path.c_str());
+        return true;
+    }
+    std::vector<uint8_t> b((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    pixelia::Stage::LoadReport r;
+    if (!stage.load_state(b.data(), b.size(), &r)) {
+        std::printf("FEHLER: Speicherstand %s abgelehnt: %s\n", path.c_str(), r.why);
+        return false;
+    }
+    g_world_gen = r.generation;
+    std::printf("sim: Speicherstand %s geladen: Nr. %u, %d Figuren (Summe %08x), %d unterwegs, %d Chronik, "
+                "Warenbuch %s (%d Bestände, %d Stücke, %d Reservierungen, %d verloren), %d Aufgaben, %d Projekte, "
+                "%d unbekannte Abschnitte übersprungen\n",
+                path.c_str(), static_cast<unsigned>(r.generation), r.figures,
+                static_cast<unsigned>(figure_sum(stage)), r.transit, r.chronicle, r.ledger ? "ja" : "nein", r.stock,
+                r.items, r.reservations, r.lost, r.tasks, r.projects, r.skipped_chunks);
+    return true;
+}
+
+bool save_world_file(const std::string& path, const pixelia::Stage& stage) {
+    std::vector<uint8_t> b(256 * 1024);
+    const size_t n = stage.save_state(b.data(), b.size(), g_world_gen + 1);
+    b.resize(n);
+    if (!n || !write_file(path, b)) {
+        std::printf("FEHLER: Speicherstand %s nicht geschrieben\n", path.c_str());
+        return false;
+    }
+    std::printf("sim: Speicherstand %s geschrieben: Nr. %u, %.1f KB, %d Figuren (Summe %08x)\n", path.c_str(),
+                static_cast<unsigned>(g_world_gen + 1), n / 1024.0, stage.environment().figures.count(),
+                static_cast<unsigned>(figure_sum(stage)));
+    return true;
 }
 
 std::string world_time_text(const pixelia::WorldClock& c) {
@@ -250,6 +305,14 @@ bool render_screen(const std::string& name, std::vector<uint8_t>& frame, const p
         ui::draw_hold_indicator(canvas, 0.55f);
     } else if (name == "toast-ip") {
         ui::draw_toast(canvas, "Verbunden mit „Heimnetz“ · 192.168.178.42", ui::Tone::Success);
+    } else if (name == "datenbereich" || name == "stand-gesperrt") {
+        // seit 0.5.11 (B03, Wahl des Users: rot, zwei Zeilen): Speichern gesperrt, wie gfx.cpp save_tick
+        ui::Toast t;
+        t.tone = ui::Tone::Error;
+        t.text = name == "datenbereich" ? "Datenbereich nicht lesbar\nWelt wird nicht gesichert · Weboberfläche → Welt"
+                                        : "Speicherstand nicht ladbar\nWelt wird nicht gesichert · Weboberfläche → Welt";
+        ui::draw_toast(canvas, t, ui::ToastPlace::Top);
+        ui::draw_clock(canvas, 14, 5, 32, ui::ClockStyle{}, true);
     } else {
         return false;
     }
@@ -495,6 +558,7 @@ int run_headless(const Options& opt) {
     if (!opt.grid.empty()) return grid(opt);
     pixelia::Stage stage;
     if (!setup_stage(opt, stage)) return 2;
+    if (!opt.world_file.empty() && !load_world_file(opt.world_file, stage)) return 2;
     pixelia::WorldClock clock;
     clock.set(opt.day, opt.hour, opt.minute);
     clock.set_speed(opt.speed);
@@ -507,6 +571,7 @@ int run_headless(const Options& opt) {
     if (!opt.econ_dir.empty() && econ.attach(stage.environment(), 256 * 1024, "simulator")) {
         g_econ = &econ;
         g_econ_dir = opt.econ_dir;
+        econ.open(opt.econ_dir.c_str(), stage.world_id(), stage.line_id(), 0);  // seit 0.5.11: Zeitlinie des Ordners
     }
     // Ein Schritt ohne Weltzeit bringt die Szenen auf die Startzeit (Palette, Licht), ohne die Uhr zu verstellen
     clock.advance(0);
@@ -531,7 +596,8 @@ int run_headless(const Options& opt) {
         pixelia::Palette palette = display_palette(stage);
         if (!opt.screen.empty() && !render_screen(opt.screen, frame, stage)) {
             std::printf("FEHLER: Systemanzeige \"%s\" gibt es nicht (setup, setup-leer, setup-fehler, update, "
-                        "update-fertig, failed, message, toast, toast-lang, toast-ip, info, info-setup, "
+                        "update-fertig, failed, message, toast, toast-lang, toast-ip, datenbereich, stand-gesperrt, "
+                        "info, info-setup, "
                         "info-offline, hold, reset, reset-ohne-pin, reset-halten, karte-seite, karte-mitte, "
                         "karte-leiste, karte-tuer, karte-teil, karte-lager, karte-vorrat, karte-schritte, "
                         "schrift-fett, schrift-klein, schrift-normal, uhr, "
@@ -555,6 +621,7 @@ int run_headless(const Options& opt) {
         std::printf("sim: nichts zu tun (--frames, --screenshot, --sequence oder --contact-sheet angeben)\n");
     }
 
+    if (!opt.world_file.empty() && !save_world_file(opt.world_file, stage)) rc = 1;
     if (g_econ) {
         econ_flush();
         const pixelia::EconomyLog::Stats es = econ.stats();

@@ -1,5 +1,71 @@
 [
   {
+    "v": "0.5.11",
+    "d": "2026-11-04",
+    "t": "Zweite Meinung",
+    "s": "Die Welt rechnet genauer und speichert sicherer",
+    "k": {
+      "s": "Zweite Meinung: genauer gerechnet, sicherer gespeichert",
+      "n": [
+        "Nachschub: Hat ein Vorrat keine feste Quelle, sucht Pixelia selbst das nächste Lager mit genug Vorrat, für Aufgaben wie für Projekte",
+        "Prüfbefehl: „lager“ zeigt, warum ein Lager gerade keinen Nachschub bekommt, zum Beispiel weil die Quelle leer ist",
+        "Speicher: Pixelia löscht oder überschreibt Weltstände nie still. Ist der Speicher nicht lesbar oder kein Stand ladbar, sagen es Display und Web, ein Knopf hilft weiter",
+        "Update: Die Seite Update zeigt jeden Schritt (Übertragen, Prüfen, Neustart, Selbsttest) und sagt „nicht installiert“ erst, wenn Pixelia es bestätigt",
+        "Einstellungen: Ein oranger Hinweis oben zeigt, wenn eine Einstellung noch nicht dauerhaft gespeichert ist; Pixelia versucht es alle 30 Sekunden erneut"
+      ],
+      "f": [
+        "Selbsttest: Im Stromsparmodus fällt ein gutes Update nicht mehr zurück; klappt das Bestätigen nicht, versucht Pixelia es erneut und sagt es deutlich",
+        "Diagnose: Das Diagnosepaket enthält keinen Rohspeicher mehr; die Rohdaten gibt es nur mit PIN und nach einer Warnung",
+        "Ablauf der Welt: Meldungen gehen nicht durcheinander, die Chronik verpasst nichts, viele Reisende kommen pünktlich an, Figuren nehmen offene Umwege",
+        "Vorräte: Reservierte Ware bleibt beim richtigen Vorhaben, ein gescheitertes Tragen ändert nichts, und beim Laden geht keine Ware verloren",
+        "Projekte und Lernen: Ein Fehler im Bauplan sperrt das Projekt mit Meldung; das erste eigene Gelingen bleibt für immer gemerkt",
+        "Speicherstand: Ein kaputter Stand wird vor dem Laden erkannt, die Welt bleibt, wie sie war, und Pixelia nimmt den letzten guten Stand; das steht dann in der Chronik",
+        "Protokoll: Bei Schreibfehler oder Stromausfall fehlt keine Buchung und keine steht doppelt; die Tagesbestände stimmen genau",
+        "Sicherungen: Beim Einspielen speichert sonst nichts, das alte Protokoll wird beiseitegelegt; eine kaputte Einstellungs-Sicherung wird verständlich abgelehnt",
+        "Grafik-Pakete: Ein fehlerhaftes Paket wird sicher abgelehnt",
+        "Verbindung: Bei langsamem WLAN stauen sich keine Abfragen mehr, ein hängender Upload wird getrennt, und das Live-Log bleibt offen",
+        "Im Inneren: Ein neuer PIN gilt erst, wenn er sicher gespeichert ist; Leistungswerte und Uhr-Befehle wechseln sicher zwischen den beiden Rechenkernen"
+      ]
+    },
+    "n": [
+      "Engine: Nachschub ohne Quelle wählt Erzeuger- oder Gemeinschaftslager (genug Vorrat, dann wenige Wege, dann Kennung; Ledger::find_source), auch für Projekte; eingetragene Quelle bleibt verbindlich (V05)",
+      "System: Gründe ohne Nachschub (SupplyWait) je Lager in der Konsole „lager“, Zähler je Grund, Bestandstabelle und Ereignis-Bus unter „nachschub“ in /api/world und im Diagnosepaket (P-F)",
+      "Web: Speicherstand-Karte mit Banner bei gesperrtem Speichern (Knopf mit Rückfrage und PIN); Update als Schritt-Leiste Übertragen → Prüfen → Neustart → Selbsttest; Banner „noch nicht dauerhaft gespeichert“ (set.pend)"
+    ],
+    "f": [
+      "Engine: Ereignis-Bus liefert nichts verfrüht oder doppelt, Ring 128 Plätze im PSRAM (V01); Reservierungen nur mit freier Kennung, gescheiterter Einzelstück-Transport ändert nichts (V02–V04)",
+      "Engine: Laden führt Lager ohne Bilanzfehler zusammen (B13); bestand_lager_tag mit allen Waren (B12) und genau um Mitternacht: Zeitraffer 1 und 3 × 4 Wochen ohne Abweichung (vorher 4/12/2/2)",
+      "Engine: Reiseliste mit einem Platz je Figur (48 statt 16), nie sofortige Ankunft (B14); Wege über die gerade offenen Verbindungen (PlaceGraph::open_hops_to), sonst Wartegrund auf der Karte (B15)",
+      "Engine: Fehlerhafte Projektdaten sperren das Projekt mit Meldung (B17); erstes Gelingen und Fehlversuch als dauerhafte Merker je Fähigkeit in FIGS, Gezeigtes als eigene Erinnerung (B18)",
+      "Engine: Speicherstand in zwei Phasen, `Stage::check_state` prüft alles vor dem Übernehmen (B01); load_slots nimmt bei kaputtem neuestem Platz den älteren, neue Zeitlinie, Eintrag in der Chronik",
+      "Engine: Protokoll mit Journal `journal.pxj` vor dem Stand (B04), hart ≤ 1 MB, Tag ≤ 256 KB, Pfade ungekürzt (B08), Pfad-Puffer im PSRAM (Stack-Überlauf im ersten Probelauf gefunden)",
+      "Engine: Kennung von Welt und Zeitlinie im neuen Abschnitt KENN; eingespielte Sicherung = neue Zeitlinie, Protokoll der alten nach `wirtschaft-alt/<n>` (B09); Grafik-Pakete prüfen Grenzen in 64 Bit (B02)",
+      "System: Datenbereich nie automatisch formatiert, nicht ladbare Stände nie still überschrieben (B03); Einspielen als exklusiver Auftrag der Lade-Task, Erfolg erst nach dem Schreiben (B06)",
+      "Update: Selbsttest erwartet die Panelrate des aktiven Timings (Stromsparmodus fiel vorher zurück, V07); „bestanden“ erst nach bestätigtem Markieren, sonst 6 Versuche und Hinweis (V08); Status trialState",
+      "Update: Hochladen reserviert vor dem Löschen mit Besitzer-Nummer, gesperrt bis zum Neustart (B05); Web unterscheidet Senden, Prüfen, Neustart und „unklar“ mit Fristen, sagt „nicht installiert“ erst nach Status (B20)",
+      "System: Diagnosepaket ohne Rohspeicher, Hinweis nennt das Geprüfte; Rohdaten nur mit PIN über Knopf mit Rückfrage (V06); pinSet aus auth::enabled (V09)",
+      "Web: Zu große WebSocket-Nachricht → Schließen mit 1009 (V10); leere Rahmen (Keep-Alive) schlossen das Live-Log nach 30 s; Speicherstand-Upload ≤ 20 s ohne Daten, ≤ 60 s gesamt (B07)",
+      "System: Leistungszähler nach Besitzer getrennt (B10); Steuerwerte atomar, Uhr und Zeitraffer als Befehle an die Grafik-Task (B11)",
+      "System: PIN erst gespeichert, dann aktiv, als ein NVS-Eintrag `cred` (B22); Einstellungen in einem Schreibvorgang mit Revision, bei Fehler alle 30 s neu und ehrliche Antwort (B23)",
+      "Web: Statusabfrage höchstens eine zur Zeit, Frist 5 s, späte Antworten verworfen, get() mit 8 s Frist (B21); Sicherung wird Feld für Feld geprüft statt Absturz bei `set: null` (B19)",
+      "Web: Einspiel-Hinweis nennt „höchstens drei Tage“ Nachholen (vorher einen Tag, B19); Rohdaten-Knopf holt per Token statt Link; Seite Update ohne Endlos-Warten bei „nicht bestätigt“",
+      "Simulator: Option `--welt DATEI` (Speicherstand laden und speichern) für den Rückfall-Test mit einer älteren Version"
+    ],
+    "g": [
+      "Simulator: --test boden 36/36, --test geraet 15/15, alle Gruppen grün; Protokoll 1 und 3 × 4 Wochen ohne Bilanzabweichung; 0.5.10 lädt einen 0.5.11-Stand mit allen 14 Figuren (gleiche Prüfsumme)",
+      "Gerät: Selbsttest bestanden mit Stromsparmodus (Panel 30,0 Hz, erwartet 30,0) und Standard (60,1/60,0); Stecker zweimal ohne Bilanzfehler; 30,0 fps, Logik max 5,0 ms, RAM 90 KB"
+    ],
+    "h": [
+      "Doku: Code-Prüfung einer anderen KI (31.10. und 1.11.): Befunde je Nummer in der ROADMAP; Tagesgerüst wird 0.5.12, Gesamtprobe 0.5.13 mit den Geschwindigkeits-Ideen als Messaufträgen"
+    ],
+    "pr": [
+      49
+    ],
+    "i": [
+      "System: Start über `Stage::load_slots`, frische Welt mit Zufallskennung, Protokoll mit open/prepare/abandon und set_free_space, Generation nie doppelt; neue Zahlen unter save/wirtschaft in /api/world und Diagnose"
+    ]
+  },
+  {
     "v": "0.5.10",
     "d": "2026-10-30",
     "t": "Holz, Brot und eine Säge",
@@ -65,7 +131,9 @@
       "Dorf: Werte im Testdorf (Korb 10, Holzlege 12, Bett 8 Stunden …) sind Testwerte, Balancing ab 0.5.12 bzw. 0.6.x; das Brotregal ist nur Testinhalt; sichtbares Tragen kommt mit 0.6.x (Wahl des Users)",
       "Chronik: nur Besonderes (Lager leer, Notbestand, Teilaufgabe und Projekt fertig; Wahl des Users); nach über 10 Weltminuten Pause rechnen nur die Ortszustände nach, Figuren holen danach Nachschub"
     ],
-    "pr": [47]
+    "pr": [
+      47
+    ]
   },
   {
     "v": "0.5.9",

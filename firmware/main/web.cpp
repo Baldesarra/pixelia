@@ -55,6 +55,7 @@
 #include "net.h"
 #include "exper.h"
 #include "ota.h"
+#include "pixelia/engine/device_flow.h"
 #include "settings.h"
 #include "web_assets.h"
 #include "web_internal.h"
@@ -111,6 +112,8 @@ std::string status_json() {
     j.boolean("busy", o.busy).str("src", o.source).num("bytes", o.bytes).num("total", o.total).str("newV", o.new_version);
     j.str("err", o.last_error).boolean("trial", o.trial).num("trialS", o.trial_elapsed_s);
     j.num("trialNeed", ota::kTrialSeconds).str("trialNote", o.trial_note).boolean("passed", o.trial_passed);
+    j.str("trialState", pixelia::trial_phase_name(static_cast<pixelia::TrialMachine::Phase>(o.trial_phase)));
+    j.num("trialHz", o.trial_panel_hz, 1).boolean("reboot", o.reboot_pending);
     // Update von GitHub: gefundene neuere Version (Punkt an „System“), Zähler für neue Stände von /api/update
     j.str("avail", github::available().c_str()).num("ghSeq", github::seq());
     j.end_obj();
@@ -126,6 +129,8 @@ std::string status_json() {
     j.num("camHome", set.cam_home).num("camFig", set.cam_figure).num("camPlace", set.cam_place).num("camRet", set.cam_return_s);
     j.boolean("night", set.night_on).num("nightBr", set.night_bright).boolean("nightNow", night::active());
     j.num("nightFrom", set.night_from).num("nightTo", set.night_to);
+    // seit 0.5.11 (B23): übernommen, aber noch nicht dauerhaft gespeichert (Banner in der Weboberfläche)
+    j.boolean("pend", settings::pending());
     j.end_obj();
     j.obj("auth").boolean("pin", auth::enabled()).num("lockS", auth::lock_seconds()).end_obj();
 
@@ -317,11 +322,42 @@ esp_err_t ws_open(httpd_req_t*) {
 }
 
 // Nachrichten vom Browser: Anmeldung und Seitenwechsel für „Verbundene Geräte“ (web_info.cpp)
+}  // namespace
+
+namespace detail {
+// V10: Eine zu große Nachricht steht ungelesen im Empfangsstrom und würde die nächste verfälschen. Statt sie
+// stillschweigend liegen zu lassen: Schließen mit Code 1009 („zu groß“) und Verbindung beenden; der Browser
+// verbindet sich wie nach jedem Abbruch neu. Nichts nach der fremden Längenangabe anlegen.
+esp_err_t ws_reject_oversize(httpd_req_t* req, httpd_ws_frame_t& frame, const char* name) {
+    ESP_LOGW(TAG, "WebSocket %s: Nachricht mit %u Byte zu groß, Verbindung geschlossen", name,
+             static_cast<unsigned>(frame.len));
+    // Rest bis 4 KB in kleinen Stücken lesen und verwerfen (seit 0.5.11 c2): Ungelesene Bytes machen aus dem Schließen
+    // einen TCP-Abbruch (RST), der Browser sähe dann 1006 statt 1009. Größere Nachrichten werden nicht gelesen
+    if (frame.len <= 4096) {
+        uint8_t sink[64];
+        frame.payload = sink;
+        while (frame.left_len > 0 && httpd_ws_recv_frame_part(req, &frame, sizeof(sink)) == ESP_OK) {
+        }
+    }
+    uint8_t code[2] = {0x03, 0xF1};  // 1009 Message Too Big
+    httpd_ws_frame_t close{};
+    close.type = HTTPD_WS_TYPE_CLOSE;
+    close.final = true;
+    close.payload = code;
+    close.len = sizeof(code);
+    httpd_ws_send_frame(req, &close);
+    httpd_sess_trigger_close(req->handle, httpd_req_to_sockfd(req));
+    return ESP_FAIL;
+}
+}  // namespace detail
+
+namespace {
 esp_err_t ws_handler(httpd_req_t* req) {
     httpd_ws_frame_t frame{};
     char buf[257];
     if (httpd_ws_recv_frame(req, &frame, 0) != ESP_OK) return ESP_FAIL;
-    if (frame.len >= sizeof(buf)) return ESP_OK;
+    if (frame.len >= sizeof(buf)) return ws_reject_oversize(req, frame, "/ws");
+    if (frame.len == 0) return ESP_OK;  // leerer Rahmen (PONG): nicht noch einmal lesen (wie ws_log_handler)
     frame.payload = reinterpret_cast<uint8_t*>(buf);
     if (httpd_ws_recv_frame(req, &frame, frame.len) != ESP_OK) return ESP_FAIL;
     if (frame.type == HTTPD_WS_TYPE_TEXT && frame.len > 0) client_message(req, std::string(buf, frame.len));
@@ -460,6 +496,8 @@ esp_err_t settings_post(httpd_req_t* req) {
                             nfr ? std::atoi(nf.c_str()) : cur.night_from, nto ? std::atoi(nt.c_str()) : cur.night_to);
     // Weltkalender (seit 0.5.7): Tage je Jahreszeit
     if (form_value(body, "seasonLen", &v)) gfx::set_season_length(std::atoi(v.c_str()));
+    // B23: „gespeichert“ nur, wenn es dauerhaft im NVS steht
+    if (settings::pending()) return reply(req, true, "Übernommen, aber noch nicht dauerhaft gespeichert (neuer Versuch in 30 s)");
     return reply(req, true, "Gespeichert");
 }
 
@@ -602,6 +640,7 @@ esp_err_t ota_post(httpd_req_t* req) {
     int timeouts = 0;
     char error[128] = "";
     bool started = false;
+    uint32_t owner = 0;
     bool broken = false;  // Übertragung abgerissen oder hängt
     int64_t t0 = esp_timer_get_time();
     uint32_t last_pct = 0;
@@ -618,11 +657,11 @@ esp_err_t ota_post(httpd_req_t* req) {
         filled += r;
         if (!started) {
             if (filled < ota::kHeaderBytes && got < total) continue;
-            if (ota::begin(buf, filled, total, error, sizeof(error)) != ESP_OK) break;
+            if (ota::begin(buf, filled, total, error, sizeof(error), "upload", owner) != ESP_OK) break;
             started = true;
         }
         if (filled == kChunk || got == total) {
-            esp_err_t err = ota::write(buf, filled);
+            esp_err_t err = ota::write(owner, buf, filled);
             if (err != ESP_OK) {
                 std::snprintf(error, sizeof(error), "Schreiben fehlgeschlagen: %s", esp_err_to_name(err));
                 break;
@@ -638,7 +677,7 @@ esp_err_t ota_post(httpd_req_t* req) {
     }
     heap_caps_free(buf);
     if (error[0] || !started) {
-        if (started) ota::cancel(error);
+        if (started) ota::cancel(owner, error);
         ESP_LOGW(TAG, "Update abgelehnt: %s", error);
         if (broken) {
             // Übertragung hängt: Verbindung sofort schließen statt den Rest abzuwarten (blockiert sonst den Server)
@@ -646,7 +685,7 @@ esp_err_t ota_post(httpd_req_t* req) {
         }
         return reply(req, false, error[0] ? error : "Firmware unvollständig");
     }
-    if (ota::finish(error, sizeof(error)) != ESP_OK) return reply(req, false, error);
+    if (ota::finish(owner, error, sizeof(error)) != ESP_OK) return reply(req, false, error);
     double secs = (esp_timer_get_time() - t0) / 1e6;
     ESP_LOGI(TAG, "Update empfangen: %u KB in %.1f s (%.0f KB/s)", static_cast<unsigned>(total / 1024), secs,
              total / 1024.0 / (secs > 0 ? secs : 1));

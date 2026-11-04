@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstdio>
 #include <cstring>
 #include <mutex>
 
@@ -11,10 +12,12 @@
 #include "board/display.h"
 #include "app.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "input.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "ota.h"
+#include "pixelia/engine/device_flow.h"
 #include "ui.h"
 
 namespace app::settings {
@@ -27,24 +30,73 @@ std::mutex s_lock;
 Values s_values;
 std::atomic<bool> s_frozen{false};
 
-void save_u8(const char* key, uint8_t value) {
-    if (s_frozen) return;
+// B23 (seit 0.5.11): Alle Werte in einem Schreibvorgang mit Revision. Quittiert wird nur nach bestätigtem Commit;
+// scheitert er, gilt der Wert sofort (RAM), wird aber erst durch einen neuen Versuch alle 30 s dauerhaft.
+pixelia::SaveMark s_mark;
+std::mutex s_write_lock;  // nur ein Schreiber zur Zeit (Web, Konsole, Zeitgeber)
+std::atomic<int> s_fail_next{0};
+esp_timer_handle_t s_retry = nullptr;
+constexpr int64_t kRetryUs = 30 * 1000000LL;
+
+esp_err_t write_all(const Values& v) {
+    if (take_fault()) return ESP_FAIL;  // Prüfschalter „nvs fehler“
     nvs_handle_t h;
-    if (nvs_open(kNamespace, NVS_READWRITE, &h) != ESP_OK) return;
-    esp_err_t err = nvs_set_u8(h, key, value);
+    esp_err_t err = nvs_open(kNamespace, NVS_READWRITE, &h);
+    if (err != ESP_OK) return err;
+    // NVS schreibt unveränderte Werte nicht neu
+    auto u8 = [&](const char* k, uint8_t x) { if (err == ESP_OK) err = nvs_set_u8(h, k, x); };
+    auto u16 = [&](const char* k, uint16_t x) { if (err == ESP_OK) err = nvs_set_u16(h, k, x); };
+    u8("rot180", v.rotate180 ? 1 : 0);
+    u8("bright", v.brightness);
+    u16("lp_ms", v.long_press_ms);
+    u8("clk", static_cast<uint8_t>((v.clock_on ? 1 : 0) | v.clock_corner << 1 | (v.clock_seconds ? 8 : 0)));
+    u8("cam_home", v.cam_home);
+    u16("cam_fig", v.cam_figure);
+    u8("cam_plc", v.cam_place);
+    u16("cam_ret", v.cam_return_s);
+    u8("night", static_cast<uint8_t>((v.night_on ? 0x80 : 0) | v.night_bright));
+    u16("night_h", static_cast<uint16_t>(v.night_from << 8 | v.night_to));
+    if (v.bl_min) u16("bl_min", v.bl_min);
+    if (err == ESP_OK && v.ui[0]) {
+        err = nvs_set_str(h, "ui", v.ui);
+    } else if (err == ESP_OK) {
+        const esp_err_t e = nvs_erase_key(h, "ui");
+        if (e != ESP_ERR_NVS_NOT_FOUND) err = e;
+    }
     if (err == ESP_OK) err = nvs_commit(h);
     nvs_close(h);
-    if (err != ESP_OK) ESP_LOGW(TAG, "Speichern von %s fehlgeschlagen: %s", key, esp_err_to_name(err));
+    return err;
 }
 
-void save_u16(const char* key, uint16_t value) {
-    if (s_frozen) return;
-    nvs_handle_t h;
-    if (nvs_open(kNamespace, NVS_READWRITE, &h) != ESP_OK) return;
-    esp_err_t err = nvs_set_u16(h, key, value);
-    if (err == ESP_OK) err = nvs_commit(h);
-    nvs_close(h);
-    if (err != ESP_OK) ESP_LOGW(TAG, "Speichern von %s fehlgeschlagen: %s", key, esp_err_to_name(err));
+// Schreibt den aktuellen Stand; true = dauerhaft gespeichert (oder nichts offen)
+bool persist() {
+    if (s_frozen) return false;
+    std::lock_guard<std::mutex> w(s_write_lock);
+    if (!s_mark.dirty()) return true;
+    const uint32_t rev = s_mark.begin();  // vor dem Lesen: spätere Änderungen bleiben offen
+    const Values v = get();
+    const esp_err_t err = write_all(v);
+    if (err == ESP_OK) {
+        s_mark.saved(rev);
+        if (!s_mark.dirty() && s_retry) esp_timer_stop(s_retry);
+        return true;
+    }
+    ESP_LOGW(TAG, "Einstellungen übernommen, aber nicht dauerhaft gespeichert (%s), neuer Versuch in 30 s",
+             esp_err_to_name(err));
+    if (s_retry) {
+        esp_timer_stop(s_retry);
+        esp_timer_start_once(s_retry, kRetryUs);
+    }
+    return false;
+}
+
+// Nach jeder Änderung: speichern und das Ergebnis ins Log
+bool changed(const char* what) {
+    s_mark.touch();
+    const bool ok = persist();
+    if (ok) ESP_LOGI(TAG, "%s gespeichert", what);
+    else ESP_LOGW(TAG, "%s übernommen, noch nicht dauerhaft gespeichert", what);
+    return ok;
 }
 }  // namespace
 
@@ -87,6 +139,12 @@ void init() {
         }
         nvs_close(h);
     }
+    esp_timer_create_args_t args{};
+    args.callback = [](void*) {
+        if (persist()) ESP_LOGI(TAG, "Einstellungen nach neuem Versuch dauerhaft gespeichert");
+    };
+    args.name = "einstellungen";
+    esp_timer_create(&args, &s_retry);
     const Values& sv = s_values;
     night::set_hours(sv.night_from, sv.night_to);
     gfx::set_clock(sv.clock_on, sv.clock_corner, sv.clock_seconds);
@@ -106,8 +164,7 @@ void set_rotation180(bool on) {
         s_values.rotate180 = on;
     }
     board::display::set_rotation180(on);
-    save_u8("rot180", on ? 1 : 0);
-    ESP_LOGI(TAG, "Bilddrehung %d° gespeichert", on ? 180 : 0);
+    changed(on ? "Bilddrehung 180°" : "Bilddrehung 0°");
 }
 
 void set_brightness(int percent) {
@@ -117,8 +174,9 @@ void set_brightness(int percent) {
         s_values.brightness = v;
     }
     night::refresh();  // seit 0.5.7 setzt der Nachtmodus die Beleuchtung (nachts die Nacht-Helligkeit)
-    save_u8("bright", v);
-    ESP_LOGI(TAG, "Helligkeit %u %% gespeichert", v);
+    char what[32];
+    std::snprintf(what, sizeof(what), "Helligkeit %u %%", v);
+    changed(what);
 }
 
 void set_night(bool on, int percent, int from, int to) {
@@ -132,9 +190,9 @@ void set_night(bool on, int percent, int from, int to) {
         s_values.night_to = t;
     }
     night::set_hours(f, t);
-    save_u8("night", static_cast<uint8_t>((on ? 0x80 : 0) | p));
-    save_u16("night_h", static_cast<uint16_t>(f << 8 | t));
-    ESP_LOGI(TAG, "Nachtmodus %s, %u–%u Uhr, Nacht-Helligkeit %u %% gespeichert", on ? "an" : "aus", f, t, p);
+    char what[64];
+    std::snprintf(what, sizeof(what), "Nachtmodus %s, %u–%u Uhr, Nacht-Helligkeit %u %%", on ? "an" : "aus", f, t, p);
+    changed(what);
 }
 
 void set_backlight_min(int duty) {
@@ -145,8 +203,9 @@ void set_backlight_min(int duty) {
         s_values.bl_min = d;
     }
     night::refresh();
-    save_u16("bl_min", d);
-    ESP_LOGI(TAG, "Kleinste Pulsbreite %u von %lu gespeichert", d, static_cast<unsigned long>(board::backlight::kMaxDuty));
+    char what[48];
+    std::snprintf(what, sizeof(what), "Kleinste Pulsbreite %u von %lu", d, static_cast<unsigned long>(board::backlight::kMaxDuty));
+    changed(what);
 }
 
 void set_long_press_ms(int ms) {
@@ -156,8 +215,9 @@ void set_long_press_ms(int ms) {
         s_values.long_press_ms = v;
     }
     input::set_long_press_ms(v);
-    save_u16("lp_ms", v);
-    ESP_LOGI(TAG, "Langer Druck %u ms gespeichert", v);
+    char what[32];
+    std::snprintf(what, sizeof(what), "Langer Druck %u ms", v);
+    changed(what);
 }
 
 void set_clock(bool on, int corner, bool seconds) {
@@ -169,8 +229,9 @@ void set_clock(bool on, int corner, bool seconds) {
         s_values.clock_seconds = seconds;
     }
     gfx::set_clock(on, c, seconds);
-    save_u8("clk", static_cast<uint8_t>((on ? 1 : 0) | c << 1 | (seconds ? 8 : 0)));
-    ESP_LOGI(TAG, "Pixel-Uhr %s, Ecke %u, Sekunden %s gespeichert", on ? "an" : "aus", c, seconds ? "an" : "aus");
+    char what[48];
+    std::snprintf(what, sizeof(what), "Pixel-Uhr %s, Ecke %u, Sekunden %s", on ? "an" : "aus", c, seconds ? "an" : "aus");
+    changed(what);
 }
 
 void set_camera(int home, int figure, int place, int return_s) {
@@ -185,12 +246,10 @@ void set_camera(int home, int figure, int place, int return_s) {
     }
     gfx::set_camera({static_cast<pixelia::CameraHome>(v.cam_home), v.cam_figure, static_cast<int8_t>(v.cam_place),
                      v.cam_return_s});
-    save_u8("cam_home", v.cam_home);
-    save_u16("cam_fig", v.cam_figure);
-    save_u8("cam_plc", v.cam_place);
-    save_u16("cam_ret", v.cam_return_s);
-    ESP_LOGI(TAG, "Kamera: Standard %u (Figur %u, Ort %u), Rückkehr %u s gespeichert", v.cam_home, v.cam_figure,
-             v.cam_place, v.cam_return_s);
+    char what[80];
+    std::snprintf(what, sizeof(what), "Kamera: Standard %u (Figur %u, Ort %u), Rückkehr %u s", v.cam_home, v.cam_figure,
+                  v.cam_place, v.cam_return_s);
+    changed(what);
 }
 
 bool set_ui(const std::string& json) {
@@ -203,14 +262,7 @@ bool set_ui(const std::string& json) {
         if (json == s_values.ui) return true;
         std::memcpy(s_values.ui, json.c_str(), json.size() + 1);
     }
-    if (s_frozen) return true;
-    nvs_handle_t h;
-    if (nvs_open(kNamespace, NVS_READWRITE, &h) != ESP_OK) return true;
-    esp_err_t err = nvs_set_str(h, "ui", json.c_str());
-    if (err == ESP_OK) err = nvs_commit(h);
-    nvs_close(h);
-    if (err != ESP_OK) ESP_LOGW(TAG, "Farbwahl nicht gespeichert: %s", esp_err_to_name(err));
-    else ESP_LOGI(TAG, "Farbwahl der Oberfläche gespeichert");
+    changed("Farbwahl der Oberfläche");
     return true;
 }
 
@@ -237,6 +289,17 @@ void factory_reset(const char* why) {
 }
 
 bool frozen() { return s_frozen; }
+
+bool pending() { return s_mark.dirty(); }
+
+void fail_next(int n) { s_fail_next = n; }
+
+bool take_fault() {
+    int n = s_fail_next.load();
+    while (n > 0 && !s_fail_next.compare_exchange_weak(n, n - 1)) {
+    }
+    return n > 0;
+}
 
 void log_all() {
     Values v = get();

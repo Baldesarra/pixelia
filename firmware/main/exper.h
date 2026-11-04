@@ -38,6 +38,8 @@ void set_enabled(bool on);
 // Startwerte für das Panel (bestätigt gespeichert, außer der Fluchtweg greift) und Engine-Bilder pro Panel-Bild
 board::display::Timing boot_timing();
 int boot_swap();
+// Gerade aktive Panelrate (Hz) und Engine-Bilder je Panel-Bild, auch während einer Probe (Selbsttest, V07)
+void active_rate(double& hz, int& swap);
 
 bool try_panel(const Panel& p, char* error, size_t error_len);  // Probe starten
 bool confirm(char* error, size_t error_len);                     // Probe übernehmen und speichern

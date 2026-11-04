@@ -19,8 +19,12 @@
 
   let cam = $state<Cam | null>(null);
   let timer = 0;
+  let asking = false; // eine Abfrage zur Zeit (B21)
   async function load() {
+    if (asking || document.hidden) return;
+    asking = true;
     cam = await get<Cam>('/api/camera').catch(() => cam);
+    asking = false;
   }
   load();
   timer = window.setInterval(load, 2000);

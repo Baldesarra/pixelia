@@ -1943,7 +1943,7 @@ std::vector<Case> state_cases() {
 }
 
 
-// --- Weltzustand, Figuren und Speicherstand (seit 0.5.9): Prüfgrößen aus dem Systemplan, Grundlage für 0.5.12 ---
+// --- Weltzustand, Figuren und Speicherstand (seit 0.5.9): Prüfgrößen aus dem Systemplan, Grundlage für 0.5.13 ---
 
 using pixelia::FigureBook;
 using pixelia::FigureRecord;
@@ -2168,11 +2168,7 @@ std::vector<Case> save_cases() {
              pixelia::Stage::LoadReport rep;
              if (!b.stage.load_state(s1.data(), s1.size(), &rep)) return std::string("Laden: ") + rep.why;
              const std::vector<uint8_t> s2 = save_of(b.stage, 4);
-             if (s1 != s2) {
-                 size_t k = 0;
-                 while (k < s1.size() && k < s2.size() && s1[k] == s2[k]) ++k;
-                 return "Bytes weichen ab bei " + std::to_string(k) + " von " + std::to_string(s1.size());
-             }
+             if (s1 != s2) return save_diff(s1, s2);
              if (rep.figures != 14 || rep.chronicle == 0) return "Bericht: " + std::to_string(rep.figures) + " Figuren";
              if (!b.stage.environment().flags.has("brunnen")) return std::string("Merker fehlt");
              const pixelia::FigureRecord* g = b.stage.environment().figures.find(book.at(5).id);
@@ -2528,12 +2524,14 @@ int run_group(const char* title, const std::vector<Case>& cases) {
 
 int run_tests(const std::string& which) {
     if (which != "gestures" && which != "redact" && which != "stage" && which != "assets" && which != "overlay" &&
-        which != "welt" && which != "orte" && which != "speicher" && which != "warenbuch" && which != "all") {
+        which != "welt" && which != "orte" && which != "speicher" && which != "warenbuch" && which != "boden" && which != "geraet" &&
+        which != "all") {
         std::printf("FEHLER: Test \"%s\" gibt es nicht (gestures, redact, stage, assets, overlay, welt, orte, speicher, "
-                    "warenbuch, all)\n",
+                    "warenbuch, boden, geraet, all)\n",
                     which.c_str());
         return 2;
     }
+    std::setvbuf(stdout, nullptr, _IOLBF, 4096);  // zeilenweise: bei einem Absturz steht die letzte Prüfung im Log
     int failed = 0;
     if (which == "gestures" || which == "all") failed += run_group("Gestentest", gesture_cases());
     if (which == "redact" || which == "all") failed += run_group("Passwort-Filter", redact_cases());
@@ -2547,6 +2545,8 @@ int run_tests(const std::string& which) {
     }
     if (which == "speicher" || which == "all") failed += run_group("Weltzustand, Figuren und Speicherstand", save_cases());
     if (which == "warenbuch" || which == "all") failed += run_ledger_tests();
+    if (which == "boden" || which == "all") failed += run_boden_tests();
+    if (which == "geraet" || which == "all") failed += run_device_tests();
     return failed ? 1 : 0;
 }
 

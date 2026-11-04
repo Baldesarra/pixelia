@@ -218,7 +218,37 @@ function mockDevice(): Plugin {
   // eine Vorabversion des offenen Eintrags. PIXELIA_MOCK_GH=limit spielt das Limit der API, =fail einen Abbruch.
   const ghMode = process.env.PIXELIA_MOCK_GH ?? '';
   let installedV = process.env.PIXELIA_MOCK_V ?? '0.3.2'; // z. B. 0.4.1: dann gibt es ältere Versionen ab 0.4.0
-  const ota = { busy: false, src: 'upload', bytes: 0, total: 0, newV: '', err: '', trial: false, trialS: 0, trialNeed: 60, trialNote: '', passed: true };
+  const ota = { busy: false, src: 'upload', bytes: 0, total: 0, newV: '', err: '', trial: false, trialS: 0, trialNeed: 60, trialNote: '', passed: true, trialState: 'bestanden', trialHz: 60, reboot: false };
+  // seit 0.5.11: Ende des Selbsttests nach einem Update (PIXELIA_MOCK_TRIAL=unbestaetigt | nicht | rueckfall | gescheitert),
+  // Upload ohne Antwort (PIXELIA_MOCK_OTA=still), Einstellung nicht dauerhaft gespeichert (PIXELIA_MOCK_PEND=1)
+  const trialMode = process.env.PIXELIA_MOCK_TRIAL ?? '';
+  let boot = 42;
+  const restartInto = (v: string) => {
+    ota.reboot = true;
+    setTimeout(() => {
+      downUntil = Date.now() + 3000;
+      ota.reboot = false;
+    }, 1500);
+    setTimeout(() => {
+      installedV = v;
+      boot++;
+      gh.job = '';
+      gh.rel = [];
+      Object.assign(ota, { busy: false, trial: true, trialS: 0, passed: false, trialState: 'läuft', trialNote: 'läuft (Panel 60 Hz, Engine 30/s)' });
+      const trial = setInterval(() => {
+        ota.trialS += 6;
+        if (ota.trialS < 60) return;
+        clearInterval(trial);
+        if (trialMode === 'unbestaetigt' || trialMode === 'nicht') {
+          Object.assign(ota, { trialState: 'unbestätigt', trialNote: 'gesund, Bestätigen fehlgeschlagen (Fehler 0x103), neuer Versuch in 5 s' });
+          if (trialMode === 'nicht') setTimeout(() => Object.assign(ota, { trialState: 'nicht bestätigt', trialNote: 'gesund, aber nicht dauerhaft bestätigt (Fehler 0x103)', err: 'Nicht dauerhaft bestätigt: nach einem Neustart startet die vorige Version' }), 8000);
+        } else if (trialMode === 'rueckfall' || trialMode === 'gescheitert') {
+          Object.assign(ota, { trialState: 'Rückfall', trialNote: 'Display liefert keine Bilder (12 von 60 Hz)' });
+          if (trialMode === 'gescheitert') setTimeout(() => Object.assign(ota, { trialState: 'Rückfall gescheitert', trialNote: 'Rückfall nicht möglich (Fehler 0x102), Version läuft weiter im Probelauf' }), 6000);
+        } else Object.assign(ota, { trial: false, passed: true, trialState: 'bestanden' });
+      }, 1000);
+    }, 4500);
+  };
   const gh = { ch: 'stable', job: '', err: '', checkedAt: 0, checkedCh: 'stable', latest: '', rel: [] as unknown[], left: 60 };
   let downUntil = 0; // simulierter Neustart
   // 0.4.2: Hintergrundprüfung, Abbrechen, ältere Versionen; Experimentell (PIXELIA_MOCK_EXP=1 startet eingeschaltet)
@@ -456,6 +486,10 @@ function mockDevice(): Plugin {
           }
           const f = await form(req);
           if (!authorized(req, f)) return deny(res);
+          if (f.get('a') === 'datenbereich' || f.get('a') === 'neu') {
+            if (f.get('confirm') !== '1') return json(res, { ok: false, msg: 'Bestätigung fehlt (confirm=1)' });
+            return json(res, { ok: true, msg: f.get('a') === 'neu' ? 'Neu begonnen, die Welt wird wieder gesichert' : 'Datenbereich neu angelegt, die Welt wird wieder gesichert' });
+          }
           saveAt = Date.now();
           saveGen++;
           return json(res, { ok: true, msg: 'Speicherstand wird geschrieben' });
@@ -472,8 +506,14 @@ function mockDevice(): Plugin {
         const save = {
           gen: saveGen, bytes: 2214, ago, next: Math.max(0, 300 - ago), loaded: true, packUs: 820, writeMs: 14,
           figures: mockFigures.length, transit: 1, chronicle: mockChronicle.length, caughtUp: 134, skipped: 0, catchingUp: 0,
-          test: false, waiting: false, error: '',
+          test: false, waiting: false, error: '', block: '', probe: false, fallback: false, rejectedGen: 0, why: '',
+          welt: '5f3a91c2', linie: '0b77e104',
         };
+        // seit 0.5.11: ?datenbereich=1 (nicht lesbar, B03), ?stand=1 (Stände nicht ladbar), ?probe=1 dazu Prüfmodus
+        if (q.get('datenbereich') === '1')
+          Object.assign(save, { block: 'datenbereich', probe: q.get('probe') === '1', error: 'Datenbereich nicht lesbar', gen: 0, ago: -1, loaded: false, caughtUp: 0 });
+        if (q.get('stand') === '1')
+          Object.assign(save, { block: 'stand', probe: q.get('probe') === '1', error: 'Speicherstand nicht ladbar', why: 'Abschnitt in unbekannter Version in LAGR', ago: -1, loaded: false, caughtUp: 0 });
         const more = q.get('mehr') === '1' ? { figures: mockFigures, chronicle: mockChronicle, visits: 9, visitsOpen: 2 } : {};
         // Lager (seit 0.5.10 Teil 4b, ?lager=1): Testdorf mittags; ?leer=1 zeigt die leeren Zustände
         const lager = q.get('lager') !== '1' ? {} : q.get('leer') === '1' ? { lager: { stores: [], projects: [] } } : { lager: q.get('viele') === '1' ? mockLagerViele : mockLager };
@@ -615,7 +655,8 @@ function mockDevice(): Plugin {
         } : { present: false }),
       );
       // erst nach /summary, sonst fängt der Präfix-Abgleich auch diese Anfragen
-      server.middlewares.use('/api/coredump', (_req, res) => {
+      server.middlewares.use('/api/coredump', (req, res) => {
+        if (!authorized(req)) return deny(res);
         res.setHeader('Content-Disposition', 'attachment; filename="pixelia-coredump-mock.bin"');
         res.end(Buffer.alloc(crashed ? 1024 : 0));
       });
@@ -771,18 +812,8 @@ function mockDevice(): Plugin {
             }
             if (ota.bytes < r.size) return;
             clearInterval(timer);
-            // Neustart, danach Probelauf (im Mock schneller)
-            downUntil = Date.now() + 3000;
-            setTimeout(() => {
-              installedV = r.v;
-              gh.job = '';
-              gh.rel = [];
-              Object.assign(ota, { busy: false, trial: true, trialS: 0, passed: false });
-              const trial = setInterval(() => {
-                ota.trialS += 6;
-                if (ota.trialS >= 60) Object.assign(ota, { trial: false, passed: true }), clearInterval(trial);
-              }, 1000);
-            }, 3000);
+            // Prüfen, Neustart, danach Probelauf (im Mock schneller)
+            setTimeout(() => ((ota.busy = false), restartInto(r.v)), 1500);
           }, 400);
         }, 1500);
       });
@@ -826,6 +857,23 @@ function mockDevice(): Plugin {
         res.end(readFileSync(fileURLToPath(new URL('./src/assets/roboto-flex-pixelia.woff2', import.meta.url))));
       });
       server.middlewares.use('/api/cmd', (_req, res) => json(res, { ok: true, cmd: 'help', out: 'help    Befehle anzeigen\nperf    Leistung\nwifi    WLAN-Status', ms: 12 }));
+      // Upload einer .bin (seit 0.5.11 im Mock): Rumpf lesen, Version aus dem Kopf, dann wie GitHub weiter
+      server.middlewares.use('/api/ota', (req, res, next) => {
+        if (req.url !== '/' && req.url !== '') return next();
+        if (!authorized(req)) return deny(res);
+        const parts: Buffer[] = [];
+        req.on('data', (c: Buffer) => parts.push(c));
+        req.on('end', () => {
+          const b = Buffer.concat(parts);
+          const v = b.subarray(48, 80).toString('latin1').split(String.fromCharCode(0))[0] || '0.0.0-mock';
+          Object.assign(ota, { busy: true, src: 'upload', bytes: b.length, total: b.length, newV: v });
+          setTimeout(() => {
+            ota.busy = false;
+            restartInto(v);
+            if (process.env.PIXELIA_MOCK_OTA !== 'still') json(res, { ok: true, msg: 'Installiert', v });
+          }, 1200);
+        });
+      });
       server.middlewares.use('/api/status', (_req, res) => {
         if (Date.now() < downUntil) return ((res.statusCode = 503), res.end());
         const up = Math.floor((Date.now() - t0) / 1000) + 3 * 3600 + 17 * 60;
@@ -842,8 +890,8 @@ function mockDevice(): Plugin {
             perf: { fps: 30, render: j(4.0), isr: j(20), lcd: 60.02, cpu0: Math.round(j(9)), cpu1: Math.round(j(34)),
               desync: 0, ram: 117, ramMin: 107, ramBlk: 92, psram: 7310, psramMin: 7280 },
             ota: { ...ota, avail: (gh.rel[0] as { v?: string })?.v ?? '', ghSeq: gh.checkedAt },
-            rollback: null, set: { ...set, exp: exp.on }, auth: { pin: !!pin, lockS: lockS() },
-            diag: { boot: 42, reset: 'Software-Neustart', errors: 0, warnings: 2, logLines: 1834,
+            rollback: null, set: { ...set, exp: exp.on, pend: process.env.PIXELIA_MOCK_PEND === '1' }, auth: { pin: !!pin, lockS: lockS() },
+            diag: { boot, reset: 'Software-Neustart', errors: 0, warnings: 2, logLines: 1834,
               crash: crashed ? { task: 'httpd', reason: 'LoadProhibited', v: '0.3.0' } : null },
           }),
         );

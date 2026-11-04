@@ -165,4 +165,29 @@ export const STORY: StoryStep[] = [
     title: 'Genau einmal',
     text: 'Das Wirtschafts-Protokoll schreibt jede Buchung erst, wenn der Speicherstand sicher ist. Sonst stünde nach einem Stromausfall Holz im Protokoll, das es im Dorf nie gab. Geprüft wurde wieder ganz altmodisch: Stecker ziehen.',
   },
+  {
+    d: '2026-11-02',
+    title: 'Eine zweite Meinung',
+    text: 'Eine andere KI hat den Code von Pixelia gelesen und zwei Berichte voller Befunde geschrieben. Übernommen wurde nichts ungeprüft: Jeder Befund wurde nachgesehen, die meisten zuerst im Simulator nachgestellt, der den Fehler zeigen musste.',
+  },
+  {
+    d: '2026-11-02',
+    title: 'Fehler aus der Zukunft',
+    text: 'Manche Fehler wären erst nach Wochen aufgetaucht. Nach Reservierung Nummer 65535 beginnt die Zählung von vorn, und zwei Vorhaben hätten sich eine Nummer geteilt. Wären 17 Figuren gleichzeitig aufgebrochen, wäre die 17. sofort am Ziel gewesen: Die Reiseliste hatte nur 16 Plätze.',
+  },
+  {
+    d: '2026-11-03',
+    title: 'Noch einmal Stecker ziehen',
+    text: 'Diesmal wurde der Strom zweimal gezogen, kurz nach dem Speichern und kurz davor. Beide Male stimmte jede Ware im Protokoll, und das neue Journal trug zwei Zeilen nach, die sonst gefehlt hätten.',
+  },
+  {
+    d: '2026-11-04',
+    title: 'Ein gutes Update, zurückgerollt',
+    text: 'Der Selbsttest nach einem Update verlangte fest 50 Bilder je Sekunde vom Display. Im Stromsparmodus liefert es nur 30, also wäre jedes gute Update zurückgerollt worden. Jetzt bestand er am Gerät beides: 30 und 60 Hz.',
+  },
+  {
+    d: '2026-11-04',
+    title: 'Ein Lebenszeichen, das auflegt',
+    text: 'Beim Testen schloss sich das Live-Log immer nach 30 Sekunden. Windows schickt alle 20 Sekunden ein leeres Lebenszeichen, und Pixelia wartete danach auf eine Nachricht, die nie kam. Der Fehler war lange da und fiel erst jetzt auf.',
+  },
 ];

@@ -134,7 +134,9 @@ void print_help() {
     ESP_LOGI(TAG, "  ort cmd aufgaben   Aufgabenliste ins Log (holen, bringen, herstellen; wer, von wo nach wo)");
     ESP_LOGI(TAG, "  ort cmd projekte   Projekte ins Log; ort cmd projekt bett start|stufe <n>|fertig (Prüfbefehl)");
     ESP_LOGI(TAG, "  lager              Lagerplätze (Stand, Reichweite), Waren im Dorf und Projekte ins Log (wie die Lager-Karte)");
-    ESP_LOGI(TAG, "  wirtschaft [<Datei> | bestand]   Protokoll-Dateien, eine Datei ins Log, Bestand aller Lagerplätze (Bilanz prüfen)");
+    ESP_LOGI(TAG, "  wirtschaft [<Datei> | bestand | test]   Protokoll-Dateien, eine Datei ins Log, Bestand aller Lagerplätze; test = nächstes Speichern wartet 30 s vor dem Anhängen");
+    ESP_LOGI(TAG, "  nvs fehler [n]     Prüfung: die nächsten n Speichervorgänge (Einstellungen, PIN, Weltkalender) scheitern");
+    ESP_LOGI(TAG, "  datenbereich [test [stand]]   Zustand von /data; test = beim nächsten Start „nicht lesbar“ bzw. „Stand nicht ladbar“ vortäuschen (nichts gelöscht)");
     ESP_LOGI(TAG, "  perf <Sekunden> | perf off                     Leistungsmonitor");
     ESP_LOGI(TAG, "  assets [quelle eingebettet|littlefs|sd | kopieren littlefs|sd | messen | leeren | budget <KB>]   Grafik-Pakete");
     ESP_LOGI(TAG, "  sd | sd neu                                    microSD-Karte: Zustand, neu einhängen");
@@ -486,11 +488,15 @@ bool handle(char* line) {
         if (!gfx::place_command("lager")) ESP_LOGW(TAG, "Befehl nicht angenommen");
     } else if (is("wirtschaft")) {
         // Wirtschafts-Protokoll prüfen (seit 0.5.10 Teil 4c): Dateien, eine Datei ins Log, Bestand aller Lagerplätze.
-        // Abholen und Bericht kommen mit 0.5.12
+        // Abholen und Bericht kommen mit 0.5.13
         static constexpr const char* kDir = "/data/wirtschaft";
         static char line[256], path[96];
         if (argc >= 2 && std::strcmp(argv[1], "bestand") == 0) {
             if (!gfx::place_command("bestand")) ESP_LOGW(TAG, "Befehl nicht angenommen");
+        } else if (argc >= 2 && std::strcmp(argv[1], "test") == 0) {
+            // seit 0.5.11 (Stecker-Test B04): das nächste Speichern wartet 30 s zwischen Stand und Anhängen
+            gfx::journal_test();
+            ESP_LOGW(TAG, "Prüfmodus: das nächste Speichern wartet 30 s vor dem Anhängen (Stecker ziehen, Journal prüfen)");
         } else if (argc >= 2) {
             std::snprintf(path, sizeof(path), "%s/%.60s", kDir, argv[1]);
             FILE* f = std::fopen(path, "rb");
@@ -687,7 +693,12 @@ bool handle(char* line) {
         bool psram = std::strcmp(argv[1], "psram") == 0;
         gfx::request_buffers(psram);
         ESP_LOGI(TAG, "Engine-Puffer: %s", psram ? "PSRAM" : "intern");
-    } else if (is("assets") || is("sd")) {
+    } else if (is("nvs") && argc >= 2 && std::strcmp(argv[1], "fehler") == 0) {
+        // Prüfschalter (seit 0.5.11, B22/B23): die nächsten n Speichervorgänge scheitern, nur im RAM
+        const int n = argc >= 3 ? std::clamp(std::atoi(argv[2]), 0, 20) : 1;
+        settings::fail_next(n);
+        ESP_LOGW(TAG, "Prüfung: die nächsten %d Speichervorgänge von Einstellungen, PIN und Weltkalender scheitern", n);
+    } else if (is("assets") || is("sd") || is("datenbereich")) {
         assets::console(argc, argv);
     } else if (is("bench") && argc >= 2 && std::strcmp(argv[1], "licht") == 0) {
         bench_light();

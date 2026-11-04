@@ -1,7 +1,7 @@
 ﻿<#
 .SYNOPSIS
   Absturzbericht per WLAN holen und dekodieren, ganz ohne USB: Zusammenfassung (/api/coredump/summary), Rohdaten
-  (/api/coredump), passendes ELF finden, Backtrace mit Quelltextzeilen, letzte Log-Zeilen vor dem Absturz.
+  (/api/coredump, seit 0.5.11 mit PIN: -Pin oder Abfrage), passendes ELF finden, Backtrace mit Quelltextzeilen, letzte Log-Zeilen vor dem Absturz.
 
 .DESCRIPTION
   - Ziel: -Target (Standard http://pixelia/), sonst die IP. Statt per WLAN geht auch ein Diagnosepaket vom Handy:
@@ -76,9 +76,12 @@ if ($File) {
     Say ('Quelle: Diagnosepaket {0} (erstellt {1}, Version {2})' -f (Split-Path -Leaf $File), $diag.created, $diag.status.v)
     $summary = $diag.coredump.summary
     $resets = $diag.resets
-    if ($diag.coredump.raw) {
+    if ($diag.coredump.raw) {  # Diagnosepakete bis 0.5.10
         $rawPath = Join-Path $logDir 'coredump-last.bin'
         [IO.File]::WriteAllBytes($rawPath, [Convert]::FromBase64String($diag.coredump.raw))
+    } elseif ($diag.coredump.rawSeparate -and $Full) {
+        Say 'Hinweis: Seit 0.5.11 steht der Rohspeicher nicht mehr im Diagnosepaket (kann vertrauliche Daten enthalten).'
+        Say '         Für -Full das Skript ohne -File im selben WLAN starten, es holt die Rohdaten mit PIN.'
     }
     $lines = @($diag.log.lines)
 } else {
@@ -100,8 +103,28 @@ if ($File) {
     $summary = Get-Api '/api/coredump/summary'
     $resets = Get-Api '/api/resets'
     if ($summary.present) {
+        # Seit 0.5.11 (V06) nur mit PIN, falls einer gesetzt ist: -Pin oder Abfrage
         $rawPath = Join-Path $logDir 'coredump-last.bin'
-        Invoke-WebRequest -Uri "$ipBase/api/coredump" -OutFile $rawPath -TimeoutSec 30 -UseBasicParsing
+        $headers = @{}
+        if ($Pin) { $headers['X-Pixelia-Pin'] = $Pin }
+        try {
+            Invoke-WebRequest -Uri "$ipBase/api/coredump" -Headers $headers -OutFile $rawPath -TimeoutSec 30 -UseBasicParsing
+        } catch {
+            $code = $_.Exception.Response.StatusCode.value__
+            if ($code -eq 401 -and -not $Pin) {
+                $sec = Read-Host -AsSecureString 'Pixelia hat einen PIN. PIN für die Rohdaten'
+                $Pin = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
+                $headers['X-Pixelia-Pin'] = $Pin
+                $code = $null
+                try {
+                    Invoke-WebRequest -Uri "$ipBase/api/coredump" -Headers $headers -OutFile $rawPath -TimeoutSec 30 -UseBasicParsing
+                } catch { $code = $_.Exception.Response.StatusCode.value__ }
+            }
+            if (-not (Test-Path $rawPath) -or $code) {
+                Say ('Rohdaten nicht geholt (HTTP {0}): {1}' -f $code, $(if ($code -eq 401) { 'PIN falsch' } elseif ($code -eq 429) { 'zu viele Fehlversuche, bitte warten' } else { 'Fehler' }))
+                $rawPath = $null
+            }
+        }
     }
 }
 if (-not $summary.present) {

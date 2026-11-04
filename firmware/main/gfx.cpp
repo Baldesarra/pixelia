@@ -2,6 +2,7 @@
 // mit ihren Orten laufen (gleicher Code wie im Simulator, siehe engine/stage.h und sim/).
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
@@ -13,6 +14,7 @@
 #include "app.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "esp_random.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -41,14 +43,39 @@ constexpr uint64_t kSeed = 0x5049584C4941ULL;  // „PIXLIA“
 
 enum class Request : uint8_t { None, Reconfigure, Buffers };
 
-volatile Request s_request = Request::None;
+// Steuerwerte aus anderen Tasks (B11, seit 0.5.11): einzelne Werte atomar; Timing unter s_req_lock, die Anforderung
+// danach (release), der Grafik-Task liest sie (acquire) und kopiert das Timing unter derselben Sperre
+std::atomic<Request> s_request{Request::None};
+std::mutex s_req_lock;
 board::display::Timing s_req_timing;
 // Standard: Engine-Puffer im PSRAM (spart 192 KB internen RAM, Messung siehe docs/HARDWARE.md)
-volatile bool s_req_psram = true;
-volatile int s_sprites = 48;
-volatile int s_marks = 0;
-volatile int s_req_minute_of_day = -1;  // Uhrzeit stellen (vom Konsolen-Task, angewendet im Grafik-Task)
-volatile float s_speed = 1.0f;
+std::atomic<bool> s_req_psram{true};
+std::atomic<int> s_sprites{48};
+std::atomic<int> s_marks{0};
+
+// Uhr stellen, Zeitraffer, Echtzeit (B11): zusammengehörige Wechsel als Befehle an den Grafik-Task, dort der Reihe
+// nach und jeweils ganz angewendet. Zum Ablesen aus anderen Tasks gibt es die zuletzt angeforderten Werte.
+struct ClockCmd {
+    enum class Kind : uint8_t { Time, Speed, Real } kind;
+    int minute;  // Time: Minute des Tages
+    float speed;  // Speed
+    bool on;      // Real
+};
+std::mutex s_clk_lock;
+std::array<ClockCmd, 16> s_clk_cmds{};
+size_t s_clk_head = 0, s_clk_count = 0;
+std::atomic<float> s_speed_pub{1.0f};
+std::atomic<bool> s_follow_pub{true};
+
+void push_clock_cmd(const ClockCmd& c) {
+    std::lock_guard<std::mutex> g(s_clk_lock);
+    if (s_clk_count == s_clk_cmds.size()) {  // voll: ältesten verwerfen, der neueste gewinnt
+        s_clk_head = (s_clk_head + 1) % s_clk_cmds.size();
+        --s_clk_count;
+    }
+    s_clk_cmds[(s_clk_head + s_clk_count) % s_clk_cmds.size()] = c;
+    ++s_clk_count;
+}
 
 uint8_t* s_buf[2] = {nullptr, nullptr};
 bool s_buf_psram = false;
@@ -130,8 +157,9 @@ portMUX_TYPE s_stats_lock = portMUX_INITIALIZER_UNLOCKED;
 EngineStats s_stats{};
 
 // Weltzeit folgt der echten Uhrzeit (NTP), bis jemand per Befehl Uhrzeit oder Zeitraffer verstellt
-volatile bool s_follow_real = true;
-int64_t s_next_real_sync = 0;
+bool s_follow_real = true;      // gehört dem Grafik-Task (B11)
+int64_t s_next_real_sync = 0;   // gehört dem Grafik-Task
+float s_speed = 1.0f;           // gehört dem Grafik-Task
 bool s_real_synced = false;  // echte Uhrzeit einmal übernommen (dann läuft die Weltzeit)
 
 // Weltzeit (seit 0.5.7): Kalender im NVS (Blob „welt“, gespeichert auf Kern 0), Stand für die Weboberfläche
@@ -224,6 +252,42 @@ uint32_t current_picture(int64_t now) {
         ESP_LOGI(TAG, "Testbild abgelaufen, zurück zur Welt");
     }
     return id;
+}
+
+// Befehle für Uhr, Zeitraffer und Echtzeit der Reihe nach anwenden (Grafik-Task, B11)
+void apply_clock_cmds() {
+    std::array<ClockCmd, 16> cmds;
+    size_t n = 0;
+    {
+        std::lock_guard<std::mutex> g(s_clk_lock);
+        for (; n < s_clk_count; ++n) cmds[n] = s_clk_cmds[(s_clk_head + n) % s_clk_cmds.size()];
+        s_clk_head = s_clk_count = 0;
+    }
+    for (size_t i = 0; i < n; ++i) {
+        const ClockCmd& c = cmds[i];
+        switch (c.kind) {
+            case ClockCmd::Kind::Time:
+                s_follow_real = false;
+                s_clock.set_time_of_day(c.minute / 60, c.minute % 60);
+                break;
+            case ClockCmd::Kind::Speed:
+                s_speed = c.speed;
+                if (s_speed != 1.0f) s_follow_real = false;
+                break;
+            case ClockCmd::Kind::Real:
+                if (c.on) {
+                    s_speed = 1.0f;
+                    s_next_real_sync = 0;
+                }
+                s_follow_real = c.on;
+                break;
+        }
+    }
+    s_clock.set_speed(s_speed);
+    if (n) {
+        s_speed_pub.store(s_speed);
+        s_follow_pub.store(s_follow_real);
+    }
 }
 
 // Echte Uhrzeit in die Weltzeit übernehmen: große Abweichung (erster Abgleich, Sommerzeit) springt,
@@ -421,12 +485,19 @@ void save_world(void* = nullptr) {
         std::lock_guard<std::mutex> g(s_world_lock);
         st = s_cal_save;
     }
+    // B23: scheitert das Schreiben, bleibt der Kalender als geändert markiert (nächster Versuch beim nächsten Lauf
+    // des Zeitgebers); eine neuere Änderung dazwischen macht ihn ohnehin wieder geändert
     nvs_handle_t h;
-    if (nvs_open("pixelia", NVS_READWRITE, &h) != ESP_OK) return;
-    esp_err_t err = nvs_set_blob(h, kWorldKey, &st, sizeof(st));
-    if (err == ESP_OK) err = nvs_commit(h);
-    nvs_close(h);
-    if (err != ESP_OK) ESP_LOGW(TAG, "Weltkalender nicht gespeichert: %s", esp_err_to_name(err));
+    esp_err_t err = app::settings::take_fault() ? ESP_FAIL : nvs_open("pixelia", NVS_READWRITE, &h);
+    if (err == ESP_OK) {
+        err = nvs_set_blob(h, kWorldKey, &st, sizeof(st));
+        if (err == ESP_OK) err = nvs_commit(h);
+        nvs_close(h);
+    }
+    if (err != ESP_OK) {
+        s_cal_dirty.store(true);
+        ESP_LOGW(TAG, "Weltkalender nicht gespeichert (%s), neuer Versuch folgt", esp_err_to_name(err));
+    }
 }
 
 void load_world() {
@@ -460,7 +531,20 @@ pixelia::EconomyLog s_econ;
 std::atomic<bool> s_save_locked{false};  // Sicherung eingespielt: bis zum Neustart nicht speichern
 uint8_t* s_save_buf = nullptr;  // PSRAM
 size_t s_save_len = 0;
-std::atomic<int> s_save_state{0};  // 0 frei, 1 angefordert, 2 gepackt (die Lade-Task schreibt)
+// Speicher-Ablauf: 0 frei, 1 angefordert (die Grafik-Task packt im nächsten Bild), 2 gepackt (wartet auf die
+// Lade-Task), 3 die Lade-Task schreibt, 4 Einspielen besitzt den Ablauf (seit 0.5.11, B06: bis zum Neustart)
+enum : int { kSaveIdle, kSaveRequested, kSavePacked, kSaveWriting, kSaveImport };
+std::atomic<int> s_save_state{kSaveIdle};
+// Speichern gesperrt (seit 0.5.11, Wahl des Users 2026-11-03): Datenbereich nicht lesbar (B03) oder Stände da, aber
+// nicht ladbar. Nichts schreiben, bis der User in der Weboberfläche neu anlegt bzw. neu beginnt: ein Neuanfang darf
+// nie still passieren
+std::atomic<bool> s_save_blocked{false};
+std::atomic<bool> s_econ_reopen{false};  // Protokoll vor dem nächsten Speichern öffnen (neu angelegt, neu begonnen)
+bool s_save_probe = false;   // Prüfschalter „datenbereich test stand“: „nicht ladbar“ nur vorgetäuscht
+std::atomic<bool> s_journal_test{false};  // Prüfschalter „wirtschaft test“: nächstes Speichern wartet vor dem Anhängen
+bool s_block_toast = false;  // Kurzmeldung am Display gezeigt (Grafik-Task)
+// höchste je vergebene Generation (seit 0.5.11): geladen, geschrieben oder versucht; nie zweimal dieselbe
+std::atomic<uint32_t> s_gen_top{0};
 int64_t s_next_save = 0;
 app::gfx::SaveInfo s_save{};  // unter s_world_lock
 // Ansicht für Weboberfläche und Konsole: 0 = nichts, 1 = angefordert, 2 = gefüllt
@@ -476,41 +560,170 @@ void load_save() {
     s_save_buf = static_cast<uint8_t*>(heap_caps_malloc(kSaveCap, MALLOC_CAP_SPIRAM));
     s_view = static_cast<app::gfx::WorldView*>(heap_caps_calloc(1, sizeof(app::gfx::WorldView), MALLOC_CAP_SPIRAM));
     s_lager = static_cast<app::gfx::LagerView*>(heap_caps_calloc(1, sizeof(app::gfx::LagerView), MALLOC_CAP_SPIRAM));
-    std::vector<uint8_t> d;
-    pixelia::SaveHeader h;
-    int slot = -1;
-    if (!s_slots.load(&d, &h, &slot)) {
-        ESP_LOGI(TAG, "Kein Speicherstand: die Welt beginnt neu (Kalender aus dem NVS, falls vorhanden)");
+    // Frische Welt: Kennung und Zeitlinie zufällig statt aus dem Startwert (B09), so vermischt das Protokoll nie zwei
+    // Welten mit gleichem Startwert. Ein geladener Stand bringt seine eigene mit
+    const uint32_t fresh_world = esp_random() ^ static_cast<uint32_t>(esp_timer_get_time());
+    const uint32_t fresh_line = esp_random();
+    if (app::assets::storage() == app::assets::Storage::Unreadable) {
+        // B03: nichts lesen, nichts schreiben; die Welt beginnt neu und läuft ohne Speichern
+        s_stage.set_identity(fresh_world, fresh_line);
+        s_save_blocked.store(true);
+        std::lock_guard<std::mutex> g(s_world_lock);
+        s_save.block = 1;
+        std::snprintf(s_save.error, sizeof(s_save.error), "Datenbereich nicht lesbar");
+        ESP_LOGE(TAG, "Datenbereich nicht lesbar: die Welt beginnt neu und wird nicht gesichert");
         return;
     }
-    pixelia::Stage::LoadReport r;
+    // seit 0.5.11 (B01): beide Plätze, inhaltlich geprüft; ist der neueste kaputt, der ältere (neue Zeitlinie). Messung
+    // von Dauer, Tiefstwerten des Speichers und Stack (Phase A legt eine Figur und die Kennungen auf den Heap)
+    // Prüfschalter „datenbereich test stand“ (einmalig): so tun, als wäre kein Stand ladbar, ohne etwas anzufassen
+    if (nvs_handle_t h; nvs_open("pixelia", NVS_READWRITE, &h) == ESP_OK) {
+        uint8_t v = 0;
+        if (nvs_get_u8(h, "save_test", &v) == ESP_OK) {
+            s_save_probe = v != 0;
+            nvs_erase_key(h, "save_test");
+            nvs_commit(h);
+        }
+        nvs_close(h);
+    }
     const int64_t t = esp_timer_get_time();
-    if (!s_stage.load_state(d.data(), d.size(), &r)) {
-        ESP_LOGW(TAG, "Speicherstand ungültig (%s): die Welt beginnt neu", r.why);
+    const bool mon = heap_caps_monitor_local_minimum_free_size_start() == ESP_OK;
+    pixelia::Stage::LoadReport r;
+    if (s_save_probe) r.why = "Prüfmodus (nur vorgetäuscht)";
+    const bool ok = !s_save_probe && s_stage.load_slots(s_slots, &r);
+    const uint32_t ram_kb = static_cast<uint32_t>(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL) >> 10);
+    const uint32_t psram_kb = static_cast<uint32_t>(heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM) >> 10);
+    if (mon) heap_caps_monitor_local_minimum_free_size_stop();
+    const uint32_t ms = static_cast<uint32_t>((esp_timer_get_time() - t) / 1000);
+    const uint32_t stack = static_cast<uint32_t>(uxTaskGetStackHighWaterMark(nullptr));
+    {
+        std::lock_guard<std::mutex> g(s_world_lock);
+        s_save.load_ms = ms;
+        s_save.load_ram_kb = ram_kb;
+        s_save.load_psram_kb = psram_kb;
+        s_save.load_stack = stack;
+    }
+    if (!ok) {
+        // Kein ladbarer Stand: die Welt beginnt neu. Generationen gültiger, aber abgelehnter Plätze bleiben verbraucht
+        s_stage.set_identity(fresh_world, fresh_line);
+        const uint32_t top = s_slots.generation();
+        s_gen_top.store(top);
+        std::lock_guard<std::mutex> g(s_world_lock);
+        s_save.generation = top;
+        if (top) {
+            // Stände da, aber nicht ladbar (z. B. nach dem Zurückrollen auf eine ältere Version): nicht still
+            // überschreiben, sondern sperren wie B03, bis der User „Neu beginnen“ wählt (Wahl des Users 2026-11-03)
+            s_save_blocked.store(true);
+            s_save.block = 2;
+            std::snprintf(s_save.error, sizeof(s_save.error), "Speicherstand nicht ladbar");
+            std::snprintf(s_save.load_why, sizeof(s_save.load_why), "%s%s%s", r.why, r.chunk[0] ? " in " : "", r.chunk);
+            ESP_LOGW(TAG, "Speicherstand %lu nicht ladbar (%s): die Welt beginnt neu und wird nicht gesichert, bis die "
+                     "Weboberfläche „Neu beginnen“ bestätigt (%lu ms, RAM tief %lu KB, PSRAM tief %lu KB, Stack frei "
+                     "%lu Byte)", static_cast<unsigned long>(top), s_save.load_why, static_cast<unsigned long>(ms),
+                     static_cast<unsigned long>(ram_kb), static_cast<unsigned long>(psram_kb),
+                     static_cast<unsigned long>(stack));
+        } else {
+            ESP_LOGI(TAG, "Kein Speicherstand: die Welt beginnt neu (Kalender aus dem NVS, falls vorhanden)");
+        }
         return;
     }
     if (std::remove(kImportMark) == 0) s_stage.mark_restored();  // Sicherung eingespielt: Eintrag in die Chronik
     // seit 0.5.9 Teil 2: Die Weltuhr läuft bis zur echten Uhrzeit (NTP) ab dem gespeicherten Stand weiter. So gehen die
     // Tätigkeiten nahtlos weiter, und der Sprung auf die echte Zeit (Dauer des Neustarts) wird genau nachgeholt
     if (!s_real_synced) s_clock.set_world_us(r.saved_us);
+    // nie eine Generation zweimal: auch die eines abgelehnten neueren Platzes ist verbraucht
+    s_gen_top.store(std::max(r.generation, r.next_generation));
+    std::vector<uint8_t> d;
+    pixelia::SaveHeader h;
+    const uint32_t bytes = s_slots.read(r.slot, &d, &h) ? static_cast<uint32_t>(d.size()) : 0;
     std::lock_guard<std::mutex> g(s_world_lock);
     s_save.loaded = true;
-    s_save.generation = h.generation;
-    s_save.bytes = static_cast<uint32_t>(d.size());
+    s_save.generation = r.generation;
+    s_save.bytes = bytes;
     s_save.figures = r.figures;
     s_save.transit = r.transit;
     s_save.chronicle = r.chronicle;
-    ESP_LOGI(TAG, "Speicherstand %lu geladen (Platz %c, %.1f KB, %lld µs): %d Figuren, %d unterwegs, %d Tätigkeiten, "
-             "%d Zustände, %d Einträge Chronik%s; Stack frei %u Byte", static_cast<unsigned long>(h.generation), slot ? 'b' : 'a', d.size() / 1024.0,
-             static_cast<long long>(esp_timer_get_time() - t), r.figures, r.transit, r.doings, r.states, r.chronicle,
-             r.unknown_places ? ", Orte fehlen (Figuren im ersten Ort)" : "", static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+    s_save.fallback = r.fallback;
+    s_save.rejected_gen = r.rejected_gen;
+    if (r.fallback)
+        std::snprintf(s_save.load_why, sizeof(s_save.load_why), "%s%s%s", r.why, r.chunk[0] ? " in " : "", r.chunk);
+    if (r.fallback)
+        ESP_LOGW(TAG, "Speicherstand %lu abgelehnt (%s): älterer Platz geladen, neue Zeitlinie",
+                 static_cast<unsigned long>(r.rejected_gen), s_save.load_why);
+    ESP_LOGI(TAG, "Speicherstand %lu geladen (Platz %c, %.1f KB, %lu ms): %d Figuren, %d unterwegs, %d Tätigkeiten, "
+             "%d Zustände, %d Einträge Chronik%s; RAM tief %lu KB, PSRAM tief %lu KB, Stack frei %lu Byte",
+             static_cast<unsigned long>(r.generation), r.slot ? 'b' : 'a', bytes / 1024.0, static_cast<unsigned long>(ms),
+             r.figures, r.transit, r.doings, r.states, r.chronicle,
+             r.unknown_places ? ", Orte fehlen (Figuren im ersten Ort)" : "", static_cast<unsigned long>(ram_kb),
+             static_cast<unsigned long>(psram_kb), static_cast<unsigned long>(stack));
+}
+
+void econ_stats_locked(const pixelia::EconomyLog::Stats& es);
+
+// Wirtschafts-Protokoll öffnen (seit 0.5.11): Journal nachtragen bzw. verwerfen, Ordner einer anderen Zeitlinie
+// archivieren (B09), Marke schreiben. Beim Start (Grafik-Task, vor der Schleife) und nach „Datenbereich neu anlegen“
+// (Lade-Task, im Speicher-Ablauf vor prepare: nie gleichzeitig mit cut)
+void open_econ(uint32_t loaded_gen) {
+    const int64_t t = esp_timer_get_time();
+    s_econ.set_free_space(app::assets::littlefs_free, nullptr);
+    s_econ.open(kEconDir, s_stage.world_id(), s_stage.line_id(), loaded_gen);
+    const pixelia::EconomyLog::Stats es = s_econ.stats();
+    {
+        std::lock_guard<std::mutex> g(s_world_lock);
+        s_save.world_id = s_stage.world_id();
+        s_save.line_id = s_stage.line_id();
+        econ_stats_locked(es);
+    }
+    ESP_LOGI(TAG, "Wirtschafts-Protokoll %s: Welt %08lx, Zeitlinie %08lx, %lu Dateien, %.1f KB (Tage %ld–%ld), Journal "
+             "%lu Zeilen nachgetragen, %lu verworfen, %lu alte Zeitlinien (%.1f KB)%s, %lld ms, Stack frei %u Byte", kEconDir,
+             static_cast<unsigned long>(s_stage.world_id()), static_cast<unsigned long>(s_stage.line_id()),
+             static_cast<unsigned long>(es.files), es.bytes / 1024.0, static_cast<long>(es.first_day),
+             static_cast<long>(es.last_day), static_cast<unsigned long>(es.recovered),
+             static_cast<unsigned long>(es.discarded), static_cast<unsigned long>(es.archives),
+             es.archive_bytes / 1024.0, es.cleanup_error ? ", Aufräumen fehlgeschlagen" : "",
+             static_cast<long long>((esp_timer_get_time() - t) / 1000),
+             static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+}
+
+// Zahlen des Protokolls für Weboberfläche und Diagnose (unter s_world_lock)
+void econ_stats_locked(const pixelia::EconomyLog::Stats& es) {
+    s_save.econ_rows = es.rows;
+    s_save.econ_written = es.written;
+    s_save.econ_lost = es.lost;
+    s_save.econ_files = es.files;
+    s_save.econ_bytes = es.bytes;
+    s_save.econ_deleted = es.deleted;
+    s_save.econ_first = es.first_day;
+    s_save.econ_last = es.last_day;
+    s_save.econ_error = es.error;
+    s_save.econ_dropped = es.dropped;
+    s_save.econ_late = es.late;
+    s_save.econ_recovered = es.recovered;
+    s_save.econ_discarded = es.discarded;
+    s_save.econ_archives = es.archives;
+    s_save.econ_archive_bytes = es.archive_bytes;
+    s_save.econ_journal = es.journal_bytes;
+    s_save.econ_full = es.full;
+    s_save.econ_cleanup_error = es.cleanup_error;
 }
 
 // Grafik-Task, nach den Logik-Schritten: regelmäßig bzw. auf Anfrage packen
 void save_tick(int64_t now) {
     if (s_next_save == 0) s_next_save = now + kSaveEveryUs;
-    int idle = 0;
-    if (now >= s_next_save && s_save_state.compare_exchange_strong(idle, 1)) s_next_save = now + kSaveEveryUs;
+    int idle = kSaveIdle;
+    if (now >= s_next_save && s_save_state.compare_exchange_strong(idle, kSaveRequested)) s_next_save = now + kSaveEveryUs;
+    // Gesperrt: Kurzmeldung am Display, sobald die Anzeige läuft (10 s nach dem Start; rot, zwei Zeilen, Wahl des Users)
+    if (s_save_blocked.load() && !s_block_toast && now > 10LL * 1000000) {
+        s_block_toast = true;
+        uint8_t block;
+        {
+            std::lock_guard<std::mutex> g(s_world_lock);
+            block = s_save.block;
+        }
+        app::ui::toast(block == 2 ? "Speicherstand nicht ladbar\nWelt wird nicht gesichert · Weboberfläche → Welt"
+                                  : "Datenbereich nicht lesbar\nWelt wird nicht gesichert · Weboberfläche → Welt",
+                       pixelia::ui::Tone::Error, 20);
+    }
     const bool test = s_stage.environment().calendar.testing(), waiting = !s_stage.world_time();
     {
         std::lock_guard<std::mutex> g(s_world_lock);
@@ -520,17 +733,23 @@ void save_tick(int64_t now) {
         s_save.caught_up = s_stage.caught_up();
         s_save.skipped = s_stage.skipped();
         s_save.catching_up = s_stage.catching_up();
+        // seit 0.5.11: Gründe ohne Nachschub, Bestandstabelle, Ereignis-Bus (Diagnose, /api/world)
+        const pixelia::Environment& env = s_stage.environment();
+        static_assert(sizeof(s_save.supply) / sizeof(s_save.supply[0]) == pixelia::kSupplyWaits);
+        for (int k = 0; k < pixelia::kSupplyWaits; ++k)
+            s_save.supply[k] = env.tasks.supply_waits(static_cast<pixelia::SupplyWait>(k));
+        s_save.stock_entries = env.ledger.entries();
+        s_save.stock_freed = env.ledger.entries_freed();
+        s_save.events_peak = env.events.peak();
+        s_save.events_lost = env.events.lost();
     }
-    if (s_save_state.load() != 1) return;
-    if (test || waiting || !s_save_buf || app::settings::frozen() || s_save_locked.load()) {
-        s_save_state.store(0);  // nicht jetzt (Testuhr, Uhrzeit fehlt, Werksreset läuft, Sicherung eingespielt)
+    if (s_save_state.load() != kSaveRequested) return;
+    if (test || waiting || !s_save_buf || app::settings::frozen() || s_save_locked.load() || s_save_blocked.load()) {
+        // nicht jetzt (Testuhr, Uhrzeit fehlt, Werksreset läuft, Sicherung eingespielt, Datenbereich nicht lesbar)
+        s_save_state.store(kSaveIdle);
         return;
     }
-    uint32_t gen;
-    {
-        std::lock_guard<std::mutex> g(s_world_lock);
-        gen = s_save.generation + 1;
-    }
+    const uint32_t gen = s_gen_top.load() + 1;  // nie zweimal dieselbe (seit 0.5.11)
     const int64_t t = esp_timer_get_time();
     const size_t n = s_stage.save_state(s_save_buf, kSaveCap, gen);
     if (n) s_econ.cut();  // was bis jetzt gebucht ist, gehört zu diesem Stand (angehängt nach dem Schreiben)
@@ -547,8 +766,11 @@ void save_tick(int64_t now) {
         if (!n) std::snprintf(s_save.error, sizeof(s_save.error), "Puffer zu klein (%u KB)", static_cast<unsigned>(kSaveCap / 1024));
     }
     s_save_len = n;
-    s_save_state.store(n ? 2 : 0);
-    if (n && !app::assets::save_world()) s_save_state.store(0);
+    s_save_state.store(n ? kSavePacked : kSaveIdle);
+    if (n && !app::assets::save_world()) {
+        int packed = kSavePacked;  // nur zurücksetzen, solange die Lade-Task ihn nicht übernommen hat
+        s_save_state.compare_exchange_strong(packed, kSaveIdle);
+    }
 }
 
 // Ansicht füllen, wenn jemand fragt (Grafik-Task)
@@ -715,10 +937,10 @@ void log_stock() {
              static_cast<long>(es.rows) - static_cast<long>(es.written) - static_cast<long>(es.lost),
              static_cast<unsigned long>(es.lost));
     for (int s = 0; l.ready() && s < l.stores(); ++s) {
-        uint8_t g[24];
-        uint16_t q[24];
+        uint8_t g[pixelia::Ledger::kMaxGoods];  // seit 0.5.11 alle Waren eines Lagerplatzes (vorher 24, B12)
+        uint16_t q[pixelia::Ledger::kMaxGoods];
         char kb[12];
-        const int k = l.contents(s, g, q, 24);
+        const int k = l.contents(s, g, q, pixelia::Ledger::kMaxGoods);
         const char* key = l.store_key(s, kb, sizeof(kb));
         for (int i = 0; i < k; ++i) ESP_LOGI(TAG, "bestand,%s,%s,%u", key, l.good(g[i]).id, static_cast<unsigned>(q[i]));
     }
@@ -752,6 +974,35 @@ void log_lager() {
         ESP_LOGI(TAG, "  %s (%s): Schritt %u von %u (%s), %u %%, %s", p.title, p.place, p.step, p.steps, p.step_title, p.pct,
                  p.wait[0] ? p.wait : p.who[0] ? p.who : "niemand dran");
     }
+    // seit 0.5.11 (P-F, Wahl des Users): warum kein Nachschub kommt, je Lagerplatz (letzte Takt-Grenze) und Zähler
+    const pixelia::Environment& env = s_stage.environment();
+    const pixelia::Ledger& l = env.ledger;
+    ESP_LOGI(TAG, "Nachschub:");
+    int waiting = 0;
+    for (int s = 0; l.ready() && s < l.stores(); ++s) {
+        int g = -1;
+        const pixelia::SupplyWait w = env.tasks.supply_wait(s, &g);
+        if (w == pixelia::SupplyWait::None || g < 0) continue;
+        ++waiting;
+        const pixelia::StoreDef* d = l.store_def(s);
+        const pixelia::PlaceDef* pl = pixelia::place_at(l.store_place(s));
+        const int src = d && d->source ? l.find_store(d->source) : -1;
+        ESP_LOGI(TAG, "  %s (%s): %s %d/%d, wartet: %s%s%s", l.store_title(s), pl ? pl->title : "?", l.good(g).title,
+                 l.qty(s, g), l.capacity(s), pixelia::supply_wait_text(w), src >= 0 ? " · Quelle " : "",
+                 src >= 0 ? l.store_title(src) : "");
+    }
+    if (!waiting) ESP_LOGI(TAG, "  kein Lager wartet");
+    char line[200];
+    int at = 0;
+    for (int k = 1; k < pixelia::kSupplyWaits && at < static_cast<int>(sizeof(line)) - 1; ++k) {
+        const auto w = static_cast<pixelia::SupplyWait>(k);
+        at += std::snprintf(line + at, sizeof(line) - at, "%s%s %lu", k > 1 ? " · " : "", pixelia::supply_wait_id(w),
+                            static_cast<unsigned long>(env.tasks.supply_waits(w)));
+    }
+    ESP_LOGI(TAG, "Zähler seit Start: %s", line);
+    ESP_LOGI(TAG, "Bestandstabelle: %d von %d Einträgen, %lu wieder frei; Ereignisse: höchstens %lu je Takt-Grenze, %lu verloren",
+             l.entries(), pixelia::Ledger::kMaxStock, static_cast<unsigned long>(l.entries_freed()),
+             static_cast<unsigned long>(env.events.peak()), static_cast<unsigned long>(env.events.lost()));
 }
 
 // Weltzeit fortschreiben (Grafik-Task, nach den Logik-Schritten): Testuhr, Länge, Meldungen, Speichern, Stand
@@ -1118,14 +1369,24 @@ void gfx_task(void* arg) {
     // Speicherstand (seit 0.5.9) hier statt im Haupt-Task: die Bühne gehört Kern 1, und der Haupt-Task hat nur 3,5 KB Stack
     pixelia::set_figure_art_clock([] { return static_cast<int64_t>(esp_timer_get_time()); });
     load_save();
-    // Wirtschafts-Protokoll an Warenbuch und Projekte hängen (Puffer im PSRAM), Ordner zählen
+    // Wirtschafts-Protokoll an Warenbuch und Projekte hängen (Puffer im PSRAM); seit 0.5.11 öffnen: Journal nachtragen,
+    // Zeitlinie prüfen (B04, B09). Ist der Datenbereich nicht lesbar, erst nach dem Neu-Anlegen (write_save)
     if (s_econ.attach(s_stage.environment(), kEconBuffer, "geraet")) {
-        s_econ.scan(kEconDir);
-        const pixelia::EconomyLog::Stats es = s_econ.stats();
-        ESP_LOGI(TAG, "Wirtschafts-Protokoll %s: %lu Dateien, %.1f KB", kEconDir, static_cast<unsigned long>(es.files),
-                 es.bytes / 1024.0);
+        if (!s_save_blocked.load()) {
+            uint32_t loaded = 0;
+            {
+                std::lock_guard<std::mutex> g(s_world_lock);
+                loaded = s_save.loaded ? s_save.generation : 0;
+            }
+            open_econ(loaded);
+        }
     } else {
         ESP_LOGW(TAG, "Wirtschafts-Protokoll: kein Puffer im PSRAM");
+    }
+    {
+        std::lock_guard<std::mutex> g(s_world_lock);
+        s_save.world_id = s_stage.world_id();
+        s_save.line_id = s_stage.line_id();
     }
 
     pixelia::ui::apply_palette(s_ui_pal);
@@ -1134,28 +1395,31 @@ void gfx_task(void* arg) {
     uint32_t last_frames = board::display::frame_count();
     uint32_t frame_rem = 0;
     for (;;) {
-        Request req = s_request;
+        Request req = s_request.load(std::memory_order_acquire);
         if (req == Request::Reconfigure) {
             bool had = s_buf[0] != nullptr;
             if (had) free_buffers();
-            board::display::reconfigure(s_req_timing);
-            s_request = Request::None;
+            board::display::Timing timing;
+            {
+                std::lock_guard<std::mutex> g(s_req_lock);
+                timing = s_req_timing;
+                s_request.store(Request::None, std::memory_order_relaxed);  // neuere Anforderung kommt danach
+            }
+            board::display::reconfigure(timing);
             if (had && board::display::mode() == board::display::Mode::Engine) ensure_engine_ready(s_buf_psram);
             continue;
         }
         if (req == Request::Buffers) {
             if (s_buf[0]) free_buffers();
-            s_request = Request::None;
+            {
+                std::lock_guard<std::mutex> g(s_req_lock);
+                s_request.store(Request::None, std::memory_order_relaxed);
+            }
             if (board::display::mode() == board::display::Mode::Engine) ensure_engine_ready(s_req_psram);
             continue;
         }
         if (const int where = s_req_coarse.exchange(-1); where >= 0) move_coarse(where == 1);
-        int minute = s_req_minute_of_day;
-        if (minute >= 0) {
-            s_clock.set_time_of_day(minute / 60, minute % 60);
-            s_req_minute_of_day = -1;
-        }
-        s_clock.set_speed(s_speed);
+        apply_clock_cmds();
 
         if (board::display::mode() != board::display::Mode::Engine) {
             vTaskDelay(pdMS_TO_TICKS(20));
@@ -1319,6 +1583,13 @@ void start(const board::display::Timing& timing) {
     // Weltzeit (seit 0.5.7): erst mit bekannter Uhrzeit; Kalender aus dem NVS, gespeichert alle 10 s auf Kern 0
     s_stage.set_world_time(false);
     load_world();  // seit 0.5.9 gilt danach der Kalender aus dem Speicherstand (Grafik-Task, load_save)
+    {
+        // seit 0.5.11 (B17): Fehler in den Daten der Welt melden (ein fehlerhaftes Projekt beginnt nie)
+        char why[120];
+        const pixelia::Environment& env = s_stage.environment();
+        if (const char* e = env.ledger.data_problem(why, sizeof(why))) ESP_LOGW(TAG, "Daten: %s", e);
+        if (const char* e = env.projects.data_problem(why, sizeof(why))) ESP_LOGW(TAG, "Daten: %s (gesperrt)", e);
+    }
     const esp_timer_create_args_t ta = {.callback = save_world, .arg = nullptr, .dispatch_method = ESP_TIMER_TASK,
                                         .name = "welt", .skip_unhandled_events = true};
     if (esp_timer_create(&ta, &s_world_timer) == ESP_OK) esp_timer_start_periodic(s_world_timer, 10LL * 1000000);
@@ -1334,13 +1605,15 @@ void start(const board::display::Timing& timing) {
 }
 
 void request_reconfigure(const board::display::Timing& timing) {
+    std::lock_guard<std::mutex> g(s_req_lock);
     s_req_timing = timing;
-    s_request = Request::Reconfigure;
+    s_request.store(Request::Reconfigure, std::memory_order_release);
 }
 
 void request_buffers(bool psram) {
-    s_req_psram = psram;
-    s_request = Request::Buffers;
+    std::lock_guard<std::mutex> g(s_req_lock);
+    s_req_psram.store(psram);
+    s_request.store(Request::Buffers, std::memory_order_release);
 }
 
 void set_sprites(int n) { s_sprites = n; }
@@ -1430,22 +1703,22 @@ int figure_list(pixelia::FigureInfo* out, int* place, int max) {
     return n;
 }
 void set_time_of_day(int hour, int minute) {
-    s_follow_real = false;
-    s_req_minute_of_day = (hour % 24) * 60 + minute % 60;
+    push_clock_cmd({ClockCmd::Kind::Time, ((hour % 24 + 24) % 24) * 60 + (minute % 60 + 60) % 60, 0, false});
+    s_follow_pub.store(false);
 }
 void set_speed(float factor) {
-    s_speed = factor > 0 ? factor : 1.0f;
-    if (s_speed != 1.0f) s_follow_real = false;
+    const float f = factor > 0 ? factor : 1.0f;
+    push_clock_cmd({ClockCmd::Kind::Speed, 0, f, false});
+    s_speed_pub.store(f);
+    if (f != 1.0f) s_follow_pub.store(false);
 }
-float speed() { return s_speed; }
+float speed() { return s_speed_pub.load(); }
 void set_real_time(bool on) {
-    if (on) {
-        s_speed = 1.0f;
-        s_next_real_sync = 0;
-    }
-    s_follow_real = on;
+    push_clock_cmd({ClockCmd::Kind::Real, 0, 0, on});
+    if (on) s_speed_pub.store(1.0f);
+    s_follow_pub.store(on);
 }
-bool real_time() { return s_follow_real; }
+bool real_time() { return s_follow_pub.load(); }
 
 WorldInfo world_info() {
     std::lock_guard<std::mutex> g(s_world_lock);
@@ -1458,28 +1731,41 @@ void save_world_now() {
     save_world();
     // Speicherstand: im nächsten Bild packen, die Lade-Task schreibt; vor einem Neustart höchstens 3 s warten
     request_save();
-    for (int i = 0; i < 150 && s_save_state.load() != 0; ++i) vTaskDelay(pdMS_TO_TICKS(20));
+    for (int i = 0; i < 150; ++i) {
+        const int s = s_save_state.load();
+        if (s == kSaveIdle || s == kSaveImport) break;
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
 }
 
 bool request_save() {
-    if (s_save_locked.load()) return false;
-    int idle = 0;
-    return s_save_state.compare_exchange_strong(idle, 1);
+    if (s_save_locked.load() || s_save_blocked.load()) return false;
+    int idle = kSaveIdle;
+    return s_save_state.compare_exchange_strong(idle, kSaveRequested);
 }
 
 void write_save() {
-    if (s_save_state.load() != 2) return;
+    int packed = kSavePacked;  // übernehmen: ab hier setzt niemand sonst den Ablauf zurück
+    if (!s_save_state.compare_exchange_strong(packed, kSaveWriting)) return;
+    const uint32_t gen = pixelia::SaveReader(s_save_buf + 12, 4).u32();
+    if (s_econ_reopen.exchange(false)) open_econ(0);  // Datenbereich neu angelegt: frischer Ordner
+    // Journal vor dem Stand (seit 0.5.11, B04): fällt der Strom zwischen Stand und Anhängen, trägt der nächste Start
+    // die Zeilen genau einmal nach; scheitert der Stand, verwirft abandon() den Plan (die Zeilen bleiben im Puffer)
+    const int64_t t0 = esp_timer_get_time();
+    const bool journal = s_econ.pending() && s_econ.prepare(kEconDir, gen);
     const int64_t t = esp_timer_get_time();
     int slot = -1;
     const bool ok = s_slots.write(s_save_buf, s_save_len, &slot);
+    if (!ok) s_econ.abandon();
+    s_gen_top.store(gen);  // auch gescheitert verbraucht: der halbe Platz könnte sie tragen
     const uint32_t ms = static_cast<uint32_t>((esp_timer_get_time() - t) / 1000);
-    uint32_t gen = 0;
+    const uint32_t jms = static_cast<uint32_t>((t - t0) / 1000);
     {
         std::lock_guard<std::mutex> g(s_world_lock);
         s_save.write_ms = ms;
+        s_save.journal_ms = jms;
         if (ok) {
-            pixelia::SaveReader r(s_save_buf + 12, 4);
-            s_save.generation = gen = r.u32();
+            s_save.generation = gen;
             s_save.bytes = static_cast<uint32_t>(s_save_len);
             s_save.at_us = esp_timer_get_time();
             s_save.error[0] = 0;
@@ -1488,11 +1774,23 @@ void write_save() {
         }
     }
     if (ok)
-        ESP_LOGI(TAG, "Speicherstand %lu geschrieben: %.1f KB in Platz %c, packen %lu µs, schreiben %lu ms",
-                 static_cast<unsigned long>(gen), s_save_len / 1024.0, slot ? 'b' : 'a',
-                 static_cast<unsigned long>(s_save.pack_us), static_cast<unsigned long>(ms));
+        ESP_LOGI(TAG, "Speicherstand %lu geschrieben: %.1f KB in Platz %c, packen %lu µs, Journal %lu ms (%.1f KB), "
+                 "schreiben %lu ms, Stack frei %u Byte", static_cast<unsigned long>(gen), s_save_len / 1024.0,
+                 slot ? 'b' : 'a', static_cast<unsigned long>(s_save.pack_us), static_cast<unsigned long>(jms),
+                 journal ? s_econ.stats().journal_bytes / 1024.0 : 0.0, static_cast<unsigned long>(ms),
+                 static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
     else
-        ESP_LOGW(TAG, "Speicherstand nicht geschrieben (%s)", s_slots.path(slot));
+        ESP_LOGW(TAG, "Speicherstand %lu nicht geschrieben (%s)", static_cast<unsigned long>(gen), s_slots.path(slot));
+    // Prüfschalter „wirtschaft test“ (seit 0.5.11, Stecker-Test B04): zwischen Stand und Anhängen 30 s warten, damit der
+    // Strom genau dann fehlen kann; der nächste Start muss die Zeilen aus dem Journal genau einmal nachtragen
+    if (ok && s_econ.pending() && s_journal_test.exchange(false)) {
+        ESP_LOGW(TAG, "Prüfmodus: Speicherstand %lu steht, Protokoll noch nicht angehängt (Journal %s) – jetzt den Stecker "
+                 "ziehen (30 s)", static_cast<unsigned long>(gen), journal ? "geschrieben" : "fehlt");
+        app::ui::toast("Prüfung: Jetzt den Stecker ziehen\nSpeicherstand steht, Protokoll noch nicht (30 s)",
+                       pixelia::ui::Tone::Warning, 30);
+        vTaskDelay(pdMS_TO_TICKS(30000));
+        ESP_LOGW(TAG, "Prüfmodus: Stecker nicht gezogen, Protokoll wird jetzt angehängt");
+    }
     // Wirtschafts-Protokoll: erst jetzt anhängen (der Stand mit diesen Buchungen liegt sicher im Flash)
     if (ok && s_econ.pending()) {
         const int64_t e0 = esp_timer_get_time();
@@ -1515,17 +1813,9 @@ void write_save() {
     {
         const pixelia::EconomyLog::Stats es = s_econ.stats();
         std::lock_guard<std::mutex> g(s_world_lock);
-        s_save.econ_rows = es.rows;
-        s_save.econ_written = es.written;
-        s_save.econ_lost = es.lost;
-        s_save.econ_files = es.files;
-        s_save.econ_bytes = es.bytes;
-        s_save.econ_deleted = es.deleted;
-        s_save.econ_first = es.first_day;
-        s_save.econ_last = es.last_day;
-        s_save.econ_error = es.error;
+        econ_stats_locked(es);
     }
-    s_save_state.store(0);
+    s_save_state.store(kSaveIdle);
 }
 
 bool read_save(std::vector<uint8_t>* out, uint32_t* generation) {
@@ -1537,37 +1827,157 @@ bool read_save(std::vector<uint8_t>* out, uint32_t* generation) {
     return true;
 }
 
-bool import_save(uint8_t* data, size_t n, const char** why) {
+// Einspielen (seit 0.5.11, B06): ein Auftrag zur Zeit. Die Web-Task stellt ihn und wartet; beginnt die Lade-Task nicht
+// rechtzeitig, bricht die Web-Task ab (dann rührt die Lade-Task die Daten nie an); läuft er, wartet sie bis zum Ende
+struct ImportJob {
+    enum : int { kFree, kWaiting, kRunning, kDone, kCancelled };
+    std::atomic<int> state{kFree};
+    uint8_t* data = nullptr;
+    size_t n = 0, cap = 0;
+    const char* why = "";
+    bool ok = false;
+};
+ImportJob s_import;
+
+bool import_save(uint8_t* data, size_t n, size_t cap, const char** why) {
     if (n > kSaveCap) {
         if (why) *why = "Datei zu groß";
         return false;
     }
-    if (!pixelia::save_check(data, n, nullptr, why)) return false;
-    // ab hier nichts mehr speichern; ein laufendes Schreiben abwarten (höchstens 3 s)
+    if (!app::assets::littlefs_ready()) {
+        if (why) *why = "Datenbereich nicht lesbar";
+        return false;
+    }
+    int free = ImportJob::kFree;
+    if (!s_import.state.compare_exchange_strong(free, ImportJob::kWaiting)) {
+        if (why) *why = "Es wird schon eine Sicherung eingespielt";
+        return false;
+    }
+    s_import.data = data;
+    s_import.n = n;
+    s_import.cap = cap;
+    s_import.why = "";
+    s_import.ok = false;
+    if (!app::assets::import_world()) {
+        s_import.state.store(ImportJob::kFree);
+        if (why) *why = "Die Lade-Task nimmt gerade keinen Auftrag an";
+        return false;
+    }
+    // bis zu 20 s auf den Beginn (die Lade-Task misst oder kopiert vielleicht gerade), danach bis zum Ende
+    for (int i = 0; i < 1000 && s_import.state.load() == ImportJob::kWaiting; ++i) vTaskDelay(pdMS_TO_TICKS(20));
+    int waiting = ImportJob::kWaiting;
+    if (s_import.state.compare_exchange_strong(waiting, ImportJob::kCancelled)) {
+        if (why) *why = "Die Lade-Task ist beschäftigt, bitte gleich noch einmal";
+        return false;  // die Lade-Task gibt den Auftrag frei, ohne die Daten anzufassen
+    }
+    while (s_import.state.load() == ImportJob::kRunning) vTaskDelay(pdMS_TO_TICKS(20));
+    const bool ok = s_import.ok;
+    if (why) *why = s_import.why;
+    s_import.state.store(ImportJob::kFree);
+    return ok;
+}
+
+namespace {
+
+// Speicher-Ablauf für das Einspielen übernehmen (Lade-Task): ein gepackter Stand wird noch geschrieben, ein
+// angeforderter verfällt (s_save_locked), dann gehört der Ablauf bis zum Neustart dem Einspielen
+bool own_save_flow() {
     s_save_locked.store(true);
-    for (int i = 0; i < 150 && s_save_state.load() != 0; ++i) vTaskDelay(pdMS_TO_TICKS(20));
-    const pixelia::SaveSlots slots("/data", "welt");
-    uint32_t gen = slots.generation();
-    {
-        std::lock_guard<std::mutex> g(s_world_lock);
-        gen = std::max(gen, s_save.generation);
+    for (int i = 0; i < 250; ++i) {
+        int s = s_save_state.load();
+        if (s == kSavePacked) {
+            write_save();  // wir sind die Lade-Task: der Auftrag dazu steht hinter uns in der Schlange
+            continue;
+        }
+        if (s == kSaveIdle && s_save_state.compare_exchange_strong(s, kSaveImport)) return true;
+        vTaskDelay(pdMS_TO_TICKS(20));  // angefordert: die Grafik-Task sieht die Sperre im nächsten Bild
+    }
+    return false;
+}
+
+bool run_import(ImportJob& job) {
+    if (!own_save_flow()) {
+        s_save_locked.store(false);
+        job.why = "Speichern läuft noch, bitte gleich noch einmal";
+        return false;
+    }
+    auto release = [] {
+        s_save_state.store(kSaveIdle);
+        s_save_locked.store(false);
+    };
+    const uint32_t gen = std::max(s_gen_top.load(), s_slots.generation()) + 1;
+    s_gen_top.store(gen);  // nie zweimal dieselbe, auch wenn das Einspielen scheitert
+    // prüfen (Phase A wie beim Laden), neue Zeitlinie (B09), Generation und Prüfsumme; Speicher und Stack gemessen
+    const int64_t t = esp_timer_get_time();
+    const bool mon = heap_caps_monitor_local_minimum_free_size_start() == ESP_OK;
+    pixelia::Stage::LoadReport rep;
+    const size_t n = pixelia::Stage::prepare_import(job.data, job.n, job.cap, gen, esp_random(), &rep);
+    const size_t ram = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL), ps = heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM);
+    if (mon) heap_caps_monitor_local_minimum_free_size_stop();
+    ESP_LOGI(TAG, "Sicherung geprüft: %s%s%s (%lld ms, RAM tief %u KB, PSRAM tief %u KB, Stack frei %u Byte)",
+             n ? "in Ordnung" : rep.why, !n && rep.chunk[0] ? " in " : "", n ? "" : rep.chunk,
+             static_cast<long long>((esp_timer_get_time() - t) / 1000), static_cast<unsigned>(ram >> 10),
+             static_cast<unsigned>(ps >> 10), static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
+    if (!n) {
+        release();
+        job.why = rep.why;
+        return false;
     }
     int slot = -1;
-    if (!pixelia::save_restamp(data, n, gen + 1, why) || !slots.write(data, n, &slot)) {
-        if (why && slot >= 0) *why = "Schreiben fehlgeschlagen";
-        s_save_locked.store(false);
+    if (!s_slots.write(job.data, n, &slot)) {
+        release();  // der neueste gültige Platz ist unberührt, die Welt speichert weiter wie bisher
+        job.why = "Schreiben fehlgeschlagen";
         return false;
     }
     if (FILE* f = std::fopen(kImportMark, "w")) std::fclose(f);
-    ESP_LOGW(TAG, "Sicherung eingespielt: Speicherstand %lu in Platz %c (%.1f KB), Neustart folgt",
-             static_cast<unsigned long>(gen + 1), slot ? 'b' : 'a', n / 1024.0);
-    return true;
+    ESP_LOGW(TAG, "Sicherung eingespielt: Speicherstand %lu in Platz %c (%.1f KB), neue Zeitlinie, Neustart folgt",
+             static_cast<unsigned long>(gen), slot ? 'b' : 'a', n / 1024.0);
+    return true;  // der Ablauf bleibt beim Einspielen: bis zum Neustart wird nichts mehr gespeichert
+}
+
+}  // namespace
+
+void import_job() {
+    int waiting = ImportJob::kWaiting;
+    if (!s_import.state.compare_exchange_strong(waiting, ImportJob::kRunning)) {
+        int cancelled = ImportJob::kCancelled;  // die Web-Task hat aufgegeben: freigeben, Daten nicht anfassen
+        s_import.state.compare_exchange_strong(cancelled, ImportJob::kFree);
+        return;
+    }
+    s_import.ok = run_import(s_import);
+    s_import.state.store(ImportJob::kDone);
+}
+
+FreshResult start_fresh() {
+    {
+        std::lock_guard<std::mutex> g(s_world_lock);
+        if (s_save.block != 2) return FreshResult::NotBlocked;
+    }
+    if (s_save_probe) return FreshResult::Probe;  // nichts überschreiben: der Aufrufer startet neu, der Stand lädt wieder
+    ESP_LOGW(TAG, "Neu beginnen (Weboberfläche, mit Rückfrage): die nicht ladbaren Stände werden überschrieben");
+    storage_ready();
+    return FreshResult::Started;
+}
+
+void storage_ready() {
+    // Datenbereich neu angelegt (B03) bzw. neu begonnen: Protokoll vor dem nächsten Speichern öffnen (die frische Welt
+    // hat eine eigene Zeitlinie, ein alter Ordner wandert ins Archiv), dann gleich speichern
+    s_econ_reopen.store(true);
+    s_save_blocked.store(false);
+    {
+        std::lock_guard<std::mutex> g(s_world_lock);
+        s_save.block = 0;
+        s_save.error[0] = 0;
+    }
+    request_save();
 }
 
 SaveInfo save_info() {
     std::lock_guard<std::mutex> g(s_world_lock);
     return s_save;
 }
+bool save_probe() { return s_save_probe; }
+void journal_test() { s_journal_test.store(true); }
 
 bool world_view(WorldView* out) {
     std::lock_guard<std::mutex> g(s_view_lock);

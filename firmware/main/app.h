@@ -177,15 +177,42 @@ struct SaveInfo {
     uint32_t econ_rows, econ_written, econ_lost, econ_files, econ_bytes, econ_flush_ms, econ_deleted;
     int32_t econ_first, econ_last;  // Welttage im Ordner
     bool econ_error;
+    // seit 0.5.11 (P-F, V01, V03): warum kein Nachschub kommt (Zähler je Grund seit dem Start, engine/tasks.h), belegte
+    // Einträge der Bestandstabelle und wieder freie, Ereignis-Bus (höchstens je Takt-Grenze, verloren)
+    uint32_t supply[7];
+    int stock_entries;
+    uint32_t stock_freed, events_peak, events_lost;
+    // seit 0.5.11 (B01, B03, B09): Sperre, Laden beim Start, Kennung von Welt und Zeitlinie
+    uint8_t block;          // 0 = speichert, 1 = Datenbereich nicht lesbar (B03), 2 = Stände da, aber nicht ladbar
+    bool fallback;          // älterer Platz geladen, der neueste (rejected_gen) war abgelehnt
+    uint32_t rejected_gen;
+    char load_why[48];      // Grund der Ablehnung
+    uint32_t world_id, line_id;
+    uint32_t load_ms;       // Laden beim Start: Dauer, Tiefstwerte RAM/PSRAM in KB, Stack der Grafik-Task frei (Byte)
+    uint32_t load_ram_kb, load_psram_kb, load_stack;
+    uint32_t journal_ms;    // Journal vor dem letzten Speicherstand (B04)
+    // Wirtschafts-Protokoll seit 0.5.11 (B04, B08, B09): engine/econ_log.h Stats
+    uint32_t econ_dropped, econ_late, econ_recovered, econ_discarded, econ_archives, econ_archive_bytes, econ_journal;
+    bool econ_full, econ_cleanup_error;
 };
 SaveInfo save_info();
-bool request_save();  // im nächsten Bild packen, danach schreibt die Lade-Task; false = läuft schon
-void write_save();    // Lade-Task (Kern 0): gepackten Stand in den älteren Platz schreiben
+bool request_save();  // im nächsten Bild packen, danach schreibt die Lade-Task; false = läuft schon oder gesperrt
+void write_save();    // Lade-Task (Kern 0): Journal, gepackten Stand in den älteren Platz schreiben, Protokoll anhängen
 // Speicherstand einer Sicherung (seit 0.5.9, Weboberfläche): neuester gültiger Stand bzw. Datei einspielen. Einspielen
 // prüft die Datei, legt sie als neuesten Stand ab und sperrt das Speichern bis zum Neustart (danach startet der
-// Aufrufer neu, die Welt lädt sie wie nach dem Einschalten); why = Grund in einem Satz
+// Aufrufer neu, die Welt lädt sie wie nach dem Einschalten); why = Grund in einem Satz. Seit 0.5.11 (B06) ein
+// exklusiver Auftrag der Lade-Task (import_job): ein laufendes Speichern wird abgeschlossen, neues gesperrt; true nur,
+// wenn der Stand geschrieben ist. data braucht 18 Byte Reserve (cap) für die Kennung älterer Stände (B09)
 bool read_save(std::vector<uint8_t>* out, uint32_t* generation);
-bool import_save(uint8_t* data, size_t n, const char** why);
+bool import_save(uint8_t* data, size_t n, size_t cap, const char** why);
+void import_job();      // Lade-Task
+void storage_ready();   // Lade-Task: Datenbereich neu angelegt, die Welt speichert wieder (B03)
+// Stände da, aber nicht ladbar (block 2, Wahl des Users 2026-11-03): „Neu beginnen“ hebt die Sperre auf, das nächste
+// Speichern überschreibt sie; im Prüfmodus nichts (der Aufrufer startet neu)
+enum class FreshResult : uint8_t { NotBlocked, Started, Probe };
+FreshResult start_fresh();
+bool save_probe();      // block 2 nur vorgetäuscht (Prüfschalter „datenbereich test stand“)
+void journal_test();    // Prüfschalter „wirtschaft test“: nächstes Speichern wartet 30 s vor dem Anhängen (Stecker-Test)
 
 // Figuren und Chronik für Weboberfläche und Konsole: die Grafik-Task füllt die Ansicht auf Anfrage im nächsten Bild
 struct FigureRow {
@@ -321,6 +348,16 @@ Summary summary();
 bool flash_load(int seconds);
 // Speicherstand schreiben (seit 0.5.9): Auftrag an die Lade-Task, ohne zu warten
 bool save_world();
+// Sicherung einspielen (seit 0.5.11, B06): Auftrag an die Lade-Task (gfx::import_job), ohne zu warten
+bool import_world();
+// Datenbereich /data (seit 0.5.11, B03): nie automatisch formatiert, nur ein völlig leerer wird angelegt
+enum class Storage : uint8_t { Missing, Ok, Created, Unreadable };
+Storage storage();
+bool storage_test();  // Prüfmodus „datenbereich test“: „nicht lesbar“ nur vorgetäuscht
+// Knopf „Datenbereich neu anlegen“: formatieren und einhängen auf der Lade-Task (wartet ≤ 20 s), danach speichert die
+// Welt wieder (gfx::storage_ready); nie im Prüfmodus (dort startet der Aufrufer neu). false = ging nicht
+bool recreate_storage();
+int64_t littlefs_free(void*);  // freier Platz in Byte (0 = nicht eingehängt), für EconomyLog::set_free_space
 // Befehle „assets …“ und „sd …“ (argv[0] = Befehl)
 void console(int argc, char** argv);
 }  // namespace assets

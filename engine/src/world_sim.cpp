@@ -63,6 +63,9 @@ void Stage::advance_grid(int64_t now) {
         const bool bad = wk == WeatherKind::Rain || wk == WeatherKind::Snow || wk == WeatherKind::Storm;
         env_.projects.step(t, env_.calendar.date().day, env_.ledger, env_.tasks, env_.figures, &env_.events, bad);
         env_.events.deliver();  // Regeln sehen alles bis hierher, egal welcher Ort sichtbar ist
+        // seit 0.5.11 (V01): die Chronik liest an jeder Takt-Grenze mit, nicht nur einmal je Schritt (im Zeitraffer
+        // liegen bis zu kMaxGridPerTick Takt-Grenzen in einem Schritt; sonst hinge sie vom Zeitraffer ab)
+        read_chronicle();
         for (int i = 0; i < count_; ++i) scenes_[i]->step(t);
         grid_ = t;
         ++last_grid_steps_;
@@ -183,7 +186,12 @@ void Stage::depart(int i, FigureRecord& f) {
         start_doing(f, i, f.doing.exit, at);  // Ziel gibt es nicht: am selben Ausgang zurück
         return;
     }
-    if (t.travel > 0 && transit_n_ < kMaxTransit) {
+    if (t.travel > 0 && transit_n_ >= kMaxTransit) {
+        // kann nicht passieren (ein Platz je Figur); sonst lieber am Ausgang warten als sofort ankommen (B14)
+        start_doing(f, i, f.doing.exit, at);
+        return;
+    }
+    if (t.travel > 0) {
         // auf der Verbindung: gehört keinem Ort, bis die Reisezeit um ist (eine Figur ist nie doppelt)
         const Transit tr{t, at, at + static_cast<int64_t>(t.travel) * kGridUs, static_cast<uint8_t>(i),
                          static_cast<uint8_t>(to)};

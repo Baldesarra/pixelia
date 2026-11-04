@@ -56,6 +56,7 @@
 #include "pixelia/engine/assets.h"
 #include "pixelia/engine/canvas.h"
 #include "pixelia/engine/environment.h"
+#include "pixelia/engine/save.h"
 #include "pixelia/engine/scene.h"
 #include "pixelia/engine/world_clock.h"
 
@@ -69,6 +70,11 @@ bool parse_transition(std::string_view name, Transition* out);
 void upscale2x(const uint8_t* coarse, Canvas& fine, const CoarseLayers* layers = nullptr);
 // Schichten zu einem Bild zusammenlegen: Hintergrund außerhalb der Bereiche in coarse kopieren (Prüfungen)
 void flatten_layers(uint8_t* coarse, const CoarseLayers& layers);
+
+// Kennung der Welt bzw. ihrer ersten Zeitlinie aus dem Startwert (seit 0.5.11, B09): für frische Welten im Simulator
+// und für Stände ohne Abschnitt KENN (0.5.9, 0.5.10), damit derselbe alte Stand immer dieselbe Kennung bekommt
+uint32_t derive_world_id(uint64_t seed);
+uint32_t derive_line_id(uint64_t seed);
 
 class Stage {
 public:
@@ -142,8 +148,9 @@ public:
     static constexpr int kPrepareBudget = 6000;
     int last_prepare() const { return last_prepare_; }  // Aufwand im letzten Schritt
     uint32_t reseats() const { return reseats_; }  // Neuansätze nach Sprüngen der Uhr
-    // Unterwegs auf einer Verbindung mit Reisezeit (seit 0.5.8): Figuren, die keinem Ort gehören, bis sie ankommen
-    static constexpr int kMaxTransit = 16;
+    // Unterwegs auf einer Verbindung mit Reisezeit (seit 0.5.8): Figuren, die keinem Ort gehören, bis sie ankommen.
+    // Seit 0.5.11 (B14) ein Platz je Figur: die Liste ist nie voll (vorher 16, die 17. Figur kam sofort an)
+    static constexpr int kMaxTransit = FigureBook::kMax;
     int in_transit() const { return transit_n_; }
     const Travel& transit(int i) const { return transit_[i].t; }
     // Prüfansicht aller Orte (Stellflächen, Benutzungspunkte, Ausgänge)
@@ -189,13 +196,44 @@ public:
         // Warenbuch (seit 0.5.10): im Stand enthalten (sonst Startvorrat), Einträge, verlorene bzw. umgelegte Stück
         bool ledger = false;
         int stock = 0, items = 0, reservations = 0, lost = 0, moved = 0;
+        int rejected = 0;  // seit 0.5.11: Reservierungen mit doppelter Kennung, nicht übernommen
         int tasks = 0;  // Aufgaben übernommen (seit 0.5.10 Teil 2)
         int projects = 0;  // Projekte übernommen (seit 0.5.10 Teil 3)
+        // seit 0.5.11 (B01): Abschnitt, an dem die Prüfung scheiterte (leer = Kopf oder Datei als Ganzes)
+        char chunk[5] = "";
+        // seit 0.5.11 (B01): load_slots nahm den älteren Platz, weil der neueste abgelehnt wurde (Grund in why)
+        int slot = -1;                 // geladener Platz (0 = a, 1 = b), −1 = nicht über load_slots
+        bool fallback = false;
+        uint32_t rejected_gen = 0;     // Generation des abgelehnten Platzes
+        uint32_t next_generation = 0;  // höchste gültige Generation beider Plätze (+1 = nächstes Speichern)
+        bool identity = false;         // Abschnitt KENN vorhanden (sonst aus dem Startwert abgeleitet, Stand vor 0.5.11)
     };
     // Weltzustand in buf schreiben, an einer Takt-Grenze (zwischen zwei tick()); Länge, 0 = Puffer zu klein
     size_t save_state(uint8_t* buf, size_t cap, uint32_t generation) const;
-    // Speicherstand laden (nach init(), an einer Takt-Grenze); false = ungültig, dann bleibt die Welt, wie sie war
+    // Speicherstand laden (nach init(), an einer Takt-Grenze); false = ungültig, dann bleibt die Welt, wie sie war.
+    // Seit 0.5.11 (B01) in zwei Phasen: check_state prüft den ganzen Stand, erst danach wird übernommen
     bool load_state(const uint8_t* data, size_t n, LoadReport* report = nullptr);
+    // Phase A allein (seit 0.5.11): ändert nichts und liest nur die Daten und feste Tabellen, darf also auch auf einem
+    // anderen Kern laufen (Einspielen aus dem Web). true = load_state würde den Stand übernehmen
+    static bool check_state(const uint8_t* data, size_t n, LoadReport* report = nullptr);
+    // Neuester gültiger Stand aus zwei Plätzen (seit 0.5.11, B01): Lehnt load_state den neuesten ab, lädt sie den
+    // anderen, beginnt eine neue Zeitlinie (der Abgelehnte kann schon im Protokoll stehen) und merkt in den Plätzen,
+    // dass das nächste Speichern den abgelehnten überschreibt. false = keiner ladbar, die Welt bleibt
+    bool load_slots(const SaveSlots& slots, LoadReport* report = nullptr);
+    // Eingespielte Sicherung vorbereiten (seit 0.5.11, B09): prüfen, neue Zeitlinie line (Abschnitt KENN ersetzen
+    // oder anhängen, Platz bis cap), Generation, Prüfsumme. Neue Länge, 0 = abgelehnt (Grund in report)
+    static size_t prepare_import(uint8_t* data, size_t n, size_t cap, uint32_t generation, uint32_t line,
+                                 LoadReport* report = nullptr);
+    // Kennung der Welt und der Zeitlinie (seit 0.5.11, B09; Abschnitt KENN): Die Welt behält ihre Kennung, eine neue
+    // Zeitlinie beginnt mit jedem Einspielen einer Sicherung und mit dem Rückfall auf einen älteren Platz. So
+    // vermischt das Wirtschafts-Protokoll nie zwei Entwicklungen. init() leitet beide aus dem Startwert ab (Gerät:
+    // eine frische Welt bekommt danach Zufallswerte)
+    uint32_t world_id() const { return world_id_; }
+    uint32_t line_id() const { return line_id_; }
+    void set_identity(uint32_t world, uint32_t line) {
+        world_id_ = world;
+        line_id_ = line;
+    }
     // Der geladene Stand kam aus einer Sicherung (seit 0.5.9): Eintrag in die Chronik nach der Pause, sobald die
     // Weltzeit läuft
     void mark_restored() { restored_pending_ = true; }
@@ -306,10 +344,12 @@ private:
     int toast_reader_ = -1;
     // Weltzustand (seit 0.5.9)
     uint64_t seed_ = 0;
+    uint32_t world_id_ = 0, line_id_ = 0;  // seit 0.5.11 (B09)
     int64_t world_us_ = 0;
     int chron_reader_ = -1;
     std::array<int16_t, kMaxScenes> place_of_{};
     bool restored_pending_ = false;
+    bool fallback_pending_ = false;        // seit 0.5.11: älterer Platz geladen, Eintrag in die Chronik (Wahl des Users)
     bool wake_pending_ = false;            // nach dem Laden: Pause in die Chronik, sobald die Weltzeit läuft
     int64_t saved_minute_ = INT64_MIN;     // Weltminute im geladenen Speicherstand
     int64_t caught_up_ = 0, skipped_ = 0;
