@@ -32,6 +32,7 @@
 #include "esp_netif.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
+#include "lwip/sockets.h"
 #include "esp_psram.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
@@ -727,27 +728,36 @@ esp_err_t world_load(httpd_req_t* req) {
     const size_t cap = n + 32;  // Reserve für die Kennung älterer Stände (seit 0.5.11, B09)
     auto* buf = static_cast<uint8_t*>(heap_caps_malloc(cap, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
     if (!buf) return reply(req, false, "Kein Speicher", "503 Service Unavailable");
-    // B07: Fristen statt endlosem Warten. Ohne Fortschritt höchstens 2 Empfangsfristen (je 10 s), insgesamt 60 s
-    // (96 KB brauchen im WLAN unter 1 s); nur empfangene Bytes setzen die erste Frist zurück. Bei Abbruch die
-    // Verbindung schließen, statt den Rest abzuwarten (der Server bedient sonst niemanden).
-    constexpr int kMaxIdle = 2;
+    // B07: Fristen statt endlosem Warten. Ohne Daten höchstens 20 s, insgesamt 60 s (96 KB brauchen im WLAN unter
+    // 1 s); gemessen an der Zeit seit den letzten Daten, nicht an der Zahl der Empfangsfristen (am Gerät gezählt kamen
+    // so 40 s heraus). Bei Abbruch die Verbindung schließen, statt den Rest abzuwarten (der Server bedient sonst
+    // niemanden).
+    constexpr int64_t kIdleUs = 20 * 1000000LL;
     constexpr int64_t kTotalUs = 60 * 1000000LL;
+    // Empfangsfrist dieses Sockets für die Dauer des Hochladens 2 s statt der Server-Frist (10 s): httpd_req_recv gibt
+    // schon gepufferte Bytes erst nach einer ganzen Frist zurück, die 20 s begännen sonst zu spät
+    const int fd = httpd_req_to_sockfd(req);
+    timeval tv{2, 0};
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     const int64_t t0 = esp_timer_get_time();
-    int idle = 0;
+    int64_t last = t0;
     for (size_t got = 0; got < n;) {
         const int r = httpd_req_recv(req, reinterpret_cast<char*>(buf) + got, n - got);
-        const bool late = esp_timer_get_time() - t0 > kTotalUs;
-        if (r == HTTPD_SOCK_ERR_TIMEOUT && ++idle <= kMaxIdle && !late) continue;
+        const int64_t now = esp_timer_get_time();
+        const bool late = now - t0 > kTotalUs;
+        if (r == HTTPD_SOCK_ERR_TIMEOUT && now - last < kIdleUs && !late) continue;
         if (r <= 0 || late) {
             heap_caps_free(buf);
             ESP_LOGW(TAG, "Speicherstand: Übertragung nach %u von %u Byte abgebrochen (%s)", static_cast<unsigned>(got),
                      static_cast<unsigned>(n), late ? "Gesamtfrist 60 s" : r == HTTPD_SOCK_ERR_TIMEOUT ? "20 s ohne Daten" : "Verbindung weg");
             return ESP_FAIL;
         }
-        idle = 0;
+        last = now;
         got += static_cast<size_t>(r);
     }
     const char* why = "";
+    tv = {10, 0};  // wieder die Frist des Servers (cfg.recv_wait_timeout in web.cpp)
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     const bool ok = gfx::import_save(buf, n, cap, &why);
     heap_caps_free(buf);
     if (!ok) {

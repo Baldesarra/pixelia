@@ -26,32 +26,52 @@ export function parseHeader(buf: ArrayBuffer): FirmwareHeader {
   return { v: str(48, 32), time: str(112, 16), date: str(128, 16), idf: str(144, 32) };
 }
 
+/** Ausgang eines Uploads (B20, seit 0.5.11): „ok“ und „abgelehnt“ hat das Gerät selbst gemeldet; „unklar“ heißt, der
+ *  Browser weiß es nicht (Verbindung weg, Antwort ausgeblieben, abgebrochen). Dann fragt die Seite den Status ab und
+ *  sagt erst danach, ob installiert wurde */
+export type UploadResult =
+  | { kind: 'ok'; msg: string; v?: string }
+  | { kind: 'abgelehnt'; msg: string }
+  | { kind: 'unklar'; msg: string; sent: boolean };
+
 export type UploadEvents = {
   progress: (sent: number, total: number) => void;
-  done: (ok: boolean, msg: string, version?: string) => void;
+  sent: () => void; // alles übertragen, das Gerät prüft und antwortet
+  done: (r: UploadResult) => void;
 };
 
-/** Hochladen per XHR (Fortschritt); bricht ab, wenn 30 s nichts vorangeht (schwacher Empfang) */
+const STALL_MS = 30_000; // Übertragung steht (schwacher Empfang)
+const ANSWER_MS = 60_000; // nach dem Senden: Prüfen und Abschließen dauert am Gerät wenige Sekunden
+
+/** Hochladen per XHR (Fortschritt) mit Fristen fürs Senden und für die Antwort */
 export function upload(file: File, ev: UploadEvents): () => void {
   const x = new XMLHttpRequest();
   let last = Date.now();
-  let sent = false;
+  let sentAt = 0;
   let finished = false;
-  const finish = (ok: boolean, msg: string, v?: string) => {
+  const finish = (r: UploadResult) => {
     if (finished) return;
     finished = true;
     clearInterval(watchdog);
-    ev.done(ok, msg, v);
+    ev.done(r);
   };
+  const unclear = (msg: string) => finish({ kind: 'unklar', msg, sent: sentAt > 0 });
   const watchdog = setInterval(() => {
-    if (sent || Date.now() - last < 30_000) return;
-    x.abort();
-    finish(false, 'Die Übertragung hängt seit 30 Sekunden (schwacher WLAN-Empfang?). Es wurde nichts installiert, bitte noch einmal versuchen.');
+    if (!sentAt && Date.now() - last >= STALL_MS) {
+      x.abort();
+      unclear('Die Übertragung hängt seit 30 Sekunden (schwacher WLAN-Empfang?).');
+    } else if (sentAt && Date.now() - sentAt >= ANSWER_MS) {
+      x.abort();
+      unclear('Die Datei ist angekommen, aber Pixelia hat nach 60 Sekunden noch nicht geantwortet.');
+    }
   }, 2000);
   x.open('POST', '/api/ota');
   x.setRequestHeader('Content-Type', 'application/octet-stream');
   for (const [k, v] of Object.entries(auth.headers())) x.setRequestHeader(k, v);
-  x.upload.onload = () => (sent = true);
+  x.upload.onload = () => {
+    sentAt = Date.now();
+    ev.sent();
+  };
   x.upload.onprogress = (e) => {
     last = Date.now();
     if (e.lengthComputable) ev.progress(e.loaded, e.total);
@@ -63,13 +83,14 @@ export function upload(file: File, ev: UploadEvents): () => void {
     } catch {
       /* leer */
     }
-    if (x.status === 200 && j.ok) finish(true, j.msg ?? 'Installiert', j.v);
-    else finish(false, j.msg || `Fehler ${x.status}`);
+    if (x.status === 200 && j.ok) finish({ kind: 'ok', msg: j.msg ?? 'Installiert', v: j.v });
+    else if (j.msg) finish({ kind: 'abgelehnt', msg: j.msg });
+    else unclear(`Unerwartete Antwort (${x.status}).`);
   };
-  x.onerror = () => finish(false, 'Verbindung abgebrochen, es wurde nichts installiert. Bitte noch einmal versuchen.');
+  x.onerror = () => unclear('Die Verbindung ist abgebrochen.');
   x.send(file);
   return () => {
     x.abort();
-    finish(false, 'Abgebrochen, es wurde nichts installiert.');
+    unclear('Abgebrochen.');
   };
 }

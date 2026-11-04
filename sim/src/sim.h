@@ -42,6 +42,7 @@ struct Options {
     std::string world_report;     // Weltjahr im Zeitraffer als Bericht (seit 0.5.7)
     int report_days = 0;          // Tage im Bericht (0 = ein Weltjahr und der nächste Frühling)
     int season_len = 7;           // Tage je Jahreszeit
+    std::string world_file;       // Speicherstand laden und am Ende speichern (seit 0.5.11, --welt)
     std::string econ_dir;         // Wirtschafts-Protokoll in diesen Ordner (seit 0.5.10 Teil 4, wie am Gerät)
 };
 

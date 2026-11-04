@@ -278,7 +278,10 @@ esp_err_t ws_log_handler(httpd_req_t* req) {
     httpd_ws_frame_t frame{};
     uint8_t buf[64];
     if (httpd_ws_recv_frame(req, &frame, 0) != ESP_OK) return ESP_FAIL;
-    if (frame.len >= sizeof(buf)) return ws_reject_oversize(req, frame.len);
+    if (frame.len >= sizeof(buf)) return ws_reject_oversize(req, frame, "/ws/log");
+    // leere Rahmen (z. B. Keep-Alive-PONG von .NET alle 20 s): nichts mehr zu lesen. Ein zweiter Aufruf mit Länge 0
+    // läse sonst den Kopf des nächsten Rahmens und schlösse die Verbindung nach der Wartezeit (seit 0.5.11 behoben)
+    if (frame.len == 0) return ESP_OK;
     frame.payload = buf;
     return httpd_ws_recv_frame(req, &frame, frame.len);
 }

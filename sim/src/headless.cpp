@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <vector>
 
 #include "pixelia/engine/assets.h"
@@ -36,6 +37,60 @@ bool write_file(const std::string& path, const std::vector<uint8_t>& data) {
     std::ofstream f(p, std::ios::binary);
     f.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
     return f.good();
+}
+
+// Speicherstand als Datei (--welt, seit 0.5.11): vor dem Lauf laden, danach mit der nächsten Generation speichern wie
+// das Gerät. Für den Rückfall-Test mit einer älteren Version; der Bericht nennt Figuren (mit Prüfsumme über Kennung,
+// Name und Aufenthalt), Warenbuch, Aufgaben und Projekte
+uint32_t g_world_gen = 0;
+
+uint32_t figure_sum(const pixelia::Stage& stage) {
+    const pixelia::FigureBook& book = stage.environment().figures;
+    uint32_t h = 2166136261u;
+    auto mix = [&](uint32_t v) { h = (h ^ v) * 16777619u; };
+    for (int i = 0; i < book.count(); ++i) {
+        const pixelia::FigureRecord& f = book.at(i);
+        mix(f.id);
+        for (char c : f.name) mix(static_cast<uint8_t>(c));
+        mix(f.where.place);
+    }
+    return h;
+}
+
+bool load_world_file(const std::string& path, pixelia::Stage& stage) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) {
+        std::printf("sim: Speicherstand %s gibt es noch nicht, neue Welt\n", path.c_str());
+        return true;
+    }
+    std::vector<uint8_t> b((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    pixelia::Stage::LoadReport r;
+    if (!stage.load_state(b.data(), b.size(), &r)) {
+        std::printf("FEHLER: Speicherstand %s abgelehnt: %s\n", path.c_str(), r.why);
+        return false;
+    }
+    g_world_gen = r.generation;
+    std::printf("sim: Speicherstand %s geladen: Nr. %u, %d Figuren (Summe %08x), %d unterwegs, %d Chronik, "
+                "Warenbuch %s (%d Bestände, %d Stücke, %d Reservierungen, %d verloren), %d Aufgaben, %d Projekte, "
+                "%d unbekannte Abschnitte übersprungen\n",
+                path.c_str(), static_cast<unsigned>(r.generation), r.figures,
+                static_cast<unsigned>(figure_sum(stage)), r.transit, r.chronicle, r.ledger ? "ja" : "nein", r.stock,
+                r.items, r.reservations, r.lost, r.tasks, r.projects, r.skipped_chunks);
+    return true;
+}
+
+bool save_world_file(const std::string& path, const pixelia::Stage& stage) {
+    std::vector<uint8_t> b(256 * 1024);
+    const size_t n = stage.save_state(b.data(), b.size(), g_world_gen + 1);
+    b.resize(n);
+    if (!n || !write_file(path, b)) {
+        std::printf("FEHLER: Speicherstand %s nicht geschrieben\n", path.c_str());
+        return false;
+    }
+    std::printf("sim: Speicherstand %s geschrieben: Nr. %u, %.1f KB, %d Figuren (Summe %08x)\n", path.c_str(),
+                static_cast<unsigned>(g_world_gen + 1), n / 1024.0, stage.environment().figures.count(),
+                static_cast<unsigned>(figure_sum(stage)));
+    return true;
 }
 
 std::string world_time_text(const pixelia::WorldClock& c) {
@@ -503,6 +558,7 @@ int run_headless(const Options& opt) {
     if (!opt.grid.empty()) return grid(opt);
     pixelia::Stage stage;
     if (!setup_stage(opt, stage)) return 2;
+    if (!opt.world_file.empty() && !load_world_file(opt.world_file, stage)) return 2;
     pixelia::WorldClock clock;
     clock.set(opt.day, opt.hour, opt.minute);
     clock.set_speed(opt.speed);
@@ -565,6 +621,7 @@ int run_headless(const Options& opt) {
         std::printf("sim: nichts zu tun (--frames, --screenshot, --sequence oder --contact-sheet angeben)\n");
     }
 
+    if (!opt.world_file.empty() && !save_world_file(opt.world_file, stage)) rc = 1;
     if (g_econ) {
         econ_flush();
         const pixelia::EconomyLog::Stats es = econ.stats();

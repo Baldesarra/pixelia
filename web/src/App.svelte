@@ -3,7 +3,7 @@
   // Zurück-Pfeil auf Unterseiten, Seiten per Hash-Route (#/…). Seit 0.5.4: vier Ziele Welt, Übersicht, System,
   // Einstellungen; System und Einstellungen sind Listen mit Kategorien, ihre Seiten tragen „parent“.
   import type { Component } from 'svelte';
-  import { Chip, Dialog, IconButton, Navigation, theme, type NavItem } from './lib/m3';
+  import { Chip, Dialog, Icon, IconButton, Navigation, theme, type NavItem } from './lib/m3';
   import Logo from './lib/Logo.svelte';
   import Story from './lib/Story.svelte';
   import { device } from './lib/status.svelte';
@@ -181,6 +181,13 @@
   </header>
 
   <main>
+    <!-- B23 (seit 0.5.11, Wahl des Users): Einstellung übernommen, aber noch nicht im Flash (Variante A) -->
+    {#if device.data?.set.pend}
+      <div class="pend" role="status">
+        <Icon name="warning" size={20} />
+        <span><b>Noch nicht dauerhaft gespeichert.</b> Gilt bis zum Neustart, Pixelia versucht es alle 30 s erneut.</span>
+      </div>
+    {/if}
     {#key page}
       <div class="page">
         <View {...cur.props} />
@@ -226,6 +233,22 @@
   }
   main {
     padding: 8px 16px 24px;
+  }
+  /* Orange wie „Update vorhanden“ (feste Töne, Orange gibt es im Schema nicht) */
+  .pend {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 12px 14px;
+    border-radius: var(--md-sys-shape-corner-large);
+    background: #ffdbc8;
+    color: #341100;
+    font: var(--md-sys-typescale-body-medium);
+  }
+  :global([data-theme='dark']) .pend {
+    background: #723600;
+    color: #ffdbc8;
   }
   .page {
     animation: enter var(--m3-spatial) both;
